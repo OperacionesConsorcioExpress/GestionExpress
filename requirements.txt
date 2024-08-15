@@ -1,3 +1,6 @@
+pip==24.2
+setuptools>=65.0
+wheel>=0.38.4
 fastapi==0.112.0
 numpy==2.0.1
 openpyxl==3.1.2
@@ -5,3 +8,4 @@ pandas==2.2.2
 pydantic==2.8.2
 starlette==0.38.2
 Werkzeug==2.1.2
+install==none
