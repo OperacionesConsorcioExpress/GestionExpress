@@ -1,4 +1,3 @@
-azure_storage==0.37.0
 fastapi==0.112.0
 numpy==2.0.1
 openpyxl==3.1.2
