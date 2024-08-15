@@ -8,3 +8,4 @@ pandas==2.2.2
 pydantic==2.8.2
 starlette>=0.37.2,<0.38.0
 Werkzeug==2.1.2
+uvicorn==0.22.0
