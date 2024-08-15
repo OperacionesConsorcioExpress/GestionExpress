@@ -1,6 +1,6 @@
 # fastapiform
 Proyecto Aplicación Gestión Administrativa/Operativa con FastAPI y SQLite3
-Centro de Infirmación - Consorcio Express S.A.S
+Centro de Información - Consorcio Express S.A.S
 
 ## Tecnologías usadas:
 - **Python**
