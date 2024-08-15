@@ -8,4 +8,3 @@ pandas==2.2.2
 pydantic==2.8.2
 starlette==0.38.2
 Werkzeug==2.1.2
-install==none
