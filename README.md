@@ -1,5 +1,5 @@
 # GestiónExpress
-Proyecto Aplicación Gestión Administrativa/Operativa con FastAPI y SQLite3
+Proyecto Aplicación Gestión Administrativa/Operativa con FastAPI, Jinja2 y SQLite3
 Centro de Información - Consorcio Express S.A.S
 https://dashboard.render.com/
 https://gestionexpress.onrender.com
