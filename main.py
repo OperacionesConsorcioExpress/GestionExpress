@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, Depends, File, UploadFile, HTTPException
+from fastapi import FastAPI, Request, Form, Depends, File, UploadFile, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -13,6 +13,7 @@ from model.gestionar_db import Cargue_Asignaciones
 from model.consultas_db import Reporte_Asignaciones
 from lib.asignar_controles import fecha_asignacion, puestos_SC, puestos_UQ, concesion, control, rutas, turnos, hora_inicio, hora_fin
 import sqlite3
+from typing import List
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="!secret_key")
@@ -159,9 +160,22 @@ def get_planta_data():
     conn.close()
     return [{"cedula": row[0], "nombre": row[1]} for row in rows]
 
+def get_supervisores_data():
+    conn = sqlite3.connect("./centro_control.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT cedula, nombre FROM supervisores")
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"cedula": row[0], "nombre": row[1]} for row in rows]
+
 @app.get("/api/planta", response_class=JSONResponse)
 def api_planta():
     data = get_planta_data()
+    return data
+
+@app.get("/api/supervisores", response_class=JSONResponse)
+def api_supervisores():
+    data = get_supervisores_data()
     return data
 
 @app.get("/api/fecha_asignacion")
@@ -193,6 +207,19 @@ async def get_rutas(concesion: str, puestos: str, control: str):
 @app.get("/api/turnos")
 async def get_turnos():
     return turnos()
+
+def get_turnos_data():
+    conn = sqlite3.connect("./centro_control.db") 
+    cursor = conn.cursor()
+    cursor.execute("SELECT turno, hora_inicio, hora_fin, detalles FROM turnos")
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"turno": row[0], "hora_inicio": row[1], "hora_fin": row[2], "detalles": row[3]} for row in rows]
+
+@app.get("/api/turnos", response_class=JSONResponse)
+def api_turnos():
+    data = get_turnos_data()
+    return data
 
 @app.get("/api/turno_descripcion")
 def turno_descripcion(turno: str):
@@ -252,7 +279,7 @@ async def dashboard(req: Request, user_session: dict = Depends(get_user_session)
     })
 
 @app.get("/filtrar_asignaciones", response_class=HTMLResponse)
-async def filtrar_asignaciones(request: Request, fechaInicio: str, fechaFin: str, cedulaTecnico: str = None, nombreTecnico: str = None, turno: str = None, concesion: str = None, control: str = None, ruta: str = None, linea: str = None, cop: str = None, usuarioRegistra: str = None):
+async def filtrar_asignaciones(request: Request, fechaInicio: str, fechaFin: str, cedulaTecnico: str = None, nombreTecnico: str = None, turno: str = None, concesion: str = None, control: str = None, ruta: str = None, linea: str = None, cop: str = None, usuarioRegistra: str = None, nombreSupervisorEnlace: str = None):
     filtros = {
         "fecha_inicio": fechaInicio,
         "fecha_fin": fechaFin,
@@ -264,7 +291,8 @@ async def filtrar_asignaciones(request: Request, fechaInicio: str, fechaFin: str
         "ruta": ruta,
         "linea": linea,
         "cop": cop,
-        "registrado_por": usuarioRegistra
+        "registrado_por": usuarioRegistra,
+        "nombre_supervisor_enlace": nombreSupervisorEnlace
     }
     
     asignaciones = reporte_asignaciones.obtener_asignaciones(**filtros)
@@ -290,7 +318,8 @@ async def buscar_asignaciones(request: Request):
         ruta=filtros.get('ruta'),
         linea=filtros.get('linea'),
         cop=filtros.get('cop'),
-        registrado_por=filtros.get('usuarioRegistra')
+        registrado_por=filtros.get('usuarioRegistra'),
+        nombre_supervisor_enlace=filtros.get('nombreSupervisorEnlace')
     )
     # Depuración para verificar la salida
     print(asignaciones)
@@ -334,22 +363,87 @@ async def descargar_json(request: Request):
     }
     return JSONResponse(content=json_data, headers=headers)
 
+#########################################################################################
+# FUNCIONALIDADES DE CONSULTA DE ASIGNACIONES Y TRAERLO EN GRILLA"
+# Instancia de la clase para manejar consultas en la base de datos
+
 @app.post("/api/obtener_asignaciones_ayuda")
 async def obtener_asignaciones_ayuda(request: Request):
     data = await request.json()
     fecha = data['fecha']
-    cedulas = data['cedulas']
+    concesion = data['concesion']
+    fecha_hora_registro = data.get('fecha_hora_registro')
 
     reporte = Reporte_Asignaciones()
-    asignaciones_result = []
+    asignaciones = reporte.obtener_asignacion_por_fecha(fecha, concesion, fecha_hora_registro)
 
-    for cedula in cedulas:
-        asignaciones = reporte.obtener_asignacion_por_fecha(cedula, fecha)
-        if asignaciones:
-            for asignacion in asignaciones:
-                asignaciones_result.append(asignacion)
-
-    if not asignaciones_result:
-        return JSONResponse(content={"message": "No se encontraron asignaciones anteriores para la fecha seleccionada."}, status_code=404)
+    if not asignaciones:
+        return JSONResponse(content={"message": "No se encontraron asignaciones para la fecha, concesión y fecha/hora seleccionadas."}, status_code=404)
     
-    return asignaciones_result
+    return JSONResponse(content={"asignaciones": asignaciones}, status_code=200)
+
+@app.post("/api/obtener_concesiones_por_fecha")
+async def obtener_concesiones_por_fecha(request: Request):
+    data = await request.json()
+    fecha = data['fecha']
+
+    reporte = Reporte_Asignaciones()
+    concesiones = reporte.obtener_concesiones_unicas_por_fecha(fecha)
+
+    if not concesiones:
+        return JSONResponse(content={"message": "No se encontraron concesiones para la fecha seleccionada."}, status_code=404)
+
+    return JSONResponse(content=concesiones)
+
+@app.post("/api/obtener_fechas_horas_registro")
+async def obtener_fechas_horas_registro(request: Request):
+    data = await request.json()
+    fecha = data['fecha']
+    concesion = data['concesion']
+
+    reporte = Reporte_Asignaciones()
+    fechas_horas = reporte.obtener_fechas_horas_registro(fecha, concesion)
+
+    if not fechas_horas:
+        return JSONResponse(content={"message": "No se encontraron registros para la fecha y concesión seleccionada."}, status_code=404)
+    
+    return JSONResponse(content={"fechas_horas": fechas_horas}, status_code=200)
+
+# Define el modelo para las asignaciones individuales para el PDF
+class Asignacion(BaseModel):
+    fecha: str
+    cedula: str
+    nombre: str
+    turno: str
+    h_inicio: str
+    h_fin: str
+    concesion: str
+    control: str
+    ruta: str
+    linea: str
+    cop: str
+    observaciones: str
+    puestosSC: int
+    puestosUQ: int
+    fecha_hora_registro: str
+
+# Define el modelo para la solicitud de PDF
+class PDFRequest(BaseModel):
+    asignaciones: List[Asignacion]
+    fecha_asignacion: str
+    fecha_hora_registro: str
+
+@app.post("/generar_pdf/")
+def generar_pdf_asignaciones(request: PDFRequest):
+    try:
+        # Procesar los datos del PDF usando los valores correctos
+        pdf_file = reporte_asignaciones.generar_pdf(
+            request.asignaciones,  # Lista de asignaciones
+            request.fecha_asignacion,  # Fecha de asignación
+            request.fecha_hora_registro  # Fecha de última modificación
+        )
+        # Devolver el archivo PDF generado
+        return FileResponse(pdf_file, media_type='application/pdf', filename="asignaciones_tecnicos.pdf")
+    except Exception as e:
+        return {"error": str(e)}
+

@@ -3,12 +3,12 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="container-fluid" style="display: flex; height: auto; ">
+<div class="container-fluid" style="display: flex; height: 100vh; ">
 
     <!-- Panel lateral izquierdo para los filtros -->
-    <aside style="width: 250px; background-color: #2C3E50; padding: 20px; color: white;">
+    <aside style="flex-grow: 0; width: 250px; background-color: #2C3E50; padding: 20px; color: white;">
         <h2 style="font-size: 20px; font-family: 'Century Gothic', sans-serif; text-align: center; margin-top: 0,1px;">Filtros</h2>
-        <div class="filters" style="font-size: 24px; font-family: 'Century Gothic', sans-serif; text-align: center; display: flex; flex-direction: column; gap: 0.5px;">
+        <div class="filters" style="font-size: 24px; font-family: 'Century Gothic', sans-serif; text-align: center; display: flex; flex-direction: column; gap: 0.5px; flex-grow: 1;">
              
             <!-- Label e Input para Fecha Inicio -->
             <label for="fechaInicio" style="color: white; font-size: 10px;">Fecha Inicio</label>
@@ -73,6 +73,12 @@
                     <option value="{{ registrado_por }}">{{ registrado_por }}</option>
                 {% endfor %}
             </select>
+            <select id="nombreSupervisorEnlace" name="nombreSupervisorEnlace" class="form-control filter-select">
+                <option value="" disabled selected>Nombre Supervisor Enlace</option>
+                {% for supervisor in supervisores_enlace %}
+                    <option value="{{ supervisor }}">{{ supervisor }}</option>
+                {% endfor %}
+            </select>            
             <div class="buttons" style="display: flex; justify-content: space-between; margin-top: 5px;">
                 <button class="btn btn-success" onclick="buscarAsignaciones()">Buscar</button>
 
@@ -90,6 +96,7 @@
                     var linea = document.getElementById('linea').value;
                     var cop = document.getElementById('cop').value;
                     var usuarioRegistra = document.getElementById('usuarioRegistra').value;
+                    var nombreSupervisorEnlace = document.getElementById('nombreSupervisorEnlace').value;
                 
                     // Enviar los datos al servidor utilizando una solicitud AJAX
                     var xhr = new XMLHttpRequest();
@@ -113,7 +120,8 @@
                         ruta: ruta,
                         linea: linea,
                         cop: cop,
-                        usuarioRegistra: usuarioRegistra
+                        usuarioRegistra: usuarioRegistra,
+                        nombreSupervisorEnlace: nombreSupervisorEnlace
                     }));
                 }
                 
@@ -139,6 +147,8 @@
                         row.insertCell(11).innerText = asignacion.observaciones;
                         row.insertCell(12).innerText = asignacion.registrado_por;
                         row.insertCell(13).innerText = asignacion.fecha_hora_registro;
+                        row.insertCell(14).innerText = asignacion.cedula_enlace;
+                        row.insertCell(15).innerText = asignacion.nombre_supervisor_enlace;
                     });
                 }
             </script>    
@@ -161,6 +171,7 @@
                     document.getElementById('linea').selectedIndex = 0;
                     document.getElementById('cop').selectedIndex = 0;
                     document.getElementById('usuarioRegistra').selectedIndex = 0;
+                    document.getElementById('nombreSupervisorEnlace').selectedIndex = 0;
 
                     // Limpiar la tabla de reporte
                     var tabla = document.getElementById('tablareporte').getElementsByTagName('tbody')[0];
@@ -182,14 +193,14 @@
     </style>
 
     <!-- Contenido principal -->
-    <main style="flex-grow: 1; background-color: white; padding: 20px; margin-top: 0px;">
+    <main style="flex-grow: 1; background-color: white; padding: 20px;">
         <header style="display: flex; justify-content: space-between; align-items: center;">
             <h1 style="font-size: 20px; font-family: 'Century Gothic', sans-serif; flex: 1; text-align: center; margin-right: 20px; margin-top: 1px;">Reporte de Asignaciones de Técnicos Centro de Control</h1>
             <img src="/static/Consorcio.png" alt="Consorcio Icon" style="max-width: 100px; height: auto;">
         </header>
         
         <!-- Contenedor Fijo con Barras de Desplazamiento -->
-        <div style="max-height: 380px; border: 1px solid #ddd; padding: 10px; margin-top: 1px; overflow-x: auto; overflow-y: auto;">    
+        <div style="flex-grow: 1; overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 150px); border: 1px solid #ddd; padding: 10px; margin-top: 10px;">    
             <div class="table-container" style=" white-space: nowrap;">
                 <table id="tablareporte" class="table table-bordered">
                     <style>
@@ -254,6 +265,8 @@
                             <th style="width: 6%;">Observaciones</th>
                             <th style="width: 7%;">Usuario Registra</th>
                             <th style="width: 5%;">Fecha de Registro</th>
+                            <th style="width: 5%;">Cédula Enlace</th>
+                            <th style="width: 7%;">Nombre Supervisor Enlace</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -273,6 +286,8 @@
                             <td>{{ asignacion.observaciones }}</td>
                             <td>{{ asignacion.registrado_por }}</td>
                             <td>{{ asignacion.fecha_hora_registro }}</td>
+                            <td>{{ asignacion.cedula_enlace }}</td>
+                            <td>{{ asignacion.nombre_supervisor_enlace }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -297,6 +312,7 @@
                 var linea = document.getElementById('linea').value;
                 var cop = document.getElementById('cop').value;
                 var usuarioRegistra = document.getElementById('usuarioRegistra').value;
+                var nombreSupervisorEnlace = document.getElementById('nombreSupervisorEnlace').value;
             
                 var xhr = new XMLHttpRequest();
             
@@ -351,7 +367,8 @@
                     ruta: ruta,
                     linea: linea,
                     cop: cop,
-                    usuarioRegistra: usuarioRegistra
+                    usuarioRegistra: usuarioRegistra,
+                    nombreSupervisorEnlace: nombreSupervisorEnlace
                 }));
             }           
         </script>

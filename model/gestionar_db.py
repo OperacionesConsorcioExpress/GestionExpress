@@ -1,9 +1,13 @@
 import sqlite3
 from sqlite3 import OperationalError
 from threading import Lock
-import time
+from datetime import datetime, time
+import pytz
 from fastapi import HTTPException
+
 DATABASE_PATH = "./centro_control.db"
+# Establecer la zona horaria de Colombia
+colombia_tz = pytz.timezone('America/Bogota')
 
 class HandleDB:
     _instance = None
@@ -52,12 +56,16 @@ class Cargue_Controles:
     def borrar_tablas(self):
         self.cursor.execute('DELETE FROM planta')
         self.cursor.execute('DELETE FROM controles')
+        self.cursor.execute('DELETE FROM supervisores')
+        self.cursor.execute('DELETE FROM turnos')
         self.conn.commit()
 
     def cargar_datos(self, data):
         self.borrar_tablas()  # Borrar los datos existentes antes de cargar los nuevos
         print("Iniciando la carga de datos...")
         self._cargar_planta(data['planta'])
+        self._cargar_supervisores(data['supervisores'])
+        self._cargar_turnos(data['turnos'])
         self._cargar_controles(data['controles'])
         print("Datos cargados exitosamente.")
         self.conn.close()
@@ -74,6 +82,35 @@ class Cargue_Controles:
         except Exception as e:
             self.conn.rollback()
             print(f"Error al cargar los datos de planta: {str(e)}")
+            raise
+        
+    def _cargar_supervisores(self, supervisores_data):
+        try:
+            for row in supervisores_data:
+                print(f"Insertando o actualizando en supervisores: {row}")
+                self.cursor.execute('''
+                    INSERT INTO supervisores (cedula, nombre) VALUES (?, ?)
+                    ON CONFLICT(cedula) DO UPDATE SET nombre=excluded.nombre
+                ''', (row['cedula'], row['nombre']))
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            print(f"Error al cargar los datos de supervisores: {str(e)}")
+            raise
+        
+    def _cargar_turnos(self, turnos_data):
+        try:
+            for row in turnos_data:
+                print(f"Insertando o actualizando en turnos: {row}")
+                self.cursor.execute('''
+                    INSERT OR REPLACE INTO turnos (turno, hora_inicio, hora_fin, detalles)
+                    VALUES (?, ?, ?, ?)
+                    ''', (str(row['turno']), str(row['hora_inicio']), str(row['hora_fin']), str(row['detalles']))
+                )
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            print(f"Error al cargar los datos de turnos: {str(e)}")
             raise
 
     def _cargar_controles(self, controles_data):
@@ -147,9 +184,11 @@ class Cargue_Asignaciones:
                         'observaciones': asignacion['observaciones'],
                         'usuario_registra': user_session['username'],  # Agregar username
                         'registrado_por': f"{user_session['nombres']} {user_session['apellidos']}",   # Agregar nombre y apellido
-                        'fecha_hora_registro': time.strftime("%d-%m-%Y %H:%M:%S"),
+                        'fecha_hora_registro': datetime.now(colombia_tz).strftime("%d-%m-%Y %H:%M:%S"),
                         'puestosSC': int(asignacion.get('puestosSC', 0)),  # Configuración campo puestosSC
-                        'puestosUQ': int(asignacion.get('puestosUQ', 0))   # Configuración campo puestosUQ
+                        'puestosUQ': int(asignacion.get('puestosUQ', 0)),   # Configuración campo puestosUQ
+                        'cedula_enlace': asignacion['cedula_enlace'],  # Añadir cedula_enlace
+                        'nombre_supervisor_enlace': asignacion['nombre_supervisor_enlace']  # Añadir nombre_supervisor_enlace                        
                     })
             conn.close()
         except sqlite3.Error as e:
@@ -161,62 +200,38 @@ class Cargue_Asignaciones:
             conn = sqlite3.connect(self.database_path, timeout=10)
             cursor = conn.cursor()
 
+            # Fase de eliminación
             for data in processed_data:
-                try:
-                    # Asegurarse de que todos los campos obligatorios tienen un valor
-                    if not all([data['fecha'], data['cedula'], data['nombre'], data['turno'], data['h_inicio'], data['h_fin']]):
-                        print(f"Datos incompletos para la cédula: {data['cedula']}, data: {data}")
-                        continue
+                # Asegurarse de que todos los campos obligatorios tienen un valor
+                if not all([data['fecha'], data['cedula'], data['nombre'], data['turno'], data['h_inicio'], data['h_fin']]):
+                    print(f"Datos incompletos para la cédula: {data['cedula']}, data: {data}")
+                    continue
 
-                    # Verificar si ya existe un registro con la misma fecha, cédula y ruta
+                # Eliminar todos los registros existentes con la misma combinación de (fecha, cédula, turno, h_inicio, h_fin, control)
+                cursor.execute('''
+                    DELETE FROM asignaciones
+                    WHERE fecha = ? AND cedula = ? AND turno = ? AND h_inicio = ? AND h_fin = ? AND control = ?
+                ''', (data['fecha'], data['cedula'], data['turno'], data['h_inicio'], data['h_fin'], data['control']))
+                print(f"Registros eliminados para cédula: {data['cedula']}, fecha: {data['fecha']}, turno: {data['turno']}, h_inicio: {data['h_inicio']}, h_fin: {data['h_fin']}, control: {data['control']}")
+
+            # Fase de inserción
+            for data in processed_data:
+                # Desglosar las rutas en filas separadas e insertar los nuevos registros
+                rutas = data['ruta'].split(',')
+                for ruta in rutas:
+                    ruta = ruta.strip()  # Asegurarse de que no hay espacios innecesarios
+
                     cursor.execute('''
-                        SELECT id, nombre, turno, h_inicio, h_fin, concesion, control, ruta, linea, cop, observaciones 
-                        FROM asignaciones 
-                        WHERE fecha = ? AND cedula = ? AND ruta = ?
-                    ''', (data['fecha'], data['cedula'], data['ruta']))
-                    existing_record = cursor.fetchone()
+                        INSERT INTO asignaciones (fecha, cedula, nombre, turno, h_inicio, h_fin, concesion, control, ruta, linea, cop, observaciones, usuario_registra, registrado_por, fecha_hora_registro, puestosSC, puestosUQ, cedula_enlace, nombre_supervisor_enlace)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        data['fecha'], data['cedula'], data['nombre'], data['turno'], data['h_inicio'], data['h_fin'],
+                        data['concesion'], data['control'], ruta, data['linea'], data['cop'], data['observaciones'],
+                        data['usuario_registra'], data['registrado_por'], data['fecha_hora_registro'], data['puestosSC'], data['puestosUQ'],
+                        data['cedula_enlace'], data['nombre_supervisor_enlace']
+                    ))
+                    print(f"Nuevo registro insertado para cédula: {data['cedula']}, fecha: {data['fecha']}, ruta: {ruta}")
 
-                    if existing_record:
-                        # Comparar si hay algún cambio en los datos
-                        if (
-                            existing_record[1] != data['nombre'] or
-                            existing_record[2] != data['turno'] or
-                            existing_record[3] != data['h_inicio'] or
-                            existing_record[4] != data['h_fin'] or
-                            existing_record[5] != data['concesion'] or
-                            existing_record[6] != data['control'] or
-                            existing_record[9] != data['observaciones']
-                        ):
-                            # Actualizar el registro existente si hay cambios
-                            cursor.execute('''
-                                UPDATE asignaciones
-                                SET nombre = ?, turno = ?, h_inicio = ?, h_fin = ?, concesion = ?, control = ?, linea = ?, cop = ?, observaciones = ?, usuario_registra = ?, registrado_por = ?, fecha_hora_registro = ?, puestosSC = ?, puestosUQ = ?
-                                WHERE id = ?
-                            ''', (
-                                data['nombre'], data['turno'], data['h_inicio'], data['h_fin'], data['concesion'], data['control'],
-                                data['linea'], data['cop'], data['observaciones'], data['usuario_registra'], data['registrado_por'], data['fecha_hora_registro'],
-                                data['puestosSC'], data['puestosUQ'], existing_record[0]
-                            ))
-                            print(f"Registro actualizado para cédula: {data['cedula']}, fecha: {data['fecha']}, ruta: {data['ruta']}")
-                    else:
-                        # Insertar un nuevo registro si no existe
-                        cursor.execute('''
-                            INSERT INTO asignaciones (fecha, cedula, nombre, turno, h_inicio, h_fin, concesion, control, ruta, linea, cop, observaciones, usuario_registra, registrado_por, fecha_hora_registro, puestosSC, puestosUQ)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (
-                            data['fecha'], data['cedula'], data['nombre'], data['turno'], data['h_inicio'], data['h_fin'],
-                            data['concesion'], data['control'], data['ruta'], data['linea'], data['cop'], data['observaciones'],
-                            data['usuario_registra'], data['registrado_por'], data['fecha_hora_registro'], data['puestosSC'], data['puestosUQ']
-                        ))
-                        print(f"Nuevo registro insertado para cédula: {data['cedula']}, fecha: {data['fecha']}, ruta: {data['ruta']}")
-                
-                except sqlite3.IntegrityError as e:
-                    print(f"Error de integridad al insertar o actualizar la asignación: cédula: {data['cedula']}, fecha: {data['fecha']}, ruta: {data['ruta']} - {e}")
-                except sqlite3.OperationalError as e:
-                    print(f"Error operacional al insertar o actualizar la asignación: cédula: {data['cedula']}, fecha: {data['fecha']}, ruta: {data['ruta']} - {e}")
-                except Exception as e:
-                    print(f"Error inesperado al insertar o actualizar la asignación: cédula: {data['cedula']}, fecha: {data['fecha']}, ruta: {data['ruta']} - {e}")
-                
             # Confirmar la transacción
             conn.commit()
             return {"status": "success", "message": "Asignaciones guardadas exitosamente."}
@@ -228,5 +243,4 @@ class Cargue_Asignaciones:
             raise HTTPException(status_code=500, detail=f"Error al guardar asignaciones: {e}")
 
         finally:
-            conn.close() # Cerrar la conexión
-            
+            conn.close()  # Cerrar la conexión

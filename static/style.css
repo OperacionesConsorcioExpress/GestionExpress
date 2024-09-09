@@ -207,3 +207,17 @@ body {
 .bootstrap-datepicker .ui-datepicker-current:hover, .ui-datepicker-close:hover {
   background-color: #0056b3;
 }
+
+
+.ui-helper-hidden-accessible {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.asignado {
+  background-color: #b7e9ca !important; /* Azul Celeste */
+}
+
