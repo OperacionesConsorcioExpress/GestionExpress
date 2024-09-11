@@ -447,3 +447,10 @@ def generar_pdf_asignaciones(request: PDFRequest):
     except Exception as e:
         return {"error": str(e)}
 
+###################WILSON####################
+# sección Juridico
+@app.get("/juridico", response_class=HTMLResponse)
+def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("juridico.html", {"request": req, "user_session": user_session})
