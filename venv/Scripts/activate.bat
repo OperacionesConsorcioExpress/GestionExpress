@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\sergio.hincapie\OneDrive - Grupo Express\Gestión de la Operación\0 - Script Python\GestiónExpress\venv
+set VIRTUAL_ENV=C:\Users\wilson.sarmiento\OneDrive - Grupo Express\Escritorio\Desarrolo WEB\GestionExpress\venv
 
 if not defined PROMPT set PROMPT=$P$G
 
