@@ -1,128 +1,77 @@
-<html></html>
- <head>
-  <title>
-   Seguimiento a Obligaciones Contractuales - Consorcio Express
-  </title>
-  <script src="https://cdn.tailwindcss.com">
-  </script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
- </head>
- <body class="bg-white text-center">
-  <div class="max-w-4xl mx-auto p-4">
-   <div class="flex justify-between items-center mb-4">
-    <img alt="Consorcio Express logo" class="h-12" height="50" src="https://oaidalleapiprodscus.blob.core.windows.net/private/org-BVbpSZmLndA7MfHIxv2ahIKS/user-IBY8IaMXtVn7IVIdZeyvjx16/img-uTrQWSqi4aX90AajMSymdBZ1.png?st=2024-09-11T16%3A34%3A35Z&amp;se=2024-09-11T18%3A34%3A35Z&amp;sp=r&amp;sv=2024-08-04&amp;sr=b&amp;rscd=inline&amp;rsct=image/png&amp;skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&amp;sktid=a48cca56-e6da-484e-a814-9c849652bcb3&amp;skt=2024-09-11T00%3A40%3A15Z&amp;ske=2024-09-12T00%3A40%3A15Z&amp;sks=b&amp;skv=2024-08-04&amp;sig=2gocJvFM1/78JV%2BOgmJVluT45b7YZuIHCId1B8AyeLE%3D" width="100"/>
-    <i class="fas fa-user text-2xl">
-    </i>
-   </div>
-   <h1 class="text-2xl font-bold">
-    Seguimiento a Obligaciones Contractuales
-   </h1>
-   <h2 class="text-xl font-bold mt-2">
-    Operaciones
-   </h2>
-   <h3 class="text-lg font-bold mt-4">
-    Estado por Obligación
-   </h3>
-   <div class="flex justify-center mt-4">
-    <div class="text-left">
-     <div class="mb-2">
-      <span class="font-bold">
-       2024
-      </span>
-     </div>
-     <div class="grid grid-cols-6 gap-2">
-      <div class="flex items-center">
-       Enero
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <button class="bg-gray-200 border border-black px-2 py-1">
-       Ingresar
-      </button>
-      <div class="flex items-center">
-       Febrero
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-red-500 rounded-full">
-      </div>
-      <button class="bg-gray-200 border border-black px-2 py-1">
-       Ingresar
-      </button>
-      <div class="flex items-center">
-       Marzo
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-orange-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-orange-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-red-500 rounded-full">
-      </div>
-      <button class="bg-gray-200 border border-black px-2 py-1">
-       Ingresar
-      </button>
-      <div class="flex items-center">
-       Abril
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-orange-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-red-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-red-500 rounded-full">
-      </div>
-      <button class="bg-gray-200 border border-black px-2 py-1">
-       Ingresar
-      </button>
-      <div class="flex items-center">
-       Mayo
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-green-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-yellow-500 rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-yellow-500 rounded-full">
-      </div>
-      <button class="bg-gray-200 border border-black px-2 py-1">
-       Ingresar
-      </button>
-      <div class="flex items-center">
-       Junio
-      </div>
-      <div class="w-6 h-6 bg-white border border-black rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-white border border-black rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-white border border-black rounded-full">
-      </div>
-      <div class="w-6 h-6 bg-white border border-black rounded-full">
-      </div>
-      <button class="bg-gray-200 border border-black px-2 py-1">
-       Ingresar
-      </button>
-     </div>
-     <div class="mt-4">
-      <span class="font-bold">
-       2025
-      </span>
-     </div>
+{% extends "components/layout.html" %}
+
+{% block title %}
+    Seguimiento a Obligaciones Contractuales - Consorcio Express
+{% endblock %}
+
+{% block head %}
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
+
+{% block content %}
+<body class="bg-white text-center">
+    <div class="max-w-4xl mx-auto p-4">
+        <div class="flex justify-between items-center mb-4">
+            <img alt="Consorcio Express logo" class="h-12" height="50" src="https://oaidalleapiprodscus.blob.core.windows.net/private/org-BVbpSZmLndA7MfHIxv2ahIKS/user-IBY8IaMXtVn7IVIdZeyvjx16/img-uTrQWSqi4aX90AajMSymdBZ1.png?st=2024-09-11T16%3A34%3A35Z&amp;se=2024-09-11T18%3A34%3A35Z&amp;sp=r&amp;sv=2024-08-04&amp;sr=b&amp;rscd=inline&amp;rsct=image/png&amp;skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&amp;sktid=a48cca56-e6da-484e-a814-9c849652bcb3&amp;skt=2024-09-11T00%3A40%3A15Z&amp;ske=2024-09-12T00%3A40%3A15Z&amp;sks=b&amp;skv=2024-08-04&amp;sig=2gocJvFM1/78JV%2BOgmJVluT45b7YZuIHCId1B8AyeLE%3D" width="100"/>
+            <i class="fas fa-user text-2xl"></i>
+        </div>
+        <h1 class="text-2xl font-bold">Seguimiento a Obligaciones Contractuales</h1>
+        <h2 class="text-xl font-bold mt-2">Operaciones</h2>
+        <h3 class="text-lg font-bold mt-4">Estado por Obligación</h3>
+        <div class="flex justify-center mt-4">
+            <div class="text-left">
+                <div class="mb-2">
+                    <span class="font-bold">2024</span>
+                </div>
+                <div class="grid grid-cols-6 gap-2">
+                    <div class="flex items-center">Enero</div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <button class="bg-gray-200 border border-black px-2 py-1">Ingresar</button>
+
+                    <div class="flex items-center">Febrero</div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-red-500 rounded-full"></div>
+                    <button class="bg-gray-200 border border-black px-2 py-1">Ingresar</button>
+
+                    <div class="flex items-center">Marzo</div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-orange-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-orange-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-red-500 rounded-full"></div>
+                    <button class="bg-gray-200 border border-black px-2 py-1">Ingresar</button>
+
+                    <div class="flex items-center">Abril</div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-orange-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-red-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-red-500 rounded-full"></div>
+                    <button class="bg-gray-200 border border-black px-2 py-1">Ingresar</button>
+
+                    <div class="flex items-center">Mayo</div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-green-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-yellow-500 rounded-full"></div>
+                    <div class="w-6 h-6 bg-yellow-500 rounded-full"></div>
+                    <button class="bg-gray-200 border border-black px-2 py-1">Ingresar</button>
+
+                    <div class="flex items-center">Junio</div>
+                    <div class="w-6 h-6 bg-white border border-black rounded-full"></div>
+                    <div class="w-6 h-6 bg-white border border-black rounded-full"></div>
+                    <div class="w-6 h-6 bg-white border border-black rounded-full"></div>
+                    <div class="w-6 h-6 bg-white border border-black rounded-full"></div>
+                    <button class="bg-gray-200 border border-black px-2 py-1">Ingresar</button>
+                </div>
+                <div class="mt-4">
+                    <span class="font-bold">2025</span>
+                </div>
+            </div>
+        </div>
     </div>
-   </div>
-  </div>
- </body>
-</html>
+</body>
+{% endblock %}
