@@ -233,7 +233,7 @@ async def get_hora_inicio(turno: str):
 async def get_hora_fin(turno: str):
     return {"fin": hora_fin(turno)}
 
-#########################################################################################
+#######################################################################
 # FUNCIONALIDADES PARA GUARDAR LO REGISTRADO EN LA GRILLA DE ASIGNACIÓN"
 cargue_asignaciones = Cargue_Asignaciones()
 
@@ -261,8 +261,8 @@ async def guardar_asignaciones(request: Request, user_session: dict = Depends(ge
         error_message = f"Error al guardar asignaciones: {str(e)}" # Manejar errores y retornar mensaje de error
         raise HTTPException(status_code=500, detail=str(e))
 
-#########################################################################################
-# FUNCIONALIDADES DE CONSULTA Y REPORTES"
+#################################################################
+# FUNCIONALIDADES DE CONSULTA Y REPORTES PARA CENTRO DE CONTROL"
 # Instancia de la clase para manejar reportes
 reporte_asignaciones = Reporte_Asignaciones()
 
@@ -363,7 +363,7 @@ async def descargar_json(request: Request):
     }
     return JSONResponse(content=json_data, headers=headers)
 
-#########################################################################################
+##################################################################
 # FUNCIONALIDADES DE CONSULTA DE ASIGNACIONES Y TRAERLO EN GRILLA"
 # Instancia de la clase para manejar consultas en la base de datos
 
@@ -447,8 +447,7 @@ def generar_pdf_asignaciones(request: PDFRequest):
     except Exception as e:
         return {"error": str(e)}
 
-###################WILSON####################
-# sección Juridico
+###################SECCIÓN JURIDICO ####################
 @app.get("/juridico", response_class=HTMLResponse)
 def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
