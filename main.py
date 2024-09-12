@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Form, Depends, File, UploadFile, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from bs4 import BeautifulSoup 
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.sessions import SessionMiddleware
@@ -14,6 +15,7 @@ from model.consultas_db import Reporte_Asignaciones
 from lib.asignar_controles import fecha_asignacion, puestos_SC, puestos_UQ, concesion, control, rutas, turnos, hora_inicio, hora_fin
 import sqlite3
 from typing import List
+import os
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="!secret_key")
@@ -447,7 +449,53 @@ def generar_pdf_asignaciones(request: PDFRequest):
     except Exception as e:
         return {"error": str(e)}
 
-###################SECCIÓN JURIDICO ####################
+############ SECCIÓN PARAMETRIZACIÓN DE ROLES ################
+# Simula la base de datos de roles
+roles_db = {
+    "admin": ["Centro de Control", "Configuración"],
+    "user": ["Centro de Control"]
+}
+
+def get_pantallas_from_layout():
+    # Asegúrate de que el archivo 'layout.html' está en 'view/components'
+    layout_path = os.path.join(os.path.dirname(__file__), 'view', 'components', 'layout.html')
+    print(f"Intentando abrir el archivo en: {layout_path}")  # Imprime la ruta para verificar
+    with open(layout_path, 'r', encoding='utf-8') as f:
+        layout_html = f.read()
+
+    # Usa BeautifulSoup para extraer los enlaces
+    soup = BeautifulSoup(layout_html, 'html.parser')
+    
+    # Extrae los textos de los enlaces dentro del sidebar
+    pantallas = []
+    for link in soup.select(".sidebar .nav-link"):
+        pantallas.append(link.text.strip())  # Extrae el texto visible del enlace
+
+    return pantallas
+
+@app.get("/roles", response_class=HTMLResponse)
+def get_roles(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+
+    pantallas_disponibles = get_pantallas_from_layout()  # Extrae las pantallas del layout
+    roles = roles_db  # Simulando datos de la base de datos
+    
+    return templates.TemplateResponse("roles.html", {
+        "request": req, 
+        "roles": roles, 
+        "pantallas": pantallas_disponibles, 
+        "user_session": user_session  # Asegurarse de pasar user_session
+    })
+
+@app.post("/roles/add", response_class=HTMLResponse)
+async def add_role(request: Request, role_name: str = Form(...), permissions: list[str] = Form(...)):
+    # Simula agregar un nuevo rol a la base de datos
+    roles_db[role_name] = permissions
+    pantallas_disponibles = get_pantallas_from_layout()  # Extrae las pantallas del layout
+    return templates.TemplateResponse("roles.html", {"request": request, "roles": roles_db, "pantallas": pantallas_disponibles})
+
+################## SECCIÓN JURIDICO ####################
 @app.get("/juridico", response_class=HTMLResponse)
 def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
