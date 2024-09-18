@@ -13,15 +13,17 @@ from model.gestionar_db import Cargue_Controles
 from model.gestionar_db import Cargue_Asignaciones
 from model.consultas_db import Reporte_Asignaciones
 from lib.asignar_controles import fecha_asignacion, puestos_SC, puestos_UQ, concesion, control, rutas, turnos, hora_inicio, hora_fin
-import sqlite3
+import psycopg2
+import json
 from typing import List
+from io import BytesIO 
 import os
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="!secret_key")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="./view")
-DATABASE_PATH = "./centro_control.db"
+DATABASE_PATH = "postgresql://gestionexpress:G3st10n3xpr3ss@serverdbcexp.postgres.database.azure.com:5432/gestionexpress"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Función para verificar si el usuario ha iniciado sesión
@@ -127,24 +129,39 @@ async def cargar_archivo(file: UploadFile = File(...)):
     return {"session_id": session_id, "preliminar": preliminar}
 
 @app.post("/confirmar_cargue/")
-async def confirmar_cargue(request: ConfirmarCargueRequest):
-    session_id = request.session_id
+async def confirmar_cargue(data: dict):
+    session_id = data.get("session_id")
+    if session_id not in cache:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
 
-    preliminar = cache.get(session_id)
+    # Obtener datos preliminares desde la caché
+    preliminar = cache[session_id]
 
-    if preliminar is None:
-        raise HTTPException(status_code=400, detail="No hay datos preliminares para cargar.")
+    # Filtrar datos según lo seleccionado por el usuario
+    hojas_a_cargar = {}
 
+    if data.get("tcz"):
+        hojas_a_cargar['planta'] = preliminar.get('planta')
+
+    if data.get("supervisores"):
+        hojas_a_cargar['supervisores'] = preliminar.get('supervisores')
+
+    if data.get("turnos"):
+        hojas_a_cargar['turnos'] = preliminar.get('turnos')
+
+    if data.get("controles"):
+        hojas_a_cargar['controles'] = preliminar.get('controles')
+
+    if not hojas_a_cargar:
+        raise HTTPException(status_code=400, detail="Debe seleccionar al menos una hoja para cargar.")
+
+    # Enviar las hojas seleccionadas a la base de datos
     try:
-        Cargue_Controles().cargar_datos(preliminar)
-        # Limpiar la caché después de cargar
-        del cache[session_id]
-        print("Datos confirmados y cargados a la base de datos.")
-        return {"message": "Datos cargados satisfactoriamente"}
+        cargador = Cargue_Controles()
+        cargador.cargar_datos(hojas_a_cargar)
+        return {"message": "Datos cargados exitosamente."}
     except Exception as e:
-        # Loguear el error para tener más detalles
-        print(f"Error al cargar los datos: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error al confirmar el cargue.")
+        raise HTTPException(status_code=500, detail=f"Error al cargar los datos: {str(e)}")
     
 # Plantilla de cargue de planta activa y controles
 @app.get("/plantilla_cargue")
@@ -155,7 +172,7 @@ async def descargar_plantilla():
 #########################################################################################
 # FUNCIONALIDADES PARA GESTIONAR LAS ASIGNACIONES "asignar_controles.py"
 def get_planta_data():
-    conn = sqlite3.connect("./centro_control.db")
+    conn = psycopg2.connect("postgresql://gestionexpress:G3st10n3xpr3ss@serverdbcexp.postgres.database.azure.com:5432/gestionexpress")
     cursor = conn.cursor()
     cursor.execute("SELECT cedula, nombre FROM planta")
     rows = cursor.fetchall()
@@ -163,7 +180,7 @@ def get_planta_data():
     return [{"cedula": row[0], "nombre": row[1]} for row in rows]
 
 def get_supervisores_data():
-    conn = sqlite3.connect("./centro_control.db")
+    conn = psycopg2.connect("postgresql://gestionexpress:G3st10n3xpr3ss@serverdbcexp.postgres.database.azure.com:5432/gestionexpress")
     cursor = conn.cursor()
     cursor.execute("SELECT cedula, nombre FROM supervisores")
     rows = cursor.fetchall()
@@ -211,7 +228,7 @@ async def get_turnos():
     return turnos()
 
 def get_turnos_data():
-    conn = sqlite3.connect("./centro_control.db") 
+    conn = psycopg2.connect("postgresql://gestionexpress:G3st10n3xpr3ss@serverdbcexp.postgres.database.azure.com:5432/gestionexpress") 
     cursor = conn.cursor()
     cursor.execute("SELECT turno, hora_inicio, hora_fin, detalles FROM turnos")
     rows = cursor.fetchall()
@@ -438,14 +455,28 @@ class PDFRequest(BaseModel):
 @app.post("/generar_pdf/")
 def generar_pdf_asignaciones(request: PDFRequest):
     try:
-        # Procesar los datos del PDF usando los valores correctos
-        pdf_file = reporte_asignaciones.generar_pdf(
+        # Crear un buffer de memoria
+        pdf_buffer = BytesIO()
+
+        # Instanciar la clase Reporte_Asignaciones
+        reporte_asignaciones = Reporte_Asignaciones()
+
+        # Generar el PDF usando el buffer
+        reporte_asignaciones.generar_pdf(
             request.asignaciones,  # Lista de asignaciones
             request.fecha_asignacion,  # Fecha de asignación
-            request.fecha_hora_registro  # Fecha de última modificación
+            request.fecha_hora_registro,  # Fecha de última modificación
+            pdf_buffer  # Buffer de memoria para escribir el PDF
         )
-        # Devolver el archivo PDF generado
-        return FileResponse(pdf_file, media_type='application/pdf', filename="asignaciones_tecnicos.pdf")
+
+        # Asegurarse de que el buffer esté al inicio antes de enviarlo
+        pdf_buffer.seek(0)
+
+        # Devolver el PDF generado directamente al cliente sin guardarlo en disco
+        return StreamingResponse(pdf_buffer, media_type='application/pdf', headers={
+            "Content-Disposition": "attachment; filename=asignaciones_tecnicos.pdf"
+        })
+
     except Exception as e:
         return {"error": str(e)}
 

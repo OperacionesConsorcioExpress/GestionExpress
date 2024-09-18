@@ -12,6 +12,14 @@
 
 <!-- INICIO DEL BLOQUE DE TODA LA PANTALLA DE ASIGNACIÓN -->
 {% block content %}
+<!-- SECCIÓN PROGRESO DE CARGA Y BLOQUEO DE PANTALLA -->
+    <div id="loading-overlay" style="display: none; justify-content: center;">
+    <div class="loading-content" style="display: flex; align-items: center;">
+        <img id="loading-gif" src="/static/images/cargando.gif" alt="Cargando..." width="70" height="70" />
+        <p style="margin-left: 10px;">Cargando, por favor espere...</p>
+    </div>
+</div>
+
 <!-- Titulo y Botones Iniciales -->
 <div class="container-fluid mt-auto mb-auto"> <!-- margenes de toda la pagina -->
     <div class="row justify-content-between align-items-center">
@@ -32,6 +40,28 @@
             <h5 class="mb-0">Previsualización de Cargue</h5>
         </div>
         <div class="card-body">
+            <!-- Aquí se añaden los checkboxes para seleccionar qué hojas cargar -->
+            <div class="container mt-1">
+                <h5>Seleccione qué hojas desea cargar del archivo:</h5>
+                <form id="formSeleccionHojas" class="d-flex flex-wrap justify-content-center mt-2">
+                    <div class="form-check d-inline-block me-3">
+                        <input class="form-check-input" type="checkbox" value="tcz" id="checkTcz">
+                        <label class="form-check-label" for="checkTcz">Cargar Técnicos</label>
+                    </div>
+                    <div class="form-check d-inline-block me-3">
+                        <input class="form-check-input" type="checkbox" value="supervisores" id="checkSupervisores">
+                        <label class="form-check-label" for="checkSupervisores">Cargar Supervisores</label>
+                    </div>
+                    <div class="form-check d-inline-block me-3">
+                        <input class="form-check-input" type="checkbox" value="turnos" id="checkTurnos">
+                        <label class="form-check-label" for="checkTurnos">Cargar Turnos</label>
+                    </div>
+                    <div class="form-check d-inline-block me-3">
+                        <input class="form-check-input" type="checkbox" value="controles" id="checkControles">
+                        <label class="form-check-label" for="checkControles">Cargar Controles</label>
+                    </div>
+                </form>
+            </div>
             {% if session and session.error_message %}
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <strong>Error:</strong> {{ session.error_message }}
@@ -500,14 +530,37 @@
             mostrarError('No hay sesión activa para confirmar el cargue.');
             return;
         }
-
+    
+        // Validar que al menos un checkbox esté seleccionado
+        const checkTcz = document.getElementById('checkTcz').checked;
+        const checkSupervisores = document.getElementById('checkSupervisores').checked;
+        const checkTurnos = document.getElementById('checkTurnos').checked;
+        const checkControles = document.getElementById('checkControles').checked;
+    
+        if (!checkTcz && !checkSupervisores && !checkTurnos && !checkControles) {
+            alert('Debe seleccionar al menos una hoja para cargar.');
+            return;
+        }
+    
         if (confirm('¿Está seguro de cargar los datos?')) {
+            // Mostrar el overlay de cargando antes de iniciar el proceso de carga
+            document.getElementById('loading-overlay').style.display = 'flex';
+    
+            // Preparar el payload con las hojas seleccionadas
+            const hojasSeleccionadas = {
+                session_id: session_id,
+                tcz: checkTcz, 
+                supervisores: checkSupervisores,
+                turnos: checkTurnos,
+                controles: checkControles
+            };
+    
             fetch('/confirmar_cargue/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ "session_id": session_id }),
+                body: JSON.stringify(hojasSeleccionadas), // Enviar solo las hojas seleccionadas
             })
             .then(response => {
                 if (!response.ok) {
@@ -523,9 +576,13 @@
             .catch(error => {
                 console.error('Error al cargar los datos:', error);
                 mostrarError('Error al cargar los datos. Por favor, inténtelo de nuevo más tarde.');
+            })
+            .finally(() => {
+                // Ocultar el overlay de cargando después de que termine el proceso (exitoso o con error)
+                document.getElementById('loading-overlay').style.display = 'none';
             });
         }
-    }
+    }    
 
     function cancelarCargue() {
         document.getElementById('ventanaFlotante').style.display = 'none';
@@ -534,21 +591,48 @@
 
 </script>
 
+<!-- GIF BLOQUEO PARA EL CARGUE MASIVO DE PARAMETRIZACIÓN (Planta + Supervisores + Turnos + Controles) -->
+<script>
+    document.querySelector('#form-cargar-archivo').addEventListener('submit', function(e) {
+      // Evitar el comportamiento predeterminado del formulario
+      e.preventDefault();
+      
+      // Mostrar el overlay de cargando
+      document.getElementById('loading-overlay').style.display = 'flex';
+      
+      // Simular el envío del formulario para que se complete el proceso
+      this.submit();  // Luego de mostrar el gif, el formulario se envía
+    });
+  </script> 
+
 <!-- FUNCIONES PARA MANEJAR LA HABILITACIÓN Y DESHABILITACIÓN DE LOS PUESTOS SC Y/O UQ" -->
 <script>
     
-    function togglePuestosSC() {
+    function togglePuestosSC(cargarDinamicamente = true, valorAsignado = null) {
         const checkSC = document.getElementById('checkSC');
         const puestosSC = document.getElementById('puestosSC');
     
         if (checkSC.checked) {
             puestosSC.disabled = false;
+    
+            // Cargar siempre los datos dinámicamente
             $.get("/api/puestos_SC", function(data) {
-                puestosSC.innerHTML = '';
+                puestosSC.innerHTML = ''; // Limpiar opciones anteriores
                 puestosSC.append(new Option("Seleccionar...", "", true, true));
+    
+                // Ordenar los datos numéricamente de forma ascendente
+                if (Array.isArray(data) && typeof data[0] === 'number') {
+                    data.sort((a, b) => a - b); // Ordenar numéricamente
+                }
+    
                 data.forEach(function(puesto) {
                     puestosSC.append(new Option(puesto, puesto));
                 });
+    
+                // Si hay un valor asignado, seleccionarlo después de cargar las opciones
+                if (valorAsignado) {
+                    puestosSC.value = valorAsignado;
+                }
             });
         } else {
             puestosSC.disabled = true;
@@ -558,31 +642,41 @@
     
         recalcularYActualizarFilas();
     }
-
-    function togglePuestosUQ() {
+    
+    function togglePuestosUQ(cargarDinamicamente = true, valorAsignado = null) {
         const checkUQ = document.getElementById('checkUQ');
         const puestosUQ = document.getElementById('puestosUQ');
     
         if (checkUQ.checked) {
-            // Habilitar y recargar la lista desplegable
             puestosUQ.disabled = false;
+    
+            // Cargar siempre los datos dinámicamente
             $.get("/api/puestos_UQ", function(data) {
                 puestosUQ.innerHTML = ''; // Limpiar opciones anteriores
-                puestosUQ.append(new Option("Seleccionar...", "", true, true)); // Opción por defecto
+                puestosUQ.append(new Option("Seleccionar...", "", true, true));
+    
+                // Ordenar los datos numéricamente de forma ascendente
+                if (Array.isArray(data) && typeof data[0] === 'number') {
+                    data.sort((a, b) => a - b); // Ordenar numéricamente
+                }
+    
                 data.forEach(function(puesto) {
                     puestosUQ.append(new Option(puesto, puesto));
                 });
+    
+                // Si hay un valor asignado, seleccionarlo después de cargar las opciones
+                if (valorAsignado) {
+                    puestosUQ.value = valorAsignado;
+                }
             });
         } else {
-            // Deshabilitar y restablecer la lista desplegable
             puestosUQ.disabled = true;
             puestosUQ.innerHTML = '<option value="">Seleccionar...</option>';
             eliminarFilasAsignacionPorConcesion("USAQUÉN");
         }
     
-        // Recalcular el número total de puestos y actualizar las filas de asignación
         recalcularYActualizarFilas();
-    }
+    }    
 
     function eliminarFilasAsignacionPorConcesion(concesion) {
         const tbody = $("#tablaAsignacion tbody");
@@ -685,8 +779,7 @@
 
 </script>
 
-<script>
-    
+<script>   
     // Función para cargar los supervisores al cargar la página
     $.get("/api/supervisores", function(data) {
         data.sort(function(a, b) {
@@ -718,6 +811,11 @@
     // Función para obtener turnos
     function cargarTurnos(selectElement) {
         $.get("/api/turnos", function(data) {
+            // Ordenar alfabéticamente los turnos
+            data.sort(function(a, b) {
+                return a.localeCompare(b);  // Comparación alfabética
+            });
+
             selectElement.empty();
             selectElement.append(new Option("...", "", true, true));
             data.forEach(function(turno) {
@@ -925,6 +1023,11 @@
 
             if (puestos) {
                 $.get("/api/control", { concesion: concesion, puestos: puestos }, function(data) {
+                    // Ordenar alfabéticamente los controles
+                    data.sort(function(a, b) {
+                        return a.localeCompare(b);  // Comparación alfabética
+                    });
+
                     controlSelect.empty();
                     controlSelect.append('<option value="">Seleccionar...</option>'); // Añadir opción predeterminada vacía
                     data.forEach(function(control) {
@@ -1717,8 +1820,7 @@
         }
     }
     
-    function procesarAsignaciones(asignaciones) {
-        // Asegurarse de que la tabla esté completamente vacía antes de agregar nuevas asignaciones
+    async function procesarAsignaciones(asignaciones) {
         const $tablaAsignacion = $("#tablaAsignacion tbody");
         $tablaAsignacion.empty();
         console.log("Tabla limpiada, cantidad de filas ahora: ", $tablaAsignacion.children('tr').length);
@@ -1744,9 +1846,6 @@
         // Convertir el Map a un Array de asignaciones únicas
         asignacionesFiltradas = Array.from(asignacionesFiltradas.values());
     
-        // Verificar la cantidad de asignaciones después de filtrar
-        console.log('Asignaciones filtradas:', asignacionesFiltradas.length);
-    
         // Procesar asignaciones para obtener los valores de puestosSC o puestosUQ
         asignaciones.forEach(asignacion => {
             if (asignacion.concesion === 'SAN CRISTÓBAL' && asignacion.puestosSC) {
@@ -1756,25 +1855,39 @@
             }
         });
     
-        // Asignar el valor único en los select correspondientes
+        // Esperar hasta que el select esté habilitado
+        async function esperarSelectListo(selector) {
+            return new Promise(resolve => {
+                const interval = setInterval(() => {
+                    if (!$(selector).prop('disabled') && $(selector).children().length > 1) { // Asegurarse de que haya opciones
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 400); // Verificar cada 400ms si el select está habilitado
+            });
+        }
+    
+        // Asignar el valor único en los select correspondientes de manera asíncrona
         if (puestosSC > 0) {
             $('#checkSC').prop('checked', true); // Habilitar el checkbox
-            togglePuestosSC();  // Activar la lista de SC
-            setTimeout(() => {
-                $('#puestosSC').val(puestosSC).prop('disabled', false);  // Insertar el valor en la lista
-            }, 100);
+            togglePuestosSC(true, puestosSC);  // Cargar la lista dinámicamente y asignar el valor
+            
+            // Esperar hasta que el select de puestosSC esté habilitado
+            await esperarSelectListo('#puestosSC');
+            console.log(`Valor de puestos SC asignado: ${puestosSC}`);
         }
-    
+        
         if (puestosUQ > 0) {
             $('#checkUQ').prop('checked', true); // Habilitar el checkbox
-            togglePuestosUQ();  // Activar la lista de UQ
-            setTimeout(() => {
-                $('#puestosUQ').val(puestosUQ).prop('disabled', false);  // Insertar el valor en la lista
-            }, 100);
+            togglePuestosUQ(true, puestosUQ);  // Cargar la lista dinámicamente y asignar el valor
+            
+            // Esperar hasta que el select de puestosUQ esté habilitado
+            await esperarSelectListo('#puestosUQ');
+            console.log(`Valor de puestos UQ asignado: ${puestosUQ}`);
         }
     
-        // Función para agregar una fila y asignar valores a esa fila
-        function agregarFilaConValores(asignacion, index) {
+        // Función para agregar una fila y asignar valores a esa fila de manera asíncrona
+        async function agregarFilaConValores(asignacion, index) {
             agregarFilaAsignacion(index + 1);  // Crear la fila
             let nuevaFila = $tablaAsignacion.children('tr').eq(index); // Obtener la fila por índice
     
@@ -1782,45 +1895,54 @@
             nuevaFila.find('.cedula-input').val(asignacion.cedula); // Insertar cédula
             nuevaFila.find('.nombre-input').val(asignacion.nombre); // Insertar nombre
     
-            // Asignar el turno, concesión y control
-            setTimeout(() => {
-                nuevaFila.find('.turno-select').val(asignacion.turno); // Insertar turno
-                nuevaFila.find('.concesion-select').val(asignacion.concesion); // Insertar concesión
+            // Asignar el turno de manera asíncrona
+            await esperarSelectListo(nuevaFila.find('.turno-select'));  // Esperar hasta que el select de turno esté listo
+            // Insertar turno
+            if (asignacion.turno) {
+                nuevaFila.find('.turno-select').val(asignacion.turno);
+            } else {
+                console.error('Turno no disponible para la asignación', asignacion);
+            }
+            
+             // Asignar la concesión de manera asíncrona
+            await esperarSelectListo(nuevaFila.find('.concesion-select')); // Esperar hasta que el select de concesión esté listo
+            // Insertar concesión
+            if (asignacion.concesion) {
+                nuevaFila.find('.concesion-select').val(asignacion.concesion);
+            } else {
+                console.error('Concesión no disponible para la asignación', asignacion);
+            }
+            
+            // Aplicar reglas de negocio si la concesión es "NO APLICA"
+            if (asignacion.concesion === "NO APLICA") {
+                nuevaFila.find('.turno-select').trigger('change'); // Aplicar reglas de negocio
+            }
     
-                if (asignacion.concesion === "NO APLICA") {
-                    nuevaFila.find('.turno-select').trigger('change'); // Aplicar reglas de negocio
-                }
-            }, 100);
+            // Asignar el control y recalcular las rutas asociadas de manera asíncrona
+            let concesion = nuevaFila.find('.concesion-select').val();
+            let puestos = (concesion === 'SAN CRISTÓBAL') ? puestosSC : puestosUQ;
     
+            if (concesion && puestos) {
+                const data = await $.get("/api/control", { concesion: concesion, puestos: puestos });
+                let controlSelect = nuevaFila.find('.control-select');
+                controlSelect.empty();
+                controlSelect.append('<option value="">Seleccionar...</option>'); // Opción predeterminada vacía
+    
+                data.forEach(function(control) {
+                    controlSelect.append(new Option(control, control));
+                });
+    
+                // Asignar el valor de control
+                controlSelect.val(asignacion.control);
+                recalcularRutaAsociada(nuevaFila, asignacion); // Recalcular rutas asociadas
+            }
             // Asignar las horas exactas desde la base de datos
             nuevaFila.find('.hora-inicio').text(asignacion.h_inicio); // Insertar hora de inicio
             nuevaFila.find('.hora-fin').text(asignacion.h_fin); // Insertar hora de fin
-    
             nuevaFila.find('.observaciones-input').val(asignacion.observaciones); // Insertar observaciones
     
-            // Asignar el control y recalcular las rutas asociadas
-            setTimeout(() => {
-                let concesion = nuevaFila.find('.concesion-select').val();
-                let puestos = (concesion === 'SAN CRISTÓBAL') ? puestosSC : puestosUQ;
-    
-                if (concesion && puestos) {
-                    $.get("/api/control", { concesion: concesion, puestos: puestos }, function(data) {
-                        let controlSelect = nuevaFila.find('.control-select');
-                        controlSelect.empty();
-                        controlSelect.append('<option value="">Seleccionar...</option>'); // Opción predeterminada vacía
-    
-                        data.forEach(function(control) {
-                            controlSelect.append(new Option(control, control));
-                        });
-    
-                        // Asignar el valor de control
-                        controlSelect.val(asignacion.control);
-                        recalcularRutaAsociada(nuevaFila, asignacion); // Recalcular rutas asociadas
-                    });
-                }
-            }, 200);  // Asegurar que las concesiones y los puestos ya estén asignados
         }
-    
+
         // Recalcular las rutas asociadas
         function recalcularRutaAsociada(fila, asignacion) {
             let concesion = fila.find('.concesion-select').val();
@@ -1837,27 +1959,25 @@
             }
         }
     
-        // Crear filas para cada asignación y asignar los valores
-        asignacionesFiltradas.forEach((asignacion, index) => {
-            agregarFilaConValores(asignacion, index); // Agregar la fila y asignar valores
-        });
+        // Crear filas para cada asignación y asignar los valores de manera asíncrona
+        for (let index = 0; index < asignacionesFiltradas.length; index++) {
+            await agregarFilaConValores(asignacionesFiltradas[index], index); // Agregar la fila y asignar valores
+        }
     
         console.log("Asignaciones procesadas, cantidad de filas ahora: ", $tablaAsignacion.children('tr').length);
     
         // Aplicar colorimetría después de actualizar las filas
         actualizarColorimetriaPlanta();
-
+    
         // *** Preguntar si se desea generar el PDF antes de cerrar el modal ***
-        setTimeout(() => {
-            if (confirm("¿Deseas descargar el informe de asignaciones en PDF?")) {
-                generarPDF();  // Llama a generarPDF solo si el usuario selecciona "Sí"
-            }
-
-            // Cerrar la ventana modal
-            $('#modalAyuda').modal('hide');
-        }, 500); // Esperar un breve momento para asegurar que todo esté actualizado
+        if (confirm("¿Deseas descargar el informe de asignaciones en PDF?")) {
+            generarPDF();  // Llama a generarPDF solo si el usuario selecciona "Sí"
+        }
+    
+        // Cerrar la ventana modal
+        $('#modalAyuda').modal('hide');
     }
-   
+    
     function generarPDF() {
         // Definir las variables para fecha y hora desde el DOM
         let fechaAsignacion = document.getElementById('fechaAyuda').value;
@@ -1865,7 +1985,7 @@
         // Verificación de la variable 'asignaciones'
         let asignaciones = window.asignacionesConsultadas;
     
-        console.log('Asignaciones para el PDF:', asignaciones);
+        //console.log('Asignaciones para el PDF:', asignaciones);
         
         if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
             alert("No hay asignaciones consultadas para generar el PDF.");
@@ -1896,7 +2016,7 @@
             // Crear un enlace para descargar el archivo PDF generado
             var link = document.createElement('a');
             link.href = window.URL.createObjectURL(blob);
-            link.download = 'asignaciones_tecnicos.pdf';
+            link.download = `asignaciones_tecnicos_${fechaAsignacion}.pdf`;
             link.click();
         })
         .catch(error => {

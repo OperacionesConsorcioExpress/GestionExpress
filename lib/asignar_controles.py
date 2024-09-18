@@ -1,8 +1,8 @@
-import sqlite3
+import psycopg2
 from datetime import datetime
 from fastapi import HTTPException
 
-DATABASE_PATH = "./centro_control.db"
+DATABASE_PATH = "postgresql://gestionexpress:G3st10n3xpr3ss@serverdbcexp.postgres.database.azure.com:5432/gestionexpress"
 
 def fecha_asignacion(fecha_str):
     try:
@@ -14,7 +14,7 @@ def fecha_asignacion(fecha_str):
         raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use DD/MM/YYYY.")
 
 def puestos_SC():
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT puestos FROM controles WHERE concesion = 'SAN CRISTÓBAL'")
     puestos = [row[0] for row in cursor.fetchall()]
@@ -22,7 +22,7 @@ def puestos_SC():
     return puestos
 
 def puestos_UQ():
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT puestos FROM controles WHERE concesion = 'USAQUÉN'")
     puestos = [row[0] for row in cursor.fetchall()]
@@ -30,7 +30,7 @@ def puestos_UQ():
     return puestos
 
 def concesion():
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT concesion FROM controles")
     concesiones = [row[0] for row in cursor.fetchall()]
@@ -38,12 +38,12 @@ def concesion():
     return concesiones
 
 def control(concesion_seleccionada, puestos_seleccionado):
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     query = """
     SELECT DISTINCT control FROM controles 
-    WHERE concesion = ? AND puestos = ?
+    WHERE concesion = %s AND puestos = %s
     """
     cursor.execute(query, (concesion_seleccionada, puestos_seleccionado))
     controles = [row[0] for row in cursor.fetchall()]
@@ -52,14 +52,14 @@ def control(concesion_seleccionada, puestos_seleccionado):
     return controles
 
 def rutas(concesion, puestos, control):
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
     print(f"Filtrando rutas para concesion: {concesion}, puestos: {puestos}, control: {control}")  # Validación
 
     #Consulta basada en concesion, puestos, and control
     query = """
     SELECT ruta FROM controles 
-    WHERE concesion = ? AND puestos = ? AND control = ?
+    WHERE concesion = %s AND puestos = %s AND control = %s
     """
     cursor.execute(query, (concesion, puestos, control))
     rutas = [row[0] for row in cursor.fetchall()]
@@ -75,7 +75,7 @@ def rutas(concesion, puestos, control):
     return rutas_unidas
 
 def turnos():
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT turno FROM turnos")
     turnos = [row[0] for row in cursor.fetchall()]
@@ -83,25 +83,25 @@ def turnos():
     return turnos
 
 def turno_descripcion(turno):
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT descripcion FROM turnos WHERE turno = ?", (turno,))
+    cursor.execute("SELECT descripcion FROM turnos WHERE turno = %s", (turno,))
     descripcion = cursor.fetchone()
     conn.close()
     return descripcion[0] if descripcion else None
 
 def hora_inicio(turno):
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT hora_inicio FROM turnos WHERE turno = ?", (turno,))
+    cursor.execute("SELECT DISTINCT hora_inicio FROM turnos WHERE turno = %s", (turno,))
     hora_inicio = cursor.fetchone()[0]
     conn.close()
     return hora_inicio
 
 def hora_fin(turno):
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT hora_fin FROM turnos WHERE turno = ?", (turno,))
+    cursor.execute("SELECT DISTINCT hora_fin FROM turnos WHERE turno = %s", (turno,))
     hora_fin = cursor.fetchone()[0]
     conn.close()
     return hora_fin

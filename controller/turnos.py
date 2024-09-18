@@ -1,4 +1,4 @@
-import sqlite3
+import psycopg2
 import pandas as pd
 import os
 
@@ -12,7 +12,7 @@ df = pd.read_excel(excel_path)
 db_path = os.path.abspath("C:/Users/sergio.hincapie/OneDrive - Grupo Express/Gestión de la Operación/0 - Script Python/Asignación_Controles/centro_control.db")
 
 # Conectar a la base de datos
-conn = sqlite3.connect(db_path)
+conn = psycopg2.connect(db_path)
 cursor = conn.cursor()
 
 # Crear la tabla turnos si no existe
@@ -30,7 +30,7 @@ cursor.execute(create_table_query)
 # Insertar los datos del DataFrame en la tabla turnos
 for index, row in df.iterrows():
     cursor.execute(
-        "INSERT INTO turnos (turno, hora_inicio, hora_fin, detalles) VALUES (?, ?, ?, ?)",
+        "INSERT INTO turnos (turno, hora_inicio, hora_fin, detalles) VALUES (%s, %s, %s, %s)",
         (str(row['turno']), str(row['hora_inicio']), str(row['hora_fin']), str(row['detalle']))
     )
 

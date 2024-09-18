@@ -24,7 +24,7 @@
     <div class="row">
         <!-- Sección izquierda: Formulario para crear nuevo rol -->
         <div class="col-md-6 mb-4">
-            <div class="p-4" style="background-color: #f9f9f9; border-radius: 10px; box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);">
+            <div class="p-4" style="max-height: calc(100vh - 150px); background-color: #f9f9f9; border-radius: 10px; box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);">
                 <h3 class="mb-3" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #555;font-weight: bold;">Crear Nuevo Rol</h3>
                 <form action="/roles/add" method="post">
                     <div class="mb-4">
@@ -34,7 +34,7 @@
 
                     <div class="mb-4">
                         <label for="permissions" class="form-label" style="color: #555;">Pantallas a Asignar</label>
-                        <select multiple class="form-select" name="permissions" id="permissions" style="border-radius: 6px;">
+                        <select multiple class="form-select" name="permissions" id="permissions" style="max-height: calc(100vh - 150px); border-radius: 6px;">
                             {% for pantalla in pantallas %}
                             <option value="{{ pantalla }}">{{ pantalla }}</option>
                             {% endfor %}
