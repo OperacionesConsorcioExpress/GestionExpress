@@ -1,4 +1,4 @@
-name: Build and deploy Python app to Azure Web App - gestionconsorcioexpress2
+name: Compilar y desplegar app FastAPI en Azure Web App - gestionconsorcioexpress2
 
 on:
   push:
@@ -13,30 +13,37 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      # Clonar el repositorio
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
 
-      - name: Set up Python version
+      # Configurar la versión de Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Create and start virtual environment
+      # Crear entorno virtual (aunque no se usa luego en GitHub Actions, es opcional)
+      - name: Crear entorno virtual
         run: |
           python -m venv venv
           source venv/bin/activate
 
-      - name: Install dependencies
+      # Instalar dependencias desde requirements.txt
+      - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      # ✅ Empaquetar solo archivos limpios (sin .github, .venv, __pycache__, etc.)
-      - name: Prepare clean package for deployment
+      # Preparar artefacto limpio para desplegar (excluye carpetas innecesarias)
+      - name: Preparar paquete limpio para despliegue
         run: |
           mkdir package
-          cp -r * package
-          rm -rf package/.github package/.git* package/venv package/__pycache__ package/.venv
+          shopt -s extglob
+          cp -r !(package) package
+          rm -rf package/.github package/.git* package/venv package/.venv package/__pycache__
           zip -r release.zip package
 
-      - name: Upload artifact for deployment jobs
+      # Subir el ZIP como artefacto para la siguiente etapa
+      - name: Subir artefacto para despliegue
         uses: actions/upload-artifact@v4
         with:
           name: python-app
@@ -50,22 +57,26 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact from build job
+      # Descargar el ZIP generado en el job anterior
+      - name: Descargar artefacto
         uses: actions/download-artifact@v4
         with:
           name: python-app
 
-      - name: Unzip artifact for deployment
+      # Descomprimir el ZIP
+      - name: Descomprimir artefacto
         run: unzip release.zip
 
-      - name: Login to Azure
+      # Autenticarse en Azure
+      - name: Iniciar sesión en Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D5569479D42046A3AFF4F8337EF48497 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_14E2F77F7D044E1082233AFD02038510 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_987F9D9F7656498C8A3AD66D6FFDF60F }}
 
-      - name: Deploy to Azure Web App
+      # Desplegar en Azure App Service
+      - name: Desplegar en Azure Web App
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
