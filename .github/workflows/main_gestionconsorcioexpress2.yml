@@ -1,8 +1,4 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
-
-name: Build and deploy Python app to Azure Web App - gestionconsorcioexpress2
+name: Build | Deploy Gestión Express en Azure Web App
 
 on:
   push:
@@ -12,68 +8,70 @@ on:
 
 jobs:
   build:
+    name: 🛠️ Construcción del paquete
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 🔄 Clonar repositorio
+        uses: actions/checkout@v4
 
-      - name: Set up Python version
+      - name: 🐍 Configurar versión de Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
-      - name: Create and start virtual environment
+      - name: 📦 Preparar entorno de despliegue
         run: |
-          python -m venv venv
-          source venv/bin/activate
-      
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-        
-      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+          mkdir deployment
+          cp -r *.py requirements.txt controller model view static lib deployment/
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+      - name: 📥 Instalar dependencias (solo para validar)
+        run: |
+          pip install -r deployment/requirements.txt
 
-      - name: Upload artifact for deployment jobs
+      - name: 📦 Comprimir el paquete limpio
+        run: |
+          cd deployment
+          zip -r ../release.zip .
+
+      - name: ☁️ Subir artefacto para despliegue
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            release.zip
-            !venv/
+          path: release.zip
 
   deploy:
+    name: 🚀 Despliegue en Azure App Service
     runs-on: ubuntu-latest
     needs: build
-    
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: 📥 Descargar artefacto del trabajo de construcción
         uses: actions/download-artifact@v4
         with:
           name: python-app
 
-      - name: Unzip artifact for deployment
+      - name: 📂 Descomprimir paquete
         run: unzip release.zip
 
-      
-      - name: Login to Azure
+      - name: 🔐 Iniciar sesión en Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2E151F66C35D4BA28D510A06161DA86F }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FBEAC51370D5452AB2913F65AD0E4BEE }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5A9C001E330B4F059F142C553755F6AF }}
 
-      - name: 'Deploy to Azure Web App'
+      - name: 👤 Ver cuenta autenticada (diagnóstico)
+        run: az account show
+
+      - name: 🚀 Desplegar en Azure Web App
         uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
         with:
-          app-name: 'gestionconsorcioexpress2'
-          slot-name: 'Production'
-          
+          app-name: "gestionconsorcioexpress2"
+          slot-name: "Production"
+          package: .
