@@ -22,19 +22,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 📦 Preparar entorno de despliegue
+      - name: 📥 Instalar dependencias (validación)
         run: |
-          mkdir deployment
-          cp -r *.py requirements.txt controller model view static lib deployment/
+          pip install -r requirements.txt
 
-      - name: 📥 Instalar dependencias (solo para validar)
+      - name: 📦 Comprimir archivos para despliegue
         run: |
-          pip install -r deployment/requirements.txt
-
-      - name: 📦 Comprimir el paquete limpio
-        run: |
-          cd deployment
-          zip -r ../release.zip .
+          zip -r release.zip *.py requirements.txt controller model view static lib -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store"
 
       - name: ☁️ Subir artefacto para despliegue
         uses: actions/upload-artifact@v4
