@@ -7,10 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: 🔄 Clonar repositorio
@@ -21,40 +19,10 @@ jobs:
         with:
           python-version: "3.12.4"
 
-      - name: 📦 Crear y activar entorno virtual
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-
       - name: 📥 Instalar dependencias
-        run: pip install -r requirements.txt
-
-      - name: 📦 Preparar paquete limpio para despliegue
         run: |
-          shopt -s extglob
-          zip -r release.zip . -x "venv/*" ".venv/*" "__pycache__/*" ".git/*" ".github/*" "release.zip"
-
-      - name: ☁️ Subir artefacto para despliegue
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-app
-          path: release.zip
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: 📥 Descargar artefacto del trabajo de compilación
-        uses: actions/download-artifact@v4
-        with:
-          name: python-app
-
-      - name: 📂 Descomprimir artefacto para despliegue
-        run: unzip release.zip
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: 🔐 Iniciar sesión en Azure
         uses: azure/login@v2
@@ -65,7 +33,7 @@ jobs:
 
       - name: 🚀 Desplegar en Azure Web App
         uses: azure/webapps-deploy@v3
-        id: deploy-to-webapp
         with:
           app-name: "gestionconsorcioexpress2"
           slot-name: "Production"
+          package: .
