@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: 🛠️ Construcción del paquete
+    name: 🏗️ Construcción del paquete
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,11 +24,13 @@ jobs:
 
       - name: 📥 Instalar dependencias (validación)
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 📦 Comprimir archivos para despliegue
+      - name: 📦 Comprimir archivos para despliegue (limpios)
         run: |
-          zip -r release.zip *.py requirements.txt controller model view static lib -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store"
+          zip -r release.zip *.py requirements.txt controller model view static lib \
+            -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store" "*.venv/*" "*.env" ".git/*" ".github/*"
 
       - name: ☁️ Subir artefacto para despliegue
         uses: actions/upload-artifact@v4
@@ -63,7 +65,7 @@ jobs:
       - name: 👤 Ver cuenta autenticada (diagnóstico)
         run: az account show
 
-      - name: 🚀 Desplegar en Azure Web App
+      - name: 🚀 Desplegar en Azure Web App (ZIP Deploy)
         uses: azure/webapps-deploy@v3
         with:
           app-name: "gestionconsorcioexpress2"
