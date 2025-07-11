@@ -1,4 +1,4 @@
-name: Compilar y desplegar app Python en Azure Web App - gestionconsorcioexpress2
+name: Build | Deploy Gestión Express en Azure Web App
 
 on:
   push:
@@ -31,10 +31,8 @@ jobs:
 
       - name: 📦 Preparar paquete limpio para despliegue
         run: |
-          mkdir package
           shopt -s extglob
-          cp -r !(package|venv|.venv|__pycache__|.git|.github) package/
-          zip -r release.zip package
+          zip -r release.zip . -x "venv/*" ".venv/*" "__pycache__/*" ".git/*" ".github/*" "release.zip"
 
       - name: ☁️ Subir artefacto para despliegue
         uses: actions/upload-artifact@v4
