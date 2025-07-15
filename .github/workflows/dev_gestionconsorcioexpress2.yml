@@ -1,14 +1,14 @@
-name: (MAIN) Build | Deploy Gestión Express en Azure Web App
+name: (DEV) Build | Deploy Gestión Express en Azure Web App
 
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 jobs:
   build:
-    name: 🏗️ (MAIN) Construcción del paquete
+    name: 🏗️ (DEV) Construcción del paquete
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,7 +39,7 @@ jobs:
           path: release.zip
 
   deploy:
-    name: 🚀 (MAIN) Despliegue en Azure App Service
+    name: 🚀 (DEV) Despliegue en Azure Web App
     runs-on: ubuntu-latest
     needs: build
     permissions:
@@ -64,9 +64,9 @@ jobs:
       - name: 🔐 Iniciar sesión en Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2E151F66C35D4BA28D510A06161DA86F }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FBEAC51370D5452AB2913F65AD0E4BEE }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5A9C001E330B4F059F142C553755F6AF }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_15A57A74A6AF4FCDBAC6C55D19CD4DDC }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C1AE82DC672A4EB7BB8059EC8C400D8E }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5E8DECC7B07E4CD7B20A6F8A68B5226A }}
 
       - name: 👤 Ver cuenta autenticada (diagnóstico)
         run: az account show
