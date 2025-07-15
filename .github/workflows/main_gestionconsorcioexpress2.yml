@@ -20,14 +20,14 @@ jobs:
       - name: 🐍 Configurar versión de Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.12.4"
 
       - name: 📥 Instalar dependencias (validación)
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 📦 Comprimir archivos para despliegue (limpios)
+      - name: 📦 Comprimir archivos para despliegue
         run: |
           zip -r release.zip *.py requirements.txt controller model view static lib \
             -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store" "*.venv/*" "*.env" ".git/*" ".github/*"
@@ -54,6 +54,12 @@ jobs:
 
       - name: 📂 Descomprimir paquete
         run: unzip release.zip
+
+      - name: 📁 Ver contenido descomprimido (debug)
+        run: ls -R
+
+      # - name: 🧹 Limpiar wwwroot (opcional, solo si ya desplegaste antes)
+      #   run: az webapp ssh --name gestionconsorcioexpress2 --resource-group db_gestionexpress --command "rm -rf /home/site/wwwroot/*"
 
       - name: 🔐 Iniciar sesión en Azure
         uses: azure/login@v2
