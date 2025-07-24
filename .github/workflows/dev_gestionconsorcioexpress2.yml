@@ -55,6 +55,9 @@ jobs:
       - name: 📂 Descomprimir paquete
         run: unzip release.zip
 
+      - name: 🧹 Eliminar release.zip para evitar error ZIP Deploy
+        run: rm release.zip
+
       - name: 📁 Ver contenido descomprimido (debug)
         run: ls -R
 
