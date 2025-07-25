@@ -2,6 +2,7 @@ from openai import OpenAI
 import google.generativeai as genai
 from langchain.prompts import PromptTemplate
 #from sentence_transformers import SentenceTransformer
+import psutil 
 import numpy as np
 import faiss, json, os, re, io
 from azure.storage.blob import BlobServiceClient
@@ -58,15 +59,31 @@ class AgenteIA:
         self.contenedor = self.blob_service.get_container_client(NOMBRE_CONTENEDOR)
 
     def _get_modelo_emb(self):
-        """Carga perezosa del modelo de embeddings solo cuando se requiere."""
         if self._modelo_emb is None:
+            proceso = psutil.Process(os.getpid())
+            memoria_actual = proceso.memory_info().rss / (1024 ** 2)  # en MB
+            memoria_disponible_aprox = 512 - memoria_actual
+
+            print(f"🧠 Memoria actual usada: {memoria_actual:.2f} MB")
+
+            if memoria_disponible_aprox < 200:
+                raise RuntimeError(f"❌ Memoria insuficiente para cargar modelo. Quedan ~{memoria_disponible_aprox:.2f} MB")
+
             from sentence_transformers import SentenceTransformer
             self._modelo_emb = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+
         return self._modelo_emb
 
     def responder(self, pregunta: str) -> str:
         """Genera respuesta a partir de contexto RAG o IA libre."""
-        contexto = self._buscar_contexto(pregunta)
+        try:
+            contexto = self._buscar_contexto(pregunta)
+        except RuntimeError as e:
+            print(f"🛑 Memoria insuficiente: {e}")
+            contexto = ""
+        except Exception as e:
+            print(f"🛑 Error inesperado al buscar contexto: {e}")
+            contexto = ""
 
         if contexto.strip():
             prompt_texto = self.prompt.format(input=pregunta, nombre=self.nombre_usuario, contexto=contexto[:2000])
@@ -162,3 +179,4 @@ class AgenteIA:
 
         #print("📚 Fragmentos seleccionados:\n", contexto_total[:3])
         return "\n\n".join(contexto_total[:3])
+    
