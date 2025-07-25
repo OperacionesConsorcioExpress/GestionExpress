@@ -1,7 +1,7 @@
 from openai import OpenAI
 import google.generativeai as genai
 from langchain.prompts import PromptTemplate
-from sentence_transformers import SentenceTransformer
+#from sentence_transformers import SentenceTransformer
 import numpy as np
 import faiss, json, os, re, io
 from azure.storage.blob import BlobServiceClient
@@ -31,7 +31,8 @@ class AgenteIA:
         self.deepseek_model = "deepseek/deepseek-r1:free"
         self.gemini_model = genai.GenerativeModel("gemini-1.5-flash") # Cliente Gemini (fallback)
         self.gemini_chat = self.gemini_model.start_chat()
-        self.modelo_emb = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2") # Modelo de embeddings
+        #self.modelo_emb = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2") # Modelo de embeddings
+        self._modelo_emb = None # Lazy loading del modelo de embeddings
         
         # Prompt con contexto RAG
         self.prompt = PromptTemplate(
@@ -55,6 +56,13 @@ class AgenteIA:
         # Cliente de Azure Blob Storage
         self.blob_service = BlobServiceClient.from_connection_string(CONEXION_BLOB)
         self.contenedor = self.blob_service.get_container_client(NOMBRE_CONTENEDOR)
+
+    def _get_modelo_emb(self):
+        """Carga perezosa del modelo de embeddings solo cuando se requiere."""
+        if self._modelo_emb is None:
+            from sentence_transformers import SentenceTransformer
+            self._modelo_emb = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+        return self._modelo_emb
 
     def responder(self, pregunta: str) -> str:
         """Genera respuesta a partir de contexto RAG o IA libre."""
@@ -111,7 +119,9 @@ class AgenteIA:
             texto = re.sub(r"\s([.,;:])", r"\1", texto)
             return texto.strip()
 
-        embedding_pregunta = self.modelo_emb.encode([pregunta]).astype("float32")
+        modelo = self._get_modelo_emb()
+        embedding_pregunta = modelo.encode([pregunta]).astype("float32")
+        #embedding_pregunta = self.modelo_emb.encode([pregunta]).astype("float32")
         contexto_total = []
 
         # Listar todos los archivos .index

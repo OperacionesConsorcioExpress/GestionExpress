@@ -1,6 +1,6 @@
 from azure.storage.blob import BlobServiceClient
 from PyPDF2 import PdfReader
-from sentence_transformers import SentenceTransformer
+#from sentence_transformers import SentenceTransformer
 from huggingface_hub import login
 import numpy as np
 import faiss
@@ -56,7 +56,12 @@ class Chunks:
         self.chunk_size = chunk_size # Cantidad máxima de caracteres por fragmento
         self.overlap = overlap # Cantidad de caracteres que se superponen entre fragmentos
 
-    def dividir_texto(self, texto: str) -> List[str]:
+    def dividir_texto(self, texto: str) -> List[str]: # Divide un texto largo en fragmentos solapados de tamaño limitado.
+        
+        if not texto or len(texto.strip()) < 100:
+            print("⚠️ Texto insuficiente para generar chunks.")
+            return []
+        
         chunks = []
         start = 0
         while start < len(texto):
@@ -65,9 +70,14 @@ class Chunks:
             if len(fragmento) > 100:  # mínimo para guardar
                 chunks.append(fragmento)
             start += self.chunk_size - self.overlap
+        print(f"📦 Fragmentos generados: {len(chunks)}")
         return chunks
 
-    def guardar_chunks(self, ruta_pdf: str, chunks: List[str]):
+    def guardar_chunks(self, ruta_pdf: str, chunks: List[str]): # Guarda los fragmentos en Azure Blob Storage.
+        
+        if not chunks:
+            raise ValueError("❌ No se pueden guardar chunks vacíos.")
+        
         nombre_base = os.path.basename(ruta_pdf).replace(".pdf", ".json")
         ruta_destino = f"chunks/{nombre_base}"
 
@@ -79,12 +89,14 @@ class Chunks:
         contenido_bytes = json.dumps(contenido_json, ensure_ascii=False).encode("utf-8")
         blob_cliente = self.contenedor.get_blob_client(ruta_destino)
         blob_cliente.upload_blob(contenido_bytes, overwrite=True)
-        print(f"✅ Chunks guardados en: {ruta_destino}")
+        print(f"✅ Chunks guardados en: {ruta_destino} ({len(chunks)} fragmentos)")
         
 class Embeddings:
     def __init__(self, blob_service, contenedor, modelo="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"):
         self.blob_service = blob_service
         self.contenedor = contenedor
+        self.modelo_nombre = modelo  # Modelo a usar
+        self._modelo = None  # Lazy loading: el modelo se cargará solo si se necesita
 
         # Autenticación en Hugging Face
         hf_token = os.getenv("HUGGINGFACE_API_KEY")
@@ -92,7 +104,13 @@ class Embeddings:
             raise ValueError("❌ No se encontró la variable HUGGINGFACE_API_KEY en el entorno.")
         login(hf_token)
 
-        self.model = SentenceTransformer(modelo)
+    def _get_modelo(self):
+        """Carga el modelo de embeddings solo cuando se requiere."""
+        if self._modelo is None:
+            print(f"🔁 Cargando modelo de embeddings: {self.modelo_nombre}")
+            from sentence_transformers import SentenceTransformer
+            self._modelo = SentenceTransformer(self.modelo_nombre)
+        return self._modelo
 
     def procesar_desde_chunks(self, ruta_chunk: str):
         blob_chunk = self.contenedor.get_blob_client(ruta_chunk)
@@ -103,7 +121,8 @@ class Embeddings:
         ruta_npy = f"embeddings/{nombre_base}.npy"
         ruta_meta = f"embeddings/{nombre_base}_metadata.json"
 
-        vectores = self.model.encode(textos, show_progress_bar=False)
+        # Usar modelo con carga diferida
+        vectores = self._get_modelo().encode(textos, show_progress_bar=False)
 
         # Guardar embeddings .npy
         buffer = io.BytesIO()
