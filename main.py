@@ -44,10 +44,7 @@ from model.job import TareasProgramadasJuridico
 from model.containerModel import ContainerModel
 from model.gestion_reportbi import ReportBIGestion
 from controller.route_chatbot import chatbot_router
-
-#########################################################################################
-################### Importar rutas de los controladores (Endpoint) ######################
-#########################################################################################
+from controller.route_NPL_chatbot import npl_router
 from controller.route_checklist import checklist_router
 
 #########################################################################################
@@ -62,6 +59,15 @@ templates = Jinja2Templates(directory="./view")
 db = HandleDB()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# Habilitar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todas las solicitudes de origen cruzado
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Variables de entorno
 DATABASE_PATH = os.getenv("DATABASE_PATH")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -73,6 +79,16 @@ TENANT_ID = os.getenv("TENANT_ID")
 #########################################################################################
 ############################### Componentes y Rutas de la API ###########################
 #########################################################################################
+
+# Ruta de diagnóstico para Azure/App Service
+@app.get("/health")
+def health_check():
+    return {"status": "🟢 Gestión Express activo"}
+
+# Solo se ejecuta en entorno local o Render
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=10000, reload=True)
 
 # Función para verificar si el usuario ha iniciado sesión
 def get_user_session(req: Request):
@@ -121,7 +137,7 @@ def login(req: Request, username: str = Form(...), password_user: str = Form(...
         # Si las credenciales no son válidas, muestra un mensaje de error
         error_message = "Por favor valide sus credenciales y vuelva a intentar."
         return templates.TemplateResponse("index.html", {"request": req, "error_message": error_message})
-  
+
 # Ruta de cierre de sesión
 @app.get("/logout", response_class=HTMLResponse)
 async def logout(request: Request): # Limpiar cualquier estado de sesión
@@ -1009,15 +1025,6 @@ async def eliminar_role_storage(role_storage_id: int):
 ################## TRANSFERENCIA DE DATOS EN BLOB STORAGE ####################
 container_model = ContainerModel()
 
-# Habilitar CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas las solicitudes de origen cruzado
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 @app.get("/containers", response_class=HTMLResponse)
 def get_containers(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
@@ -1142,7 +1149,7 @@ def obtener_subprocesos(proceso: str):
     subprocesos = gestion.obtener_opciones_subprocesos(proceso)
     gestion.close()
     return subprocesos
-      
+
 @app.get("/filtrar_clausulas", response_class=HTMLResponse)
 def filtrar_clausulas(req: Request, control: str = None, etapa: str = None, clausula: str = None, 
                       concesion: str = None, estado: str = None,
@@ -1551,7 +1558,7 @@ def envio_correos_incumplimiento():
         return {"message": "Correos de incumplimiento enviados correctamente."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"message": f"Error: {str(e)}"})
- 
+
 @app.get("/jobs/envio_correos_incumplimiento_direccion", response_class=JSONResponse)
 def envio_correos_incumplimiento_direccion():
     """
@@ -1633,10 +1640,19 @@ def descargar_reporte(formato: str, request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
     
-########################## CHATBOT ##########################
+################### PROCESAMIENTO DE TEXTO (NPL) PARA CHATBOT ########################
+app.include_router(npl_router , prefix="/npl")
+
+@app.get("/NPL_chatbot", response_class=HTMLResponse, include_in_schema=False)
+async def get_NPL_chatbot(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)    
+    return templates.TemplateResponse("NPL_chatbot.html", {"request": req, "user_session": user_session})
+
+###################################### CHATBOT ######################################
 # Incluir las rutas factorizadas en `route_checklist.py`
 app.include_router(chatbot_router)
- 
+
 # Ruta para servir el chatbot.html
 @app.get("/chatbot", response_class=HTMLResponse, include_in_schema=False)
 async def get_chatbot(req: Request, user_session: dict = Depends(get_user_session)):
@@ -1644,9 +1660,7 @@ async def get_chatbot(req: Request, user_session: dict = Depends(get_user_sessio
         return RedirectResponse(url="/", status_code=302)    
     return templates.TemplateResponse("chatbot.html", {"request": req, "user_session": user_session})
 
-#####################################################################################
 ############################### MODULO DE CHECKLIST #################################
-#####################################################################################
 # Incluir las rutas factorizadas en `route_checklist.py`
 app.include_router(checklist_router)
 
@@ -1655,6 +1669,3 @@ def checklist(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("checklist.html", {"request": req, "user_session": user_session})
-
-
-

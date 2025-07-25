@@ -155,7 +155,9 @@
     {% endif %}
 
     <!-- Grupo "Configuración" -->
-    {% if 'Crear Usuario' in pantallas_permitidas or 'Gestión de Roles' in pantallas_permitidas or 'Roles Blob Storage' in pantallas_permitidas %}
+    {% if 'Crear Usuario' in pantallas_permitidas or 'Gestión de Roles' in pantallas_permitidas or 'Roles Blob Storage' in pantallas_permitidas 
+    or 'NPL Chatbot' in pantallas_permitidas %}
+
     <div class="group">
       <div class="group-title">Configuración</div>
       {% if 'Crear Usuario' in pantallas_permitidas %}
@@ -166,6 +168,9 @@
       {% endif %}
       {% if 'Roles Blob Storage' in pantallas_permitidas %}
       <a class="nav-link" href="/roles_storage">Roles Blob Storage</a>
+      {% endif %}
+      {% if 'NPL Chatbot' in pantallas_permitidas %}
+      <a class="nav-link" href="/NPL_chatbot">NPL Chatbot</a>
       {% endif %}
     </div>
     {% endif %}
@@ -239,7 +244,8 @@
         "Control Clausulas": "/juridico",
         "Crear Usuario": "/registrarse",
         "Gestión de Roles": "/roles",
-        "Roles Blob Storage": "/roles_storage"
+        "Roles Blob Storage": "/roles_storage",
+        "NPL Chatbot": "/NPL_chatbot"
       };
   
       fetch("/pantallas_permitidas")
@@ -252,7 +258,7 @@
               "Centro de Control": ["Asignaciones", "Checklist"],
               "Centro Información": ["Blob Storage", "Dashboard Power BI"],
               "Jurídico": ["Control Clausulas"],
-              "Configuración": ["Crear Usuario", "Gestión de Roles", "Roles Blob Storage"]
+              "Configuración": ["Crear Usuario", "Gestión de Roles", "Roles Blob Storage", "NPL Chatbot"]
             };
             
             Object.keys(gruposPantallas).forEach(grupo => {
