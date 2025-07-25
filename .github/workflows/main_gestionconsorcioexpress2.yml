@@ -55,9 +55,6 @@ jobs:
       - name: 📂 Descomprimir paquete
         run: unzip release.zip
 
-      - name: 🧹 Eliminar release.zip para evitar error ZIP Deploy
-        run: rm release.zip
-
       - name: 📁 Ver contenido descomprimido (debug)
         run: ls -R
 
@@ -73,6 +70,9 @@ jobs:
 
       - name: 👤 Ver cuenta autenticada (diagnóstico)
         run: az account show
+
+      - name: 🔁 Reiniciar Web App antes de desplegar (previene error 409)
+        run: az webapp restart --name gestionconsorcioexpress2 --resource-group db_gestionexpress
 
       - name: 🚀 Desplegar en Azure Web App (ZIP Deploy)
         uses: azure/webapps-deploy@v3
