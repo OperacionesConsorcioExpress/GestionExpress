@@ -26,33 +26,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🧪 Verificar dependencias requeridas
-        run: |
-          for pkg in fastapi uvicorn gunicorn; do
-            if ! pip show $pkg > /dev/null; then
-              echo "❌ $pkg no está en requirements.txt o no se instaló correctamente" && exit 1
-            fi
-          done
-
-      - name: 🧪 Verificar archivos clave
+      - name: 🧪 Verificar presencia de archivos clave
         run: |
           if [ ! -f main.py ]; then echo "❌ main.py no encontrado"; exit 1; fi
           if [ ! -f requirements.txt ]; then echo "❌ requirements.txt no encontrado"; exit 1; fi
 
-      - name: 📂 Mostrar estructura del proyecto (nivel 2)
+      - name: 📂 Mostrar estructura del proyecto
         run: |
-          echo "📁 Estructura actual del proyecto:"
+          echo "📁 Estructura actual:"
           tree -L 2 || ls -R
 
-      - name: 📦 Comprimir archivos para despliegue
+      - name: 📦 Preparar paquete comprimido (Run From Package)
         run: |
-          zip -r release.zip . -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store" "*.venv/*" "*.env" ".git/*" ".github/*"
+          mkdir deployment
+          cp -r *.py requirements.txt controller model view static lib deployment/ 2>/dev/null || true
+          cd deployment
+          zip -r ../release.zip .
+          cd ..
 
       - name: 🔍 Verificar contenido del ZIP
-        run: |
-          unzip -l release.zip | grep -E "main\.py|requirements\.txt"
+        run: unzip -l release.zip | grep -E "main\.py|requirements\.txt"
 
-      - name: ☁️ Subir artefacto para despliegue
+      - name: ☁️ Subir artefacto comprimido
         uses: actions/upload-artifact@v4
         with:
           name: python-app
@@ -72,14 +67,6 @@ jobs:
         with:
           name: python-app
 
-      - name: 📂 Descomprimir paquete
-        run: unzip release.zip
-
-      - name: 📁 Mostrar estructura descomprimida
-        run: |
-          echo "📁 Contenido descomprimido:"
-          tree -L 2 || ls -R
-
       - name: 🔐 Iniciar sesión en Azure
         uses: azure/login@v2
         with:
@@ -90,42 +77,26 @@ jobs:
       - name: 👤 Ver cuenta autenticada (diagnóstico)
         run: az account show
 
-      - name: ⚙️ Configurar entorno y comando de inicio
+      - name: ⚙️ Configurar comando de inicio (FastAPI con gunicorn)
         run: |
           az webapp config set --name gestionconsorcioexpress2 \
             --resource-group db_gestionexpress \
             --startup-file "gunicorn main:app --workers 4 --bind=0.0.0.0 --timeout 600"
 
-          az webapp config set --name gestionconsorcioexpress2 \
-            --resource-group db_gestionexpress \
-            --linux-fx-version "PYTHON|3.12"
-
-      - name: 🔁 Reiniciar Web App antes de desplegar (previene error 409)
+      - name: 🔁 Reiniciar Web App antes del despliegue
         run: |
           az webapp restart --name gestionconsorcioexpress2 --resource-group db_gestionexpress
 
-      - name: 🧪 Verificar punto de entrada antes del despliegue
-        run: |
-          if [ ! -f main.py ]; then
-            echo "❌ main.py no encontrado en el paquete" && exit 1
-          fi
-
-      - name: 🚀 Desplegar en Azure Web App (ZIP Deploy)
+      - name: 🚀 Desplegar usando Run From Package
         uses: azure/webapps-deploy@v3
         with:
           app-name: "gestionconsorcioexpress2"
           slot-name: "Production"
-          package: .
+          package: release.zip
+          deployment-method: "run-from-package"
 
-      - name: 📜 Leer logs de Oryx si falla el despliegue
+      - name: 🧾 Logs de Oryx si falla el despliegue
         if: failure()
         run: |
-          echo "❗ Despliegue fallido. Leyendo logs Oryx:"
+          echo "❗ Despliegue fallido. Leyendo logs Oryx desde Kudu:"
           curl -s "https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/oryx-build.log" || echo "No se pudo acceder a los logs"
-          echo "🧾 Logs adicionales en Kudu: https://gestionconsorcioexpress2.scm.azurewebsites.net/DebugConsole"
-
-      - name: ✅ Verificar endpoint de FastAPI (GET /)
-        run: |
-          echo "⌛ Esperando 15 segundos a que la app arranque..."
-          sleep 15
-          curl -f https://gestionconsorcioexpress2.azurewebsites.net || echo "⚠️ La app no respondió exitosamente"
