@@ -2,8 +2,7 @@ name: 🚀(MAIN) Build | Deploy Gestión Express en Azure Web App
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -27,10 +26,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: 🧪 Validar estructura esperada
+        run: |
+          echo "Contenido raíz del proyecto:"
+          tree -L 2 || ls -R
+
       - name: 📦 Comprimir archivos para despliegue
         run: |
-          zip -r release.zip *.py requirements.txt controller model view static lib \
-            -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store" "*.venv/*" "*.env" ".git/*" ".github/*"
+          zip -r release.zip . -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store" "*.venv/*" "*.env" ".git/*" ".github/*"
 
       - name: ☁️ Subir artefacto para despliegue
         uses: actions/upload-artifact@v4
@@ -55,11 +58,10 @@ jobs:
       - name: 📂 Descomprimir paquete
         run: unzip release.zip
 
-      - name: 📁 Ver contenido descomprimido (debug)
-        run: ls -R
-
-      # - name: 🧹 Limpiar wwwroot (opcional, solo si ya desplegaste antes)
-      #   run: az webapp ssh --name gestionconsorcioexpress2 --resource-group db_gestionexpress --command "rm -rf /home/site/wwwroot/*"
+      - name: 📁 Mostrar estructura descomprimida
+        run: |
+          echo "Contenido descomprimido:"
+          tree -L 2 || ls -R
 
       - name: 🔐 Iniciar sesión en Azure
         uses: azure/login@v2
@@ -73,6 +75,10 @@ jobs:
 
       - name: 🔁 Reiniciar Web App antes de desplegar (previene error 409)
         run: az webapp restart --name gestionconsorcioexpress2 --resource-group db_gestionexpress
+
+      - name: 🧹 Limpiar carpeta wwwroot (recomendado si hubo conflicto anterior)
+        run: |
+          az webapp ssh --name gestionconsorcioexpress2 --resource-group db_gestionexpress --command "rm -rf /home/site/wwwroot/*" || echo "No se pudo limpiar vía SSH, revisa Always On"
 
       - name: 🚀 Desplegar en Azure Web App (ZIP Deploy)
         uses: azure/webapps-deploy@v3
