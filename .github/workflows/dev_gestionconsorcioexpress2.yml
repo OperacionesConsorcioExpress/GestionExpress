@@ -1,4 +1,4 @@
-nname: 🚀(DEV) Build | Deploy Gestión Express en Azure Web App
+name: 🚀(DEV) Build | Deploy Gestión Express en Azure Web App
 
 on:
   push:
