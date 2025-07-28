@@ -1,4 +1,4 @@
-name: 🚀(DEV) Build | Deploy Gestión Express en Azure Web App
+nname: 🚀(DEV) Build | Deploy Gestión Express en Azure Web App
 
 on:
   push:
@@ -26,14 +26,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🧪 Validar estructura esperada
+      - name: 🧪 Verificar dependencias requeridas
         run: |
-          echo "Contenido raíz del proyecto:"
+          for pkg in fastapi uvicorn gunicorn; do
+            if ! pip show $pkg > /dev/null; then
+              echo "❌ $pkg no está en requirements.txt o no se instaló correctamente" && exit 1
+            fi
+          done
+
+      - name: 🧪 Verificar archivos clave
+        run: |
+          if [ ! -f main.py ]; then echo "❌ main.py no encontrado"; exit 1; fi
+          if [ ! -f requirements.txt ]; then echo "❌ requirements.txt no encontrado"; exit 1; fi
+
+      - name: 📂 Mostrar estructura del proyecto (nivel 2)
+        run: |
+          echo "📁 Estructura actual del proyecto:"
           tree -L 2 || ls -R
 
       - name: 📦 Comprimir archivos para despliegue
         run: |
           zip -r release.zip . -x "**/__pycache__/*" "**/*.pyc" "**/.DS_Store" "*.venv/*" "*.env" ".git/*" ".github/*"
+
+      - name: 🔍 Verificar contenido del ZIP
+        run: |
+          unzip -l release.zip | grep -E "main\.py|requirements\.txt"
 
       - name: ☁️ Subir artefacto para despliegue
         uses: actions/upload-artifact@v4
@@ -60,7 +77,7 @@ jobs:
 
       - name: 📁 Mostrar estructura descomprimida
         run: |
-          echo "Contenido descomprimido:"
+          echo "📁 Contenido descomprimido:"
           tree -L 2 || ls -R
 
       - name: 🔐 Iniciar sesión en Azure
@@ -73,12 +90,25 @@ jobs:
       - name: 👤 Ver cuenta autenticada (diagnóstico)
         run: az account show
 
-      - name: 🔁 Reiniciar Web App antes de desplegar (previene error 409)
-        run: az webapp restart --name gestionconsorcioexpress2 --resource-group db_gestionexpress
-
-      - name: 🧹 Limpiar carpeta wwwroot (recomendado si hubo conflicto anterior)
+      - name: ⚙️ Configurar entorno y comando de inicio
         run: |
-          az webapp ssh --name gestionconsorcioexpress2 --resource-group db_gestionexpress --command "rm -rf /home/site/wwwroot/*" || echo "No se pudo limpiar vía SSH, revisa Always On"
+          az webapp config set --name gestionconsorcioexpress2 \
+            --resource-group db_gestionexpress \
+            --startup-file "gunicorn main:app --workers 4 --bind=0.0.0.0 --timeout 600"
+
+          az webapp config set --name gestionconsorcioexpress2 \
+            --resource-group db_gestionexpress \
+            --linux-fx-version "PYTHON|3.12"
+
+      - name: 🔁 Reiniciar Web App antes de desplegar (previene error 409)
+        run: |
+          az webapp restart --name gestionconsorcioexpress2 --resource-group db_gestionexpress
+
+      - name: 🧪 Verificar punto de entrada antes del despliegue
+        run: |
+          if [ ! -f main.py ]; then
+            echo "❌ main.py no encontrado en el paquete" && exit 1
+          fi
 
       - name: 🚀 Desplegar en Azure Web App (ZIP Deploy)
         uses: azure/webapps-deploy@v3
@@ -86,3 +116,16 @@ jobs:
           app-name: "gestionconsorcioexpress2"
           slot-name: "Production"
           package: .
+
+      - name: 📜 Leer logs de Oryx si falla el despliegue
+        if: failure()
+        run: |
+          echo "❗ Despliegue fallido. Leyendo logs Oryx:"
+          curl -s "https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/oryx-build.log" || echo "No se pudo acceder a los logs"
+          echo "🧾 Logs adicionales en Kudu: https://gestionconsorcioexpress2.scm.azurewebsites.net/DebugConsole"
+
+      - name: ✅ Verificar endpoint de FastAPI (GET /)
+        run: |
+          echo "⌛ Esperando 15 segundos a que la app arranque..."
+          sleep 15
+          curl -f https://gestionconsorcioexpress2.azurewebsites.net || echo "⚠️ La app no respondió exitosamente"
