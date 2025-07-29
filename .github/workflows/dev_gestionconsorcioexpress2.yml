@@ -115,6 +115,19 @@ jobs:
       - name: 🔁 Reiniciar Web App antes del despliegue (previene error 409)
         run: |
           az webapp restart --name gestionconsorcioexpress2 --resource-group db_gestionexpress
+          echo "🕒 Esperando 30 segundos a que se estabilice el reinicio..."
+          sleep 30
+
+      - name: 🧪 Verificar que el sitio esté accesible antes del deploy
+        run: |
+          echo "⌛ Esperando 15 segundos..."
+          sleep 15
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
+          echo "➡️ HTTP Status: $STATUS"
+          if [ "$STATUS" = "502" ] || [ "$STATUS" = "503" ] || [ "$STATUS" = "000" ]; then
+            echo "❌ El sitio aún no está listo (HTTP $STATUS), intenta esperar más antes del deploy"
+            exit 1
+          fi
 
       - name: 🚀 Desplegar en Azure App Service (desde carpeta)
         uses: azure/webapps-deploy@v3
@@ -125,14 +138,18 @@ jobs:
 
       - name: 🧪 Verificar que el sitio responda (200 OK)
         run: |
-          echo "⌛ Esperando 15 segundos a que la app se levante..."
-          sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ Sitio no responde correctamente (HTTP $STATUS)" && exit 1
-          else
-            echo "✅ Sitio activo y funcional (HTTP 200)"
-          fi
+          for i in {1..5}; do
+            echo "⌛ Intento $i - Esperando 10 segundos..."
+            sleep 10
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
+            echo "➡️ HTTP Status: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Sitio activo y funcional (HTTP 200)"
+              exit 0
+            fi
+          done
+          echo "❌ Sitio no respondió correctamente tras 5 intentos"
+          exit 1
 
       - name: 🧾 Si falla, sugerencia de logs Kudu
         if: failure()
