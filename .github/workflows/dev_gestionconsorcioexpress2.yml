@@ -118,22 +118,6 @@ jobs:
           echo "🕒 Esperando 30 segundos a que se estabilice el reinicio..."
           sleep 30
 
-      - name: 🧪 Verificar que el sitio esté accesible antes del deploy (con reintentos)
-        run: |
-          echo "⌛ Esperando que el sitio responda correctamente antes del despliegue..."
-          for i in {1..15}; do
-            echo "🔁 Intento $i - esperando 15 segundos..."
-            sleep 15
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
-            echo "➡️ HTTP Status: $STATUS"
-            if [ "$STATUS" != "502" ] && [ "$STATUS" != "503" ] && [ "$STATUS" != "000" ]; then
-              echo "✅ Sitio accesible (HTTP $STATUS)"
-              exit 0
-            fi
-          done
-          echo "❌ El sitio no está accesible tras 10 intentos (último código: $STATUS)"
-          exit 1
-
       - name: 🚀 Desplegar en Azure App Service (desde carpeta)
         uses: azure/webapps-deploy@v3
         with:
@@ -141,19 +125,20 @@ jobs:
           slot-name: "Production"
           package: ./deployment
 
-      - name: 🧪 Verificar que el sitio responda (200 OK)
+      - name: 🧪 Verificar que el sitio esté activo (HTTP 200)
         run: |
-          for i in {1..5}; do
-            echo "⌛ Intento $i - Esperando 10 segundos..."
-            sleep 10
+          echo "⌛ Esperando que el sitio esté disponible tras el despliegue..."
+          for i in {1..15}; do
+            echo "🔁 Intento $i - esperando 15 segundos..."
+            sleep 15
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
             echo "➡️ HTTP Status: $STATUS"
             if [ "$STATUS" = "200" ]; then
-              echo "✅ Sitio activo y funcional (HTTP 200)"
+              echo "✅ Sitio accesible (HTTP 200)"
               exit 0
             fi
           done
-          echo "❌ Sitio no respondió correctamente tras 5 intentos"
+          echo "❌ El sitio no respondió correctamente tras 15 intentos (último código: $STATUS)"
           exit 1
 
       - name: 🧾 Si falla, sugerencia de logs Kudu
