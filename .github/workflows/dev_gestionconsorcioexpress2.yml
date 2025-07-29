@@ -36,11 +36,18 @@ jobs:
           echo "🔍 Archivos grandes en el repo (mayor a 5MB):"
           find . -type f -size +5M -exec du -h {} + | sort -hr | head -n 20 || echo "Sin archivos grandes"
 
+      - name: 📦 Instalar 'tree' si no existe
+        run: |
+          if ! command -v tree &> /dev/null; then
+            sudo apt update && sudo apt install tree -y
+          fi
+
       - name: 🧹 Preparar carpeta de despliegue limpia
         run: |
+          rm -rf deployment
           mkdir deployment
           cp -r *.py requirements.txt controller model view static lib deployment/ 2>/dev/null || true
-          # Excluir carpetas innecesarias
+          # Eliminar carpetas y archivos innecesarios
           find deployment -type d -name '__pycache__' -exec rm -rf {} +
           find deployment -type f \( -name '*.npy' -o -name '*.zip' -o -name '*.tar.gz' \) -exec rm -f {} +
 
@@ -68,6 +75,21 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app
+          path: artifact_temp
+
+      - name: 📂 Mover archivos descargados al directorio esperado
+        run: |
+          rm -rf deployment
+          mkdir deployment
+          cp -r artifact_temp/* deployment/
+          echo "📦 Contenido movido a /deployment:"
+          ls -R deployment
+
+      - name: 📦 Instalar 'tree' si no existe
+        run: |
+          if ! command -v tree &> /dev/null; then
+            sudo apt update && sudo apt install tree -y
+          fi
 
       - name: 📁 Mostrar contenido recibido
         run: |
@@ -99,11 +121,22 @@ jobs:
         with:
           app-name: "gestionconsorcioexpress2"
           slot-name: "Production"
-          package: ./python-app
+          package: ./deployment
+
+      - name: 🧪 Verificar que el sitio responda (200 OK)
+        run: |
+          echo "⌛ Esperando 15 segundos a que la app se levante..."
+          sleep 15
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Sitio no responde correctamente (HTTP $STATUS)" && exit 1
+          else
+            echo "✅ Sitio activo y funcional (HTTP 200)"
+          fi
 
       - name: 🧾 Si falla, sugerencia de logs Kudu
         if: failure()
         run: |
           echo "❌ El despliegue falló. Revisa logs en:"
           echo "🔗 https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/docker"
-          echo "🔗 https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/oryx-build.log"
+          echo "🔗 https://gestionconsorcioexpress2.scm.azurewebsites.net/api/vfs/LogFiles/"
