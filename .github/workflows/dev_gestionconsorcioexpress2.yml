@@ -31,27 +31,29 @@ jobs:
           if [ ! -f main.py ]; then echo "❌ main.py no encontrado"; exit 1; fi
           if [ ! -f requirements.txt ]; then echo "❌ requirements.txt no encontrado"; exit 1; fi
 
-      - name: 📂 Mostrar estructura del proyecto
+      - name: 📦 Verificar archivos pesados > 5MB
         run: |
-          echo "📁 Estructura actual:"
-          tree -L 2 || ls -R
+          echo "🔍 Archivos grandes en el repo (mayor a 5MB):"
+          find . -type f -size +5M -exec du -h {} + | sort -hr | head -n 20 || echo "Sin archivos grandes"
 
-      - name: 📦 Preparar paquete comprimido (Run From Package)
+      - name: 🧹 Preparar carpeta de despliegue limpia
         run: |
           mkdir deployment
           cp -r *.py requirements.txt controller model view static lib deployment/ 2>/dev/null || true
-          cd deployment
-          zip -r ../release.zip .
-          cd ..
+          # Excluir carpetas innecesarias
+          find deployment -type d -name '__pycache__' -exec rm -rf {} +
+          find deployment -type f \( -name '*.npy' -o -name '*.zip' -o -name '*.tar.gz' \) -exec rm -f {} +
 
-      - name: 🔍 Verificar contenido del ZIP
-        run: unzip -l release.zip | grep -E "main\.py|requirements\.txt"
+      - name: 📂 Mostrar estructura final a desplegar
+        run: |
+          echo "🗂️ Contenido en /deployment listo para Azure:"
+          tree -L 3 deployment || ls -R deployment
 
-      - name: ☁️ Subir artefacto comprimido
+      - name: ☁️ Subir artefacto limpio (sin comprimir)
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: release.zip
+          path: deployment
 
   deploy:
     name: 🚀 (DEV) Despliegue en Azure Web App
@@ -62,10 +64,15 @@ jobs:
       contents: read
 
     steps:
-      - name: 📥 Descargar artefacto del trabajo de construcción
+      - name: 📥 Descargar artefacto limpio
         uses: actions/download-artifact@v4
         with:
           name: python-app
+
+      - name: 📁 Mostrar contenido recibido
+        run: |
+          echo "🧾 Contenido recibido para despliegue:"
+          tree -L 2 || ls -R
 
       - name: 🔐 Iniciar sesión en Azure
         uses: azure/login@v2
@@ -74,29 +81,31 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C1AE82DC672A4EB7BB8059EC8C400D8E }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5E8DECC7B07E4CD7B20A6F8A68B5226A }}
 
-      - name: 👤 Ver cuenta autenticada (diagnóstico)
+      - name: 👤 Diagnóstico cuenta
         run: az account show
 
-      - name: ⚙️ Configurar comando de inicio (FastAPI con gunicorn)
+      - name: ⚙️ Establecer comando de inicio (gunicorn)
         run: |
           az webapp config set --name gestionconsorcioexpress2 \
             --resource-group db_gestionexpress \
             --startup-file "gunicorn main:app --workers 4 --bind=0.0.0.0 --timeout 600"
 
-      - name: 🔁 Reiniciar Web App antes del despliegue
+      - name: 🔁 Reiniciar Web App antes del despliegue (previene error 409)
         run: |
           az webapp restart --name gestionconsorcioexpress2 --resource-group db_gestionexpress
 
-      - name: 🚀 Desplegar usando Run From Package
+      - name: 🚀 Desplegar en Azure App Service (desde carpeta)
         uses: azure/webapps-deploy@v3
         with:
           app-name: "gestionconsorcioexpress2"
           slot-name: "Production"
-          package: release.zip
-          deployment-method: "run-from-package"
+          package: ./python-app
 
-      - name: 🧾 Logs de Oryx si falla el despliegue
+      - name: 🧾 Si falla, sugerencia de logs Kudu
         if: failure()
         run: |
-          echo "❗ Despliegue fallido. Leyendo logs Oryx desde Kudu:"
-          curl -s "https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/oryx-build.log" || echo "No se pudo acceder a los logs"
+          echo "❌ El despliegue falló. Revisa logs en:"
+          echo "🔗 https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/docker"
+          echo "🔗 https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/oryx-build.log"
+      - name: ✅ Despliegue exitoso
+        if: success()
