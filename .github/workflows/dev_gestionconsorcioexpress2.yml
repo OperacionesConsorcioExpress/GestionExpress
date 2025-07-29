@@ -107,5 +107,3 @@ jobs:
           echo "❌ El despliegue falló. Revisa logs en:"
           echo "🔗 https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/docker"
           echo "🔗 https://gestionconsorcioexpress2.scm.azurewebsites.net/api/logs/oryx-build.log"
-      - name: ✅ Despliegue exitoso
-        if: success()
