@@ -118,16 +118,21 @@ jobs:
           echo "🕒 Esperando 30 segundos a que se estabilice el reinicio..."
           sleep 30
 
-      - name: 🧪 Verificar que el sitio esté accesible antes del deploy
+      - name: 🧪 Verificar que el sitio esté accesible antes del deploy (con reintentos)
         run: |
-          echo "⌛ Esperando 15 segundos..."
-          sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
-          echo "➡️ HTTP Status: $STATUS"
-          if [ "$STATUS" = "502" ] || [ "$STATUS" = "503" ] || [ "$STATUS" = "000" ]; then
-            echo "❌ El sitio aún no está listo (HTTP $STATUS), intenta esperar más antes del deploy"
-            exit 1
-          fi
+          echo "⌛ Esperando que el sitio responda correctamente antes del despliegue..."
+          for i in {1..5}; do
+            echo "🔁 Intento $i - esperando 15 segundos..."
+            sleep 15
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://gestionconsorcioexpress2.azurewebsites.net)
+            echo "➡️ HTTP Status: $STATUS"
+            if [ "$STATUS" != "502" ] && [ "$STATUS" != "503" ] && [ "$STATUS" != "000" ]; then
+              echo "✅ Sitio accesible (HTTP $STATUS)"
+              exit 0
+            fi
+          done
+          echo "❌ El sitio no está accesible tras 5 intentos (último código: $STATUS)"
+          exit 1
 
       - name: 🚀 Desplegar en Azure App Service (desde carpeta)
         uses: azure/webapps-deploy@v3
