@@ -150,15 +150,29 @@
             mostrarMensaje(userMessage, 'user');
             chatInput.value = '';
 
+            // Mostrar mensaje de "escribiendo..."
+            const loadingId = "mensaje-escribiendo";
+            const escribiendo = document.createElement('div');
+            escribiendo.id = loadingId;
+            escribiendo.classList.add('message', 'bot-message');
+            escribiendo.innerHTML = `
+                <img src="/static/images/robot-de-chat.gif" class="avatar" alt="Bot">
+                <div><strong>Bot-CEXP:</strong> <em>✍️ Escribiendo...</em></div>
+            `;
+            chatContainer.appendChild(escribiendo);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
             fetch(`/ask_ia?question=${encodeURIComponent(userMessage)}`)
                 .then(res => {
                     if (!res.ok) throw new Error("Error en la respuesta del servidor");
                     return res.json();
                 })
                 .then(data => {
+                    document.getElementById(loadingId)?.remove(); // Quitar el "escribiendo"
                     mostrarMensaje(data.answer || "⚠️ Respuesta vacía", 'bot');
                 })
                 .catch(error => {
+                    document.getElementById(loadingId)?.remove(); // Quitar el "escribiendo"
                     console.error('❌ Error al contactar la IA:', error);
                     mostrarMensaje('⚠️ Ocurrió un error al contactar con la IA.', 'bot');
                 });
@@ -195,7 +209,7 @@
             if (!confirmacion) return;
 
             // Descargar historial desde el servidor
-            window.location.href = '/descargar_historial';
+            window.location.href = '/finalizar_chat';
 
             // Opcional: limpiar chat visual
             setTimeout(() => {

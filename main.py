@@ -1,6 +1,4 @@
-#########################################################################################
 ######################### Importar librerías necesarias #################################
-#########################################################################################
 from fastapi import FastAPI, Request, Form, Depends, File, UploadFile, HTTPException, Query, Response, APIRouter, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -26,9 +24,8 @@ from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
 from azure.storage.blob import BlobServiceClient, BlobClient
 
-#########################################################################################
 ##################### Importar controladores y modelos backend ##########################
-#########################################################################################
+from lib.pantallas_menu import get_pantallas_menu
 from controller.user import User
 from lib.verifcar_clave import check_user
 from lib.asignar_controles import fecha_asignacion, puestos_SC, puestos_UQ, concesion, control, rutas, turnos, hora_inicio, hora_fin
@@ -43,24 +40,30 @@ from model.gestion_clausulas import GestionClausulas
 from model.job import TareasProgramadasJuridico
 from model.containerModel import ContainerModel
 from model.gestion_reportbi import ReportBIGestion
-from controller.route_chatbot import chatbot_router
-
-#########################################################################################
-################### Importar rutas de los controladores (Endpoint) ######################
-#########################################################################################
+#from controller.route_chatbot import chatbot_router
+#from controller.route_NPL_chatbot import npl_router
 from controller.route_checklist import checklist_router
+from controller.cambiar_contrasena import cambiar_contrasena_post
 
-#########################################################################################
 ############################### Carga de Variables de Entorno ###########################
-#########################################################################################
 load_dotenv()
 
+####################### Iniciar la aplicación FastAPI y configurar middleware ##########################
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="!secret_key", max_age=1800) # Expira en 30 minutos
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="./view")
 db = HandleDB()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Habilitar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todas las solicitudes de origen cruzado
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Variables de entorno
 DATABASE_PATH = os.getenv("DATABASE_PATH")
@@ -70,9 +73,11 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 TENANT_ID = os.getenv("TENANT_ID")
 
-#########################################################################################
-############################### Componentes y Rutas de la API ###########################
-#########################################################################################
+############################### RUTAS INICIALES DEL SISTEMA ###########################
+# Ruta de diagnóstico para Azure/App Service
+@app.get("/health")
+def health_check():
+    return {"status": "🟢 Gestión Express activo"}
 
 # Función para verificar si el usuario ha iniciado sesión
 def get_user_session(req: Request):
@@ -102,6 +107,7 @@ def login(req: Request, username: str = Form(...), password_user: str = Form(...
             if estado == 1:
                 # Guardar la sesión del usuario, incluyendo el rol
                 req.session['user'] = {
+                    "id": user_data[0], 
                     "username": username,
                     "nombres": nombres,
                     "apellidos": apellidos,
@@ -121,7 +127,7 @@ def login(req: Request, username: str = Form(...), password_user: str = Form(...
         # Si las credenciales no son válidas, muestra un mensaje de error
         error_message = "Por favor valide sus credenciales y vuelva a intentar."
         return templates.TemplateResponse("index.html", {"request": req, "error_message": error_message})
-  
+
 # Ruta de cierre de sesión
 @app.get("/logout", response_class=HTMLResponse)
 async def logout(request: Request): # Limpiar cualquier estado de sesión
@@ -129,6 +135,8 @@ async def logout(request: Request): # Limpiar cualquier estado de sesión
     response = RedirectResponse(url="/", status_code=302) # Crear una respuesta de redirección
     response.delete_cookie("access_token") # Eliminar la cookie de sesión o token de acceso
     return response
+
+###################### CREAR Y EDITAR USUARIO EN EL SISTEMA ##########################
 
 @app.get("/inicio", response_class=HTMLResponse)
 def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
@@ -262,7 +270,7 @@ async def get_roles(request: Request, user_session: dict = Depends(get_user_sess
     if not user_session:
         return RedirectResponse(url="/", status_code=302)  # Redirigir si no hay sesión iniciada.
 
-    pantallas_disponibles = db.get_pantallas_from_layout('view/components/layout.html')
+    pantallas_disponibles = get_pantallas_menu()
     roles = db.get_all_roles()
 
     # Verifica si existe el parámetro de éxito en la URL
@@ -311,7 +319,7 @@ async def add_role(request: Request, role_name: str = Form(...), permissions: Li
         return templates.TemplateResponse("roles.html", {
             "request": request,
             "roles": db.get_all_roles(),
-            "pantallas": db.get_pantallas_from_layout('view/components/layout.html'),
+            "pantallas": get_pantallas_menu(),
             "error_message": "Debe ingresar un nombre para el rol."
         })
 
@@ -319,7 +327,7 @@ async def add_role(request: Request, role_name: str = Form(...), permissions: Li
         return templates.TemplateResponse("roles.html", {
             "request": request,
             "roles": db.get_all_roles(),
-            "pantallas": db.get_pantallas_from_layout('view/components/layout.html'),
+            "pantallas": get_pantallas_menu(),
             "error_message": "Debe seleccionar al menos una pantalla para asignar al rol."
         })
 
@@ -339,7 +347,7 @@ async def update_role(request: Request, role_id: int, role_name: str = Form(...)
         return templates.TemplateResponse("roles.html", {
             "request": request,
             "roles": db.get_all_roles(),
-            "pantallas": db.get_pantallas_from_layout('view/components/layout.html'),
+            "pantallas": get_pantallas_menu(),
             "error_message": "Debe ingresar un nombre para el rol."
         })
 
@@ -347,7 +355,7 @@ async def update_role(request: Request, role_id: int, role_name: str = Form(...)
         return templates.TemplateResponse("roles.html", {
             "request": request,
             "roles": db.get_all_roles(),
-            "pantallas": db.get_pantallas_from_layout('view/components/layout.html'),
+            "pantallas": get_pantallas_menu(),
             "error_message": "Debe seleccionar al menos una pantalla para asignar al rol."
         })
 
@@ -365,7 +373,7 @@ async def eliminar_rol(role_id: int):
     except Exception as e:
         return templates.TemplateResponse("roles.html", {
             "roles": db.get_all_roles(),
-            "pantallas": db.get_pantallas_from_layout('view/components/layout.html'),
+            "pantallas": get_pantallas_menu(),
             "error_message": f"Ocurrió un error al intentar eliminar el rol: {e}"
         })
 
@@ -385,6 +393,12 @@ def obtener_pantallas_permitidas(req: Request, user_session: dict = Depends(get_
 
     return JSONResponse({"pantallas": pantallas_permitidas}, status_code=200)
 
+################### CAMBIO DE CONTRASEÑA POR EL USUARIO LOGUEADO ########################
+@app.post("/cambiar-contrasena")
+async def cambiar_contrasena_post_route(request: Request, user_session: dict = Depends(get_user_session)):
+    return await cambiar_contrasena_post(request, user_session)
+
+######################## RUTAS PARA ASIGNACIONES Y CARGUES MASIVOS ############################
 @app.get("/asignacion", response_class=HTMLResponse)
 def asignacion(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
@@ -404,8 +418,7 @@ def asignacion_post(req: Request, username: str = Form(...), password_user: str 
 class ConfirmarCargueRequest(BaseModel):
     session_id: str
 
-#########################################################################################
-# FUNCIONALIDADES PARA CARGUES MASIVOS DE PLANTA Y CONTROLES "gestionar_db.py.py"
+# FUNCIONALIDADES PARA CARGUES MASIVOS DE PLANTA Y CONTROLES "gestionar_db.py"
 # Cargues Archivos de Planta y Parametrización de Controles
 # Caché en memoria como diccionario
 cache = {}
@@ -1009,15 +1022,6 @@ async def eliminar_role_storage(role_storage_id: int):
 ################## TRANSFERENCIA DE DATOS EN BLOB STORAGE ####################
 container_model = ContainerModel()
 
-# Habilitar CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas las solicitudes de origen cruzado
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 @app.get("/containers", response_class=HTMLResponse)
 def get_containers(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
@@ -1142,7 +1146,7 @@ def obtener_subprocesos(proceso: str):
     subprocesos = gestion.obtener_opciones_subprocesos(proceso)
     gestion.close()
     return subprocesos
-      
+
 @app.get("/filtrar_clausulas", response_class=HTMLResponse)
 def filtrar_clausulas(req: Request, control: str = None, etapa: str = None, clausula: str = None, 
                       concesion: str = None, estado: str = None,
@@ -1551,7 +1555,7 @@ def envio_correos_incumplimiento():
         return {"message": "Correos de incumplimiento enviados correctamente."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"message": f"Error: {str(e)}"})
- 
+
 @app.get("/jobs/envio_correos_incumplimiento_direccion", response_class=JSONResponse)
 def envio_correos_incumplimiento_direccion():
     """
@@ -1633,20 +1637,28 @@ def descargar_reporte(formato: str, request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
     
-########################## CHATBOT ##########################
+################### PROCESAMIENTO DE TEXTO (NPL) PARA CHATBOT ########################
+'''
+app.include_router(npl_router , prefix="/npl")
+
+@app.get("/NPL_chatbot", response_class=HTMLResponse, include_in_schema=False)
+async def get_NPL_chatbot(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)    
+    return templates.TemplateResponse("NPL_chatbot.html", {"request": req, "user_session": user_session})
+
+###################################### CHATBOT ######################################
 # Incluir las rutas factorizadas en `route_checklist.py`
 app.include_router(chatbot_router)
- 
+
 # Ruta para servir el chatbot.html
 @app.get("/chatbot", response_class=HTMLResponse, include_in_schema=False)
 async def get_chatbot(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)    
     return templates.TemplateResponse("chatbot.html", {"request": req, "user_session": user_session})
-
-#####################################################################################
+'''
 ############################### MODULO DE CHECKLIST #################################
-#####################################################################################
 # Incluir las rutas factorizadas en `route_checklist.py`
 app.include_router(checklist_router)
 
@@ -1655,6 +1667,3 @@ def checklist(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("checklist.html", {"request": req, "user_session": user_session})
-
-
-

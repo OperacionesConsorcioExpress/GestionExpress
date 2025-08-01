@@ -44,56 +44,67 @@ GestionExpress/
 ## 🛠️ Instrucciones de instalación local
 
 1. **Abrir terminal** y posicionarse en el proyecto:
+
 ```
-cd <nombre del directorio>
+cd "/c/Users/sergio.hincapie/OneDrive - Grupo Express/Gestión de la Operación/0 - Script Python/GestiónExpress"
 ```
 
 **2:** Crear un entorno virtual:
+
 ```
-python -m venv venv
+"C:\Program Files\Python312\python.exe" -m venv venv
 ```
 
 **3:** Ingresar en el entorno virtual:
+
 ```
-venv\Scripts\activate.bat
+.\venv\Scripts\Activate.ps1 # para PowerShell
+venv\Scripts\activate.bat # Para CMD.exe
+
 ```
 
 **4:** Descargar las dependencias del archivo 'requirements.txt' con el comando:
+
 ```
-pip install -r requirements.txt  
-``` 
+pip install -r requirements.txt
+```
 
 **5:** Correr el servidor web de uvicorn para visualizar la aplicación:
 uvicorn <archivo>:<instancia> --reload
+
 ```
 uvicorn main:app --reload
 ```
-**6:** En el navegador ir al localhost:8000. 
+
+**6:** En el navegador ir al localhost:8000.
+
 ```
 (http://127.0.0.1:8000/)
 ```
 
-**7:**  Construir Archivo Requirements.txt ##### 
+**7:** Construir Archivo Requirements.txt #####
 Genera la lista de todas las libreris utilizadas con su versión
+
 ```
-pip freeze > requirements.txt  
+pip freeze > requirements.txt
 ```
+
 ---
 
 ## 🔐 Variables de entorno requeridas
 
 Para ejecución local y despliegue, asegúrate de definir las siguientes variables de entorno en un archivo `.env` en la raíz del proyecto:
 
-| Variable                       | Descripción                                      |
-|-------------------------------|--------------------------------------------------|
-| `AZURE_STORAGE_CONNECTION_STRING` | Cadena de conexión a Azure Blob Storage      |
-| `DATABASE_PATH`               | URL de conexión a la base de datos PostgreSQL    |
-| `CLIENT_ID` / `CLIENT_SECRET` | Autenticación para Microsoft OAuth2             |
-| `TENANT_ID`                   | Tenant para autenticación Azure                 |
-| `SECRET_KEY`                  | Clave secreta para seguridad interna de la app  |
-| `USUARIO_CORREO_JURIDICO`     | Usuario de correo para módulo jurídico          |
-| `CLAVE_CORREO_JURIDICO`       | Contraseña correspondiente                      |
-| `HUGGINGFACEHUB_API_TOKEN`    | Token para conexión con modelos IA de Hugging Face |
+| Variable                          | Descripción                                        |
+| --------------------------------- | -------------------------------------------------- |
+| `AZURE_STORAGE_CONNECTION_STRING` | Cadena de conexión a Azure Blob Storage            |
+| `DATABASE_PATH`                   | URL de conexión a la base de datos PostgreSQL      |
+| `CLIENT_ID` / `CLIENT_SECRET`     | Autenticación para Microsoft OAuth2                |
+| `TENANT_ID`                       | Tenant para autenticación Azure                    |
+| `SECRET_KEY`                      | Clave secreta para seguridad interna de la app     |
+| `USUARIO_CORREO_JURIDICO`         | Usuario de correo para módulo jurídico             |
+| `CLAVE_CORREO_JURIDICO`           | Contraseña correspondiente                         |
+| `HUGGINGFACEHUB_API_TOKEN`        | Token para conexión con modelos IA de Hugging Face |
 
 ---
 
