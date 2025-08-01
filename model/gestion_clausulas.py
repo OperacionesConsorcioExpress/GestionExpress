@@ -1076,7 +1076,7 @@ class GestionClausulas:
         except Exception as e:
             print(f"❌ Error al generar los datos del reporte: {e}")
             raise
-  
+
     def enviar_correos_recordatorio(self):
         """
         Envía correos utilizando la información generada por la función `generar_datos_recordatorio`.
@@ -1493,7 +1493,7 @@ class GestionClausulas:
         except Exception as e:
             print(f"Error al enviar correos de incumplimiento a la dirección: {e}")
             raise
- 
+
 # Reporte descargable de la gestión de clausulas
     def conectar_db(self):
         """Asegura que la conexión a la base de datos esté abierta correctamente."""

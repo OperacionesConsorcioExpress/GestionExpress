@@ -10,6 +10,13 @@
                 <span class="tooltip-text">Abrir Chatbot</span>
               </div>
             </li>
+
+            <!-- 🔐 Botón para abrir el modal de cambio de contraseña -->
+            <li class="nav-item" style="margin-right: 20px;">
+              <div id="cambiarContrasenaButton" title="Cambiar contraseña">
+                <img src="/static/images/contraseña.png" alt="Cambiar Contraseña" style="width: 35px; height: 35px; border-radius: 5px; cursor: pointer;">
+              </div>
+            </li>
           
             <!-- Botón cerrar sesión -->
             <li class="nav-item" style="margin-right: 40px;">
@@ -20,6 +27,17 @@
   </nav>
 </header>
 
+<!-- Modal para el Chatbot -->
+<div id="chatModal" class="chatbot-modal">
+  <div class="chatbot-modal-content">
+    <span id="closeChat">&times;</span>
+    <div id="chatContent">
+      <p style="text-align:center;">Cargando el chat...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Estilos para los modales -->
 <style>
   #chatBotButton {
     position: relative;
@@ -108,18 +126,116 @@
       transform: translateY(0);
     }
   }
+
+  #cambiarContrasenaModal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(22, 160, 56, 0.28); /* Fondo verde translúcido */
+}
 </style>
 
-<!-- Modal para el Chatbot -->
-<div id="chatModal" class="chatbot-modal">
-  <div class="chatbot-modal-content">
-    <span id="closeChat">&times;</span>
-    <div id="chatContent">
-      <p style="text-align:center;">Cargando el chat...</p>
-    </div>
+<!-- Modal para cambiar contraseña -->
+<div id="cambiarContrasenaModal" class="chatbot-modal">
+  <div class="chatbot-modal-content" style="max-width: 420px; padding: 2rem 2.5rem; border-radius: 18px;">
+    <span id="closePasswordModal" style="float:right; font-size:1.7em; cursor:pointer;">&times;</span>
+    <h4 style="text-align:center; margin-bottom: 1.3rem; color:#138d68; font-weight:bold; font-family:'Century Gothic';">Cambiar Contraseña</h4>
+    <form id="formCambiarContrasena" autocomplete="off">
+      <div class="form-floating mb-3">
+        <input type="text" id="usuario" name="usuario" class="form-control" value="{{ user_session.username }}" readonly style="background:#f8f8f8;">
+        <label for="usuario">Usuario</label>
+      </div>
+      <div class="form-floating mb-3 position-relative">
+        <input type="password" id="nueva_password" name="nueva_password" class="form-control" required>
+        <label for="nueva_password">Nueva Contraseña</label>
+        <button type="button" tabindex="-1" onclick="togglePassword('nueva_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3;">👁️</button>
+      </div>
+      <div class="form-floating mb-3 position-relative">
+        <input type="password" id="confirmar_password" name="confirmar_password" class="form-control" required>
+        <label for="confirmar_password">Repetir Contraseña</label>
+        <button type="button" tabindex="-1" onclick="togglePassword('confirmar_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3;">👁️</button>
+      </div>
+      <div class="text-center mt-3">
+        <button type="submit" class="btn btn-success px-4 py-2 rounded-pill">Actualizar Contraseña</button>
+      </div>
+    </form>
   </div>
 </div>
 
+
+<!-- ###################################################################################### -->
+<!-- FUNCIONES JAVASCRIPT -->
+
+<!-- Script Modal de cambio de contraseña -->
+<script>
+  // Mostrar y ocultar modal
+  const cambiarContrasenaBtn = document.getElementById('cambiarContrasenaButton');
+  const cambiarModal = document.getElementById('cambiarContrasenaModal');
+  const closePasswordModal = document.getElementById('closePasswordModal');
+
+  // Limpia los campos de contraseña
+  function limpiarCamposContrasena() {
+    document.getElementById('nueva_password').value = '';
+    document.getElementById('confirmar_password').value = '';
+  }
+
+  cambiarContrasenaBtn.addEventListener('click', () => {
+    cambiarModal.style.display = 'block';
+    limpiarCamposContrasena();
+  });
+
+  closePasswordModal.addEventListener('click', () => {
+    cambiarModal.style.display = 'none';
+    limpiarCamposContrasena();
+  });
+
+  window.addEventListener('click', function (event) {
+    if (event.target === cambiarModal) {
+      cambiarModal.style.display = 'none';
+      limpiarCamposContrasena();
+    }
+  });
+
+  function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  // Enviar formulario por fetch
+  document.getElementById('formCambiarContrasena').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nueva = document.getElementById('nueva_password').value;
+    const repetir = document.getElementById('confirmar_password').value;
+
+    if (nueva !== repetir) {
+      alert('Las contraseñas no coinciden.');
+      limpiarCamposContrasena();
+      return;
+    }
+
+    const response = await fetch('/cambiar-contrasena', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: nueva })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      alert('Contraseña actualizada correctamente');
+      cambiarModal.style.display = 'none';
+      limpiarCamposContrasena();
+    } else {
+      alert('Error: ' + result.message);
+      limpiarCamposContrasena();
+    }
+  });
+</script>
+
+<!-- Script para manejar el Chatbot -->
 <script>
   const chatButton = document.getElementById('chatBotButton');
   const chatModal = document.getElementById('chatModal');
@@ -144,4 +260,5 @@
     }
   });
 </script>
+
 {% endblock %}

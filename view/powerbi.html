@@ -124,10 +124,21 @@
     </div>
 
     <!-- Informe inicial -->
-    <iframe id="default-report-frame" title="PBI - ESTRUCTURA APP POWER BI CEXP" width="100%" height="100%" src="https://app.powerbi.com/view?r=eyJrIjoiZGY0MmE2N2MtZjkzZi00MGViLWE4NzYtNTM4NjRkN2Q4NzE2IiwidCI6ImYyM2E3Yzg0LTNkMTItNDA4Mi1hNTcyLTEzNzgxNTcxYTRlNyIsImMiOjR9" frameborder="0" allowfullscreen="true" style="display: block;"></iframe>
+    <iframe id="default-report-frame"
+        title="PBI - ESTRUCTURA APP POWER BI CEXP"
+        width="100%"
+        height="100%"
+        data-report-id="1"
+        frameborder="0"
+        allowfullscreen="true"
+        style="display: none;">
+    </iframe>
 
     <!-- Informe seleccionado -->
-    <iframe id="report-frame" sandbox="allow-same-origin allow-scripts allow-popups" allowfullscreen style="display: none;"></iframe>
+    <iframe id="report-frame" 
+        sandbox="allow-same-origin allow-scripts allow-popups" 
+        allowfullscreen style="display: none;">
+    </iframe>
 </div>
 
 <style>
@@ -512,6 +523,32 @@ body.not.menu-hidden #hide-menu {
 
         // Inicializar estado del menú
         hideMenu(); // Asegurarse de que el menú esté oculto al cargar
+
+        // Cargar dinámicamente el reporte por defecto (id="default-report-frame")
+        (async function cargarReportePorDefecto() {
+            const reportId = defaultReportFrame?.getAttribute("data-report-id");
+
+            if (reportId) {
+                loadingMessage.style.display = "block";
+
+                try {
+                    const reportUrl = await fetchReportUrl(reportId);
+
+                    if (reportUrl) {
+                        defaultReportFrame.src = reportUrl;
+                        defaultReportFrame.onload = () => {
+                            loadingMessage.style.display = "none";
+                            defaultReportFrame.style.display = "block";
+                        };
+                    } else {
+                        loadingMessage.innerHTML = "⚠️ No se encontró el informe inicial.";
+                    }
+                } catch (error) {
+                    console.error("Error al cargar el informe inicial:", error);
+                    loadingMessage.innerHTML = "❌ Error al cargar el informe inicial.";
+                }
+            }
+        })();
     });
 </script>
 
