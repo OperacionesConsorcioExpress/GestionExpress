@@ -144,28 +144,51 @@
   <div class="chatbot-modal-content" style="max-width: 420px; padding: 2rem 2.5rem; border-radius: 18px;">
     <span id="closePasswordModal" style="float:right; font-size:1.7em; cursor:pointer;">&times;</span>
     <h4 style="text-align:center; margin-bottom: 1.3rem; color:#138d68; font-weight:bold; font-family:'Century Gothic';">Cambiar Contraseña</h4>
+
     <form id="formCambiarContrasena" autocomplete="off">
+      <!-- Usuario -->
       <div class="form-floating mb-3">
         <input type="text" id="usuario" name="usuario" class="form-control" value="{{ user_session.username }}" readonly style="background:#f8f8f8;">
         <label for="usuario">Usuario</label>
       </div>
+
+      <!-- Nueva contraseña -->
       <div class="form-floating mb-3 position-relative">
         <input type="password" id="nueva_password" name="nueva_password" class="form-control" required>
         <label for="nueva_password">Nueva Contraseña</label>
-        <button type="button" tabindex="-1" onclick="togglePassword('nueva_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3;">👁️</button>
+        <button type="button" tabindex="-1" onclick="togglePassword('nueva_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3; padding: 5px;">
+        <img src="/static/images/gafas.gif" alt="Ver contraseña" style="width: 35px; height: 35px;">
+      </button>
       </div>
+
+      <!-- Confirmar contraseña -->
       <div class="form-floating mb-3 position-relative">
         <input type="password" id="confirmar_password" name="confirmar_password" class="form-control" required>
         <label for="confirmar_password">Repetir Contraseña</label>
-        <button type="button" tabindex="-1" onclick="togglePassword('confirmar_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3;">👁️</button>
+        <button type="button" tabindex="-1" onclick="togglePassword('confirmar_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3; padding: 5px;">
+        <img src="/static/images/gafas.gif" alt="Ver contraseña" style="width: 35px; height: 35px;">
+      </button>
       </div>
+
+      <!-- Requisitos de contraseña -->
+      <div class="mb-3 small text-muted" id="password-requisitos" style="font-size: 13px; line-height: 1.4;">
+        La contraseña debe tener:
+        <ul style="margin: 4px 0 0 18px; padding: 0;">
+          <li>Mínimo 8 caracteres</li>
+          <li>Al menos una letra mayúscula (A-Z)</li>
+          <li>Al menos una letra minúscula (a-z)</li>
+          <li>Al menos un número (0-9)</li>
+          <li>Al menos un carácter especial (!@#$...)</li>
+        </ul>
+      </div>
+
+      <!-- Botón enviar -->
       <div class="text-center mt-3">
         <button type="submit" class="btn btn-success px-4 py-2 rounded-pill">Actualizar Contraseña</button>
       </div>
     </form>
   </div>
 </div>
-
 
 <!-- ###################################################################################### -->
 <!-- FUNCIONES JAVASCRIPT -->
@@ -177,7 +200,6 @@
   const cambiarModal = document.getElementById('cambiarContrasenaModal');
   const closePasswordModal = document.getElementById('closePasswordModal');
 
-  // Limpia los campos de contraseña
   function limpiarCamposContrasena() {
     document.getElementById('nueva_password').value = '';
     document.getElementById('confirmar_password').value = '';
@@ -205,15 +227,30 @@
     input.type = input.type === 'password' ? 'text' : 'password';
   }
 
-  // Enviar formulario por fetch
+  function contrasenaSegura(password) {
+    const requisitos = [
+      /.{8,}/,                         // mínimo 8 caracteres
+      /[A-Z]/,                         // al menos una mayúscula
+      /[a-z]/,                         // al menos una minúscula
+      /[0-9]/,                         // al menos un número
+      /[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/ // al menos un carácter especial
+    ];
+    return requisitos.every((regex) => regex.test(password));
+  }
+
   document.getElementById('formCambiarContrasena').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const nueva = document.getElementById('nueva_password').value;
-    const repetir = document.getElementById('confirmar_password').value;
+    const nueva = document.getElementById('nueva_password').value.trim();
+    const repetir = document.getElementById('confirmar_password').value.trim();
 
     if (nueva !== repetir) {
       alert('Las contraseñas no coinciden.');
       limpiarCamposContrasena();
+      return;
+    }
+
+    if (!contrasenaSegura(nueva)) {
+      alert('La contraseña no cumple con los requisitos de seguridad.');
       return;
     }
 

@@ -26,10 +26,15 @@ from azure.storage.blob import BlobServiceClient, BlobClient
 
 ##################### Importar controladores y modelos backend ##########################
 from lib.pantallas_menu import get_pantallas_menu
-from controller.user import User
 from lib.verifcar_clave import check_user
 from lib.asignar_controles import fecha_asignacion, puestos_SC, puestos_UQ, concesion, control, rutas, turnos, hora_inicio, hora_fin
+from controller.user import User
 from controller.cargues import ProcesarCargueControles
+#from controller.route_chatbot import chatbot_router
+#from controller.route_NPL_chatbot import npl_router
+from controller.route_checklist import checklist_router
+from controller.cambiar_contrasena import cambiar_contrasena_post
+from controller.route_roles_powerbi import router_roles_powerbi
 from model.gestionar_db import Cargue_Controles
 from model.gestionar_db import Cargue_Asignaciones
 from model.gestionar_db import CargueLicenciasBI
@@ -40,10 +45,7 @@ from model.gestion_clausulas import GestionClausulas
 from model.job import TareasProgramadasJuridico
 from model.containerModel import ContainerModel
 from model.gestion_reportbi import ReportBIGestion
-#from controller.route_chatbot import chatbot_router
-#from controller.route_NPL_chatbot import npl_router
-from controller.route_checklist import checklist_router
-from controller.cambiar_contrasena import cambiar_contrasena_post
+from model.roles_powerbi import ModeloRolesPowerBI
 
 ############################### Carga de Variables de Entorno ###########################
 load_dotenv()
@@ -102,6 +104,7 @@ def login(req: Request, username: str = Form(...), password_user: str = Form(...
             estado = user_data[6]  # campo de estado del usuario
             rol = user_data[4]  # es el id_rol del usuario
             rol_storage = user_data[7]  # es el id_rol_storage del usuario
+            rol_powerbi  = user_data[8] # es el id_rol_powerbi del usuario
             
             # Verificamos si el estado del usuario es activo (1)
             if estado == 1:
@@ -112,7 +115,8 @@ def login(req: Request, username: str = Form(...), password_user: str = Form(...
                     "nombres": nombres,
                     "apellidos": apellidos,
                     "rol": rol,
-                    "rol_storage": rol_storage
+                    "rol_storage": rol_storage,
+                    "rol_powerbi": int(rol_powerbi or 0)
                 }
 
                 #print("Sesión del usuario:", req.session['user']) 
@@ -152,13 +156,19 @@ def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
     roles = db.get_all_roles()  # Obtiene los roles desde la base de datos
     roles_storage = storage_db.get_all_roles_storage()  # Obtiene los roles storage
     usuarios = db.get_all_users()  # Obtiene los usuarios desde la base de datos
+    
+    # >>> : listar roles Power BI activos (id, nombre)
+    modelo_pbi = ModeloRolesPowerBI()
+    roles_powerbi_raw = modelo_pbi.obtener_todos_roles()  # [(id, nombre, ids_csv, estado)]
+    roles_powerbi = [(r[0], r[1]) for r in roles_powerbi_raw if r[3] == 1]
 
     return templates.TemplateResponse("registrarse.html", {
         "request": req,
         "user_session": user_session,
         "roles": roles,
         "roles_storage": roles_storage,
-        "usuarios": usuarios
+        "usuarios": usuarios,
+        "roles_powerbi": roles_powerbi,
     })
 
 @app.get("/registrarse/{user_id}/datos" )
@@ -175,18 +185,20 @@ async def get_user_data(user_id: int):
         "rol": user["rol"],
         "estado": user["estado"],
         "rol_storage": user["rol_storage"],
+        "rol_powerbi": user.get("rol_powerbi", 0),
     })
 
 @app.post("/registrarse", response_class=HTMLResponse)
 def registrarse_post(req: Request, nombres: str = Form(...), apellidos: str = Form(...),
-                     username: str = Form(...), rol: int = Form(...),
-                     rol_storage: int = Form(...), password_user: str = Form(...), 
-                     user_session: dict = Depends(get_user_session)):
+                    username: str = Form(...), rol: int = Form(...),
+                    rol_storage: int = Form(...), rol_powerbi: int = Form(0), password_user: str = Form(...), 
+                    user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     
-    # Si no se selecciona un rol de storage, guardar "0"
+    # Si no se selecciona un rol de storage o powerbi, guardar "0"
     rol_storage = rol_storage if rol_storage != 0 else 0
+    rol_powerbi = rol_powerbi if rol_powerbi != 0 else 0
 
     data_user = {
         "nombres": nombres,
@@ -194,6 +206,7 @@ def registrarse_post(req: Request, nombres: str = Form(...), apellidos: str = Fo
         "username": username,
         "rol": rol,
         "rol_storage": rol_storage,
+        "rol_powerbi": rol_powerbi,
         "password_user": password_user,
         "estado": 1
     }
@@ -232,6 +245,10 @@ async def editar_usuario(id: int, request: Request, user_data: dict = Depends(ge
         # Verificamos si se seleccionó un rol de storage
         rol_storage = form_data_dict.get("rol_storage")
         form_data_dict["rol_storage"] = rol_storage if rol_storage != "0" else 0
+        
+        # Verificamos si se seleccionó un rol de powerbi
+        rol_powerbi = form_data_dict.get("rol_powerbi", "0")
+        form_data_dict["rol_powerbi"] = int(rol_powerbi) if rol_powerbi != "0" else 0
 
         # Llama a la función para actualizar el usuario en la base de datos
         db.update_user(id, form_data_dict)
@@ -831,55 +848,68 @@ def get_powerbi(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
 
-    # Obtener la cédula del usuario logueado desde la sesión
+    # ---- 1) licencias por cédula
     cedula = user_session.get('username')
-
-    # Consulta a la tabla licencias_bi
-    licencias_bi_query = """SELECT licencia_bi, contraseña_licencia 
-                            FROM licencias_bi 
-                            WHERE cedula = %s"""
+    licencias_bi_query = """SELECT licencia_bi, contraseña_licencia FROM licencias_bi WHERE cedula = %s"""
     result = db.fetch_one(query=licencias_bi_query, values=(cedula,))
 
-    # Instanciar el manejador de reportes Model. ReportBIGestion
+    # ---- 2) rol_powerbi desde sesión (con fallback a BD si no viene)
+    id_rol_bi = int(user_session.get("rol_powerbi") or 0)
+    if id_rol_bi <= 0:
+        row = db.fetch_one("SELECT rol_powerbi FROM usuarios WHERE id = %s", (user_session["id"],))
+        id_rol_bi = int(row[0]) if (row and row[0]) else 0
+        req.session["user"]["rol_powerbi"] = id_rol_bi  # sincroniza sesión
+
+    # ---- 3) arma report_data solo si el rol está ACTIVO
+    modelo_roles_bi = ModeloRolesPowerBI()
+    ids_permitidos = []
+    if id_rol_bi > 0:
+        rol = modelo_roles_bi.obtener_rol_por_id(id_rol_bi)
+        if rol and rol["estado"] == 1:
+            ids_permitidos = rol["id_powerbi"]  # List[int]
+
+    from model.gestion_reportbi import ReportBIGestion
     report_handler = ReportBIGestion()
+    report_data = report_handler.obtener_reportes_por_ids(ids_permitidos) if ids_permitidos else {}
 
-    # Obtener los datos dinámicos de la tabla 'reportbi'
-    report_data = report_handler.obtener_reportes()
+    default_report_id = ids_permitidos[0] if ids_permitidos else None
 
-    # Validar estructura del objeto report_data
-    #if not report_data:
-        #print("No se encontraron datos en 'report_data'")
-    #else:
-        #print(f"Datos cargados: {report_data}")
-
-    if result:
-        return templates.TemplateResponse("powerbi.html", {
-            "request": req,
-            "user_session": user_session,
-            "licencia_bi": result[0],
-            "contraseña_licencia": result[1],
-            "report_data": report_data,  # Asegurar que se envíen los datos dinámicos
-            "error_message": None
-        })
-    else:
-        return templates.TemplateResponse("powerbi.html", {
-            "request": req,
-            "user_session": user_session,
-            "licencia_bi": None,
-            "contraseña_licencia": None,
-            "report_data": report_data,  # Asegurar que siempre se envíen los datos dinámicos
-            "error_message": "No se encontraron licencias para el usuario."
-        })
+    return templates.TemplateResponse("powerbi.html", {
+        "request": req,
+        "user_session": user_session,
+        "licencia_bi": result[0] if result else None,
+        "contraseña_licencia": result[1] if result else None,
+        "report_data": report_data,
+        "default_report_id": default_report_id,
+        "error_message": None if result else "No se encontraron licencias para el usuario."
+    })
 
 @app.get("/api/get_report_url")
-def get_report_url(report_id: str = Query(..., title="Report ID")):
+def get_report_url(
+    report_id: int = Query(..., title="Report ID"),
+    user_session: dict = Depends(get_user_session)
+):
+    if not user_session:
+        return JSONResponse({"error": "No autenticado"}, status_code=401)
+
+    id_rol_bi = int(user_session.get("rol_powerbi") or 0)
+    if id_rol_bi <= 0:
+        return JSONResponse({"error": "Sin rol Power BI asignado"}, status_code=403)
+
+    modelo = ModeloRolesPowerBI()
+    rol = modelo.obtener_rol_por_id(id_rol_bi)
+    if not rol or rol["estado"] != 1:
+        return JSONResponse({"error": "Rol Power BI inactivo o inexistente"}, status_code=403)
+
+    ids_permitidos = set(rol["id_powerbi"])
+    if report_id not in ids_permitidos:
+        return JSONResponse({"error": "No autorizado para este informe"}, status_code=403)
+
     report_handler = ReportBIGestion()
     report_url = report_handler.obtener_url_bi(report_id)
-
-    if report_url and report_url.strip() != "" and report_url != "NaN":
-        return JSONResponse(content={"url": report_url})
-    else:
-        return JSONResponse(content={"error": "No existe enlace para este informe."}, status_code=404)
+    if report_url and report_url.strip() and report_url != "NaN":
+        return JSONResponse({"url": report_url})
+    return JSONResponse({"error": "No existe enlace para este informe"}, status_code=404)
 
 @app.post("/cargar_licencias")
 async def cargar_licencias(file: UploadFile = File(...)):
@@ -1667,3 +1697,13 @@ def checklist(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("checklist.html", {"request": req, "user_session": user_session})
+
+############################### MODULO DE ROLES POWER BI #################################
+# Incluir las rutas factorizadas en `route_roles_powerbi.py`
+app.include_router(router_roles_powerbi)
+
+@app.get("/roles_powerbi", response_class=HTMLResponse)
+def roles_powerbi(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("roles_powerbi.html", {"request": req, "user_session": user_session})

@@ -15,4 +15,4 @@ RUN pip install --no-cache-dir --upgrade pip \
 EXPOSE 80
 
 # Comando para iniciar la aplicación
-CMD ["gunicorn", "main:app", "--workers=1", "--worker-class=uvicorn.workers.UvicornWorker", "--bind=0.0.0.0:80", "--timeout=600"]
+CMD ["gunicorn", "main:app", "--workers=4", "--worker-class=uvicorn.workers.UvicornWorker", "--bind=0.0.0.0:80", "--timeout=600"]

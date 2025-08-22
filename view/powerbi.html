@@ -5,7 +5,7 @@
 {% block content %}
 
 <button id="show-menu" type="button" class="btn btn-primary">
-    <img src="/static/images/power.png" alt="Power BI Logo" style="width: 30px; margin-right: 5px;" font-family: 'Century Gothic', Arial, sans-serif;>
+    <img src="/static/images/power.png" alt="Power BI Logo" style="width: 30px; margin-right: 5px;" font-family: Century Gothic, Arial, sans-serif;>
     <br> Menú <br> Power BI
 </button>
 
@@ -123,15 +123,24 @@
         No Existe enlace al Informe.
     </div>
 
-    <!-- Informe inicial -->
+    <!-- Mensaje si NO hay reportes -->
+    {% if not report_data or report_data|length == 0 %}
+    <div class="d-flex align-items-center justify-content-center" style="height:80vh;">
+    <div class="alert alert-warning text-center shadow-sm" role="alert" style="max-width:640px;">
+        No tienes reportes de Power BI asignados. Solicita a un administrador que te asigne un rol.
+    </div>
+    </div>
+    {% endif %}
+
+    <!-- Informe inicial (usa el primer ID permitido si existe) -->
     <iframe id="default-report-frame"
-        title="PBI - ESTRUCTURA APP POWER BI CEXP"
-        width="100%"
-        height="100%"
-        data-report-id="1"
-        frameborder="0"
-        allowfullscreen="true"
-        style="display: none;">
+            title="Power BI - Reporte inicial"
+            width="100%"
+            height="100%"
+            data-report-id="{{ default_report_id or '' }}"
+            frameborder="0"
+            allowfullscreen="true"
+            style="display: none;">
     </iframe>
 
     <!-- Informe seleccionado -->
@@ -433,10 +442,22 @@ body.not.menu-hidden #hide-menu {
 
                 if (response.ok && data.url && data.url.trim() !== "" && data.url !== "NaN") {
                     return data.url;
-                } else {
-                    console.warn("No existe enlace para el informe seleccionado.");
+                }
+
+                if (response.status === 401) {
+                    console.warn("No autenticado.");
+                    alert("Tu sesión ha expirado o no estás autenticado.");
                     return null;
                 }
+                if (response.status === 403) {
+                    console.warn("No autorizado para este informe.");
+                    alert("No tienes permiso para ver este informe.");
+                    return null;
+                }
+
+                console.warn("No existe enlace para el informe seleccionado.");
+                return null;
+
             } catch (error) {
                 console.error("Error al obtener la URL del informe:", error);
                 return null;

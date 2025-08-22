@@ -78,12 +78,8 @@
                         </div>
 
                         <div class="row" style="margin-bottom: 0px;">
-                            <!-- Contraseña y Roles Storage en la misma fila -->
-                            <div class="col-md-6 mb-3">
-                                <label for="password_user" class="form-label">Contraseña</label>
-                                <input type="password" class="form-control" id="password_user" name="password_user" required>
-                            </div>
-                        
+                            <!-- Roles Storage Roles Power Bi en la misma fila -->
+                                                    
                             <div class="col-md-6 mb-3">
                                 <label for="rol_storage" class="form-label">Rol Storage (Azure)</label>
                                 <select class="form-select" id="rol_storage" name="rol_storage" required>
@@ -92,6 +88,20 @@
                                         <option value="{{ rol_storage[0] }}">{{ rol_storage[1] }} ({{ rol_storage[0] }})</option>
                                     {% endfor %}
                                 </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="rol_powerbi" class="form-label">Rol Power BI</label>
+                                <select class="form-select" id="rol_powerbi" name="rol_powerbi" required>
+                                <option value="0" selected>No Asignar</option>
+                                {% for r in roles_powerbi %}
+                                    <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                            <!-- Contraseña en una sola fila -->
+                            <div class="col-md-6 mb-3">
+                                <label for="password_user" class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" id="password_user" name="password_user" required>
                             </div>
                         </div>                        
 
@@ -121,130 +131,164 @@
                 <div class="card-header bg-dark text-white" style="margin-bottom: 0;">
                     <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff;font-weight: bold;">Usuarios Existentes</h4>
                 </div>
+
                 <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh; padding-top: 0;">
-                    <table class="table table-hover table-striped" style="table-layout: fixed; width: 100%; font-size: 12px;">
+                    <!-- Filtro -->
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <input id="filtroUsuarios" type="text" class="form-control form-control-sm"
+                            placeholder="Buscar por ID, usuario, nombre, apellidos, rol, blob, BI o estado…">
+                        <button id="btnLimpiarFiltro" type="button" class="btn btn-sm btn-outline-secondary">Limpiar</button>
+                        <span class="ms-auto small text-muted">
+                        <span id="contadorFilas">0</span> de {{ usuarios|length }} mostrados
+                        </span>
+                    </div>
+
+                    <table id="tablaUsuarios" class="table table-hover table-striped"
+                            style="table-layout: fixed; width: 100%; font-size: 12px;">
                         <thead class="table-light" style="position: sticky; top: 0; z-index: 1; margin-top: 0; padding: 0;">
-                            <tr>
-                                <th style="width: 3px;">ID</th>
-                                <th style="width: 12%;">Username</th>
-                                <th style="width: 35px;">Nombre</th>
-                                <th style="width: 35px;">Apellidos</th>
-                                <th style="width: 3px;">Rol</th>
-                                <th style="width: 3px;">Blob</th>
-                                <th style="width: 8px;">Estado</th>
-                                <th style="width: 45px;" class="text-center">Acciones</th>
-                            </tr>
+                        <tr>
+                            <th style="width: 3px;">ID</th>
+                            <th style="width: 12%;">Username</th>
+                            <th style="width: 35px;">Nombre</th>
+                            <th style="width: 35px;">Apellidos</th>
+                            <th style="width: 3px;">Rol</th>
+                            <th style="width: 3px;">Blob</th>
+                            <th style="width: 3px;">BI</th>
+                            <th style="width: 8px;">Estado</th>
+                            <th style="width: 45px;" class="text-center">Acciones</th>
+                        </tr>
                         </thead>
-                        <tbody>
-                          {% for usuario in usuarios %}
-                          <tr>
-                              <td>{{ usuario[0] }}</td> <!-- ID -->
-                              <td>{{ usuario[3] }}</td> <!-- Username -->
-                              <td>{{ usuario[1] }}</td> <!-- Nombres -->
-                              <td>{{ usuario[2] }}</td> <!-- Apellidos -->
-                              <td>{{ usuario[4] }}</td> <!-- Rol Sistema-->
-                              <td>{{ usuario[6] }}</td> <!-- Storage  -->
-                              <td>{{ 'Activo' if usuario[5] == 1 else 'Inactivo' }}</td> <!-- Estado -->
-                              <td class="text-center">
-                                  <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editUserModal" data-user-id="{{ usuario[0] }}">
-                                      <i class="fas fa-edit"></i> Editar
-                                  </button>
-                                  <form action="/registrarse/{{ usuario[0] }}/inactivar" method="post" style="display:inline;" onsubmit="return confirm('¿Está seguro de que desea inactivar este usuario?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="fas fa-ban"></i> Inactivar
-                                    </button>
-                                </form>
-                              </td>
-                          </tr>
-                          {% else %}
-                          <tr>
-                              <td colspan="7" class="text-center">No hay usuarios registrados</td>
-                          </tr>
-                          {% endfor %}
-                        </tbody>                                                                                                                                                 
+
+                        <tbody id="tbodyUsuarios">
+                        {% for usuario in usuarios %}
+                        <tr>
+                            <td>{{ usuario[0] }}</td> <!-- ID -->
+                            <td>{{ usuario[3] }}</td> <!-- Username -->
+                            <td>{{ usuario[1] }}</td> <!-- Nombres -->
+                            <td>{{ usuario[2] }}</td> <!-- Apellidos -->
+                            <td>{{ usuario[4] }}</td> <!-- Rol Sistema-->
+                            <td>{{ usuario[6] }}</td> <!-- Storage -->
+                            <td>{{ usuario[7] }}</td> <!-- Power BI -->
+                            <td>{{ 'Activo' if usuario[5] == 1 else 'Inactivo' }}</td> <!-- Estado -->
+                            <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    data-bs-toggle="modal" data-bs-target="#editUserModal"
+                                    data-user-id="{{ usuario[0] }}">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <form action="/registrarse/{{ usuario[0] }}/inactivar" method="post" style="display:inline;"
+                                    onsubmit="return confirm('¿Está seguro de que desea inactivar este usuario?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-ban"></i> Inactivar
+                                </button>
+                            </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr id="filaNoUsuarios">
+                            <td colspan="9" class="text-center">No hay usuarios registrados</td>
+                        </tr>
+                        {% endfor %}
+
+                        <!-- Fila dinámica para cuando el filtro no encuentra resultados -->
+                        <tr id="filaSinCoincidencias" style="display:none;">
+                            <td colspan="9" class="text-center text-muted py-3">Sin coincidencias para el filtro.</td>
+                        </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
         </div>
-    </div>
 
 <!-- Modal para editar usuario -->
 <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-      <div class="modal-content">
-          <form id="editUserForm" method="post">
-              <input type="hidden" id="editUserIdHidden" name="user_id" value="">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editUserForm" method="post">
+                <input type="hidden" id="editUserIdHidden" name="user_id" value="">
 
-              <div class="modal-header bg-primary text-white">
-                  <h5 class="modal-title" id="editUserModalLabel">Editar Usuario</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="editUserModalLabel">Editar Usuario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
 
-              <div class="modal-body">
-                  <div class="row">
-                      <div class="col-md-6 mb-3">
-                          <label for="editUserIdDisplay" class="form-label">ID</label>
-                          <input type="text" class="form-control" id="editUserIdDisplay" name="user_id" disabled>
-                      </div>
-                      <div class="col-md-6 mb-3">
-                          <label for="editUserUsername" class="form-label">Username (N° Cedula)</label>
-                          <input type="text" class="form-control" id="editUserUsername" name="username" required oninput="this.value = this.value.replace(/[^0-9]/g, '');">
-                      </div>
-                  </div>
-
-                  <div class="row">
-                      <div class="col-md-6 mb-3">
-                          <label for="editUserName" class="form-label">Nombre</label>
-                          <input type="text" class="form-control" id="editUserName" name="nombres" required oninput="this.value = this.value.toUpperCase();">
-                      </div>
-                      <div class="col-md-6 mb-3">
-                          <label for="editUserApellido" class="form-label">Apellido</label>
-                          <input type="text" class="form-control" id="editUserApellido" name="apellidos" required oninput="this.value = this.value.toUpperCase();">
-                      </div>
-                  </div>
-
-                  <div class="row">
-                      <div class="col-md-6 mb-3">
-                          <label for="editUserRol" class="form-label">Rol</label>
-                          <select class="form-select" id="editUserRol" name="rol" required>
-                              {% for rol in roles %}
-                                  <option value="{{ rol[0] }}">{{ rol[1] }} ({{ rol[0] }})</option>
-                              {% endfor %}
-                          </select>
-                      </div>
-                      <div class="col-md-6 mb-3">
-                          <label for="editUserEstado" class="form-label">Estado</label>
-                          <select class="form-select" id="editUserEstado" name="estado" required>
-                              <option value="1">Activo</option>
-                              <option value="0">Inactivo</option>
-                          </select>
-                      </div>
-                  </div>
-
-                  <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="editUserPassword" class="form-label">Contraseña (opcional)</label>
-                        <input type="password" class="form-control" id="editUserPassword" name="password_user">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserIdDisplay" class="form-label">ID</label>
+                            <input type="text" class="form-control" id="editUserIdDisplay" name="user_id" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserUsername" class="form-label">Username (N° Cedula)</label>
+                            <input type="text" class="form-control" id="editUserUsername" name="username" required oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                        </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="editUserRolStorage" class="form-label">Rol Storage (Azure)</label>
-                        <select class="form-select" id="editUserRolStorage" name="rol_storage" required>
-                            <option value="0">No Asignar</option>  <!-- Opción por defecto -->
-                            {% for rol_storage in roles_storage %}
-                                <option value="{{ rol_storage[0] }}">{{ rol_storage[1] }} ({{ rol_storage[0] }})</option>
-                            {% endfor %}
-                        </select>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserName" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="editUserName" name="nombres" required oninput="this.value = this.value.toUpperCase();">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserApellido" class="form-label">Apellido</label>
+                            <input type="text" class="form-control" id="editUserApellido" name="apellidos" required oninput="this.value = this.value.toUpperCase();">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserRol" class="form-label">Rol</label>
+                            <select class="form-select" id="editUserRol" name="rol" required>
+                                {% for rol in roles %}
+                                    <option value="{{ rol[0] }}">{{ rol[1] }} ({{ rol[0] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserEstado" class="form-label">Estado</label>
+                            <select class="form-select" id="editUserEstado" name="estado" required>
+                                <option value="1">Activo</option>
+                                <option value="0">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserRolStorage" class="form-label">Rol Storage (Azure)</label>
+                            <select class="form-select" id="editUserRolStorage" name="rol_storage" required>
+                                <option value="0">No Asignar</option>  <!-- Opción por defecto -->
+                                {% for rol_storage in roles_storage %}
+                                    <option value="{{ rol_storage[0] }}">{{ rol_storage[1] }} ({{ rol_storage[0] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserRolPowerBI" class="form-label">Rol Power BI</label>
+                            <select class="form-select" id="editUserRolPowerBI" name="rol_powerbi" required>
+                                <option value="0">No Asignar</option>
+                                {% for r in roles_powerbi %}
+                                <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserPassword" class="form-label">Contraseña (opcional)</label>
+                            <input type="password" class="form-control" id="editUserPassword" name="password_user">
+                        </div>
+                        
                     </div>
                 </div>
-            </div>
 
-              <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                  <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-              </div>
-          </form>
-      </div>
-  </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 <!-- FUNCIONES PARA QUE EL MODAL TRAIGA LOS DATOS DE LA TABLA USUARIOS -->
 <script>
@@ -277,6 +321,7 @@
         document.getElementById('editUserEstado').value = '';
         document.getElementById('editUserPassword').value = '';
         document.getElementById('editUserRolStorage').value = '0';
+        document.getElementById('editUserRolPowerBI').value = '0';
 
         // Solicitar datos del usuario seleccionado
         fetch(`/registrarse/${userId}/datos`)
@@ -297,6 +342,7 @@
                 document.getElementById('editUserRol').value = data.rol;
                 document.getElementById('editUserEstado').value = data.estado;
                 document.getElementById('editUserRolStorage').value = data.rol_storage || '0'; 
+                document.getElementById('editUserRolPowerBI').value = data.rol_powerbi || '0';
 
                 // No mostrar la contraseña, solo permitir cambiarla
                 document.getElementById('editUserPassword').value = '';
@@ -378,6 +424,67 @@
             alert('Hubo un error al crear el usuario. Inténtelo de nuevo.');
         }
     });
+</script>
+
+<script>
+    (function () {
+    const input = document.getElementById('filtroUsuarios');
+    const btnClear = document.getElementById('btnLimpiarFiltro');
+    const tbody = document.getElementById('tbodyUsuarios');
+    const filaSin = document.getElementById('filaSinCoincidencias');
+    const filaVacia = document.getElementById('filaNoUsuarios');
+    const contador = document.getElementById('contadorFilas');
+
+    function normalizar(txt) {
+        return (txt || '')
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, ''); // quita tildes
+    }
+
+    function actualizarContador() {
+        const filas = [...tbody.querySelectorAll('tr')]
+        .filter(tr => tr !== filaSin && tr !== filaVacia);
+        const visibles = filas.filter(tr => tr.style.display !== 'none').length;
+        if (contador) contador.textContent = visibles;
+    }
+
+    function filtrar() {
+        const q = normalizar(input.value);
+        const filas = [...tbody.querySelectorAll('tr')]
+        .filter(tr => tr !== filaSin && tr !== filaVacia);
+
+        let vis = 0;
+        filas.forEach(tr => {
+        const texto = normalizar(tr.textContent);
+        const coincide = q === '' || texto.includes(q);
+        tr.style.display = coincide ? '' : 'none';
+        if (coincide) vis++;
+        });
+
+        // Mostrar/ocultar fila “sin coincidencias”
+        if (filaSin) filaSin.style.display = (vis === 0 && filas.length > 0) ? '' : 'none';
+
+        actualizarContador();
+    }
+
+    // Debounce simple
+    let t;
+    input && input.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(filtrar, 120);
+    });
+
+    btnClear && btnClear.addEventListener('click', () => {
+        input.value = '';
+        filtrar();
+        input.focus();
+    });
+
+    // Inicial
+    filtrar();
+    })();
 </script>
 
 {% endblock %}

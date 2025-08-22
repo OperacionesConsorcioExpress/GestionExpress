@@ -60,14 +60,15 @@ class HandleDB:
         with self._lock:
             self._check_connection()  # Verifica la conexión antes de usarla
             self._cur.execute("""
-                INSERT INTO usuarios (nombres, apellidos, username, rol, rol_storage, password_user, estado)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO usuarios (nombres, apellidos, username, rol, rol_storage, rol_powerbi, password_user, estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 data_user["nombres"],
                 data_user["apellidos"],
                 data_user["username"],
                 data_user["rol"],
                 data_user["rol_storage"],
+                data_user.get("rol_powerbi", 0),
                 data_user["password_user"],
                 1 # Siempre se insertará como 'activo' con estado 1
             ))
@@ -145,15 +146,15 @@ class HandleDB:
         with self._lock:
             self._check_connection()
             # Asegurémonos de obtener todos los campos
-            self._cur.execute("SELECT id, nombres, apellidos, username, rol, estado, rol_storage FROM usuarios ORDER BY id ASC")
+            self._cur.execute("SELECT id, nombres, apellidos, username, rol, estado, rol_storage , rol_powerbi FROM usuarios ORDER BY id ASC")
             usuarios = self._cur.fetchall()
             # print("Usuarios obtenidos de la base de datos:", usuarios)  # Debugging
             return usuarios
-      
+    
     def get_user_by_id(self, user_id):
         with self._lock:
             self._check_connection()
-            self._cur.execute("SELECT id, nombres, apellidos, username, rol, estado, rol_storage FROM usuarios WHERE id = %s", (user_id,))
+            self._cur.execute("SELECT id, nombres, apellidos, username, rol, estado, rol_storage, rol_powerbi FROM usuarios WHERE id = %s", (user_id,))
             usuario = self._cur.fetchone()
             if usuario:
                 return {
@@ -163,19 +164,20 @@ class HandleDB:
                     "username": usuario[3],
                     "rol": usuario[4],
                     "estado": usuario[5],
-                    "rol_storage": usuario[6]
+                    "rol_storage": usuario[6],
+                    "rol_powerbi": usuario[7]
                 }
             return None
-           
+        
     def update_user(self, user_id, data):
         with self._lock:
             self._check_connection()
 
             # Comienza a construir la consulta SQL
             query = """
-                UPDATE usuarios SET nombres = %s, apellidos = %s, username = %s, rol = %s, estado = %s, rol_storage = %s
+                UPDATE usuarios SET nombres = %s, apellidos = %s, username = %s, rol = %s, estado = %s, rol_storage = %s, rol_powerbi = %s
             """
-            params = [data['nombres'], data['apellidos'], data['username'], data['rol'], data['estado'], data['rol_storage']]
+            params = [data['nombres'], data['apellidos'], data['username'], data['rol'], data['estado'], data['rol_storage'], int(data.get('rol_powerbi', 0))]
 
             # Solo agrega la contraseña si está presente en los datos
             if "password_user" in data and data["password_user"]:
@@ -359,7 +361,7 @@ class Cargue_Controles:
 
             else:
                 raise psycopg2.OperationalError("No se pudo desbloquear la base de datos después de varios intentos")                 
-               
+
 class Cargue_Asignaciones:
     def __init__(self):
         self.database_path = DATABASE_PATH

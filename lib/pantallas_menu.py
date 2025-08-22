@@ -8,5 +8,6 @@ def get_pantallas_menu():
         "Crear Usuario",
         "Gestión de Roles",
         "Roles Blob Storage",
+        "Roles PowerBI",
         "NPL Chatbot"
     ]
