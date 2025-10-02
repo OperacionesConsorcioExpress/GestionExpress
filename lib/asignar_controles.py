@@ -58,7 +58,7 @@ def control(concesion_seleccionada, puestos_seleccionado):
 def rutas(concesion, puestos, control):
     conn = psycopg2.connect(DATABASE_PATH)
     cursor = conn.cursor()
-    print(f"Filtrando rutas para concesion: {concesion}, puestos: {puestos}, control: {control}")  # Validación
+    #print(f"Filtrando rutas para concesion: {concesion}, puestos: {puestos}, control: {control}")  # Validación
 
     #Consulta basada en concesion, puestos, and control
     query = """
@@ -67,7 +67,7 @@ def rutas(concesion, puestos, control):
     """
     cursor.execute(query, (concesion, puestos, control))
     rutas = [row[0] for row in cursor.fetchall()]
-    print(f"Rutas obtenidas: {rutas}") 
+    #print(f"Rutas obtenidas: {rutas}") 
     conn.close()
     
     # Ordenar las rutas y unirlas en una cadena separada por comas

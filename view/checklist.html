@@ -17,17 +17,33 @@
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="registro-tab" data-bs-toggle="tab" data-bs-target="#registro" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">📋 Registro Checklist</button>
         </li>
-        
-        <!-- Condicional Rol = 6 Solo ve la pestaña Registro (Personal Vía) -->
+        <!-- Condicional Rol = 6 Solo ve el (Personal Vía) -->
         {% if user_session.rol != 6 %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="fallas-tab" data-bs-toggle="tab" data-bs-target="#fallas" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">⚠️ Consolidado de Fallas</button>
+            <button class="nav-link" id="fallas-tab" data-bs-toggle="tab" data-bs-target="#fallas" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">⚠️ Gestión Checklist</button>
+        </li>
+        {% endif %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-registro-preop" data-bs-toggle="tab" data-bs-target="#registro-preop" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">🧰 Registro Preoperacional
+            </button>
+        </li>
+        <!-- Condicional Rol = 6 Solo ve lo que no esta en el condicional (Personal Vía) -->
+        {% if user_session.rol != 6 %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ver-preop-tab" data-bs-toggle="tab" data-bs-target="#ver-preop"
+                    type="button" role="tab"
+                    style="font-size:14px; font-family: 'Century Gothic', sans-serif;">
+                🧾 Mantenimiento Moto
+            </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="vehiculos-tab" data-bs-toggle="tab" data-bs-target="#vehiculos" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">🚗 Parametrización Vehículos</button>
+            <button class="nav-link" id="vehiculos-tab" data-bs-toggle="tab" data-bs-target="#vehiculos" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">🚗 Vehículos</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="reporte-tab" data-bs-toggle="tab" data-bs-target="#reporte" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">📊 Consultas y Reportes</button>
+            <button class="nav-link" id="tab-param-preop" data-bs-toggle="tab" data-bs-target="#param-preop" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">🛠️ Parámetro Mtto</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="reporte-tab" data-bs-toggle="tab" data-bs-target="#reporte" type="button" role="tab" style="font-size:14px; font-family: 'Century Gothic', sans-serif;">📊 Reportes</button>
         </li>
         {% endif %}
     </ul>
@@ -40,8 +56,9 @@
         </div>
     </div>
 
-    <!-- Pestaña Registro Checklist -->
+    <!-- Contenido de las pestañas -->
     <div class="tab-content mt-4" id="checklistTabsContent">
+        <!-- Pestaña Registro Checklist -->
         <div class="tab-pane fade show active form-section" id="registro" role="tabpanel">
             <div class="container-fluid">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
@@ -271,7 +288,7 @@
                 <table class="table table-hover table-bordered align-middle mb-0" id="tablaFallas" style="font-size: 14px; font-family: 'Century Gothic', sans-serif;">
                     <thead class="text-center sticky-top" style="background-color: #336ff0; color: white; z-index: 1;">
                         <tr>
-                            <th style="width: 60px;"><i class="fas fa-cog"></i></th>
+                            <th style="width: 60px;"><i class="fas fa-cog"></i>Ver</th>
                             <th><i class="fas fa-car"></i> Placa</th>
                             <th><i class="fas fa-list-alt"></i> Tipo Vehículo</th>
                             <th><i class="fas fa-industry"></i> Marca</th>
@@ -287,7 +304,224 @@
                 </table>
             </div>
         </div>
+        {% endif %}
 
+        <!-- Pestaña Registro Preoperacional -->
+        <span id="sessionUser"
+            data-user-full="{{ user_session.nombres }} {{ user_session.apellidos }}"
+            data-user-login="{{ user_session.usuario }}"></span>
+        <div class="tab-pane fade form-section" id="registro-preop" role="tabpanel" aria-labelledby="tab-registro-preop">
+        <div class="container-fluid">
+            <!-- Encabezado y consulta por placa -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <h4 class="fw-bold m-0 text-truncate" style="font-size: 16px; font-family: 'Century Gothic', sans-serif; max-width: 100%;">
+                Registro Preoperacional
+            </h4>
+            <h4 class="text-primary fw-bold m-0 text-truncate" style="font-size: 16px; font-family: 'Century Gothic', sans-serif; max-width: 100%;">
+                Consulta tu vehículo y agrega mantenimientos
+            </h4>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="position-relative" style="width: 180px;">
+                <input type="text" class="form-control" id="preopSearchPlaca" placeholder="Ingrese la placa..."
+                        oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');">
+                <div id="preopPlacaList" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                </div>
+                <button id="btnPreopConsultar" class="btn btn-primary" style="height: 36px; min-width: 80px; padding: 4px 6px; font-size: 14px;">
+                Consultar
+                </button>
+                <button class="btn btn-secondary" onclick="preopLimpiarConsulta()" style="height: 36px; min-width: 80px; padding: 4px 6px; font-size: 14px;">
+                Limpiar
+                </button>
+            </div>
+            </div>
+
+            <!-- Datos generales del vehículo (acordeón) -->
+            <div class="accordion" id="preopVehiculoAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="preopHeadingVehiculo">
+                <button class="accordion-button py-2" type="button" data-bs-toggle="collapse" data-bs-target="#preopCollapseVehiculo">
+                    <img src="/static/images/camion.png" alt="Icono vehiculo" width="24" height="24" class="me-2">
+                    <span>Datos Generales del Vehículo</span>
+                </button>
+                </h2>
+                <div id="preopCollapseVehiculo" class="accordion-collapse collapse show" data-bs-parent="#preopVehiculoAccordion">
+                <div class="accordion-body">
+                    <div class="d-flex flex-wrap gap-4">
+                    <p class="mb-0"><strong>Placa:</strong> <span id="preopPlacaInfo">-</span></p>
+                    <p class="mb-0"><strong>Tipo de Vehículo:</strong> <span id="preopTipoVehiculoInfo">-</span></p>
+                    <p class="mb-0"><strong>Marca:</strong> <span id="preopMarcaVehiculoInfo">-</span></p>
+                    <p class="mb-0"><strong>Línea:</strong> <span id="preopLineaVehiculoInfo">-</span></p>
+                    <p class="mb-0"><strong>Modelo:</strong> <span id="preopModeloVehiculoInfo">-</span></p>
+                    </div>
+                </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Sección principal: selector + carrito -->
+            <div class="row mt-3">
+            <!-- Columna izquierda: Selección de mantenimiento + adjuntos -->
+            <div class="col-lg-5 d-flex flex-column" style="height: 70vh;">
+                <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff; font-weight: bold;">
+                    Seleccionar Mantenimiento
+                    </h4>
+                </div>
+                <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <span style="color: red; font-weight: bold;">*</span> Fecha Mantenimiento:
+                        </label>
+                        <input type="date" id="preopFechaMantenimiento" class="form-control" required>
+                        <div class="form-text">Seleccione la fecha del mantenimiento.</div>
+                    </div>
+                    <div class="mb-3">
+                    <label class="form-label fw-bold"><span style="color: red; font-weight: bold;">*</span> Mantenimiento:</label>
+                    <select id="preopMantenimientoSelect" class="form-select">
+                        <!-- se llena desde BD (solo activos) -->
+                    </select>
+                    <div class="form-text">Lista cargada desde los parámetros activos.</div>
+                    </div>
+
+                    <div class="mb-3">
+                    <label class="form-label fw-bold">Observación (opcional):</label>
+                    <textarea id="preopObservacion" class="form-control" rows="2" placeholder="Detalle del mantenimiento..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                    <label class="form-label fw-bold"><span style="color: red; font-weight: bold;">*</span> Adjuntos:</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        <!-- Desde archivos del equipo (múltiples) -->
+                        <label class="btn btn-outline-primary btn-sm mb-0">
+                        <input type="file" id="preopFileInput" class="d-none" multiple
+                                accept="image/*,application/pdf">
+                        <i class="fas fa-paperclip me-1"></i> Adjuntar archivos
+                        </label>
+                        <!-- Abrir cámara (foto) -->
+                        <label class="btn btn-outline-success btn-sm mb-0">
+                        <input type="file" id="preopCameraInput" class="d-none" accept="image/*" capture="environment">
+                        <i class="fas fa-camera me-1"></i> Tomar foto
+                        </label>
+                    </div>
+                    <div id="preopAdjuntosPreview" class="d-flex flex-wrap gap-2 mt-2">
+                        <!-- thumbnails / chips de archivos a agregar -->
+                    </div>
+                    <div class="form-text">Adjuntar al menos un archivo/foto por mantenimiento.</div>
+                    </div>
+
+                    <div class="d-grid">
+                    <button class="btn btn-success" onclick="preopAgregarAlCarrito()">
+                        Agregar al carrito
+                    </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Columna derecha: Carrito de mantenimientos -->
+            <div class="col-lg-7 d-flex flex-column" style="height: 70vh;">
+                <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff; font-weight: bold;">
+                    Carrito de Mantenimientos
+                    </h4>
+                </div>
+                <div class="card-body flex-grow-1 d-flex flex-column" style="height: 60vh; overflow-y: auto;">
+                    <div class="table-responsive" style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+                    <table class="table table-hover table-striped text-center mb-0" style="min-width: 500px; table-layout:auto; white-space:nowrap; font-size:12px;">
+                        <thead style="background-color:#0a6ad1;color:white;position:sticky;top:0;z-index:1;font-family:'Century Gothic',sans-serif;">
+                            <tr class="align-middle">
+                            <th class="text-start" style="width:10%;">Fecha</th>
+                            <th class="text-start" style="width:15%;">Mantenimiento</th>
+                            <th class="text-start" style="width:20%;">Adjuntos</th>
+                            <th class="text-start" style="width:25%;">Observación</th>
+                            <th class="text-center" style="width:10%;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preopCarritoBody"></tbody>
+                    </table>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-end gap-2">
+                    <button class="btn btn-secondary" onclick="preopVaciarCarrito()">Vaciar</button>
+                    <button id="preopGuardarBtn" class="btn btn-primary" onclick="preopGuardarRegistro()" disabled>Guardar Registro</button>
+                </div>
+                </div>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        {% if user_session.rol != 6 %}
+        <!-- Pestaña Ver Historial Preoperacional Registrados -->
+        <div class="tab-pane fade form-section" id="ver-preop" role="tabpanel" aria-labelledby="ver-preop-tab">
+            <!-- Filtros -->
+            <div class="row mb-3 p-2 border rounded shadow-sm bg-light">
+                <!-- Placa (con autocompletar) -->
+                <div class="col-md-2 position-relative">
+                <label class="form-label fw-bold mb-1">Placa:</label>
+                <input type="text" class="form-control form-control-sm" id="verPreopBuscarPlaca"
+                        placeholder="Ej: ABC123"
+                        oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');">
+                <div id="verPreopPlacaList" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                </div>
+
+                <!-- Tipo Vehículo -->
+                <div class="col-md-2">
+                <label class="form-label fw-bold mb-1">Tipo Vehículo:</label>
+                <input type="text" class="form-control form-control-sm" id="verPreopTipo" placeholder="Ej: Carro Taller">
+                </div>
+
+                <!-- Marca -->
+                <div class="col-md-2">
+                <label class="form-label fw-bold mb-1">Marca:</label>
+                <input type="text" class="form-control form-control-sm" id="verPreopMarca" placeholder="Ej: Chevrolet">
+                </div>
+
+                <!-- Línea -->
+                <div class="col-md-2">
+                <label class="form-label fw-bold mb-1">Línea:</label>
+                <input type="text" class="form-control form-control-sm" id="verPreopLinea" placeholder="Ej: NHR">
+                </div>
+
+                <!-- Modelo -->
+                <div class="col-md-2">
+                <label class="form-label fw-bold mb-1">Modelo:</label>
+                <input type="text" class="form-control form-control-sm" id="verPreopModelo" placeholder="Ej: 2026">
+                </div>
+
+                <!-- Botones -->
+                <div class="col-md-2 d-flex align-items-end gap-2">
+                <button class="btn btn-primary btn-sm w-50" id="verPreopBuscarBtn">Buscar</button>
+                <button class="btn btn-secondary btn-sm w-50" id="verPreopLimpiarBtn">Limpiar</button>
+                </div>
+            </div>
+
+            <!-- Tabla -->
+            <div class="table-responsive mt-3 shadow-sm rounded"
+                style="border:2px solid #dee2e6; max-height: 70vh; overflow-y:auto;">
+                <table class="table table-hover table-bordered align-middle mb-0"
+                    id="tablaVerPreop" style="table-layout:fixed; width:100%; font-size:14px; font-family:'Century Gothic', sans-serif;">
+                <thead class="text-center sticky-top" style="background-color:#336ff0; color:white; z-index:1;">
+                    <tr>
+                    <th style="width: 60px;"><i class="fas fa-cog"></i> Ver</th>
+                    <th style="width:6rem;"><i class="fas fa-car"></i> Placa</th>
+                    <th><i class="fas fa-list-alt"></i> Tipo Vehículo</th>
+                    <th><i class="fas fa-industry"></i> Marca</th>
+                    <th><i class="fas fa-stream"></i> Línea</th>
+                    <th><i class="fas fa-calendar-alt"></i> Modelo</th>
+                    <th><i class="fas fa-tachometer-alt"></i> Último Odómetro</th>
+                    <th><i class="fas fa-tools"></i> Último Mtto</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center" id="tbodyVerPreop">
+                    <!-- Se llena dinámicamente -->
+                </tbody>
+                </table>
+            </div>
+        </div>
+            
         <!-- Pestaña Parametización de Vehículos -->
         <div class="tab-pane fade form-section" id="vehiculos" role="tabpanel">
             <div class="row">
@@ -295,43 +529,75 @@
                 <div class="col-lg-5 d-flex flex-column" style="height: 80vh;">
                     <div class="card shadow-sm flex-grow-1 d-flex flex-column">
                         <div class="card-header bg-primary text-white">
-                            <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff;font-weight: bold;">Registrar Nuevo Vehículo</h4>
+                        <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff;font-weight: bold;">
+                            Registrar Nuevo Vehículo
+                        </h4>
                         </div>
                         <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh;">
-                            <form id="createVehicleForm">
-                                <div class="mb-3">
-                                    <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Placa del Vehículo:</label>
-                                    <input type="text" class="form-control" id="placaVehiculo" placeholder="Ejemplo: ABC123" required 
-                                        oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');">
+                        <form id="createVehicleForm">
+                            <!-- Proceso/Subproceso -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                <label class="form-label">
+                                    <span style="color:red;font-weight:bold;">*</span> Proceso:
+                                </label>
+                                <select class="form-select" id="procSelect" required>
+                                    <option value="" selected disabled>Seleccione el proceso...</option>
+                                    <!-- opciones por JS -->
+                                </select>
                                 </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Tipo de Vehículo:</label>
-                                    <select class="form-select" id="tipoVehiculo" required>
-                                        <option disabled selected>Seleccione el tipo...</option>
-                                    </select>
+                                <div class="col-md-6 mb-3">
+                                <label class="form-label">
+                                    <span style="color:red;font-weight:bold;">*</span> Subproceso:
+                                </label>
+                                <select class="form-select" id="subprocSelect" required>
+                                    <option value="" selected disabled>Seleccione el subproceso...</option>
+                                    <!-- opciones por JS (value = id_proceso) -->
+                                </select>
                                 </div>
+                            </div>
+                            <div class="mb-3">
+                            <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Placa del Vehículo:</label>
+                            <input type="text" class="form-control" id="placaVehiculo" placeholder="Ejemplo: ABC123" required
+                                    oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');">
+                            </div>
 
-                                <div class="mb-3">
-                                    <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Marca:</label>
-                                    <input type="text" class="form-control" id="marcaVehiculo" placeholder="Ejemplo: Toyota" required>
-                                </div>
+                            <!-- 🔹 Tipo de Vehículo y Marca en la misma fila -->
+                            <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Tipo de Vehículo:</label>
+                                <select class="form-select" id="tipoVehiculo" required>
+                                <option disabled selected>Seleccione el tipo...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Marca:</label>
+                                <input type="text" class="form-control" id="marcaVehiculo" placeholder="Ejemplo: Toyota" required>
+                            </div>
+                            </div>
 
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Línea:</label>
-                                        <input type="text" class="form-control" id="lineaVehiculo" placeholder="Ejemplo: Hilux" required>
-                                    </div>
+                            <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Línea:</label>
+                                <input type="text" class="form-control" id="lineaVehiculo" placeholder="Ejemplo: Hilux" required>
+                            </div>
 
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Modelo:</label>
-                                        <input type="number" class="form-control" id="modeloVehiculo" placeholder="Ejemplo: 2022" required
-                                            oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');">
-                                    </div>
-                                </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><span style="color: red; font-weight: bold;">*</span> Modelo:</label>
+                                <input type="number" class="form-control" id="modeloVehiculo" placeholder="Ejemplo: 2022" required
+                                    oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');">
+                            </div>
+                            </div>
 
-                                <button type="submit" class="btn btn-success w-100">Guardar Vehículo</button>
-                            </form>
+                            <div class="mb-3">
+                            <label class="form-label fw-bold">Km Base Mtto - Motos (opcional)</label>
+                            <div id="kmBaseCreateContainer" class="table-responsive"
+                                style="max-height: 260px; overflow-y:auto; border:1px solid #eee; border-radius:8px;"></div>
+                            <div class="form-text">Ingrese los km iniciales por mantenimiento. Se puede editar luego en cualquier momento.</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success w-100">Guardar Vehículo</button>
+                        </form>
                         </div>
                     </div>
                 </div>
@@ -365,72 +631,209 @@
             </div>
         </div>
 
+        <!-- Pestaña Parametrización Preoperacionales -->
+        <div class="tab-pane fade form-section" id="param-preop" role="tabpanel" aria-labelledby="tab-param-preop">
+        <div class="row">
+            <!-- Sección Izquierda: Creación de Parámetro -->
+            <div class="col-lg-5 d-flex flex-column" style="height: 80vh;">
+            <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+                <div class="card-header bg-primary text-white">
+                <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff; font-weight: bold;">
+                    Registrar Nuevo Mantenimiento
+                </h4>
+                </div>
+                <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh;">
+                <form id="createPreopForm">
+                    <div class="mb-3">
+                    <label class="form-label">Mantenimiento:</label>
+                    <input type="text"
+                            id="mantenimiento_preop"
+                            class="form-control"
+                            placeholder="EJ: FRENOS"
+                            required
+                            oninput="this.value = this.value.toUpperCase();"
+                            pattern="[A-ZÁÉÍÓÚÜÑ0-9\s\-\.,]{1,60}">
+                    <div class="form-text">Escribe el nombre en MAYÚSCULAS. Se guardará tal cual en BD.</div>
+                    </div>
+
+                    <div class="mb-3">
+                    <label class="form-label">Km Óptimo:</label>
+                    <input type="number" min="0" id="km_optimo_preop" class="form-control" placeholder="Ej: 5000">
+                    <div class="form-text">Por defecto queda en blanco hasta que se asigne.</div>
+                    </div>
+
+                    <div class="mb-3">
+                    <label class="form-label">Estado:</label>
+                    <select id="estado_preop" class="form-select">
+                        <option value="1" selected>Activo</option>
+                        <option value="0">Inactivo</option>
+                    </select>
+                    </div>
+
+                    <button type="button" class="btn btn-success w-100" onclick="registrarParametroPreoperacional()">Guardar Mantenimiento</button>
+                </form>
+                </div>
+            </div>
+            </div>
+
+            <!-- Sección Derecha: Listado de Parámetros -->
+            <div class="col-lg-7 d-flex flex-column" style="height: 80vh;">
+            <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+                <div class="card-header bg-dark text-white">
+                <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff; font-weight: bold;">
+                    Mantenimientos Registrados
+                </h4>
+                </div>
+                <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh; padding-top: 0;">
+                <table class="table table-hover table-striped text-center" style="table-layout: fixed; width: 100%; font-size: 12px;">
+                    <thead style="background-color: #0a6ad1; color: white; position: sticky; top: 0; z-index: 1; margin-top: 0; padding: 0">
+                    <tr>
+                        <th style="width: 35%;">Mantenimiento</th>
+                        <th style="width: 20%;">Km Óptimo</th>
+                        <th style="width: 15%;">Estado</th>
+                        <th style="width: 30%;">Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="tbody-param-preop">
+                    <!-- filas dinámicas -->
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- Modal edición configuración preoperacional -->
+        <div class="modal fade" id="modalEditarPreop" tabindex="-1" aria-labelledby="modalEditarPreopLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="modalEditarPreopLabel">Editar Parámetro Preoperacional</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editar_id_preop">
+                <div class="mb-3">
+                <label class="form-label">Mantenimiento</label>
+                <input type="text"
+                        id="editar_mantenimiento_preop"
+                        class="form-control"
+                        required
+                        oninput="this.value = this.value.toUpperCase();"
+                        pattern="[A-ZÁÉÍÓÚÜÑ0-9\s\-\.,]{1,60}">
+                </div>
+                <div class="mb-3">
+                <label class="form-label">Km Óptimo</label>
+                <input type="number" min="0" id="editar_km_optimo_preop" class="form-control" placeholder="Ej: 5000">
+                </div>
+                <div class="mb-3">
+                <label class="form-label">Estado</label>
+                <select id="editar_estado_preop" class="form-select">
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-dark" onclick="guardarEdicionParametro()">Guardar cambios</button>
+            </div>
+            </div>
+        </div>
+        </div>
+
         <!-- Pestaña Reportes -->
         <div class="tab-pane fade" id="reporte" role="tabpanel">
             <div class="container-fluid mt-3">
 
-                <!--  SECCIÓN DE FILTROS -->
-                <div class="filtros-reporte rounded p-3 shadow-sm mb-4 bg-white border-start border-4 border-primary">
-                    <h5 class="mb-3" style="font-family: 'Century Gothic'; font-weight: bold; color: #0d6efd;">
-                        🔍 Filtros del Reporte de Fallas
-                    </h5>
+                <!--  SECCIÓN UNIFICADA: REPORTE + FILTROS -->
+                <div class="filtros-reporte rounded p-3 shadow-sm mb-3 bg-white border-start border-4 border-primary">
 
-                    <div class="row g-2 align-items-end">
-                        <!-- Fecha -->
-                        <div class="col-md-2">
-                            <label class="form-label-sm mb-0">Fecha de Reporte:</label>
-                            <input type="date" id="filtroFecha" class="form-control form-control-sm">
-                        </div>
-
-                        <!-- Placa -->
-                        <div class="col-md-2">
-                            <label class="form-label-sm mb-0">Placa:</label>
-                            <select id="filtroPlaca" class="form-select form-select-sm">
-                                <option value="">Todas</option>
-                            </select>
-                        </div>
-
-                        <!-- Tipo Vehículo -->
-                        <div class="col-md-2">
-                            <label class="form-label-sm mb-0">Tipo Vehículo:</label>
-                            <select id="filtroTipoVehiculo" class="form-select form-select-sm">
-                                <option value="">Todos</option>
-                            </select>
-                        </div>
-
-                        <!-- Marca -->
-                        <div class="col-md-2">
-                            <label class="form-label-sm mb-0">Marca:</label>
-                            <select id="filtroMarca" class="form-select form-select-sm">
-                                <option value="">Todas</option>
-                            </select>
-                        </div>
-
-                        <!-- Estado -->
-                        <div class="col-md-1">
-                            <label class="form-label-sm mb-0">Estado:</label>
-                            <select id="filtroEstado" class="form-select form-select-sm">
-                                <option value="">Todos</option>
-                                <option value="Falla">❌ Falla</option>
-                                <option value="OK">✔️ OK</option>
-                            </select>
-                        </div>
-
-                        <!-- Registrado por -->
-                        <div class="col-md-2">
-                            <label class="form-label-sm mb-0">Registrado por:</label>
-                            <select id="filtroUsuario" class="form-select form-select-sm">
-                                <option value="">Todos</option>
-                            </select>
-                        </div>
-
-                        <!-- Botón consultar  -->
-                        <div class="col-md-1">
-                            <button class="btn btn-primary btn-sm w-100 mt-3" onclick="consultarReporteFallas()">
-                                <i class="fas fa-search me-1"></i> Consultar
-                            </button>
-                        </div>
+                <!-- Encabezado: título a la izquierda / selector a la derecha -->
+                <div class="d-flex align-items-end justify-content-between flex-wrap gap-2 mb-2">
+                    <div class="d-flex align-items-end gap-2">
+                    <!-- Selector de Reporte -->
+                    <div class="flex-shrink-0" style="min-width:280px;">
+                        <label class="form-label-sm mb-0" style="font-family:'Century Gothic'; font-weight:bold; color:#0d6efd;">🔍 Seleccione Reporte:</label>
+                        <select id="reporteSelect" class="form-select form-select-sm">
+                            <option value="checklist_asistencia" selected>Checklist Vehículos de Asistencia</option>
+                            <option value="preoperacionales">Mantenimientos Preoperacionales</option>
+                        </select>
                     </div>
+
+                    <!-- Chip con nombre del reporte activo -->
+                    <span id="chipReporteActual"
+                            class="badge rounded-pill"
+                            style="background:#e9f2ff; color:#0d6efd; border:1px solid #b9d4ff; font-weight:600;">
+                        Checklist Vehículos de Asistencia
+                    </span>
+                    </div>
+                </div>
+
+                <!--  SECCIÓN DE FILTROS -->
+                <div class="d-flex flex-nowrap align-items-end gap-2 overflow-auto" style="padding-bottom:.5rem; scrollbar-width:thin;">
+                    <!-- Fecha inicial -->
+                    <div class="flex-shrink-0" style="width: 110px;">
+                    <label class="form-label-sm mb-0">Fecha Inicial:</label>
+                    <input type="date" id="filtroFechaIni" class="form-control form-control-sm" style="width:100%;">
+                    </div>
+
+                    <!-- Fecha final -->
+                    <div class="flex-shrink-0" style="width: 110px;">
+                    <label class="form-label-sm mb-0">Fecha Final:</label>
+                    <input type="date" id="filtroFechaFin" class="form-control form-control-sm" style="width:100%;">
+                    </div>
+
+                    <!-- Placa -->
+                    <div class="flex-shrink-0" style="width: 120px;">
+                    <label class="form-label-sm mb-0">Placa:</label>
+                    <select id="filtroPlaca" class="form-select form-select-sm" style="width:100%;">
+                        <option value="">Todas</option>
+                    </select>
+                    </div>
+
+                    <!-- Tipo Vehículo -->
+                    <div class="flex-shrink-0" style="width: 150px;">
+                    <label class="form-label-sm mb-0">Tipo Vehículo:</label>
+                    <select id="filtroTipoVehiculo" class="form-select form-select-sm" style="width:100%;">
+                        <option value="">Todos</option>
+                    </select>
+                    </div>
+
+                    <!-- Marca -->
+                    <div class="flex-shrink-0" style="width: 150px;">
+                    <label class="form-label-sm mb-0">Marca:</label>
+                    <select id="filtroMarca" class="form-select form-select-sm" style="width:100%;">
+                        <option value="">Todas</option>
+                    </select>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="flex-shrink-0" style="width: 140px;">
+                    <label class="form-label-sm mb-0">Estado:</label>
+                    <select id="filtroEstado" class="form-select form-select-sm" style="width:100%;">
+                        <option value="">Todos</option>
+                        <option value="Falla">❌ Falla</option>
+                        <option value="OK">✔️ OK</option>
+                    </select>
+                    </div>
+
+                    <!-- Registrado por -->
+                    <div class="flex-shrink-0" style="width: 160px;">
+                    <label class="form-label-sm mb-0">Registrado por:</label>
+                    <select id="filtroUsuario" class="form-select form-select-sm" style="width:100%;">
+                        <option value="">Todos</option>
+                    </select>
+                    </div>
+
+                    <!-- Botón consultar (usa despachador) -->
+                    <div class="flex-shrink-0" style="width: 140px;">
+                    <button class="btn btn-primary btn-sm w-100" onclick="consultarReporteSeleccion()">
+                        <i class="fas fa-search me-1"></i> Consultar
+                    </button>
+                    </div>
+                </div>
                 </div>
 
                 <!--  SECCIÓN DE RESULTADOS -->
@@ -441,61 +844,96 @@
                     </div>
                 </div>
             <div class="text-end mt-2" id="botonesDescarga" style="display: none;">
-                <button class="btn btn-success btn-sm me-1" onclick="descargarReporte('xlsx')">📥 Descargar Excel</button>
-                <button class="btn btn-warning btn-sm me-1" onclick="descargarReporte('csv')">📥 Descargar CSV</button>
-                <button class="btn btn-info btn-sm" onclick="descargarReporte('json')">📥 Descargar JSON</button>
-            </div>                
+                <button class="btn btn-success btn-sm me-1" onclick="descargarReporteSeleccion('xlsx')">📥 Descargar Excel</button>
+                <button class="btn btn-warning btn-sm me-1" onclick="descargarReporteSeleccion('csv')">📥 Descargar CSV</button>
+                <button class="btn btn-info btn-sm" onclick="descargarReporteSeleccion('json')">📥 Descargar JSON</button>
+            </div>              
         </div>
         {% endif %}
     </div>
 
+<!-- SECCION DE MODALES DE VENTANAS PRINCIPALES HTML -->
 <!-- Modal para editar vehículo -->
 <div class="modal fade" id="editVehicleModal" tabindex="-1" aria-labelledby="editVehicleModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <form id="editVehicleForm">
-                <input type="hidden" id="editVehicleIdHidden" name="placa">
-  
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="editVehicleModalLabel">Editar Vehículo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <form id="editVehicleForm">
+            <input type="hidden" id="editVehicleIdHidden" name="placa">
+
+            <div class="modal-header" style="background-color:#001F54; color:white;">
+            <h5 class="modal-title" id="editVehicleModalLabel">Editar Vehículo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+            <div class="row g-3">
+                <!-- Columna izquierda: datos del vehículo -->
+                <div class="col-12 col-lg-6">
+                <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Proceso</label>
+                    <select class="form-select" id="editProcSelect" required>
+                    <option value="" disabled selected>Seleccione el proceso...</option>
+                    </select>
                 </div>
-  
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="editPlacaVehiculo" class="form-label">Placa</label>
-                        <input type="text" class="form-control" id="editPlacaVehiculo" name="placa" disabled>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Subproceso</label>
+                    <select class="form-select" id="editSubprocSelect" required>
+                    <option value="" disabled selected>Seleccione el subproceso...</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="editPlacaVehiculo" class="form-label">Placa</label>
+                    <input type="text" class="form-control" id="editPlacaVehiculo" name="placa" disabled>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                    <label for="editTipoVehiculo" class="form-label">Tipo de Vehículo</label>
+                    <select class="form-select" id="editTipoVehiculo" name="tipo_vehiculo" required>
+                        <option disabled selected>Seleccione el tipo...</option>
+                    </select>
                     </div>
-                    <div class="mb-3">
-                        <label for="editTipoVehiculo" class="form-label">Tipo de Vehículo</label>
-                        <select class="form-select" id="editTipoVehiculo" name="tipo_vehiculo" required>
-                            <option disabled selected>Seleccione el tipo...</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editMarcaVehiculo" class="form-label">Marca</label>
-                        <input type="text" class="form-control" id="editMarcaVehiculo" name="marca" required>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="editLineaVehiculo" class="form-label">Línea</label>
-                            <input type="text" class="form-control" id="editLineaVehiculo" name="linea" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="editModeloVehiculo" class="form-label">Modelo</label>
-                            <input type="number" class="form-control" id="editModeloVehiculo" name="modelo" required>
-                        </div>
+                    <div class="col-md-6 mb-3">
+                    <label for="editMarcaVehiculo" class="form-label">Marca</label>
+                    <input type="text" class="form-control" id="editMarcaVehiculo" name="marca" required>
                     </div>
                 </div>
-  
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                    <label for="editLineaVehiculo" class="form-label">Línea</label>
+                    <input type="text" class="form-control" id="editLineaVehiculo" name="linea" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                    <label for="editModeloVehiculo" class="form-label">Modelo</label>
+                    <input type="number" class="form-control" id="editModeloVehiculo" name="modelo" required>
+                    </div>
                 </div>
-            </form>
+                </div>
+
+                <!-- Columna derecha: km base por mantenimiento -->
+                <div class="col-12 col-lg-6 d-flex flex-column">
+                <h6 class="fw-bold mb-2">Km Base Mtto - Moto</h6>
+                <div id="kmBaseEditContainer" class="table-responsive"
+                    style="max-height: 260px; overflow-y:auto; overflow-x:auto; border:1px solid #eee; border-radius:8px;">
+                    <!-- contenido se inyecta por JS -->
+                </div>
+                <div class="form-text">Edite los km base (enteros). Se guardan junto con los cambios del vehículo.</div>
+                </div>
+            </div>
+            </div>
+
+            <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+            </div>
+        </form>
         </div>
     </div>
-  </div>
+</div>
 
 <!-- Modal de Gestión de Fallas -->
 <div class="modal fade" id="modalFalla" tabindex="-1" aria-labelledby="modalFallaLabel" aria-hidden="true">
@@ -524,7 +962,7 @@
                     <h6 class="bg-secondary text-white p-2 rounded">📌 Observaciones Generales</h6>
                     <div class="table-responsive" style="max-height: 180px; overflow-y: auto; border: 1px solid #dee2e6;">
                         <table class="table table-bordered table-sm mb-0" style="font-size: 13px;">
-                            <thead class="table-light sticky-top" style="top: 0; z-index: 1;">
+                            <thead class="sticky-top" style="background-color:#001F54; color:white;top: 0; z-index: 1;">
                                 <tr>
                                     <th style="width: 20%;">Fecha Reporte</th>
                                     <th style="width: 55%;">Observaciones</th>
@@ -544,7 +982,7 @@
                         📄 Verificación de Documentos (Último Checklist)
                     </h6>                    
                     <table class="table table-bordered table-sm">
-                        <thead class="table-light">
+                        <thead class="sticky-top" style="background-color:#001F54; color:white;top: 0; z-index: 1;">
                             <tr>
                                 <th>Historial</th>
                                 <th>Fecha Reporte</th>
@@ -566,7 +1004,7 @@
                         🔧 Verificación de Estados del Vehículo (Último Checklist)
                     </h6>                    
                     <table class="table table-bordered table-sm">
-                        <thead class="table-light">
+                        <thead class="sticky-top" style="background-color:#001F54; color:white;top: 0; z-index: 1;">
                             <tr>
                                 <th>Historial</th>
                                 <th>Fecha Reporte</th>
@@ -597,7 +1035,7 @@
 <div class="modal fade" id="modalHistorial" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content shadow" style="font-size: 13px;">
-            <div class="modal-header bg-info text-white">
+            <div class="modal-header" style="background-color:#001F54; color:white;">
                 <h5 class="modal-title" id="modalHistorialLabel">Historial</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -605,7 +1043,7 @@
             <!-- Contenedor con scroll para tabla -->
             <div class="modal-body p-2" style="max-height: 400px; overflow-y: auto;">
                 <table class="table table-sm table-bordered mb-0">
-                    <thead class="table-light sticky-top" id="historialHeader">
+                    <thead class="sticky-top" style="background-color:#1d3e76; color:white;top: 0; z-index: 1;" id="historialHeader">
                         <!-- Cabecera dinámica -->
                     </thead>
                     <tbody id="tablaHistorialBody">
@@ -617,8 +1055,62 @@
     </div>
 </div>
 
+<!-- Modal: Historial de Preoperacionales -->
+<div class="modal fade" id="modalPreop" tabindex="-1" aria-labelledby="modalPreopLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title fw-bold" id="modalPreopLabel">Historial de Preoperacionales del Vehículo</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body" style="font-size:14px; font-family:'Century Gothic', sans-serif;">
+            <!-- Encabezado Datos del Vehículo -->
+            <div class="border rounded bg-light p-3 mb-3 shadow-sm">
+            <div class="row text-start" style="font-size:14px;">
+                <div class="col-md-2 mb-2"><strong>Placa:</strong> <span id="preopHPlaca">-</span></div>
+                <div class="col-md-3 mb-2"><strong>Tipo Vehículo:</strong> <span id="preopHTipo">-</span></div>
+                <div class="col-md-2 mb-2"><strong>Marca:</strong> <span id="preopHMarca">-</span></div>
+                <div class="col-md-3 mb-2"><strong>Línea:</strong> <span id="preopHLinea">-</span></div>
+                <div class="col-md-2 mb-2"><strong>Modelo:</strong> <span id="preopHModelo">-</span></div>
+                <div class="col-md-3 mb-2"><strong>Último Km Odómetro:</strong> <span id="preopHKm">-</span></div>
+                <div class="col-md-4 mb-2"><strong>Último Mtto:</strong> <span id="preopHFechaUlt">-</span></div>
+            </div>
+            </div>
+
+            <!-- Acordeones por mantenimiento -->
+            <h6 class="p-2 rounded text-white" style="background-color:#0078C7;">🧰 Mantenimientos</h6>
+            <div class="accordion mt-2" id="preopAcordeon"></div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Previsualización de Adjunto -->
+<div class="modal fade" id="modalPreviewAdjunto" tabindex="-1" aria-labelledby="modalPreviewAdjuntoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+        <div class="modal-header bg-dark text-white">
+            <h5 class="modal-title" id="modalPreviewAdjuntoLabel">Vista previa</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="previewAdjContainer" style="min-height:50vh; min-width:50vh; display:flex; justify-content:center; align-items:center;">
+            <!-- IMG / EMBED PDF por JS -->
+        </div>
+        <div class="modal-footer">
+            <a id="previewAdjDownload" class="btn btn-primary" href="#" download>Descargar</a>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+        </div>
+    </div>
+</div>
+
 <!-- ###################################################################################### -->
-<!-- ###################### INICIO DE LOGICA Y FUNCIONES JAVASCRIPT  ###################### -->
+<!-- ###################### INICIO DE LOGICA Y FUNCIONES CHECKLIST  ###################### -->
 <!-- ###################################################################################### -->
 
 <!--  JavaScript Interacción Pestañas  -->
@@ -783,6 +1275,9 @@
             document.querySelectorAll("#vehiculoAccordion tbody td").forEach(celda => {
                 celda.style.backgroundColor = "transparent";
             });
+            
+            const kmInput = document.getElementById("kmOdometro");
+            if (kmInput) kmInput.value = "";
     
             if (data.error) {
                 alert("Vehículo no encontrado.");
@@ -819,8 +1314,8 @@
             //document.getElementById("fechaHoraRegistro").value = checklist.fecha_hora_registro || "";
             document.getElementById("inicioTurno").value = checklist.inicio_turno || "";
             document.getElementById("finTurno").value = checklist.fin_turno || "";
-            document.getElementById("kmOdometro").value = checklist.km_odometro || "";
-            document.getElementById("observacionGeneral").value = checklist.observaciones_generales || "";
+            // document.getElementById("kmOdometro").value = checklist.km_odometro || "";
+            // document.getElementById("observacionGeneral").value = checklist.observaciones_generales || "";
     
             // **Llenar la tabla de documentos**
             document.querySelectorAll("#tbody-documentos tr").forEach(row => {
@@ -1426,6 +1921,81 @@
         });
     }      
     
+    /* ---------- Procesos/Subprocesos (cascada) ---------- */
+    let PROCESOS_ROWS = [];   // [{id_proceso, proceso, subproceso}]
+    let PROC_MAP = {};        // { proceso: [{id_proceso, subproceso}, ...] }
+
+    function resetSubSelect(id) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.disabled = true;
+    sel.innerHTML = '<option value="" disabled selected>Seleccione el subproceso...</option>';
+    }
+
+    async function cargarProcesos() {
+    const r = await fetch("/procesos");
+    PROCESOS_ROWS = await r.json();
+
+    // build map
+    PROC_MAP = {};
+    PROCESOS_ROWS.forEach(row => {
+        if (!PROC_MAP[row.proceso]) PROC_MAP[row.proceso] = [];
+        PROC_MAP[row.proceso].push({ id_proceso: row.id_proceso, subproceso: row.subproceso });
+    });
+
+    // llena selects de crear/editar
+    llenarSelectProcesos("procSelect");
+    llenarSelectProcesos("editProcSelect");
+
+    // al cargar, subproceso deshabilitado hasta elegir proceso
+    resetSubSelect("subprocSelect");
+    resetSubSelect("editSubprocSelect");
+    }
+
+    function llenarSelectProcesos(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    sel.innerHTML = '<option value="" disabled selected>Seleccione el proceso...</option>';
+    Object.keys(PROC_MAP).sort().forEach(proc => {
+        const opt = document.createElement("option");
+        opt.value = proc;
+        opt.textContent = proc;
+        sel.appendChild(opt);
+    });
+    }
+
+    function llenarSubprocesos(proceso, subSelectId) {
+    const sel = document.getElementById(subSelectId);
+    if (!sel) return;
+    sel.innerHTML = '<option value="" disabled selected>Seleccione el subproceso...</option>';
+    (PROC_MAP[proceso] || []).forEach(sp => {
+        const opt = document.createElement("option");
+        opt.value = sp.id_proceso;      // value = id_proceso
+        opt.textContent = sp.subproceso;
+        sel.appendChild(opt);
+    });
+    }
+
+    // Cascada (crear/editar): habilita/deshabilita subproceso
+    document.addEventListener("change", (e) => {
+    if (e.target?.id === "procSelect") {
+        if (e.target.value) {
+        llenarSubprocesos(e.target.value, "subprocSelect");
+        document.getElementById("subprocSelect").disabled = false;
+        } else {
+        resetSubSelect("subprocSelect");
+        }
+    }
+    if (e.target?.id === "editProcSelect") {
+        if (e.target.value) {
+        llenarSubprocesos(e.target.value, "editSubprocSelect");
+        document.getElementById("editSubprocSelect").disabled = false;
+        } else {
+        resetSubSelect("editSubprocSelect");
+        }
+    }
+    });
+
     // Cargar tipos de vehículos en las listas desplegables
     async function cargarTiposVehiculos() {
         try {
@@ -1456,14 +2026,26 @@
     // Enviar formulario y crear un nuevo vehículo
     document.getElementById("createVehicleForm").addEventListener("submit", async function(event) {
         event.preventDefault();
+
+        // Lee id_proceso del subproceso seleccionado
+        const id_proceso = document.getElementById("subprocSelect").value;
+        if (!id_proceso) { alert("Seleccione Proceso y Subproceso."); return; }
         
         const data = {
             placa: document.getElementById("placaVehiculo").value.toUpperCase(),
             id_tipo_vehiculo: document.getElementById("tipoVehiculo").value,
             marca: document.getElementById("marcaVehiculo").value,
             linea: document.getElementById("lineaVehiculo").value,
-            modelo: document.getElementById("modeloVehiculo").value
+            modelo: document.getElementById("modeloVehiculo").value,
+            id_proceso: Number(id_proceso) 
         };
+
+        // Recopilar km_bases si existen
+        const km_bases = collectKmBasesFrom('kmBaseCreateContainer');
+        // Si todos vienen null/vacíos, puedes omitir; de lo contrario, envía el arreglo
+        if (km_bases.some(x => x.km_base !== null || x.fecha_mtto)) {
+            data.km_bases = km_bases;
+        }
     
         const response = await fetch("/vehiculos/crear", {
             method: "POST",
@@ -1478,51 +2060,84 @@
 
             // Limpiar formulario después de la creación
             document.getElementById("createVehicleForm").reset();
+            renderKmBaseCreate();  // Volver a renderizar la tabla de km base   
+            // Resetea subproceso al vaciar proceso
+            document.getElementById("procSelect").selectedIndex = 0;  // vuelve al placeholder
+            resetSubSelect("subprocSelect");    
         } else {
             alert("Error al crear vehículo: " + result.error);
         }
     });
 
-    // Carga de Vehículos y Tipos al Abrir la Pestaña
+   // Carga catálogos y lista en paralelo al abrir la pestaña
     document.addEventListener("DOMContentLoaded", function () {
-        const vehiculosTab = document.getElementById("vehiculos-tab"); // Ajustar según ID de la pestaña
-        if (vehiculosTab) {
-            vehiculosTab.addEventListener("shown.bs.tab", function () {
-                cargarTiposVehiculos(); // Cargar la lista de tipos de vehículos
-                cargarVehiculos(); // Cargar la lista de vehículos registrados
-            });
-        }
-    });    
+    const vehiculosTab = document.getElementById("vehiculos-tab");
+    if (vehiculosTab) {
+        vehiculosTab.addEventListener("shown.bs.tab", async function () {
+        await Promise.all([cargarProcesos(), cargarTiposVehiculos()]);
+        await cargarVehiculos();
+        renderKmBaseCreate();
+        });
+    }
+    }); 
 
-    // Edita configuración del vehículos en ventana modal
+    // Edita configuración del vehículo en ventana modal (con preselección Proc/Subproc robusta)
     async function editarVehiculo(placa) {
-        try {
-            const response = await fetch(`/vehiculos/${placa}`);
-            if (!response.ok) {
-                throw new Error("No se pudo obtener el vehículo");
-            }
-            const vehiculo = await response.json();
+    try {
+        const response = await fetch(`/vehiculos/${placa}`);
+        if (!response.ok) throw new Error("No se pudo obtener el vehículo");
+        const vehiculo = await response.json();
 
-            // Llenar los campos del modal con los datos del vehículo
-            document.getElementById("editVehicleIdHidden").value = vehiculo.placa;
-            document.getElementById("editPlacaVehiculo").value = vehiculo.placa;
-            document.getElementById("editTipoVehiculo").value = vehiculo.id_tipo_vehiculo;  // ID correcto
-            document.getElementById("editMarcaVehiculo").value = vehiculo.marca;
-            document.getElementById("editLineaVehiculo").value = vehiculo.linea;
-            document.getElementById("editModeloVehiculo").value = vehiculo.modelo;
+        // Llenar campos básicos
+        document.getElementById("editVehicleIdHidden").value = vehiculo.placa;
+        document.getElementById("editPlacaVehiculo").value = vehiculo.placa;
+        document.getElementById("editTipoVehiculo").value = vehiculo.id_tipo_vehiculo;
+        document.getElementById("editMarcaVehiculo").value = vehiculo.marca;
+        document.getElementById("editLineaVehiculo").value = vehiculo.linea;
+        document.getElementById("editModeloVehiculo").value = vehiculo.modelo;
 
-            // El vehículo seleccionado coincida con el del vehículo
-            const selectTipo = document.getElementById("editTipoVehiculo");
-            for (let i = 0; i < selectTipo.options.length; i++) {
-                if (selectTipo.options[i].value == vehiculo.id_tipo_vehiculo) {
-                    selectTipo.selectedIndex = i;
-                    break;
-                }
-            }
-        } catch (error) {
-            alert("Error al obtener datos del vehículo: " + error.message);
+        // Asegura catálogo de procesos cargado
+        if (!Object.keys(PROC_MAP).length) {
+        await cargarProcesos();
         }
-    }    
+
+        const procSel = document.getElementById("editProcSelect");
+        const subSel  = document.getElementById("editSubprocSelect");
+
+        // Fallback: si el backend no envía nombre de proceso,
+        // lo derivamos desde PROCESOS_ROWS por id_proceso.
+        let procesoName = vehiculo.proceso;
+        if (!procesoName && vehiculo.id_proceso) {
+        const row = PROCESOS_ROWS.find(r => r.id_proceso === Number(vehiculo.id_proceso));
+        if (row) procesoName = row.proceso;
+        }
+
+        if (procesoName) {
+        procSel.value = procesoName;                                  // seleccionar proceso por nombre
+        llenarSubprocesos(procesoName, "editSubprocSelect");          // cargar subprocesos del proceso
+        subSel.disabled = false;
+        if (vehiculo.id_proceso) subSel.value = String(vehiculo.id_proceso); // seleccionar subproceso por id
+        } else {
+        procSel.value = "";
+        resetSubSelect("editSubprocSelect");
+        }
+
+        // Asegurar selección visual del tipo de vehículo
+        const selectTipo = document.getElementById("editTipoVehiculo");
+        for (let i = 0; i < selectTipo.options.length; i++) {
+        if (selectTipo.options[i].value == vehiculo.id_tipo_vehiculo) {
+            selectTipo.selectedIndex = i;
+            break;
+        }
+        }
+
+        // Cargar/mostrar km base del vehículo
+        await renderKmBaseEdit(vehiculo.placa);
+
+    } catch (error) {
+        alert("Error al obtener datos del vehículo: " + error.message);
+    }
+    }
     
     // Permite cambiar el estado activo o inactivo de un vehiculo
     async function cambiarEstadoVehiculo(placa, nuevoEstado) {
@@ -1543,35 +2158,217 @@
         }
     }     
     
-    // Guardar Cambios de un vehiculo
+    // Guardar cambios del vehículo (id_proceso = null si no eligen subproceso)
     document.getElementById("editVehicleForm").addEventListener("submit", async function(event) {
-        event.preventDefault();
-    
-        const placa = document.getElementById("editPlacaVehiculo").value;
-        const data = {
-            id_tipo_vehiculo: document.getElementById("editTipoVehiculo").value,
-            marca: document.getElementById("editMarcaVehiculo").value,
-            linea: document.getElementById("editLineaVehiculo").value,
-            modelo: document.getElementById("editModeloVehiculo").value
-        };
-    
-        const response = await fetch(`/vehiculos/actualizar/${placa}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
+    event.preventDefault();
+
+    const placa = document.getElementById("editPlacaVehiculo").value;
+    const subSelVal = document.getElementById("editSubprocSelect").value;
+    const idProcVal = subSelVal ? Number(subSelVal) : null; // null si no seleccionan subproceso
+
+    const dataVeh = {
+        id_tipo_vehiculo: document.getElementById("editTipoVehiculo").value,
+        marca: document.getElementById("editMarcaVehiculo").value,
+        linea: document.getElementById("editLineaVehiculo").value,
+        modelo: document.getElementById("editModeloVehiculo").value,
+        id_proceso: idProcVal
+    };
+
+    try {
+        // 1) Actualiza datos del vehículo
+        const r1 = await fetch(`/vehiculos/actualizar/${encodeURIComponent(placa)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataVeh)
         });
-    
-        const result = await response.json();
-        if (result.message) {
-            alert(result.message);
-            cargarVehiculos(); // Recargar la tabla
-            document.getElementById("editVehicleModal").classList.remove("show"); // Cerrar modal visualmente
-            document.querySelector(".modal-backdrop").remove(); // Eliminar fondo del modal
-            document.getElementById("editVehicleModal").style.display = "none"; // Ocultar el modal
+        const j1 = await r1.json();
+        if (!r1.ok || !j1?.message) throw new Error(j1?.error || "Error al actualizar vehículo");
+
+        // 2) Upsert de km base por mantenimiento (lote)
+        const items = collectKmBasesFrom('kmBaseEditContainer');
+        const r2 = await fetch(`/vehiculos/${encodeURIComponent(placa)}/km-base`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(items)
+        });
+        const j2 = await r2.json();
+        if (!r2.ok || j2?.ok === false) {
+        console.warn("⚠️ Error guardando km base:", j2?.error || '');
+        alert("Vehículo actualizado. Hubo un problema guardando Km Base.");
         } else {
-            alert("Error al actualizar vehículo: " + result.error);
+        alert("Cambios guardados (vehículo + km base).");
         }
-    });    
+
+        // Refresca tabla y cierra modal
+        cargarVehiculos();
+        document.getElementById("editVehicleModal").classList.remove("show");
+        const backdrop = document.querySelector(".modal-backdrop");
+        if (backdrop) backdrop.remove();
+        document.getElementById("editVehicleModal").style.display = "none";
+    } catch (e) {
+        console.error(e);
+        alert(e.message);
+    }
+    });
+
+</script>
+
+<!--  JavaScript para guardar y consultar km base por vehiculo y mantenimiento  -->
+<script>
+    // ==== Utilidades de miles ====
+    const NF_CO = new Intl.NumberFormat('es-CO');
+    const unformatInt = (v) => {
+        const n = Number(String(v ?? '').replace(/[^\d]/g, ''));
+        return Number.isFinite(n) ? n : 0;
+    };
+    const fmtMiles = (v) => {
+        if (v === null || v === undefined || v === '') return '';
+        return NF_CO.format(unformatInt(v));
+    };
+
+    // Pinta tabla de km base para CREAR vehículo
+    async function renderKmBaseCreate() {
+        // Trae mantenimientos activos
+        const r = await fetch('/preoperacional-motos?incluir_inactivos=false');
+        const j = await r.json();
+        const list = Array.isArray(j?.data) ? j.data : [];
+        const el = document.getElementById('kmBaseCreateContainer');
+        if (!el) return;
+
+        if (!list.length) {
+            el.innerHTML = '<div class="p-2 text-muted">No hay mantenimientos activos.</div>';
+            return;
+        }
+
+        el.innerHTML = `
+        <table class="table table-sm table-striped mb-0" style="font-size:12px; text-align:center;">
+            <thead style="position:sticky;top:0;z-index:1;background-color:#001F54; color:#ffffff;">
+                <tr>
+                    <th style="width:40%;">Mantenimiento</th>
+                    <th style="width:20%;">Km Óptimo</th>
+                    <th style="width:20%;">Fecha Base</th>
+                    <th style="width:20%;">Km Base</th>
+                </tr>
+            </thead>
+            <tbody>
+            ${list.map(row => `
+                <tr>
+                    <td>${row.mantenimiento}</td>
+                    <td>${row.km_optimo != null ? fmtMiles(row.km_optimo) : ''}</td>
+                    <td>
+                        <input type="date" class="form-control form-control-sm km-fecha-input"
+                                data-idmtto="${row.id}" style="font-size:12px; text-align:center;">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm km-base-input"
+                            data-idmtto="${row.id}" placeholder="Ej: 5.000" style="font-size:12px; text-align:center;">
+                    </td>
+                </tr>
+            `).join('')}
+            </tbody>
+        </table>
+        `;
+
+        // Formateo visual en inputs
+        el.querySelectorAll('.km-base-input').forEach(inp => {
+            inp.addEventListener('input', () => {
+                // mantener solo dígitos
+                const raw = inp.value.replace(/[^\d]/g, '');
+                inp.value = raw;
+            });
+            inp.addEventListener('blur', () => {
+                inp.value = fmtMiles(inp.value);
+            });
+        });
+    }
+
+    // Pinta tabla de km base para EDITAR vehículo
+    async function renderKmBaseEdit(placa) {
+        const el = document.getElementById('kmBaseEditContainer');
+        if (!el) return;
+
+        try {
+            const r = await fetch(`/vehiculos/${encodeURIComponent(placa)}/km-base`);
+            if (!r.ok) {
+                el.innerHTML = `<div class="p-2 text-danger">Error ${r.status} cargando km base.</div>`;
+                return;
+            }
+            const j = await r.json();
+            const list = Array.isArray(j?.items) ? j.items : [];
+
+            if (!list.length) {
+                el.innerHTML = '<div class="p-2 text-muted">No hay mantenimientos activos.</div>';
+                return;
+            }
+
+            el.innerHTML = `
+            <table class="table table-sm table-striped mb-0" style="font-size:12px; text-align:center;">
+                <thead style="position:sticky;top:0;z-index:1;background-color:#001F54; color:#ffffff;">
+                    <tr>
+                        <th style="width:40%;">Mantenimiento</th>
+                        <th style="width:20%;">Km Óptimo</th>
+                        <th style="width:20%;">Fecha Base</th>
+                        <th style="width:20%;">Km Base</th>
+                    </tr>
+                </thead>
+                <tbody>
+                ${list.map(row => `
+                    <tr>
+                        <td>${row.mantenimiento}</td>
+                        <td>${row.km_optimo != null ? fmtMiles(row.km_optimo) : ''}</td>
+                        <td>
+                            <input type="date" class="form-control form-control-sm km-fecha-input"
+                                data-idmtto="${row.id_mtto}"
+                                value="${row.fecha_mtto ? String(row.fecha_mtto).slice(0,10) : ''}"
+                                style="font-size:12px; text-align:center;">
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm km-base-input"
+                                data-idmtto="${row.id_mtto}"
+                                value="${row.km_base != null ? fmtMiles(row.km_base) : ''}"
+                                placeholder="Ej: 5.000" style="font-size:12px; text-align:center;">
+                        </td>
+                    </tr>
+                `).join('')}
+                </tbody>
+            </table>
+            `;
+
+            // Formateo visual
+            el.querySelectorAll('.km-base-input').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const raw = inp.value.replace(/[^\d]/g, '');
+                    inp.value = raw;
+                });
+                inp.addEventListener('blur', () => {
+                    inp.value = fmtMiles(inp.value);
+                });
+            });
+
+        } catch {
+            el.innerHTML = '<div class="p-2 text-danger">No fue posible cargar los km base.</div>';
+        }
+    }
+
+    // Toma array [{id_mtto, km_base}] desde un contenedor
+    function collectKmBasesFrom(container) {
+        const root = (typeof container === 'string') ? document.getElementById(container) : container;
+        if (!root) return [];
+        const out = [];
+        root.querySelectorAll('.km-base-input').forEach(inp => {
+            const id_mtto = Number(inp.dataset.idmtto);
+            const val = String(inp.value || '').trim();
+            const km_base = (val === '') ? null : unformatInt(val);
+
+            // Busca la fecha de la misma fila por id_mtto
+            const fechaEl = root.querySelector(`.km-fecha-input[data-idmtto="${id_mtto}"]`);
+            const fecha_mtto = fechaEl && fechaEl.value ? fechaEl.value : null; // "YYYY-MM-DD" o null
+
+            out.push({ id_mtto, km_base, fecha_mtto });
+        });
+
+        return out;
+    }
 
 </script>
 
@@ -2165,8 +2962,61 @@
         text-align: center;
         font-weight: bold;
     }    
-
 </style>
+
+<!-- ###################################################################################### -->
+<!-- ##################### INICIO DE LOGICA Y FUNCIONES REPORTES ########################## -->
+<!-- ###################################################################################### -->
+
+<!--  JavaScript para la selección y gestión de reportes  -->
+<script>
+    /** Mapa de reportes disponibles (añade más aquí) **/
+    const REPORTES = {
+        checklist_asistencia: {
+            nombre: "Checklist Vehículos de Asistencia",
+            listar: () => consultarReporteFallas(),
+            exportar: (fmt) => descargarReporte(fmt)
+        },
+        preoperacionales: {
+            nombre: "Mantenimientos Preoperacionales",
+            listar: () => consultarReportePreop(),
+            exportar: (fmt) => descargarReportePreop(fmt)
+        }
+    };
+
+    function getReporteKey() {
+    return document.getElementById("reporteSelect")?.value || "checklist_asistencia";
+    }
+    function getReporteCfg() {
+    const k = getReporteKey();
+    return REPORTES[k] || REPORTES.checklist_asistencia;
+    }
+    function syncChipReporte() {
+    const cfg = getReporteCfg();
+    const chip = document.getElementById("chipReporteActual");
+    if (chip) chip.textContent = cfg.nombre;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+    syncChipReporte();
+    document.getElementById("reporteSelect")?.addEventListener("change", syncChipReporte);
+    });
+</script>
+
+<!--  JavaScript para la consulta y descarga de reportes  -->
+<script>
+    function consultarReporteSeleccion() {
+    const cfg = getReporteCfg();
+    if (typeof cfg.listar === "function") return cfg.listar();
+    alert("Este reporte aún no está disponible.");
+    }
+
+    function descargarReporteSeleccion(formato) {
+    const cfg = getReporteCfg();
+    if (typeof cfg.exportar === "function") return cfg.exportar(formato);
+    alert("La exportación de este reporte aún no está disponible.");
+    }
+</script>
 
 <!--  JavaScript para la consulta de reportes de checklist  -->
 <script>
@@ -2197,120 +3047,152 @@
 
     // Cargar reportes al hacer clic en el botón
     async function consultarReporteFallas() {
-        const fecha = document.getElementById("filtroFecha").value;
-        if (!fecha) {
-            alert("Por favor, selecciona una fecha de reporte.");
-            document.getElementById("filtroFecha").focus();
+        const fi = document.getElementById("filtroFechaIni").value;
+        const ff = document.getElementById("filtroFechaFin").value;
+
+        if (!fi || !ff) {
+            alert("Por favor, selecciona Fecha Inicial y Fecha Final.");
+            (!fi ? document.getElementById("filtroFechaIni") : document.getElementById("filtroFechaFin")).focus();
             return;
         }
-    
-        // Solo agrega filtros que tienen valor
+        const d1 = new Date(fi), d2 = new Date(ff);
+        if (d2 < d1) {
+            alert("La Fecha Final no puede ser menor que la Fecha Inicial.");
+            return;
+        }
+        const dias = Math.floor((d2 - d1) / (1000*60*60*24)) + 1;
+        if (dias > 5) {
+            alert("El rango no puede ser superior a 5 días.");
+            return;
+        }
+
+        // Arma query
         const params = new URLSearchParams();
-        params.append("fecha", fecha);
-    
+        params.append("fecha_inicio", fi);
+        params.append("fecha_fin", ff);
+
         const placa = document.getElementById("filtroPlaca").value;
         if (placa) params.append("placa", placa);
-    
+
         const tipo = document.getElementById("filtroTipoVehiculo").value;
         if (tipo) params.append("tipo_vehiculo", tipo);
-    
+
         const marca = document.getElementById("filtroMarca").value;
         if (marca) params.append("marca", marca);
-    
+
         const estado = document.getElementById("filtroEstado").value;
         if (estado) params.append("estado", estado);
-    
+
         const usuario = document.getElementById("filtroUsuario").value;
         if (usuario) params.append("usuario", usuario);
-    
+
         const contenedor = document.getElementById("contenedorResultados");
         contenedor.innerHTML = "<div class='text-muted'>🔄 Consultando resultados...</div>";
-    
-        try {
-            const res = await fetch(`/reportes/fallas?${params.toString()}`);
-            const datos = await res.json();
-    
-            if (datos.length === 0) {
+
+        // helper para escapar HTML
+        const ESC = s => String(s ?? '').replace(/[&<>"']/g, m => (
+            {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]
+        ));
+
+        fetch(`/reportes/fallas?${params.toString()}`)
+            .then(r => {
+            if (!r.ok) return r.json().then(e => { throw new Error(e.detail || "Error"); });
+            return r.json();
+            })
+            .then(datos => {
+            if (!Array.isArray(datos) || datos.length === 0) {
                 contenedor.innerHTML = "<div class='alert alert-warning p-2'>No se encontraron resultados.</div>";
+                document.getElementById("botonesDescarga").style.display = "none";
                 return;
             }
-    
-            let tabla = `<div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
-                <table class="table table-bordered table-sm" style="font-size: 12px; position: relative; table-layout: fixed;">
-                <thead style="position: sticky; top: 0; background-color: #001F54; color: white; font-weight: bold; text-align: center; z-index: 10;">
+
+            const cellBase = "white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:32px; vertical-align:middle;";
+
+            let tabla = `
+                <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                <table class="table table-bordered table-sm" style="font-size:12px; table-layout:fixed; width:100%;">
+                    <thead style="position:sticky; top:0; background-color:#001F54; color:white; font-weight:bold; text-align:center; z-index:10;">
                     <tr>
-                        <th>ID Checklist</th>
-                        <th>Fecha Reporte</th>
-                        <th>Placa</th>
-                        <th>Tipo Vehículo</th>
-                        <th>Marca</th>
-                        <th>Línea</th>
-                        <th>Modelo</th>
-                        <th>Inicio Turno</th>
-                        <th>Fin Turno</th>
-                        <th>Km Odómetro</th>
-                        <th>Observación General</th>
-                        <th>Tipo</th>
-                        <th>Grupo</th>
-                        <th>Posición</th>
-                        <th>Componente</th>
-                        <th>Observación</th>
-                        <th>Registrado por</th>
-                        <th>Estado</th>
-                        <th>Fecha Guardado</th>
+                        <th style="width:90px;">ID Checklist</th>
+                        <th style="width:130px;">Fecha Reporte</th>
+                        <th style="width:90px;">Placa</th>
+                        <th style="width:120px;">Tipo Vehículo</th>
+                        <th style="width:110px;">Marca</th>
+                        <th style="width:110px;">Línea</th>
+                        <th style="width:90px;">Modelo</th>
+                        <th style="width:110px;">Inicio Turno</th>
+                        <th style="width:110px;">Fin Turno</th>
+                        <th style="width:110px;">Km Odómetro</th>
+                        <th style="width:180px;">Observación General</th>
+                        <th style="width:100px;">Tipo</th>
+                        <th style="width:140px;">Grupo</th>
+                        <th style="width:90px;">Posición</th>
+                        <th style="width:160px;">Componente</th>
+                        <th style="width:200px;">Observación</th>
+                        <th style="width:130px;">Registrado por</th>
+                        <th style="width:100px;">Estado</th>
+                        <th style="width:140px;">Fecha Guardado</th>
                     </tr>
-                </thead>
-                <tbody>`;            
-    
+                    </thead>
+                    <tbody>`;
+
             datos.forEach(row => {
-                tabla += `<tr>
-                    <td>${row.id_checklist}</td>
-                    <td>${row.fecha_reporte}</td>
-                    <td>${row.placa}</td>
-                    <td>${row.tipo_vehiculo}</td>
-                    <td>${row.marca}</td>
-                    <td>${row.linea}</td>
-                    <td>${row.modelo}</td>
-                    <td>${row.inicio_turno}</td>
-                    <td>${row.fin_turno}</td>
-                    <td>${row.km_odometro}</td>
-                    <td>${row.observaciones_generales || ''}</td>
-                    <td>${row.tipo}</td>
-                    <td>${row.grupo || ''}</td>
-                    <td>${row.posicion || ''}</td>
-                    <td>${row.componente || ''}</td>
-                    <td>${row.observaciones || ''}</td>
-                    <td>${row.usuario_registro}</td>
-                    <td>
+                tabla += `
+                <tr>
+                    <td style="${cellBase}">${ESC(row.id_checklist)}</td>
+                    <td style="${cellBase}">${ESC(row.fecha_reporte)}</td>
+                    <td style="${cellBase}">${ESC(row.placa)}</td>
+                    <td style="${cellBase}">${ESC(row.tipo_vehiculo)}</td>
+                    <td style="${cellBase}">${ESC(row.marca)}</td>
+                    <td style="${cellBase}">${ESC(row.linea)}</td>
+                    <td style="${cellBase}">${ESC(row.modelo)}</td>
+                    <td style="${cellBase}">${ESC(row.inicio_turno)}</td>
+                    <td style="${cellBase}">${ESC(row.fin_turno)}</td>
+                    <td style="${cellBase}">${ESC(row.km_odometro)}</td>
+                    <td style="${cellBase}">${ESC(row.observaciones_generales || '')}</td>
+                    <td style="${cellBase}">${ESC(row.tipo)}</td>
+                    <td style="${cellBase}">${ESC(row.grupo || '')}</td>
+                    <td style="${cellBase}">${ESC(row.posicion || '')}</td>
+                    <td style="${cellBase}">${ESC(row.componente || '')}</td>
+                    <td style="${cellBase}">${ESC(row.observaciones || '')}</td>
+                    <td style="${cellBase}">${ESC(row.usuario_registro)}</td>
+                    <td style="${cellBase}; text-align:center;">
                     ${row.estado_item === false
                         ? '<span class="badge bg-danger">❌ Falla</span>'
                         : '<span class="badge bg-success">✔️ OK</span>'}
                     </td>
-                    <td>${row.fecha_guardado}</td>
+                    <td style="${cellBase}">${ESC(row.fecha_guardado)}</td>
                 </tr>`;
             });
-    
-            tabla += "</tbody></table></div>";
-            contenedor.innerHTML = tabla;
 
+            tabla += `</tbody></table></div>`;
+            document.getElementById("contenedorResultados").innerHTML = tabla;
             document.getElementById("botonesDescarga").style.display = "block";
-
-        } catch (err) {
+            })
+            .catch(err => {
             console.error("Error al consultar:", err);
-            contenedor.innerHTML = "<div class='alert alert-danger p-2'>Error al consultar el reporte.</div>";
-        }
+            const msg = (err && err.message) || "Error al consultar el reporte.";
+            document.getElementById("contenedorResultados").innerHTML =
+                `<div class='alert alert-danger p-2'>${msg}</div>`;
+            });
     }
 
     function descargarReporte(formato) {
-        const fecha = document.getElementById("filtroFecha").value;
-        if (!fecha) {
-            alert("Primero realiza una consulta con fecha.");
+        const fi = document.getElementById("filtroFechaIni").value;
+        const ff = document.getElementById("filtroFechaFin").value;
+        if (!fi || !ff) {
+            alert("Primero selecciona Fecha Inicial y Fecha Final.");
             return;
         }
-    
+        const d1 = new Date(fi), d2 = new Date(ff);
+        if (d2 < d1) { alert("La Fecha Final no puede ser menor que la Inicial."); return; }
+        const dias = Math.floor((d2 - d1) / (1000*60*60*24)) + 1;
+        if (dias > 5) { alert("El rango no puede ser superior a 5 días."); return; }
+
         const params = new URLSearchParams();
-        params.append("fecha", fecha);
-    
+        params.append("fecha_inicio", fi);
+        params.append("fecha_fin", ff);
+
         const filtros = {
             placa: "filtroPlaca",
             tipo_vehiculo: "filtroTipoVehiculo",
@@ -2318,15 +3200,1368 @@
             estado: "filtroEstado",
             usuario: "filtroUsuario"
         };
-    
         for (const [key, id] of Object.entries(filtros)) {
             const val = document.getElementById(id).value;
             if (val) params.append(key, val);
         }
-    
         window.open(`/reportes/fallas/exportar?${params.toString()}&formato=${formato}`, '_blank');
-    }    
-    
+    }
+
+</script>
+
+<!--  JavaScript para la consulta de reportes de Preoperacionales  -->
+<script>
+    function validarRangoFechas() {
+    const fi = document.getElementById("filtroFechaIni").value;
+    const ff = document.getElementById("filtroFechaFin").value;
+
+    if (!fi || !ff) {
+        alert("Por favor, selecciona Fecha Inicial y Fecha Final.");
+        (!fi ? document.getElementById("filtroFechaIni") : document.getElementById("filtroFechaFin")).focus();
+        return null;
+    }
+    const d1 = new Date(fi), d2 = new Date(ff);
+    if (d2 < d1) { alert("La Fecha Final no puede ser menor que la Inicial."); return null; }
+    const dias = Math.floor((d2 - d1) / (1000*60*60*24)) + 1;
+    if (dias > 5) { alert("El rango no puede ser superior a 5 días."); return null; }
+    return { fi, ff };
+    }
+
+    function paramsComunes(fi, ff) {
+    const p = new URLSearchParams();
+    p.append("fecha_inicio", fi);
+    p.append("fecha_fin", ff);
+
+    const placa = document.getElementById("filtroPlaca").value;
+    if (placa) p.append("placa", placa);
+
+    const tipo = document.getElementById("filtroTipoVehiculo").value;
+    if (tipo) p.append("tipo_vehiculo", tipo);
+
+    const marca = document.getElementById("filtroMarca").value;
+    if (marca) p.append("marca", marca);
+
+    const estado = document.getElementById("filtroEstado").value;
+    if (estado) p.append("estado", estado); // será ignorado por /reportes/preop
+
+    const usuario = document.getElementById("filtroUsuario").value;
+    if (usuario) p.append("usuario", usuario);
+
+    return p;
+    }
+
+    function consultarReportePreop() {
+        const fi = document.getElementById("filtroFechaIni").value;
+        const ff = document.getElementById("filtroFechaFin").value;
+
+        if (!fi || !ff) { alert("Por favor, selecciona Fecha Inicial y Fecha Final."); return; }
+        const d1 = new Date(fi), d2 = new Date(ff);
+        if (d2 < d1) { alert("La Fecha Final no puede ser menor que la Inicial."); return; }
+        const dias = Math.floor((d2 - d1) / (1000*60*60*24)) + 1;
+        if (dias > 5) { alert("El rango no puede ser superior a 5 días."); return; }
+
+        const params = new URLSearchParams();
+        params.append("fecha_inicio", fi);
+        params.append("fecha_fin", ff);
+
+        const placa  = document.getElementById("filtroPlaca").value;
+        const tipo   = document.getElementById("filtroTipoVehiculo").value;
+        const marca  = document.getElementById("filtroMarca").value;
+        const usuario= document.getElementById("filtroUsuario").value;
+        if (placa)  params.append("placa", placa);
+        if (tipo)   params.append("tipo_vehiculo", tipo);
+        if (marca)  params.append("marca", marca);
+        if (usuario)params.append("usuario", usuario);
+
+        const contenedor = document.getElementById("contenedorResultados");
+        contenedor.innerHTML = "<div class='text-muted'>🔄 Consultando resultados...</div>";
+
+        const ESC = s => String(s ?? '').replace(/[&<>"']/g, m => (
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])
+        ));
+        const fmtMiles = v => (v==null || v==='') ? '' : Number(v).toLocaleString('es-CO');
+        const fmtPct   = v => (v==null || v==='') ? '' : (Number(v).toLocaleString('es-CO') + '%');
+
+        fetch(`/reportes/preop?${params.toString()}`)
+        .then(r => {
+            if (!r.ok) return r.json().then(e => { throw new Error(e.detail || "Error"); });
+            return r.json();
+        })
+        .then(datos => {
+            if (!Array.isArray(datos) || !datos.length) {
+            contenedor.innerHTML = "<div class='alert alert-warning p-2'>No se encontraron resultados.</div>";
+            document.getElementById("botonesDescarga").style.display = "none";
+            return;
+            }
+
+            const cellBase = "white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:32px; vertical-align:middle;";
+
+            let tabla = `
+            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+            <table class="table table-bordered table-sm" style="font-size:12px; table-layout:fixed; width:100%;">
+                <thead style="position:sticky; top:0; background-color:#001F54; color:white; font-weight:bold; text-align:center; z-index:10;">
+                <tr>
+                    <th style="width:110px;">Fecha Mtto</th>
+                    <th style="width:90px;">Placa</th>
+                    <th style="width:120px;">Tipo Vehículo</th>
+                    <th style="width:110px;">Marca</th>
+                    <th style="width:110px;">Línea</th>
+                    <th style="width:90px;">Modelo</th>
+                    <th style="width:140px;">Mantenimiento</th>
+
+                    <th style="width:120px;">Odómetro del día</th>
+                    <th style="width:140px;">Odómetro (acum.)</th>
+                    <th style="width:110px;">Base período</th>
+
+                    <th style="width:120px;">Km Usados</th>
+                    <th style="width:110px;">Diferencia</th>
+                    <th style="width:90px;">% Uso</th>
+                    <th style="width:130px;">Próximo Mtto</th>
+
+                    <th style="width:200px;">Observación</th>
+                    <th style="width:130px;">Registrado por</th>
+                    <th style="width:140px;">Guardado</th>
+                </tr>
+                </thead>
+                <tbody>`;
+
+            datos.forEach(row => {
+            const diff = row.diferencia_optimo;
+            const pct  = row.porcentaje_uso;
+            const clsDiff = (diff == null) ? '' : (diff > 0 ? 'text-danger fw-bold' : (diff < 0 ? 'text-success fw-bold' : 'fw-bold'));
+            const clsPct  = (pct  == null) ? '' : (pct  > 100 ? 'text-danger fw-bold' : 'text-success fw-bold');
+
+            tabla += `
+                <tr>
+                <td style="${cellBase}">${ESC(row.fecha_mantenimiento)}</td>
+                <td style="${cellBase}">${ESC(row.placa)}</td>
+                <td style="${cellBase}">${ESC(row.tipo_vehiculo)}</td>
+                <td style="${cellBase}">${ESC(row.marca)}</td>
+                <td style="${cellBase}">${ESC(row.linea)}</td>
+                <td style="${cellBase}">${ESC(row.modelo)}</td>
+                <td style="${cellBase}">${ESC(row.mantenimiento)}</td>
+
+                <td style="${cellBase}; text-align:right;">${fmtMiles(row.odometro_dia)}</td>
+                <td style="${cellBase}; text-align:right;">${fmtMiles(row.odometro_corte)}</td>
+                <td style="${cellBase}; text-align:right;">${fmtMiles(row.base_periodo)}</td>
+
+                <td style="${cellBase}; text-align:right;">${fmtMiles(row.km_utilizados)}</td>
+                <td style="${cellBase}; text-align:right;" class="${clsDiff}">${diff==null?'':fmtMiles(diff)}</td>
+                <td style="${cellBase}; text-align:right;" class="${clsPct}">${fmtPct(pct)}</td>
+                <td style="${cellBase}; text-align:right;">${fmtMiles(row.prox_mtto_km)}</td>
+
+                <td style="${cellBase}">${ESC(row.observacion || '')}</td>
+                <td style="${cellBase}">${ESC(row.registrado_por || '')}</td>
+                <td style="${cellBase}">${ESC(row.fecha_guardado || '')}</td>
+                </tr>`;
+            });
+
+            tabla += `</tbody></table></div>`;
+            contenedor.innerHTML = tabla;
+            document.getElementById("botonesDescarga").style.display = "block";
+        })
+        .catch(err => {
+            console.error("Error al consultar:", err);
+            const msg = (err && err.message) || "Error al consultar el reporte.";
+            contenedor.innerHTML = `<div class='alert alert-danger p-2'>${msg}</div>`;
+        });
+    }
+
+    function descargarReportePreop(formato) {
+        const fi = document.getElementById("filtroFechaIni").value;
+        const ff = document.getElementById("filtroFechaFin").value;
+        if (!fi || !ff) { alert("Primero selecciona Fecha Inicial y Fecha Final."); return; }
+        const d1 = new Date(fi), d2 = new Date(ff);
+        if (d2 < d1) { alert("La Fecha Final no puede ser menor que la Inicial."); return; }
+        const dias = Math.floor((d2 - d1) / (1000*60*60*24)) + 1;
+        if (dias > 5) { alert("El rango no puede ser superior a 5 días."); return; }
+
+        const params = new URLSearchParams();
+        params.append("fecha_inicio", fi);
+        params.append("fecha_fin", ff);
+
+        const filtros = {
+        placa: "filtroPlaca",
+        tipo_vehiculo: "filtroTipoVehiculo",
+        marca: "filtroMarca",
+        usuario: "filtroUsuario"
+        };
+        for (const [key, id] of Object.entries(filtros)) {
+        const val = document.getElementById(id).value;
+        if (val) params.append(key, val);
+        }
+        window.open(`/reportes/preop/exportar?${params.toString()}&formato=${formato}`, '_blank');
+    }
+</script>
+
+<!-- ###################################################################################### -->
+<!-- ############### INICIO DE LOGICA Y FUNCIONES PREOPERACIONALES MOTOS  ################# -->
+<!-- ###################################################################################### -->
+
+<!-- JavaScript para la gestión de parámetros preoperacionales KM Optimo -->
+<script>
+    // Al activar la pestaña, solo cargamos la tabla
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabPreopBtn = document.getElementById('tab-param-preop');
+        if (tabPreopBtn) {
+        tabPreopBtn.addEventListener('shown.bs.tab', () => {
+            cargarParametrosPreoperacional(true);
+        });
+        }
+    });
+
+    // Muestra 12345 como "12.345" o vacío si no hay valor
+    const formatKMCell = (v) =>
+    (v === null || v === undefined || v === '') ? '' :
+    Number(v).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+
+    async function cargarParametrosPreoperacional(incluir_inactivos = true) {
+        try {
+        const res = await fetch(`/preoperacional-motos?incluir_inactivos=${incluir_inactivos}`);
+        const data = await res.json();
+        if (!data.ok) throw new Error('No se pudo listar parámetros');
+
+        const tbody = document.getElementById('tbody-param-preop');
+        tbody.innerHTML = '';
+        data.data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+            <td>${row.mantenimiento}</td>
+            <td>${formatKMCell(row.km_optimo)}</td>
+            <td>${
+                row.estado == 1 
+                ? '<span class="badge bg-success">Activo</span>' 
+                : '<span class="badge bg-secondary">Inactivo</span>'
+            }</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="abrirModalEditar(${row.id})">
+                <i class="fas fa-edit"></i> Editar
+                </button>
+                ${
+                row.estado == 1
+                    ? `<button class="btn btn-sm btn-warning" onclick="cambiarEstadoParametro(${row.id}, 0)">
+                        <i class="fas fa-toggle-off"></i> Inactivar
+                    </button>`
+                    : `<button class="btn btn-sm btn-success" onclick="cambiarEstadoParametro(${row.id}, 1)">
+                        <i class="fas fa-toggle-on"></i> Activar
+                    </button>`
+                }
+            </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        } catch (e) {
+        console.error(e);
+        alert('Error cargando parámetros preoperacionales');
+        }
+    }
+
+    async function registrarParametroPreoperacional() {
+        const mantenimiento = document.getElementById('mantenimiento_preop').value.trim().toUpperCase();
+        const km_txt = document.getElementById('km_optimo_preop').value.trim();
+        const estado = parseInt(document.getElementById('estado_preop').value);
+        const km_optimo = km_txt === '' ? null : Number(km_txt);
+
+        if (!mantenimiento) {
+        alert('El nombre de mantenimiento es obligatorio.');
+        return;
+        }
+
+        try {
+        const res = await fetch('/preoperacional-motos', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mantenimiento, km_optimo, estado })
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.detail || json.error || 'Error al guardar');
+
+        alert('Parámetro guardado correctamente');
+        document.getElementById('mantenimiento_preop').value = '';
+        document.getElementById('km_optimo_preop').value = '';
+        document.getElementById('estado_preop').value = '1';
+        await cargarParametrosPreoperacional(true);
+        } catch (e) {
+        console.error(e);
+        alert(e.message);
+        }
+    }
+
+    async function abrirModalEditar(id) {
+        try {
+        const res = await fetch(`preoperacional-motos/${id}`);
+        const json = await res.json();
+        if (!json.ok) throw new Error('No se pudo obtener el parámetro');
+
+        document.getElementById('editar_id_preop').value = json.data.id;
+        document.getElementById('editar_mantenimiento_preop').value = (json.data.mantenimiento || '').toUpperCase();
+        document.getElementById('editar_km_optimo_preop').value = json.data.km_optimo ?? '';
+        document.getElementById('editar_estado_preop').value = json.data.estado;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEditarPreop'));
+        modal.show();
+        } catch (e) {
+        console.error(e);
+        alert('Error abriendo el modal de edición');
+        }
+    }
+
+    async function guardarEdicionParametro() {
+        const id = parseInt(document.getElementById('editar_id_preop').value);
+        const mantenimiento = document.getElementById('editar_mantenimiento_preop').value.trim().toUpperCase();
+        const km_txt = document.getElementById('editar_km_optimo_preop').value.trim();
+        const estado = parseInt(document.getElementById('editar_estado_preop').value);
+        const km_optimo = km_txt === '' ? null : Number(km_txt);
+
+        if (!mantenimiento) {
+        alert('El nombre de mantenimiento es obligatorio.');
+        return;
+        }
+
+        try {
+        const res = await fetch(`preoperacional-motos/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mantenimiento, km_optimo, estado })
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) {
+            throw new Error(json.detail || json.error || 'Error al actualizar');
+        }
+
+        alert('Parámetro actualizado');
+        bootstrap.Modal.getInstance(document.getElementById('modalEditarPreop')).hide();
+        await cargarParametrosPreoperacional(true);
+        } catch (e) {
+        console.error(e);
+        alert(e.message);
+        }
+    }
+
+    async function cambiarEstadoParametro(id, nuevoEstado) {
+        try {
+        const res = await fetch(`preoperacional-motos/${id}/estado`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ estado: nuevoEstado })
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) {
+            throw new Error(json.detail || json.error || 'Error al cambiar estado');
+        }
+        alert('Estado actualizado');
+        await cargarParametrosPreoperacional(true);
+        } catch (e) {
+        console.error(e);
+        alert(e.message);
+        }
+    }
+</script>
+
+<!--  JavaScript para la registrar preoperacionales de motos -->
+<script>
+  // ===== Autocomplete de placas (mismo patrón que tu pestaña de checklist) =====
+    let preopBuscarTimeout = null;
+
+    // Buscar placas por coincidencia
+    async function preopBuscarPlacas(query) {
+        const lista = document.getElementById("preopPlacaList");
+        if (!query || query.length < 1) { lista.innerHTML = ""; return; }
+
+        try {
+        //const resp = await fetch(`/vehiculos/buscar/${encodeURIComponent(query)}`);
+        const resp = await fetch(`/vehiculos/buscar/${encodeURIComponent(query)}?solo_moto=1`);
+        const placas = await resp.json(); // esperado: [{ placa: 'ABC123' }, ...]
+        lista.innerHTML = "";
+
+        if (!Array.isArray(placas) || placas.length === 0) {
+            lista.innerHTML = `<button class="list-group-item list-group-item-action disabled">No hay coincidencias</button>`;
+            return;
+        }
+
+        placas.slice(0, 10).forEach(vehiculo => {
+            const item = document.createElement("button");
+            item.classList.add("list-group-item", "list-group-item-action");
+            item.style.padding = "4px";
+            item.style.fontSize = "14px";
+            item.textContent = (vehiculo.placa || "").toUpperCase();
+            item.addEventListener("click", () => {
+            document.getElementById("preopSearchPlaca").value = item.textContent;
+            lista.innerHTML = "";
+            });
+            lista.appendChild(item);
+        });
+        } catch (e) {
+        console.error(e);
+        lista.innerHTML = "";
+        }
+    }
+
+    // Input: autocomplete
+    document.addEventListener("DOMContentLoaded", () => {
+        const input = document.getElementById("preopSearchPlaca");
+        const lista = document.getElementById("preopPlacaList");
+
+        input.addEventListener("input", () => {
+        clearTimeout(preopBuscarTimeout);
+        const q = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        preopBuscarTimeout = setTimeout(() => preopBuscarPlacas(q), 200);
+        });
+
+        // Enter selecciona la primera sugerencia si existe
+        input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            const first = lista.querySelector(".list-group-item:not(.disabled)");
+            if (first) {
+            input.value = first.textContent.trim();
+            lista.innerHTML = "";
+            e.preventDefault();
+            }
+        }
+        });
+
+        // Ocultar sugerencias al perder foco (pequeño retardo)
+        input.addEventListener("blur", () => setTimeout(() => { lista.innerHTML = ""; }, 150));
+    });
+
+    // ===== Consultar vehículo (igual endpoint que tu código guía) =====
+    async function preopConsultarVehiculo() {
+        const placa = (document.getElementById("preopSearchPlaca").value || "").trim().toUpperCase();
+        const lista = document.getElementById("preopPlacaList");
+        lista.innerHTML = "";
+
+        if (!placa) { alert("Por favor, ingrese una placa válida."); return; }
+
+        try {
+        const response = await fetch(`/vehiculos/checklist/${encodeURIComponent(placa)}`);
+        if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+
+        const data = await response.json();
+        if (data.error) { alert("Vehículo no encontrado."); return; }
+
+        const vehiculo = data.vehiculo || {};
+        // Guardamos selección mínima para este módulo
+        preopVehiculoSeleccionado = {
+            placa: vehiculo.placa || placa,
+            tipo: vehiculo.tipo_vehiculo || "-",
+            marca: vehiculo.marca || "-",
+            linea: vehiculo.linea || "-",
+            modelo: vehiculo.modelo || "-"
+        };
+
+        // Pintar en encabezado
+        document.getElementById("preopPlacaInfo").textContent = preopVehiculoSeleccionado.placa;
+        document.getElementById("preopTipoVehiculoInfo").textContent = preopVehiculoSeleccionado.tipo;
+        document.getElementById("preopMarcaVehiculoInfo").textContent = preopVehiculoSeleccionado.marca;
+        document.getElementById("preopLineaVehiculoInfo").textContent = preopVehiculoSeleccionado.linea;
+        document.getElementById("preopModeloVehiculoInfo").textContent = preopVehiculoSeleccionado.modelo;
+
+        preopHabilitarGuardar();
+        } catch (error) {
+        console.error("❌ Error al consultar vehículo:", error);
+        alert("Ocurrió un error al consultar el vehículo.");
+        }
+    }
+
+    function preopLimpiarConsulta() {
+        const confirmacion = confirm("¿Está seguro de que desea limpiar todos los datos?");
+        if (!confirmacion) return;
+
+        preopVehiculoSeleccionado = null;
+        document.getElementById("preopSearchPlaca").value = "";
+        document.getElementById("preopPlacaList").innerHTML = "";
+
+        document.getElementById("preopPlacaInfo").textContent = "-";
+        document.getElementById("preopTipoVehiculoInfo").textContent = "-";
+        document.getElementById("preopMarcaVehiculoInfo").textContent = "-";
+        document.getElementById("preopLineaVehiculoInfo").textContent = "-";
+        document.getElementById("preopModeloVehiculoInfo").textContent = "-";
+
+        preopVaciarCarrito();
+        preopHabilitarGuardar();
+    }
+
+    // Bind del botón consultar (específico para esta pestaña)
+    document.addEventListener("DOMContentLoaded", () => {
+        const btn = document.getElementById("btnPreopConsultar");
+        if (btn) btn.addEventListener("click", preopConsultarVehiculo);
+    });
+</script>
+
+<!--  JavaScript para la gestión del carrito preoperacional -->
+<script>
+  // -------------------- Estado en memoria --------------------
+    let preopVehiculoSeleccionado = null; // {placa, tipo, marca, linea, modelo, ...}
+    let preopCarrito = []; // [{idItem, mantenimiento, observacion, archivos: [File]}]
+    let preopAdjuntosTemporales = []; // archivos antes de "Agregar al carrito"
+    let preopItemAutoinc = 1;
+
+  // -------------------- Helpers UI --------------------
+    function preopToast(msg) { alert(msg); }
+    function preopHabilitarGuardar() {
+        const btn = document.getElementById('preopGuardarBtn');
+        const ok = !!preopVehiculoSeleccionado && preopCarrito.length > 0 && preopCarrito.every(i => i.archivos.length > 0);
+        btn.disabled = !ok;
+    }
+    function preopResetSelector() {
+        document.getElementById('preopObservacion').value = '';
+        preopAdjuntosTemporales = [];
+        document.getElementById('preopAdjuntosPreview').innerHTML = '';
+    }
+
+    // Render mini chips/thumbnails de adjuntos temporales
+    function preopRenderAdjuntosTemporales() {
+        const cont = document.getElementById('preopAdjuntosPreview');
+        cont.innerHTML = '';
+        preopAdjuntosTemporales.forEach((file, idx) => {
+        const isImg = file.type.startsWith('image/');
+        const url = URL.createObjectURL(file);
+        const el = document.createElement('div');
+        el.className = 'border rounded p-1 d-flex align-items-center gap-2';
+        el.style.maxWidth = '160px';
+        el.innerHTML = `
+            ${isImg ? `<img src="${url}" alt="img" style="width:36px;height:36px;object-fit:cover;border-radius:4px;">` : `<i class="fas fa-file-pdf"></i>`}
+            <span class="text-truncate" title="${file.name}" style="max-width: 90px;">${file.name}</span>
+            <button class="btn btn-sm btn-outline-danger" onclick="preopQuitarAdjuntoTemporal(${idx})">&times;</button>
+        `;
+        cont.appendChild(el);
+        });
+    }
+    function preopQuitarAdjuntoTemporal(i) {
+        preopAdjuntosTemporales.splice(i,1);
+        preopRenderAdjuntosTemporales();
+    }
+
+    // Render del carrito (incluye FECHA, botones compactos, observación multilinea)
+    function preopRenderCarrito() {
+        const tbody = document.getElementById('preopCarritoBody');
+        tbody.innerHTML = '';
+
+        preopCarrito.forEach(item => {
+            // Chips de adjuntos (compactos y truncados)
+            const adjuntosHtml = item.archivos.map((f, i) => {
+            const isImg = f.type && f.type.startsWith('image/');
+            const url = URL.createObjectURL(f);
+            const nameSafe = (f.name || '').replace(/"/g, '&quot;');
+            return `
+                <div
+                class="adj-chip"
+                style="
+                    display:inline-flex;align-items:center;gap:6px;
+                    border:1px solid #dee2e6;border-radius:8px;
+                    background:#f8f9fa;padding:4px 6px;
+                    max-width:100%;
+                "
+                >
+                ${isImg
+                    ? `<img src="${url}" alt="img"
+                        style="width:22px;height:22px;object-fit:cover;border-radius:4px;">`
+                    : `<i class="fas fa-file"></i>`
+                }
+                <span
+                    class="adj-name"
+                    title="${nameSafe}"
+                    style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;"
+                >${f.name}</span>
+                <button
+                    class="btn btn-sm btn-outline-danger"
+                    title="Quitar"
+                    onclick="preopQuitarAdjunto(${item.idItem}, ${i})"
+                    style="width:22px;height:22px;padding:0;line-height:1;"
+                >×</button>
+                </div>
+            `;
+            }).join('');
+
+            // Observación multilínea (hasta 3) + tooltip
+            const obsFull = (item.observacion || '').replace(/"/g, '&quot;');
+            const obsMultiline = `
+            <div class="small"
+                title="${obsFull}"
+                style="
+                    text-align: justify;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 3;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                    max-width: 100%;
+                    line-height: 1.2;
+                ">
+                ${item.observacion || ''}
+            </div>
+            `;
+
+            const tr = document.createElement('tr');
+            tr.className = 'align-middle';
+            tr.innerHTML = `
+            <td class="text-start" style="vertical-align:middle; font-weight:600;">
+                ${item.fecha}
+            </td>
+            <td class="text-start" style="vertical-align:middle; font-weight:600;">
+                ${item.mantenimiento}
+            </td>
+            <td class="text-start" style="vertical-align:middle;">
+                <div class="d-flex flex-wrap align-items-start">
+                ${adjuntosHtml || '<span class="text-muted">Sin adjuntos</span>'}
+                </div>
+            </td>
+            <td class="text-start" style="vertical-align:middle;">
+                ${obsMultiline}
+            </td>
+            <td class="text-center" 
+                style="vertical-align:middle; width: 84px; white-space: nowrap; overflow: hidden;">
+                <div class="d-inline-flex flex-column align-items-stretch" style="gap:6px; width: 70px;">
+                <button class="btn btn-primary"
+                        style="padding: 2px 4px; height: 22px; font-size: 10.5px; line-height: 1.1; width: 70px;"
+                        onclick="preopEditarItem(${item.idItem})">
+                    Editar
+                </button>
+                <button class="btn btn-warning"
+                        style="padding: 2px 4px; height: 22px; font-size: 10.5px; line-height: 1.1; width: 70px;"
+                        onclick="preopEliminarItem(${item.idItem})">
+                    Eliminar
+                </button>
+                </div>
+            </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        preopHabilitarGuardar();
+    }
+
+    // -------------------- Eventos de inputs de adjuntos --------------------
+    document.addEventListener('change', (e) => {
+        if (e.target && e.target.id === 'preopFileInput') {
+        preopAdjuntosTemporales.push(...Array.from(e.target.files));
+        e.target.value = ''; // limpia
+        preopRenderAdjuntosTemporales();
+        }
+        if (e.target && e.target.id === 'preopCameraInput') {
+        if (e.target.files && e.target.files.length > 0) {
+            preopAdjuntosTemporales.push(e.target.files[0]);
+            e.target.value = '';
+            preopRenderAdjuntosTemporales();
+        }
+        }
+    });
+
+    // -------------------- Consultar vehículo --------------------
+    async function preopConsultarVehiculo() {
+        const placa = (document.getElementById('preopSearchPlaca').value || '').trim().toUpperCase();
+        if (!placa) { preopToast('Ingrese la placa.'); return; }
+
+        try {
+        // Ajusta esta ruta a tu API real; aquí asumimos /vehiculos/{placa}
+        const res = await fetch(`vehiculos/${placa}`);
+        const json = await res.json();
+        if (!res.ok || !json) throw new Error('No se pudo consultar el vehículo');
+
+        // Estructura esperada (adáptala según tu respuesta real)
+        preopVehiculoSeleccionado = {
+            placa: json.placa || json.vehiculo?.placa || placa,
+            tipo: json.tipo_vehiculo || json.vehiculo?.tipo_vehiculo || '-',
+            marca: json.marca || json.vehiculo?.marca || '-',
+            linea: json.linea || json.vehiculo?.linea || '-',
+            modelo: json.modelo || json.vehiculo?.modelo || '-'
+        };
+
+        // Pinta en cabecera
+        document.getElementById('preopPlacaInfo').textContent = preopVehiculoSeleccionado.placa || '-';
+        document.getElementById('preopTipoVehiculoInfo').textContent = preopVehiculoSeleccionado.tipo || '-';
+        document.getElementById('preopMarcaVehiculoInfo').textContent = preopVehiculoSeleccionado.marca || '-';
+        document.getElementById('preopLineaVehiculoInfo').textContent = preopVehiculoSeleccionado.linea || '-';
+        document.getElementById('preopModeloVehiculoInfo').textContent = preopVehiculoSeleccionado.modelo || '-';
+
+        preopHabilitarGuardar();
+        } catch (err) {
+        console.error(err);
+        preopToast('Vehículo no encontrado o error en la consulta.');
+        }
+    }
+
+    function preopLimpiarConsulta() {
+        preopVehiculoSeleccionado = null;
+        document.getElementById('preopSearchPlaca').value = '';
+        document.getElementById('preopPlacaInfo').textContent = '-';
+        document.getElementById('preopTipoVehiculoInfo').textContent = '-';
+        document.getElementById('preopMarcaVehiculoInfo').textContent = '-';
+        document.getElementById('preopLineaVehiculoInfo').textContent = '-';
+        document.getElementById('preopModeloVehiculoInfo').textContent = '-';
+        preopVaciarCarrito();
+        preopHabilitarGuardar();
+    }
+
+    // Bind del botón consultar
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('btnPreopConsultar');
+        if (btn) btn.addEventListener('click', preopConsultarVehiculo);
+    });
+
+    // -------------------- Cargar lista de mantenimientos (activos) --------------------
+    async function preopCargarMantenimientos() {
+        try {
+        // Tomamos los activos desde parámetros (ya creado en tu módulo)
+        const res = await fetch('/preoperacional-motos?incluir_inactivos=false');
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error('No se pudieron cargar mantenimientos');
+
+        const select = document.getElementById('preopMantenimientoSelect');
+        select.innerHTML = '';
+        json.data
+            .filter(x => x.estado === 1)
+            .sort((a,b)=> a.mantenimiento.localeCompare(b.mantenimiento,'es'))
+            .forEach(row => {
+            const opt = document.createElement('option');
+            opt.value = row.mantenimiento;
+            opt.textContent = row.mantenimiento;
+            select.appendChild(opt);
+            });
+        } catch (e) {
+        console.error(e);
+        preopToast('Error cargando la lista de mantenimientos.');
+        }
+    }
+
+    // -------------------- Carrito: agregar / editar / eliminar --------------------
+    function preopAgregarAlCarrito() {
+        const fecha = document.getElementById('preopFechaMantenimiento').value; // YYYY-MM-DD
+        const mantenimiento = document.getElementById('preopMantenimientoSelect').value;
+        const observacion = document.getElementById('preopObservacion').value.trim();
+        const archivos = [...preopAdjuntosTemporales]; // clonar
+
+        if (!fecha) { preopToast('Seleccione la fecha del mantenimiento.'); return; }
+        if (!mantenimiento) { preopToast('Seleccione un mantenimiento.'); return; }
+        if (archivos.length === 0) { preopToast('Adjunte al menos un archivo/foto.'); return; }
+
+        const item = {
+            idItem: preopItemAutoinc++,
+            fecha,                 // ← nueva propiedad
+            mantenimiento,
+            observacion,
+            archivos
+        };
+        preopCarrito.push(item);
+        preopRenderCarrito();
+        preopResetSelector();     // deja la fecha como está por si registras varios el mismo día
+    }
+
+    function preopEliminarItem(idItem) {
+        preopCarrito = preopCarrito.filter(x => x.idItem !== idItem);
+        preopRenderCarrito();
+    }
+
+    function preopQuitarAdjunto(idItem, idxAdj) {
+        const item = preopCarrito.find(x => x.idItem === idItem);
+        if (!item) return;
+        item.archivos.splice(idxAdj, 1);
+        preopRenderCarrito();
+    }
+
+    // Edición rápida: reinyecta en el selector (puedes hacerlo modal si prefieres)
+    function preopEditarItem(idItem) {
+        const item = preopCarrito.find(x => x.idItem === idItem);
+        if (!item) return;
+
+        // Reinyectar en los controles
+        document.getElementById('preopFechaMantenimiento').value = item.fecha || '';
+        document.getElementById('preopMantenimientoSelect').value = item.mantenimiento;
+        document.getElementById('preopObservacion').value = item.observacion || '';
+        preopAdjuntosTemporales = [...item.archivos];
+        preopRenderAdjuntosTemporales();
+
+        // Eliminar del carrito para volver a agregar con los cambios
+        preopEliminarItem(idItem);
+    }
+
+    function preopVaciarCarrito() {
+        preopCarrito = [];
+        preopRenderCarrito();
+    }
+
+    // -------------------- Guardar (placeholder) --------------------
+    async function preopGuardarRegistro() {
+        if (!preopVehiculoSeleccionado) { preopToast('Primero consulta la placa.'); return; }
+        if (preopCarrito.length === 0) { preopToast('Agrega al menos un mantenimiento.'); return; }
+        if (!preopCarrito.every(i => i.archivos.length > 0)) { preopToast('Todos los mantenimientos deben tener adjuntos.'); return; }
+
+        // Aquí luego enviaremos FormData con archivos al backend (y de ahí a blob storage).
+        // Por ahora, solo mostramos un resumen.
+        console.log('Vehículo:', preopVehiculoSeleccionado);
+        console.log('Carrito:', preopCarrito);
+
+        preopToast('(Simulado) Registro listo para enviar. ¡Backend pendiente!');
+    }
+
+    // -------------------- Lifecycle: al abrir la pestaña --------------------
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabBtn = document.getElementById('tab-registro-preop');
+        if (tabBtn) {
+        tabBtn.addEventListener('shown.bs.tab', () => {
+            preopCargarMantenimientos();
+        });
+        }
+    });
+
+    // ------- GUARDAR REGISTRO FINAL DEL PREOPERATIVO CON ADJUNTO -------
+    // Devuelve un nombre de usuario “seguro”
+    function getUsuarioRegistro() {
+        const el = document.getElementById('sessionUser');
+        if (!el) return 'ANONIMO';
+
+        const full  = (el.getAttribute('data-user-full')  || '').trim();
+        const login = (el.getAttribute('data-user-login') || '').trim();
+
+        // Evitar casos donde el motor de plantillas no reemplazó (quedó con llaves)
+        const looksTemplate = (s) => s.includes('{') || s.includes('}');
+
+        const pick = (!full || looksTemplate(full))
+        ? (looksTemplate(login) ? '' : login)
+        : full;
+
+        return (pick || 'ANONIMO').replace(/\s+/g,' ').trim().toUpperCase();
+    }
+    // 1) Crear registro en BD
+    async function apiCrearRegistroPreop(item, placa, usuario) {
+    const payload = {
+        placa,
+        fecha_mantenimiento: item.fecha,      // YYYY-MM-DD
+        mantenimiento: item.mantenimiento,
+        observacion: item.observacion || null,
+        usuario_registro: usuario             // <-- ya viene del helper
+    };
+
+    const res = await fetch('/preoperacional-motos/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error(json.detail || json.error || 'Error creando registro');
+    return json.data.id_preop;
+    }
+
+    // 2) Subir adjuntos
+    async function apiSubirAdjuntosPreop(id_preop, item, placa) {
+    const [yyyy, mm] = item.fecha.split('-');
+
+    const form = new FormData();
+    item.archivos.forEach(f => form.append('files', f));
+    form.append('fecha_mantenimiento', item.fecha);
+    form.append('placa', placa);
+    form.append('mantenimiento', item.mantenimiento);
+
+    const res = await fetch(`/preoperacional-motos/registro/${id_preop}/adjuntos/${yyyy}/${mm}`, {
+        method: 'POST',
+        body: form
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error(json.message || 'Error subiendo adjuntos');
+    return json;
+    }
+
+    // 3) Guardar todo el carrito
+    async function preopGuardarRegistro() {
+    if (!preopVehiculoSeleccionado) return preopToast('Primero consulta la placa.');
+    if (preopCarrito.length === 0) return preopToast('Agrega al menos un mantenimiento.');
+    if (!preopCarrito.every(i => i.archivos.length > 0)) return preopToast('Todos los mantenimientos deben tener adjuntos.');
+
+    const overlay = document.getElementById('loadingOverlay');
+    try {
+        overlay && (overlay.style.display = 'block');
+
+        const usuario = getUsuarioRegistro();           // <<<<<<
+        const placa = preopVehiculoSeleccionado.placa;
+
+        for (const item of preopCarrito) {
+        const id_preop = await apiCrearRegistroPreop(item, placa, usuario);
+        await apiSubirAdjuntosPreop(id_preop, item, placa);
+        }
+
+        preopToast('✅ Registro(s) guardado(s) con éxito!');
+        preopVaciarCarrito();
+        preopResetSelector();
+    } catch (err) {
+        console.error(err);
+        preopToast(`❌ Ocurrió un error guardando el registro: ${err.message || err}`);
+    } finally {
+        overlay && (overlay.style.display = 'none');
+    }
+    }
+</script>
+
+<!----------------------------------------------------------------------------->
+<!--  JavaScript para la Pestaña de CONSOLIDADO DE PREOPERACIONALES  -->
+<script>
+(() => {
+    const $  = (s, ctx=document) => ctx.querySelector(s);
+    const $$ = (s, ctx=document) => Array.from(ctx.querySelectorAll(s));
+    const U  = (s) => (s ?? "").toString().trim().toUpperCase();
+    const S  = (s) => (s ?? "").toString().trim();
+    const ESC = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])
+        );
+
+    const debounce = (fn, ms=220) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+    const fetchJSON = async (url)=>{ const r=await fetch(url); if(!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); };
+
+    const isImage = (u) => /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(u||'');
+    const isPDF   = (u) => /\.pdf(\?|$)/i.test(u||'');
+
+    const formatKM = (v) => {
+        const n = Number(String(v ?? '').replace(/[^\d.-]/g, ''));
+        return isFinite(n) ? n.toLocaleString('es-CO', { maximumFractionDigits: 0 }) : '—';
+    };
+
+    // ===== Fechas seguras (evitar -1 día por parse UTC) =====
+    const _isYMD   = (f) => typeof f === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f);
+    const _isYMDhm = (f) => typeof f === 'string' && /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/.test(f);
+
+    const fmtFechaISO = (f) => {      // Devuelve "YYYY-MM-DD HH:mm"
+        if (!f) return '—';
+        if (_isYMDhm(f)) return String(f);      // ya viene listo "YYYY-MM-DD HH:mm"
+        if (_isYMD(f))   return String(f) + ' 00:00'; // no parsear; si quieres hora, fija 00:00
+        const d = new Date(f);
+        if (isNaN(d)) return String(f);
+        const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'),
+            hh=String(d.getHours()).padStart(2,'0'), mi=String(d.getMinutes()).padStart(2,'0');
+        return `${y}-${m}-${dd} ${hh}:${mi}`;
+    };
+
+    const fmtFechaCorta = (f) => {    // Devuelve "YYYY-MM-DD"
+        if (!f) return '—';
+        if (_isYMD(f))   return String(f);       // no tocar
+        if (_isYMDhm(f)) return String(f).slice(0,10);
+        const d = new Date(f);
+        if (isNaN(d)) return String(f);
+        const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${dd}`;
+    };
+
+    // Añadir TH Vinculación si falta (última columna)
+    function asegurarThVinculacion() {
+        const tr = $('#tablaVerPreop thead tr');
+        if (!tr) return;
+        const existe = Array.from(tr.children).some(th => th.textContent.toLowerCase().includes('vinculación'));
+        if (!existe) {
+        const th = document.createElement('th');
+        th.innerHTML = '<i class="fas fa-id-badge"></i> Vinculación';
+        th.style.width = '9rem';
+        tr.appendChild(th);
+        }
+    }
+
+    // Densidad como Fallas (inline)
+    function aplicarDensidadFilas(tbody) {
+        if (!tbody) return;
+        $$('td', tbody).forEach(td => {
+        td.style.paddingTop = '2px';
+        td.style.paddingBottom = '2px';
+        td.style.verticalAlign = 'middle';
+        });
+        $$('td input, td button, td img', tbody).forEach(el => {
+        el.style.height = '24px';
+        el.style.padding = '2px 6px';
+        el.style.fontSize = '13px';
+        });
+    }
+
+    // Construye una fila
+    function construirFila(item) {
+        const tr = document.createElement('tr');
+
+        const btnHTML = `
+        <button type="button"
+            class="btn btn-light border d-flex align-items-center justify-content-center"
+            style="padding:5px;height:30px;width:30px;border-color:rgb(13,15,124);"
+            title="Ver preoperacionales">
+            <img src="/static/images/editar.png" alt="Ver" style="width:35px;height:35px;">
+        </button>
+        `;
+
+        const vincHTML = (item.vinculacion === 'Activo')
+        ? `<td class="fw-bold" style="color:#198754;">🟢 Activo</td>`
+        : `<td class="fw-bold" style="color:#dc3545;">🚫 Inactivo</td>`;
+
+        tr.innerHTML = `
+        <td class="text-center">${btnHTML}</td>
+        <td>${S(item.placa)}</td>
+        <td>${S(item.tipo_vehiculo)}</td>
+        <td>${S(item.marca)}</td>
+        <td>${S(item.linea)}</td>
+        <td>${S(item.modelo)}</td>
+        <td class="ultimo-km">${formatKM(item.ultimo_km_odometro)}</td>
+        <td class="fecha-ult-mant">${fmtFechaCorta(item.fecha_ultimo_mantenimiento)}</td>
+        ${vincHTML}
+        `;
+
+        const btn = tr.querySelector('button');
+        btn.dataset.placa  = S(item.placa);
+        btn.dataset.tipo   = S(item.tipo_vehiculo);
+        btn.dataset.marca  = S(item.marca);
+        btn.dataset.linea  = S(item.linea);
+        btn.dataset.modelo = S(item.modelo);
+        btn.dataset.km     = formatKM(item.ultimo_km_odometro);
+        btn.dataset.fmtto  = fmtFechaCorta(item.fecha_ultimo_mantenimiento);
+
+        btn.addEventListener('click', () => abrirModalPreop(btn));
+        return tr;
+    }
+
+    // Cargar grilla desde /preop/vehiculos
+    async function cargarVerPreop() {
+        const tbody = $('#tbodyVerPreop');
+        if (!tbody) return;
+
+        try {
+        const params = new URLSearchParams();
+        const p = S($('#verPreopBuscarPlaca')?.value);
+        const t = S($('#verPreopTipo')?.value);
+        const m = S($('#verPreopMarca')?.value);
+        const l = S($('#verPreopLinea')?.value);
+        const mo= S($('#verPreopModelo')?.value);
+        if (p)  params.set('placa', p);
+        if (t)  params.set('tipo', t);
+        if (m)  params.set('marca', m);
+        if (l)  params.set('linea', l);
+        if (mo) params.set('modelo', mo);
+
+        const qs = params.toString();
+        const data = await fetchJSON(`/preop/vehiculos${qs ? `?${qs}` : ''}`);
+
+        tbody.innerHTML = '';
+        if (!Array.isArray(data) || !data.length) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No se encontraron resultados.</td></tr>`;
+            return;
+        }
+
+        const frag = document.createDocumentFragment();
+        data.forEach(item => frag.appendChild(construirFila(item)));
+        tbody.appendChild(frag);
+
+        aplicarDensidadFilas(tbody);
+        } catch (e) {
+        console.error('❌ Error cargando /preop/vehiculos:', e);
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error al cargar datos.</td></tr>`;
+        }
+    }
+
+    // Modal principal (versión enriquecida)
+    async function abrirModalPreop(btnOrPlaca) {
+    try {
+        limpiarBackdrop();
+
+        let placa = '';
+        let meta  = {};
+        if (typeof btnOrPlaca === 'string') {
+        placa = btnOrPlaca;
+        } else if (btnOrPlaca && btnOrPlaca.dataset) {
+        const d = btnOrPlaca.dataset;
+        placa = d.placa || '';
+        meta = { tipo: d.tipo, marca: d.marca, linea: d.linea, modelo: d.modelo, km: d.km, fmtto: d.fmtto };
+        }
+
+        // Encabezado del modal
+        $('#preopHPlaca').textContent   = placa || '-';
+        $('#preopHTipo').textContent    = meta.tipo   || '-';
+        $('#preopHMarca').textContent   = meta.marca  || '-';
+        $('#preopHLinea').textContent   = meta.linea  || '-';
+        $('#preopHModelo').textContent  = meta.modelo || '-';
+        $('#preopHKm').textContent      = meta.km     || '—';
+        $('#preopHFechaUlt').textContent = meta.fmtto || '—';
+
+        const root = $('#preopAcordeon');
+        root.innerHTML = `<div class="p-3 text-muted">Cargando grupos…</div>`;
+
+        try {
+        const j = await fetchJSON(`/preop/historial/${encodeURIComponent(placa)}/grupos`);
+        const grupos = j?.grupos || [];
+        if (!grupos.length) {
+            root.innerHTML = `<div class="alert alert-info m-2">No hay mantenimientos registrados.</div>`;
+        } else {
+            // Armado de acordeones (con cabecera de 9 columnas)
+            root.innerHTML = grupos.map((g, i) => `
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="preopHead${i}">
+                <button class="accordion-button collapsed py-2" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#preopCol${i}"
+                        data-index="${i}" data-placa="${placa}" data-mant="${g}">
+                    <img src="/static/images/lista.png" alt="Lista" width="20" height="20" class="me-2">
+                    ${g}
+                </button>
+                </h2>
+                <div id="preopCol${i}" class="accordion-collapse collapse" data-bs-parent="#preopAcordeon">
+                <div class="accordion-body" style="padding:0;">
+                    <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0" style="font-size:13px; table-layout:fixed; width:100%;">
+                        <thead class="sticky-top" style="background-color:#001F54;color:white;top:0;z-index:1;">
+                        <tr>
+                            <th style="width:10%">Fecha Mtto</th>
+                            <th style="width:10%; white-space:nowrap;">Odómetro</th>
+                            <th style="width:10%; white-space:nowrap;">Diferencia</th>
+                            <th style="width:9%; white-space:nowrap;">% Uso</th>
+                            <th style="width:10%; white-space:nowrap;">Próximo Mtto</th>
+                            <th style="width:20%;">Observación</th>
+                            <th style="width:14%; white-space:nowrap;">Usuario Registra</th>
+                            <th style="width:10%; white-space:nowrap;">Guardado</th>
+                            <th style="width:10%; white-space:nowrap;">Adjuntos</th>
+                        </tr>
+                        </thead>
+                        <tbody id="preopTBody${i}">
+                        <tr><td colspan="9" class="text-center text-muted">Abrir para cargar…</td></tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+                </div>
+            </div>
+            `).join('');
+
+            // Helpers de formato locales
+            const fmtMiles = (v) => (v === null || v === undefined || v === '') ? '' : Number(v).toLocaleString('es-CO');
+            const fmtPct   = (v) => (v === null || v === undefined || v === '') ? '' : (Number(v).toLocaleString('es-CO') + '%');
+
+            // Carga perezosa por acordeón
+            root.querySelectorAll('.accordion-button[data-placa]').forEach(btn => {
+            const idx = btn.getAttribute('data-index');
+            const col = document.getElementById(`preopCol${idx}`);
+
+            col.addEventListener('show.bs.collapse', async () => {
+                const placaX = btn.getAttribute('data-placa');
+                const mant   = btn.getAttribute('data-mant');
+                const tb     = document.getElementById(`preopTBody${idx}`);
+                tb.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Cargando…</td></tr>`;
+
+                try {
+                // Endpoint ENRIQUECIDO
+                const j2 = await fetchJSON(`/preop/historial/${encodeURIComponent(placaX)}/grupo/${encodeURIComponent(mant)}?enriquecido=1`);
+                const items = j2?.items || [];
+
+                if (!items.length) {
+                    tb.innerHTML = `<tr><td colspan="9" class="text-center text-muted">Sin registros.</td></tr>`;
+                } else {
+                    tb.innerHTML = items.map(it => {
+                    const diff = it.diferencia_optimo;
+                    const pct  = it.porcentaje_uso;
+                    const clsDiff = (diff == null) ? '' : (diff > 0 ? 'text-danger fw-bold' : (diff < 0 ? 'text-success fw-bold' : 'fw-bold'));
+                    const clsPct  = (pct  == null) ? '' : (pct  > 100 ? 'text-danger fw-bold' : 'text-success fw-bold');
+
+                    return `
+                        <tr>
+                        <td>${it.fecha_mantenimiento || ''}</td>
+                        <td class="text-end" title="Odómetro de corte (día anterior)">${fmtMiles(it.odometro)}</td>
+                        <td class="text-end ${clsDiff}">${diff == null ? '' : fmtMiles(diff)}</td>
+                        <td class="text-end ${clsPct}">${fmtPct(pct)}</td>
+                        <td class="text-end">${fmtMiles(it.prox_mtto_km)}</td>
+                        <td>
+                            <span
+                                style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;"
+                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                title="${ESC(it.observacion)}">
+                                ${ESC(it.observacion)}
+                            </span>
+                        </td>
+                        <td>${S(it.usuario_registra) || ''}</td>
+                        <td>${it.fecha_guardado || ''}</td>
+                        <td class="text-center">
+                            ${renderBtnAdjuntos(it.id_preop, it.adjuntos_count)}
+                        </td>
+                        </tr>
+                    `;
+                    }).join('');
+
+                    // Inicializa/reinicializa tooltips dentro del tbody
+                    tb.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+                    const inst = bootstrap.Tooltip.getInstance(el);
+                    if (inst) inst.dispose();
+                    new bootstrap.Tooltip(el, {
+                        container: 'body',
+                        trigger: 'hover focus',
+                        placement: 'top',
+                        boundary: 'window'
+                    });
+                    });
+
+                    tb.querySelectorAll('button[data-idpreop]').forEach(b => {
+                    b.addEventListener('click', () => abrirModalAdjuntos(parseInt(b.getAttribute('data-idpreop'), 10)));
+                    });
+                }
+                } catch (e) {
+                console.error('❌ Error cargando grupo:', e);
+                tb.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error consultando registros.</td></tr>`;
+                }
+            }, { once: true });
+            });
+        }
+        } catch {
+        root.innerHTML = `<div class="alert alert-info m-2">Historial no disponible.</div>`;
+        }
+
+        let mdl = bootstrap.Modal.getInstance($('#modalPreop'));
+        if (!mdl) mdl = new bootstrap.Modal($('#modalPreop'));
+        mdl.show();
+
+    } catch (e) {
+        console.error('❌ Error al abrir modal:', e);
+        alert('Ocurrió un error al abrir el historial.');
+    }
+    }
+    window.abrirModalPreop = abrirModalPreop;
+
+    // Botón de adjuntos con imagen + badge
+    function renderBtnAdjuntos(id_preop, count) {
+    const c = Number(count) || 0;
+    const base = `
+        position:relative;height:28px;width:34px;padding:0;
+        border-radius:8px;background:#fff;
+        display:inline-flex;align-items:center;justify-content:center;`;
+
+    if (c <= 0) {
+        // Botón deshabilitado (gris)
+        return `
+        <button type="button" title="Sin adjuntos" data-idpreop="${id_preop}" disabled
+        style="${base} border:1px solid #bfc3c8; cursor:not-allowed;">
+        <img src="/static/images/descarga.png" alt="Sin adjuntos"
+            style="width:18px;height:18px;object-fit:contain;filter:grayscale(1) opacity(0.4);">
+        </button>`;
+    }
+
+    // Con adjuntos (azul + badge)
+    return `
+    <button type="button" title="Ver adjuntos (${c})" data-idpreop="${id_preop}"
+        style="${base} border:1px solid #0d6efd;">
+        <img src="/static/images/descarga.png" alt="Adjuntos"
+            style="width:18px;height:18px;object-fit:contain;">
+        <span
+        style="position:absolute;top:-6px;right:-6px;background:#0d6efd;color:#fff;
+                border-radius:12px;font-size:11px;padding:0 6px;line-height:18px;
+                min-width:18px;text-align:center;">
+        ${c}
+        </span>
+    </button>`;
+    }
+
+    // Lista y previsualiza (primer adjunto) vía proxy backend (sin HEAD)
+    async function abrirModalAdjuntos(id_preop) {
+    try {
+        const j   = await fetchJSON(`/preoperacional-motos/registro/${id_preop}/adjuntos?minutos_url=15`);
+        const adj = j?.adjuntos || [];
+        const cont = document.getElementById('previewAdjContainer');
+        const aDL  = document.getElementById('previewAdjDownload');
+        cont.innerHTML = '';
+
+        if (!adj.length) {
+        cont.innerHTML = `<div class="alert alert-info m-2">Este registro no tiene adjuntos.</div>`;
+        } else {
+        const a0       = adj[0];
+        const urlPrev  = a0.preview_url  || a0.url  || '';
+        const urlDown  = a0.download_url || a0.url_descarga || urlPrev;
+        const nombre   = a0.nombre || '';
+        const ct       = (a0.content_type || '').toLowerCase();
+
+        aDL.href = urlDown;
+        aDL.setAttribute('download', nombre || 'archivo');
+
+        // Detectar tipo por Content-Type y/o extensión del nombre
+        const esPDF  = /pdf/.test(ct) || /\.pdf$/i.test(nombre);
+        const esIMG  = /image\//.test(ct) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(nombre);
+
+        if (esPDF) {
+            cont.innerHTML = `<embed src="${urlPrev}" type="application/pdf" style="width:100%;height:70vh;">`;
+        } else if (esIMG) {
+            cont.innerHTML = `<img src="${urlPrev}" alt="${nombre}" style="max-width:100%;max-height:70vh;">`;
+        } else {
+            // Fallback genérico (igual deja descargar)
+            cont.innerHTML = `<div class="alert alert-info m-2">
+            No hay vista previa disponible para este tipo de archivo.<br>
+            Usa el botón <b>Descargar</b>.
+            </div>`;
+        }
+        }
+
+        let mdl = bootstrap.Modal.getInstance(document.getElementById('modalPreviewAdjunto'));
+        if (!mdl) mdl = new bootstrap.Modal(document.getElementById('modalPreviewAdjunto'));
+        mdl.show();
+
+    } catch (e) {
+        console.error('❌ Error cargando adjuntos:', e);
+        alert('No fue posible cargar los adjuntos.');
+    }
+    }
+
+    // Autocompletar placa
+    const doAutocomplete = debounce(async () => {
+        const inp = $('#verPreopBuscarPlaca'), list = $('#verPreopPlacaList');
+        if (!inp || !list) return;
+        const q = S(inp.value);
+        list.innerHTML = '';
+        if (!q) return;
+        try {
+        const arr = await fetchJSON(`/vehiculos/buscar/${encodeURIComponent(q)}`);
+        if (!Array.isArray(arr) || !arr.length) {
+            list.innerHTML = `<button class="list-group-item list-group-item-action disabled">No hay coincidencias</button>`;
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        arr.slice(0, 10).forEach(v => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'list-group-item list-group-item-action';
+            b.style.padding = '4px';
+            b.style.fontSize = '14px';
+            b.textContent = U(v.placa);
+            b.addEventListener('click', () => {
+            inp.value = b.textContent;
+            list.innerHTML = '';
+            cargarVerPreop();
+            });
+            frag.appendChild(b);
+        });
+        list.appendChild(frag);
+        } catch {
+        list.innerHTML = '';
+        }
+    }, 220);
+
+    // Limpieza de backdrops (por si quedan huérfanos)
+    function limpiarBackdrop() {
+        document.body.classList.remove('modal-open');
+        $$('.modal-backdrop').forEach(el => el.remove());
+    }
+
+    // Cableado de eventos
+    function wire() {
+        asegurarThVinculacion();
+
+        $('#ver-preop-tab')?.addEventListener('shown.bs.tab', cargarVerPreop);
+        $('#verPreopBuscarBtn')?.addEventListener('click', cargarVerPreop);
+        $('#verPreopLimpiarBtn')?.addEventListener('click', () => {
+        ['#verPreopBuscarPlaca','#verPreopTipo','#verPreopMarca','#verPreopLinea','#verPreopModelo']
+            .forEach(s => { const el=$(s); if (el) el.value=''; });
+        const lst = $('#verPreopPlacaList'); if (lst) lst.innerHTML='';
+        cargarVerPreop();
+        });
+        ['#verPreopBuscarPlaca','#verPreopTipo','#verPreopMarca','#verPreopLinea','#verPreopModelo']
+        .forEach(s => { const el=$(s); if (el) el.addEventListener('input', debounce(cargarVerPreop, 220)); });
+        $('#verPreopBuscarPlaca')?.addEventListener('input', doAutocomplete);
+
+        $('#modalPreop')?.addEventListener('hidden.bs.modal', () => {
+        // Dispone todos los tooltips generados dentro del modal
+        document.querySelectorAll('#modalPreop [data-bs-toggle="tooltip"]').forEach(el => {
+            const inst = bootstrap.Tooltip.getInstance(el);
+            if (inst) inst.dispose();
+        });
+        limpiarBackdrop();
+        });
+
+        $('#modalPreviewAdjunto')?.addEventListener('hidden.bs.modal', limpiarBackdrop);
+
+        if (window.location.hash === '#ver-preop') cargarVerPreop();
+    }
+
+    document.addEventListener('DOMContentLoaded', wire);
+})();
 </script>
 
 {% endblock %}

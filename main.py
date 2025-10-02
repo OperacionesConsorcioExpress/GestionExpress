@@ -35,6 +35,7 @@ from controller.cargues import ProcesarCargueControles
 from controller.route_checklist import checklist_router
 from controller.cambiar_contrasena import cambiar_contrasena_post
 from controller.route_roles_powerbi import router_roles_powerbi
+from controller.route_sgi import router_sgi
 from model.gestionar_db import Cargue_Controles
 from model.gestionar_db import Cargue_Asignaciones
 from model.gestionar_db import CargueLicenciasBI
@@ -46,6 +47,7 @@ from model.job import TareasProgramadasJuridico
 from model.containerModel import ContainerModel
 from model.gestion_reportbi import ReportBIGestion
 from model.roles_powerbi import ModeloRolesPowerBI
+from model.gestion_checklist import Proceso_flota_asistencia
 
 ############################### Carga de Variables de Entorno ###########################
 load_dotenv()
@@ -153,6 +155,7 @@ def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
 
+    # >>> : listar roles activos de BlobStorage (id, nombre)
     roles = db.get_all_roles()  # Obtiene los roles desde la base de datos
     roles_storage = storage_db.get_all_roles_storage()  # Obtiene los roles storage
     usuarios = db.get_all_users()  # Obtiene los usuarios desde la base de datos
@@ -162,6 +165,11 @@ def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
     roles_powerbi_raw = modelo_pbi.obtener_todos_roles()  # [(id, nombre, ids_csv, estado)]
     roles_powerbi = [(r[0], r[1]) for r in roles_powerbi_raw if r[3] == 1]
 
+    # >>> : listar procesos y subprocesos asignados a la flota de asistencia técnica (Checklist y Preoperacionales)
+    gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+    procesos = gestor_flota.listar_procesos()   # [(id, proceso, subproceso)]
+    gestor_flota.close()
+
     return templates.TemplateResponse("registrarse.html", {
         "request": req,
         "user_session": user_session,
@@ -169,6 +177,7 @@ def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
         "roles_storage": roles_storage,
         "usuarios": usuarios,
         "roles_powerbi": roles_powerbi,
+        "procesos": procesos,  
     })
 
 @app.get("/registrarse/{user_id}/datos" )
@@ -176,6 +185,11 @@ async def get_user_data(user_id: int):
     user = db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # >>> : listar procesos y subprocesos asignados a la flota de asistencia técnica (Checklist y Preoperacionales)
+    gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+    procesos_ids = gestor_flota.obtener_ids_procesos_usuario(user_id)  # 👈
+    gestor_flota.close()
     
     return JSONResponse(content={
         "id": user["id"],
@@ -186,13 +200,14 @@ async def get_user_data(user_id: int):
         "estado": user["estado"],
         "rol_storage": user["rol_storage"],
         "rol_powerbi": user.get("rol_powerbi", 0),
+        "procesos_asignados": procesos_ids, # Flota de asistencia técnica (Checklist y Preoperacionales)
     })
 
 @app.post("/registrarse", response_class=HTMLResponse)
 def registrarse_post(req: Request, nombres: str = Form(...), apellidos: str = Form(...),
                     username: str = Form(...), rol: int = Form(...),
                     rol_storage: int = Form(...), rol_powerbi: int = Form(0), password_user: str = Form(...), 
-                    user_session: dict = Depends(get_user_session)):
+                    procesos_asignados: List[int] = Form(default=[]), user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     
@@ -215,6 +230,12 @@ def registrarse_post(req: Request, nombres: str = Form(...), apellidos: str = Fo
     result = user.create_user()
 
     if result.get("success"):
+        # Obtener id de usuario y guardar asignaciones
+        gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+        user_id = gestor_flota.obtener_id_usuario_por_username(username)
+        if user_id:
+            gestor_flota.reemplazar_asignaciones(user_id, procesos_asignados or [])
+        gestor_flota.close()
         # Establecer una cookie con el mensaje de éxito
         response = RedirectResponse(url="/registrarse", status_code=303)
         response.set_cookie(key="success_message", value="Usuario creado correctamente.", max_age=5)
@@ -249,9 +270,18 @@ async def editar_usuario(id: int, request: Request, user_data: dict = Depends(ge
         # Verificamos si se seleccionó un rol de powerbi
         rol_powerbi = form_data_dict.get("rol_powerbi", "0")
         form_data_dict["rol_powerbi"] = int(rol_powerbi) if rol_powerbi != "0" else 0
+        
+        # procesos_asignados[] (puede venir vacío = No Asignar)
+        procesos_asignados = form_data.getlist("procesos_asignados[]") if hasattr(form_data, "getlist") else []
+        procesos_asignados = [int(x) for x in procesos_asignados] if procesos_asignados else []
 
         # Llama a la función para actualizar el usuario en la base de datos
         db.update_user(id, form_data_dict)
+        
+        # Guardar las asignaciones de procesos para la flota de asistencia técnica
+        gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+        gestor_flota.reemplazar_asignaciones(id, procesos_asignados)
+        gestor_flota.close()
         
         # Crear respuesta de redirección con una cookie que contenga el mensaje de éxito
         response = RedirectResponse(url="/registrarse", status_code=303)
@@ -1677,7 +1707,7 @@ async def get_NPL_chatbot(req: Request, user_session: dict = Depends(get_user_se
         return RedirectResponse(url="/", status_code=302)    
     return templates.TemplateResponse("NPL_chatbot.html", {"request": req, "user_session": user_session})
 
-###################################### CHATBOT ######################################
+############################### MODULO DE CHATBOT ##################################
 # Incluir las rutas factorizadas en `route_checklist.py`
 app.include_router(chatbot_router)
 
@@ -1707,3 +1737,13 @@ def roles_powerbi(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("roles_powerbi.html", {"request": req, "user_session": user_session})
+
+############################### MODULO DE SGI   #################################
+# Incluir las rutas factorizadas en `route_sgi.py`
+app.include_router(router_sgi)
+
+@app.get("/sgi", response_class=HTMLResponse)
+def sgi(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("sgi.html", {"request": req, "user_session": user_session})
