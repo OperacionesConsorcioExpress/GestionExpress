@@ -22,6 +22,14 @@
         <img src="/static/images/excel.png" alt="Descargar Reporte"
             style="cursor: pointer; margin-left: 10px; height: 45px; width: 70px;"
             data-bs-toggle="modal" data-bs-target="#modalReportes">
+        <!-- Botón Limpiar a la derecha de Concesión -->
+        <div class="col-md-1 d-flex align-items-end justify-content-end">
+        <button type="button" id="limpiar"
+                title="Limpiar filtros"
+                style="height:35px; width:35px; border:1px solid #9CA3AF; border-radius:10px; display:flex; align-items:center; justify-content:center; background:#FFFFFF; cursor:pointer;">
+            <img src="/static/images/borrar.png" alt="Borrar" style="height:70%; width:70%;">
+        </button>
+        </div>
         <img src="/static/Consorcio.png" alt="Consorcio Icon" style="max-width: 120px; height: auto;">
         <!-- Botón para abrir ventana flotante -->
         <div class="col-auto">
@@ -32,85 +40,136 @@
     </div>
 
     <!-- Filtros de Consulta -->
-    <div class="row mb-4 align-items-center g-1">
-        <div class="col-md-1">
-            <label for="control" class="form-label mb-1">Control</label>
-            <select id="control" class="form-select" style="font-size: 14px; height: 35px;">
-                <option selected>Seleccionar...</option>
-                <option value="CONTRATO">CONTRATO</option>
-                <option value="MANUAL">MANUAL</option>
-            </select>
+    <!-- Sección de Filtros (solo filtros; fondo pastel y responsive) -->
+    <div style="background:rgb(220,222,228); border-radius:12px; padding:14px 16px; box-shadow:0 6px 16px rgba(0,0,0,0.12); margin-bottom:16px;">
+
+    <!-- Fila 1: Control, Etapa, Cláusula, Concesión -->
+    <div class="row g-2" 
+        style="margin-bottom:6px; display:flex; flex-wrap:wrap; align-items:end; gap:8px;">
+
+        <div class="col-md-2" 
+            style="display:flex; flex-direction:column; flex:1 1 12rem; min-width:11rem; max-width:100%;">
+        <label for="control" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Control</label>
+        <select id="control" class="form-select" 
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4;">
+            <option selected>Seleccionar...</option>
+            <option value="CONTRATO">CONTRATO</option>
+            <option value="MANUAL">MANUAL</option>
+        </select>
         </div>
-        <div class="col-md-2">
-            <label for="etapa" class="form-label mb-1">Etapa</label>
-            <select id="etapa" class="form-select" style="font-size: 14px; height: 35px;">
-                <option selected>Seleccionar...</option>
-                {% for etapa in etapas %}
-                    <option value="{{ etapa[0] }}">{{ etapa[0] }}</option>
-                {% endfor %}
-            </select>
+
+        <div class="col-md-3" 
+            style="display:flex; flex-direction:column; flex:1 1 14rem; min-width:12rem; max-width:100%;">
+        <label for="etapa" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Etapa</label>
+        <select id="etapa" class="form-select" 
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4;">
+            <option selected>Seleccionar...</option>
+            {% for etapa in etapas %}
+            <option value="{{ etapa[0] }}">{{ etapa[0] }}</option>
+            {% endfor %}
+        </select>
         </div>
-        <div class="col-md-2">
-            <label for="clausula" class="form-label mb-1">Cláusula</label>
-            <select id="clausula" class="form-select" style="font-size: 14px; height: 35px;">
-                <option selected>Seleccionar...</option>
-                {% for clausula in clausulas_lista %}
-                    <option value="{{ clausula[0] }}">{{ clausula[0] }}</option>
-                {% endfor %}
-            </select>
+
+        <div class="col-md-3" 
+            style="display:flex; flex-direction:column; flex:2 1 26rem; min-width:18rem; max-width:100%;">
+        <label for="clausula" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Cláusula</label>
+        <select id="clausula" class="form-select" 
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4;">
+            <option selected>Seleccionar...</option>
+            {% for clausula in clausulas_lista %}
+            <option value="{{ clausula[0] }}">{{ clausula[0] }}</option>
+            {% endfor %}
+        </select>
         </div>
-        <div class="col-md-2">
-            <label for="concesion" class="form-label mb-1">Concesión</label>
-            <select id="concesion" class="form-select" style="font-size: 14px; height: 35px;">
-                <option selected>Seleccionar...</option>
-                {% for concesion in concesiones %}
-                    <option value="{{ concesion[0] }}">{{ concesion[0] }}</option>
-                {% endfor %}
-            </select>
+
+        <div class="col-md-3" 
+            style="display:flex; flex-direction:column; flex:1 1 14rem; min-width:12rem; max-width:100%;">
+        <label for="concesion" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Concesión</label>
+        <select id="concesion" class="form-select" 
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4;">
+            <option selected>Seleccionar...</option>
+            {% for concesion in concesiones %}
+            <option value="{{ concesion[0] }}">{{ concesion[0] }}</option>
+            {% endfor %}
+        </select>
         </div>
-        <div class="col-md-2">
-            <label for="estado" class="form-label mb-1">Estado</label>
-            <select id="estado" class="form-select" style="font-size: 14px; height: 35px;">
-                <option selected>Seleccionar...</option>
-                {% for estado in estados %}
-                    <option value="{{ estado }}">{{ estado }}</option>
-                {% endfor %}
-            </select>
+    </div>
+
+    <!-- Fila 2: Estado, Responsable, Proceso, Subproceso -->
+    <div class="row g-2" 
+        style="display:flex; flex-wrap:wrap; align-items:end; gap:8px;">
+
+        <div class="col-md-3" 
+            style="display:flex; flex-direction:column; flex:1 1 14rem; min-width:12rem; max-width:100%;">
+        <label for="estado" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Estado</label>
+        <select id="estado" class="form-select" 
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4;">
+            <option selected>Seleccionar...</option>
+            {% for estado in estados %}
+            <option value="{{ estado }}">{{ estado }}</option>
+            {% endfor %}
+        </select>
         </div>
-        <div class="col-md-2">
-            <div>
-                <label for="responsable" class="form-label mb-1">Responsable</label>
-                <select id="responsable" class="form-select" style="font-size: 14px; height: 35px;">
-                    <option selected>Seleccionar...</option>
-                    {% for responsable in responsable_entrega %}
-                        <option value="{{ responsable }}">{{ responsable }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+
+        <div class="col-md-3" 
+            style="display:flex; flex-direction:column; flex:2 1 22rem; min-width:16rem; max-width:100%;">
+        <label for="responsable" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Responsable</label>
+        <select id="responsable" class="form-select" 
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4;">
+            <option selected>Seleccionar...</option>
+            {% for responsable in responsable_entrega %}
+            <option value="{{ responsable }}">{{ responsable }}</option>
+            {% endfor %}
+        </select>
         </div>
-        <div class="col-md-1 d-flex flex-column align-items-center">
-            <label for="limpiar" class="form-label mb-1" style="font-size: 14px; text-align: center;">Limpiar</label>
-            <button type="button" class="btn btn-link p-0" id="limpiar" 
-                style="height: 40px; width: 40px; border: 1px solid #727272; border-radius: 20%; display: flex; align-items: center; justify-content: center;">
-                <img src="/static/images/borrar.png" alt="Borrar" style="height: 70%; width: 70%;">
-            </button>
-        </div>                
+
+        <div class="col-md-3" 
+            style="display:flex; flex-direction:column; flex:1 1 16rem; min-width:14rem; max-width:100%;">
+        <label for="filtro-proceso" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Proceso</label>
+        <select id="filtro-proceso" class="form-select form-select-sm" 
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4;">
+            <option value="">Seleccionar...</option>
+            {% for p in procesos %}
+            <option value="{{ p[0] if p is iterable and p is not string else (p.proceso if p.proceso is defined else p) }}">
+                {{ p[0] if p is iterable and p is not string else (p.proceso if p.proceso is defined else p) }}
+            </option>
+            {% endfor %}
+        </select>
+        </div>
+
+        <div class="col-md-3" 
+            style="display:flex; flex-direction:column; flex:1 1 18rem; min-width:14rem; max-width:100%;">
+        <label for="filtro-subproceso" class="form-label mb-1" 
+                style="color:#0F172A; font-size:12px; font-weight:700;">Subproceso</label>
+        <select id="filtro-subproceso" class="form-select form-select-sm" disabled
+                style="font-size:14px; height:35px; background:rgb(255, 255, 255); color:#111; border-color:#9BB9E4; opacity:0.7;">
+            <option value="">Seleccionar...</option>
+        </select>
+        </div>
+    </div>
     </div>
 
     <!-- Tabla Principal -->
     <div class="table-wrapper" style="max-height: 600px; overflow-y: auto; border: 1px solid rgb(104, 103, 103);">
-        <table class="table table-bordered table-striped" style="font-size: 12px; width: 100%; margin-bottom: 0; border: 1px solid rgb(218, 212, 212); table-layout: fixed;">
-            <thead class="table-responsive" style="background-color: #120b6e; color: #ffffff; position: sticky; top: 0; z-index: 100; font-family: 'Century Gothic', Arial, sans-serif;">
+        <table class="table table-bordered table-striped" style="font-size: 12px; font-family: 'Century Gothic', sans-serif; width: 100%; margin-bottom: 0; border: 1px solid rgb(218, 212, 212); table-layout: fixed;">
+            <thead class="table-responsive" style="background-color: #4f56b4; color: #ffffff; position: sticky; top: 0; z-index: 100; font-family: 'Century Gothic', sans-serif;">
                 <tr>
                     <th style="width: 40px;">Ver</th>
-                    <th style="width: 50px;">Id</th>
-                    <th style="width: 80px;">Control</th>
+                    <th style="width: 50px; display:none;">Id</th>
+                    <th style="width: 85px;">Control</th>
                     <th style="width: 100px;">Etapa</th>
-                    <th style="width: 100px;">Cláusula</th>
-                    <th style="width: 100px;">Contrato</th>
-                    <th style="width: 200px;">Tema</th>
-                    <th style="width: 200px;">Descripción</th>
-                    <th style="width: 100px;">Tipo</th>
+                    <th style="width: 170px;">Cláusula</th>
+                    <th style="width: 80px;">Contrato</th>
+                    <th style="width: 160px;">Tema</th>
+                    <th style="width: 160px;">Descripción</th>
+                    <th style="width: 95px;">Tipo</th>
                     <th style="width: 110px;">Frecuencia</th>
                     <th style="width: 80px;">Entrega</th>
                     <th style="width: 100px;">Estado</th>
@@ -126,10 +185,14 @@
                             <img src="/static/images/editar.png" alt="Editar" style="width: 20px; height: 20px;">
                         </button>                                              
                     </td>
-                    <td style="width: 50px; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ clausula.id }}</td>
+                    <td style="width: 50px; display:none; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ clausula.id }}</td>
                     <td style="width: 80px; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ clausula.control }}</td>
                     <td style="width: 100px; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ clausula.etapa }}</td>
-                    <td style="width: 100px; text-align: center; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ clausula.clausula }}</td>
+                    <td class="col-clausula" style="width: 200px; text-align: justify; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span data-bs-toggle="tooltip" data-bs-placement="top" title="{{ clausula.clausula | e }}">
+                            {{ clausula.clausula }}
+                        </span>
+                    </td>
                     <td style="width: 100px; text-align: left; vertical-align: middle;">{{ clausula.contrato_concesion }}</td>
                     <td class="description-cell" 
                         title="{{ clausula.tema }}" 
@@ -323,7 +386,9 @@
             clausula: document.getElementById('clausula'),
             concesion: document.getElementById('concesion'),
             estado: document.getElementById('estado'),
-            responsable: document.getElementById('responsable')
+            responsable: document.getElementById('responsable'),
+            proceso: document.getElementById('filtro-proceso'),
+            subproceso: document.getElementById('filtro-subproceso')
         };
 
         function filtrarClausulas() {
@@ -347,6 +412,16 @@
             if (filters.responsable.value !== 'Seleccionar...') {
                 const responsable = filters.responsable.value.trim();
                 queryParams.append('responsable', responsable);
+            }
+            if (filters.proceso && filters.proceso.value !== "") {
+                queryParams.append('proceso', filters.proceso.value);
+            }
+            if (
+                filters.subproceso &&
+                !filters.subproceso.disabled &&
+                filters.subproceso.value !== ""
+            ) {
+                queryParams.append('subproceso', filters.subproceso.value);
             }
             
             fetch(`/filtrar_clausulas?${queryParams.toString()}`)
@@ -392,6 +467,52 @@
                 .catch(error => console.error('Error al actualizar columnas dinámicas:', error));
         }
 
+        async function cargarSubprocesos(procesoSeleccionado) {
+            const selSub = filters.subproceso;
+            if (!selSub) return;
+
+            // Vaciar y estado base
+            selSub.innerHTML = '<option value="">Seleccionar...</option>';
+            selSub.disabled = true;
+
+            if (!procesoSeleccionado || procesoSeleccionado === "") {
+                return; // nada que cargar
+            }
+
+            try {
+                const res = await fetch(`/obtener_subprocesos/${encodeURIComponent(procesoSeleccionado)}`);
+                // Puede venir como lista de tuplas o dicts; normalizamos a texto
+                const data = await res.json();
+                const subprocesos = Array.isArray(data)
+                    ? data.map(row => Array.isArray(row) ? row[0] : (row.subproceso ?? row))
+                    : [];
+
+                subprocesos.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s;
+                    selSub.appendChild(opt);
+                });
+
+                selSub.disabled = false;
+            } catch (e) {
+                console.error('Error cargando subprocesos:', e);
+                selSub.disabled = true;
+            }
+        }
+
+        // listeners para proceso/subproceso (sin tocar los existentes)
+        if (filters.proceso) {
+            filters.proceso.addEventListener('change', async function () {
+                await cargarSubprocesos(filters.proceso.value);
+                // Puedes decidir si auto-filtra al cambiar proceso:
+                filtrarClausulas();
+            });
+        }
+        if (filters.subproceso) {
+            filters.subproceso.addEventListener('change', filtrarClausulas);
+        }
+
         filters.control.addEventListener('change', filtrarClausulas);
         filters.etapa.addEventListener('change', filtrarClausulas);
         filters.clausula.addEventListener('change', filtrarClausulas);
@@ -408,11 +529,19 @@
             filters.concesion.value = 'Seleccionar...';
             filters.estado.value = 'Seleccionar...';
             filters.responsable.value = 'Seleccionar...';
+            if (filters.proceso) filters.proceso.value = "";
+            if (filters.subproceso) {
+                filters.subproceso.innerHTML = '<option value="">Seleccionar...</option>';
+                filters.subproceso.disabled = true;
+            }
 
             // Recarga la tabla sin filtros
             filtrarClausulas();
             
         });
+        if (filters.proceso && filters.proceso.value !== "") {
+            cargarSubprocesos(filters.proceso.value).then(() => {});
+        }
     });
 </script>   
 
@@ -725,7 +854,7 @@
             }
         });
     }
-     
+    
     // Crear la condición SI requiere o NO Plan de Acción de acuerdo al cumplimiento de las entregas.
     function evaluarPlanAccion(inputFecha) {
         try {    

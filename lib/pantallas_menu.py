@@ -5,6 +5,7 @@ def get_pantallas_menu():
         "Blob Storage",
         "Dashboard Power BI",
         "Control Clausulas",
+        "Gestión EDS",
         "Gestión SGI",
         "Crear Usuario",
         "Gestión de Roles",

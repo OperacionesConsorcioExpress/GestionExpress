@@ -410,12 +410,13 @@
                     <div class="form-text">Adjuntar al menos un archivo/foto por mantenimiento.</div>
                     </div>
 
-                    <div class="d-grid">
-                    <button class="btn btn-success" onclick="preopAgregarAlCarrito()">
-                        Agregar al carrito
-                    </button>
+                    <div class="card-footer sticky-footer"></div>
+                        <div class="d-grid">
+                            <button class="btn btn-success" onclick="preopAgregarAlCarrito()">
+                                Agregar al carrito
+                            </button>
+                        </div>
                     </div>
-                </div>
                 </div>
             </div>
 
@@ -1108,6 +1109,133 @@
         </div>
     </div>
 </div>
+
+<!-- ESTILOS DE FRONTEND   -->
+<!-- Estilos personalizados para la tabla fallas-->
+<style>
+    #tablaFallas tbody td input,
+    #tablaFallas tbody td button,
+    #tablaFallas tbody td img {
+        height: 24px !important;
+        padding: 2px 6px !important;
+        font-size: 13px !important;
+    }
+
+    #tablaFallas tbody td {
+        padding-top: 2px !important;
+        padding-bottom: 2px !important;
+        vertical-align: middle !important;
+    }
+
+    .modal-backdrop.show {
+        opacity: 0.6 !important; 
+        z-index: 1040; /* menor que el modal interno */
+    }  
+    
+    /* CONFIGURACIÓN TOGGEL SWITCH */
+    /* FONDO y BORDE cuando está en Falla (apagado, sin check) */
+    .ajuste-switch.switch-falla {
+        background-color: #f44336 !important; /* Rojo */
+        border-color: #f44336 !important;
+    }
+
+    .ajuste-switch.switch-falla:focus {
+        box-shadow: 0 0 0 0.1rem #f4433644 !important;
+    }
+
+    /* FONDO y BORDE cuando está en OK (encendido, con check) */
+    .ajuste-switch:checked {
+        background-color: #28a745 !important; /* Verde */
+        border-color: #28a745 !important;
+    }
+
+    .ajuste-switch:checked:focus {
+        box-shadow: 0 0 0 0.1rem #28a74544 !important;
+    }
+
+    /* Siempre que sea .ajuste-switch (OK o Falla), círculo blanco */
+    .ajuste-switch::before {
+        background-color: white !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Reforzar si está en Falla y apagado */
+    .ajuste-switch.switch-falla:not(:checked)::before {
+        background-color: white !important;
+    }
+
+    /* Reforzar si está en OK y encendido */
+    .ajuste-switch:checked::before {
+        background-color: white !important;
+    }
+
+    /* Transición suave al mover el switch */
+    .ajuste-switch {
+        transition: background-color 0.3s ease-in-out;
+    }
+
+     /* Ajuste de tamaño del switch */
+    .ajuste-switch {
+        width: 35px;     /* ancho del switch */
+        height: 20px;    /* alto del switch */
+    }
+
+    /* Ajuste del "círculo blanco" interior del switch */
+    .ajuste-switch::before {
+        width: 20px;     /* ancho del círculo */
+        height: 20px;    /* alto del círculo */
+        top: 2px;        /* alineación vertical */
+        left: 2px;       /* alineación horizontal cuando está apagado */
+    }
+
+    .ajuste-switch:checked::before {
+        transform: translateX(25px);  /* distancia que se mueve el círculo al activarse */
+    }
+
+    thead th {
+        background-color: #001F54;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        text-align: center;
+        font-weight: bold;
+    }  
+    /* PANTALLA DE REGISTRO DE PREOPERACIONALES */ 
+    /* Romper alturas fijas y sticky en pantallas pequeñas */
+    @media (max-width: 991.98px) { /* breakpoint lg de Bootstrap */
+        #registro-preop .col-lg-5,
+        #registro-preop .col-lg-7 {
+        height: auto !important;
+        }
+        #registro-preop .col-lg-5 .card,
+        #registro-preop .col-lg-7 .card {
+        height: auto !important;
+        max-height: none !important;
+        }
+        #registro-preop .col-lg-5 .card-body,
+        #registro-preop .col-lg-7 .card-body {
+        height: auto !important;
+        overflow: visible !important;
+        }
+
+        /* La tabla del carrito sí puede tener un límite razonable de alto para scroll interno */
+        #registro-preop .col-lg-7 .table-responsive {
+        max-height: 45vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        }
+    }
+
+    /* Un pie “pegajoso” (sticky) dentro de las cards en cualquier tamaño */
+    .card-footer.sticky-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        background: #fff; /* asegura que tape el contenido de abajo */
+    }
+</style>
 
 <!-- ###################################################################################### -->
 <!-- ###################### INICIO DE LOGICA Y FUNCIONES CHECKLIST  ###################### -->
@@ -2870,99 +2998,6 @@
     });
     
 </script>
-
-<!-- Estilos personalizados para la tabla fallas-->
-<style>
-    #tablaFallas tbody td input,
-    #tablaFallas tbody td button,
-    #tablaFallas tbody td img {
-        height: 24px !important;
-        padding: 2px 6px !important;
-        font-size: 13px !important;
-    }
-
-    #tablaFallas tbody td {
-        padding-top: 2px !important;
-        padding-bottom: 2px !important;
-        vertical-align: middle !important;
-    }
-
-    .modal-backdrop.show {
-        opacity: 0.6 !important; 
-        z-index: 1040; /* menor que el modal interno */
-    }  
-    
-    /* CONFIGURACIÓN TOGGEL SWITCH */
-    /* FONDO y BORDE cuando está en Falla (apagado, sin check) */
-    .ajuste-switch.switch-falla {
-        background-color: #f44336 !important; /* Rojo */
-        border-color: #f44336 !important;
-    }
-
-    .ajuste-switch.switch-falla:focus {
-        box-shadow: 0 0 0 0.1rem #f4433644 !important;
-    }
-
-    /* FONDO y BORDE cuando está en OK (encendido, con check) */
-    .ajuste-switch:checked {
-        background-color: #28a745 !important; /* Verde */
-        border-color: #28a745 !important;
-    }
-
-    .ajuste-switch:checked:focus {
-        box-shadow: 0 0 0 0.1rem #28a74544 !important;
-    }
-
-    /* Siempre que sea .ajuste-switch (OK o Falla), círculo blanco */
-    .ajuste-switch::before {
-        background-color: white !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* Reforzar si está en Falla y apagado */
-    .ajuste-switch.switch-falla:not(:checked)::before {
-        background-color: white !important;
-    }
-
-    /* Reforzar si está en OK y encendido */
-    .ajuste-switch:checked::before {
-        background-color: white !important;
-    }
-
-    /* Transición suave al mover el switch */
-    .ajuste-switch {
-        transition: background-color 0.3s ease-in-out;
-    }
-
-     /* Ajuste de tamaño del switch */
-    .ajuste-switch {
-        width: 35px;     /* ancho del switch */
-        height: 20px;    /* alto del switch */
-    }
-
-    /* Ajuste del "círculo blanco" interior del switch */
-    .ajuste-switch::before {
-        width: 20px;     /* ancho del círculo */
-        height: 20px;    /* alto del círculo */
-        top: 2px;        /* alineación vertical */
-        left: 2px;       /* alineación horizontal cuando está apagado */
-    }
-
-    .ajuste-switch:checked::before {
-        transform: translateX(25px);  /* distancia que se mueve el círculo al activarse */
-    }
-
-    thead th {
-        background-color: #001F54;
-        color: white;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        text-align: center;
-        font-weight: bold;
-    }    
-</style>
 
 <!-- ###################################################################################### -->
 <!-- ##################### INICIO DE LOGICA Y FUNCIONES REPORTES ########################## -->

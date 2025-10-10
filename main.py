@@ -36,6 +36,7 @@ from controller.route_checklist import checklist_router
 from controller.cambiar_contrasena import cambiar_contrasena_post
 from controller.route_roles_powerbi import router_roles_powerbi
 from controller.route_sgi import router_sgi
+from controller.route_eds import router_eds
 from model.gestionar_db import Cargue_Controles
 from model.gestionar_db import Cargue_Asignaciones
 from model.gestionar_db import CargueLicenciasBI
@@ -1209,8 +1210,8 @@ def obtener_subprocesos(proceso: str):
 
 @app.get("/filtrar_clausulas", response_class=HTMLResponse)
 def filtrar_clausulas(req: Request, control: str = None, etapa: str = None, clausula: str = None, 
-                      concesion: str = None, estado: str = None,
-                      responsable: str = None, user_session: dict = Depends(get_user_session)):
+                        concesion: str = None, estado: str = None, responsable: str = None, proceso: str = None, subproceso: str = None,
+                        user_session: dict = Depends(get_user_session)):
 
     gestion = GestionClausulas()
     
@@ -1225,7 +1226,9 @@ def filtrar_clausulas(req: Request, control: str = None, etapa: str = None, clau
         clausula if clausula != "Seleccionar..." else None, 
         contrato,
         estado if estado != "Seleccionar..." else None,
-        responsable if responsable != "Seleccionar..." else None 
+        responsable if responsable != "Seleccionar..." else None ,
+        proceso if proceso != "Seleccionar..." else None,
+        subproceso if subproceso != "Seleccionar..." else None
     )
     gestion.close()
 
@@ -1747,3 +1750,13 @@ def sgi(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("sgi.html", {"request": req, "user_session": user_session})
+
+############################### MODULO DE EDS   #################################
+# Incluir las rutas factorizadas en `route_eds.py`
+app.include_router(router_eds)
+
+@app.get("/eds", response_class=HTMLResponse)
+def eds(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("eds.html", {"request": req, "user_session": user_session})

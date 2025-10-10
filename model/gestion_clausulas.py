@@ -44,9 +44,9 @@ class GestionClausulas:
         with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
             query = """
             SELECT id, control, etapa, clausula, contrato_concesion, tema, descripcion_clausula, 
-                   tipo_clausula, frecuencia
+                    tipo_clausula, frecuencia
             FROM clausulas
-            ORDER BY id ASC;;
+            ORDER BY clausula ASC;;
             """
             cursor.execute(query)
             clausulas = cursor.fetchall()
@@ -126,7 +126,7 @@ class GestionClausulas:
         
         return [fila[0] for fila in responsables]  # Extraer solo los valores únicos y ordenados
 
-    def obtener_clausulas_filtradas(self, control=None, etapa=None, clausula=None, concesion=None, estado=None, responsable=None):
+    def obtener_clausulas_filtradas(self, control=None, etapa=None, clausula=None, concesion=None, estado=None, responsable=None, proceso=None, subproceso=None):
         query = """
         SELECT c.id, c.control, c.etapa, c.clausula, c.contrato_concesion, c.tema, c.descripcion_clausula, 
             c.tipo_clausula, c.frecuencia, 
@@ -143,7 +143,32 @@ class GestionClausulas:
         AND (%s IS NULL OR c.contrato_concesion = %s)
         AND (%s IS NULL OR g.estado = %s)
         AND (%s IS NULL OR TRIM(c.responsable_entrega) = TRIM(%s)) -- Coincidencia exacta
-        ORDER BY c.id ASC;
+        -- Proceso (si viene)
+        AND (
+                %s IS NULL
+            OR EXISTS (
+                    SELECT 1
+                    FROM public.clausula_proceso_subproceso cps
+                    JOIN public.procesos p ON p.id_proceso = cps.id_proceso
+                    WHERE cps.id_clausula = c.id
+                    AND p.proceso = %s
+                )
+        )
+
+        -- Subproceso (si viene)
+        AND (
+                %s IS NULL
+            OR EXISTS (
+                    SELECT 1
+                    FROM public.clausula_proceso_subproceso cps2
+                    JOIN public.procesos p2 ON p2.id_proceso = cps2.id_proceso
+                    WHERE cps2.id_clausula = c.id
+                    AND p2.proceso = %s
+                    AND p2.subproceso = %s
+                )
+        )        
+        
+        ORDER BY c.clausula ASC;
         """
         with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(query, (
@@ -152,7 +177,9 @@ class GestionClausulas:
                 clausula, clausula,
                 concesion, concesion,
                 estado, estado,
-                responsable, responsable  # Responsable
+                responsable, responsable,
+                proceso, proceso,
+                subproceso, proceso, subproceso # Asegura que el subproceso corresponde al proceso
             ))
             clausulas = cursor.fetchall()
         return clausulas

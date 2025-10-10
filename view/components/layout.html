@@ -190,6 +190,7 @@
   document.addEventListener("DOMContentLoaded", function() {
     // Iconos por grupo y pantalla
     const iconosGrupo = {
+      "Abastecimiento": "bi bi-cart-check",
       "Centro de Control": "bi bi-graph-up-arrow",
       "Centro Información": "bi bi-hdd-stack",
       "Jurídico": "bi bi-briefcase",
@@ -202,6 +203,7 @@
       "Blob Storage": "bi bi-cloud-arrow-up",
       "Dashboard Power BI": "bi bi-bar-chart-line",
       "Control Clausulas": "bi bi-journal-check",
+      "Gestión EDS": "bi bi-fuel-pump",
       "Gestión SGI": "bi bi-shield-check",
       "Crear Usuario": "bi bi-person-plus",
       "Gestión de Roles": "bi bi-person-badge",
@@ -216,6 +218,7 @@
       "Blob Storage": "/containers",
       "Dashboard Power BI": "/powerbi",
       "Control Clausulas": "/juridico",
+      "Gestión EDS": "/eds",
       "Gestión SGI": "/sgi",
       "Crear Usuario": "/registrarse",
       "Gestión de Roles": "/roles",
@@ -224,6 +227,7 @@
       "NPL Chatbot": "/NPL_chatbot"
     };
     const gruposPantallas = {
+      "Abastecimiento": ["Gestión EDS"],
       "Centro de Control": ["Asignaciones", "Checklist"],
       "Centro Información": ["Blob Storage", "Dashboard Power BI"],
       "HSEQ": ["Gestión SGI"],
