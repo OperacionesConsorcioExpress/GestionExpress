@@ -1,0 +1,605 @@
+{% extends "components/layout.html" %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="container-fluid d-flex flex-column" style="height: 90vh;">
+    <div class="row justify-content-between align-items-center mb-4">
+        <h1 class="col-auto" style="font-size: 22px; font-family: 'Century Gothic', sans-serif;">Gestión de Usuarios</h1>
+        <h1 class="col-auto" style="font-size: 14px; font-family: 'Century Gothic', sans-serif;">¡Hola, {{ user_session.nombres }} {{ user_session.apellidos }}!</h1>
+        <img src="/static/Consorcio.png" alt="Consorcio Icon" class="col-auto" style="max-width: 100px; height: auto;">
+    </div>
+
+    <!-- Mostrar notificación de éxito si existe en la cookie -->
+    {% if request.cookies.get('success_message') %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{ request.cookies.get('success_message') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Mostrar notificación de error si existe en la cookie -->
+    {% if request.cookies.get('error_message') %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ request.cookies.get('error_message') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endif %}
+
+    <div class="row flex-grow-1">
+        <!-- Formulario de creación de usuarios -->
+        <div class="col-lg-5 d-flex flex-column" style="height: 80vh;">
+            <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff;font-weight: bold;">Crear Nuevo Usuario</h4>
+                </div>
+                <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh;">
+                    <form id="createUserForm" action="/registrarse" method="post">
+                        <input type="hidden" name="user_id" value="">
+
+                        <div class="row" style="margin-bottom: 0px;">
+                            <!-- Nombre y Apellido en una fila -->
+                            <div class="col-md-6 mb-3">
+                                <label for="nombres" class="form-label">Nombre(s)</label>
+                                <input name="nombres" type="text" class="form-control" id="nombres" required oninput="this.value = this.value.toUpperCase();">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="apellidos" class="form-label">Apellido(s)</label>
+                                <input name="apellidos" type="text" class="form-control" id="apellidos" required oninput="this.value = this.value.toUpperCase();">
+                            </div>
+                        </div>
+
+                        <div class="row" style="margin-bottom: 0px;">
+                            <!-- Usuario (Cédula) y Contraseña en otra fila -->
+                            <div class="col-md-6 mb-3">
+                                <label for="validationDefaultUsername" class="form-label">Usuario (Cédula)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text" id="inputGroupPrepend2">@</span>
+                                    <input
+                                        name="username"
+                                        type="text"
+                                        class="form-control"
+                                        id="validationDefaultUsername"
+                                        aria-describedby="inputGroupPrepend2"
+                                        required
+                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                    />
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="password_user" class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" id="password_user" name="password_user" required>
+                            </div>
+                        </div>
+
+                        <div class="row" style="margin-bottom: 0px;">
+                            <!-- Roles del sistema (Pantallas Asignadas) -->
+                            <div class="col-md-6 mb-3">
+                                <label for="rol" class="form-label">Rol Sistema</label>
+                                <select class="form-select" id="rol" name="rol" required>
+                                    <option disabled selected>Seleccione el rol...</option>
+                                    {% for rol in roles %}
+                                        <option value="{{ rol[0] }}">{{ rol[1] }} ({{ rol[0] }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Roles Storage Roles  -->
+                            <div class="col-md-6 mb-3">
+                                <label for="rol_storage" class="form-label">Rol Storage (Azure)</label>
+                                <select class="form-select" id="rol_storage" name="rol_storage" required>
+                                    <option value="0" selected>No Asignar</option>  <!-- Opción para no asignar rol -->
+                                    {% for rol_storage in roles_storage %}
+                                        <option value="{{ rol_storage[0] }}">{{ rol_storage[1] }} ({{ rol_storage[0] }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <!-- Roles Power Bi  -->
+                            <div class="col-md-6 mb-3">
+                                <label for="rol_powerbi" class="form-label">Rol Power BI</label>
+                                <select class="form-select" id="rol_powerbi" name="rol_powerbi" required>
+                                <option value="0" selected>No Asignar</option>
+                                {% for r in roles_powerbi %}
+                                    <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                        </div>   
+                        
+                        <!-- === Flota de Asistencia (agregar/eliminar) === -->
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold" style="font-family:'Century Gothic',sans-serif;font-size:.85rem;display:block;margin-bottom:.25rem;">Flota de Asistencia Checklit y Preoperacionales</label>
+                            <div class="d-flex gap-2 align-items-start" style="font-family:'Century Gothic',sans-serif;font-size:.85rem;">
+                                <select id="flotaProcesoSelect" class="form-select" style="max-width:420px;">
+                                <option value=""style="font-size:.50rem;">— Seleccione proceso/subproceso —</option>
+                                {% for p in procesos %}
+                                    <option value="{{ p[0] }}" style="font-size:.85rem;">{{ p[1] }} — {{ p[2] }} ({{ p[0] }})</option>
+                                {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="btnAddFlota">Agregar</button>
+                        </div>
+
+                        <!-- Contenedor de chips (selecciones) -->
+                        <div id="flotaChips" class="mt-2 d-flex flex-wrap gap-2"></div>
+                        <!-- Aquí se inyectan inputs ocultos name="procesos_asignados[]" por cada chip -->
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100">Guardar</button>
+                    </form>
+
+                    <!-- Aquí comienza el formulario para cargar las licencias Power BI, justo debajo del formulario de creación de usuarios -->
+                    <div style="margin-top: 20px; border-top: 2px solid #bebebe; padding-top: 20px;">
+                        <form id="licencias-form" enctype="multipart/form-data">
+                            <h5 style="font-size: 14px; margin-bottom: 10px;">Solo para Cargar archivo de Licencias Power BI Consorcio Express:</h5>
+                            
+                            <!-- Contenedor flex para el input y el botón -->
+                            <div style="display: flex; align-items: center;">
+                                <input type="file" id="licencias_file" name="file" accept=".xlsx" class="form-control" style="margin-right: 10px; width: 70%; height: 35px;">
+                                <button type="submit" class="btn btn-primary" style="white-space: nowrap; height: 35px;">Cargar Licencias BI</button>
+                            </div>
+                        </form>
+                    </div>
+                    <!-- Contenedor para mostrar notificaciones -->
+                    <div id="notification" style="margin-top: 10px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de usuarios existentes -->
+        <div class="col-lg-7 d-flex flex-column" style="height: 80vh;">
+            <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+                <div class="card-header bg-dark text-white" style="margin-bottom: 0;">
+                    <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff;font-weight: bold;">Usuarios Existentes</h4>
+                </div>
+
+                <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh; padding-top: 0;">
+                    <!-- Filtro -->
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <input id="filtroUsuarios" type="text" class="form-control form-control-sm"
+                            placeholder="Buscar por ID, usuario, nombre, apellidos, rol, blob, BI o estado…">
+                        <button id="btnLimpiarFiltro" type="button" class="btn btn-sm btn-outline-secondary">Limpiar</button>
+                        <span class="ms-auto small text-muted">
+                        <span id="contadorFilas">0</span> de {{ usuarios|length }} mostrados
+                        </span>
+                    </div>
+
+                    <table id="tablaUsuarios" class="table table-hover table-striped"
+                            style="table-layout: fixed; width: 100%; font-size: 12px;">
+                        <thead class="table-light" style="position: sticky; top: 0; z-index: 1; margin-top: 0; padding: 0;">
+                        <tr>
+                            <th style="width: 3px;">ID</th>
+                            <th style="width: 12%;">Username</th>
+                            <th style="width: 35px;">Nombre</th>
+                            <th style="width: 35px;">Apellidos</th>
+                            <th style="width: 3px;">Rol</th>
+                            <th style="width: 3px;">Blob</th>
+                            <th style="width: 3px;">BI</th>
+                            <th style="width: 8px;">Estado</th>
+                            <th style="width: 45px;" class="text-center">Acciones</th>
+                        </tr>
+                        </thead>
+
+                        <tbody id="tbodyUsuarios">
+                        {% for usuario in usuarios %}
+                        <tr>
+                            <td>{{ usuario[0] }}</td> <!-- ID -->
+                            <td>{{ usuario[3] }}</td> <!-- Username -->
+                            <td>{{ usuario[1] }}</td> <!-- Nombres -->
+                            <td>{{ usuario[2] }}</td> <!-- Apellidos -->
+                            <td>{{ usuario[4] }}</td> <!-- Rol Sistema-->
+                            <td>{{ usuario[6] }}</td> <!-- Storage -->
+                            <td>{{ usuario[7] }}</td> <!-- Power BI -->
+                            <td>{{ 'Activo' if usuario[5] == 1 else 'Inactivo' }}</td> <!-- Estado -->
+                            <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    data-bs-toggle="modal" data-bs-target="#editUserModal"
+                                    data-user-id="{{ usuario[0] }}">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <form action="/registrarse/{{ usuario[0] }}/inactivar" method="post" style="display:inline;"
+                                    onsubmit="return confirm('¿Está seguro de que desea inactivar este usuario?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-ban"></i> Inactivar
+                                </button>
+                            </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr id="filaNoUsuarios">
+                            <td colspan="9" class="text-center">No hay usuarios registrados</td>
+                        </tr>
+                        {% endfor %}
+
+                        <!-- Fila dinámica para cuando el filtro no encuentra resultados -->
+                        <tr id="filaSinCoincidencias" style="display:none;">
+                            <td colspan="9" class="text-center text-muted py-3">Sin coincidencias para el filtro.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+<!-- Modal para editar usuario -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editUserForm" method="post">
+                <input type="hidden" id="editUserIdHidden" name="user_id" value="">
+
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="editUserModalLabel">Editar Usuario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserIdDisplay" class="form-label">ID</label>
+                            <input type="text" class="form-control" id="editUserIdDisplay" name="user_id" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserUsername" class="form-label">Username (N° Cedula)</label>
+                            <input type="text" class="form-control" id="editUserUsername" name="username" required oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserName" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="editUserName" name="nombres" required oninput="this.value = this.value.toUpperCase();">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserApellido" class="form-label">Apellido</label>
+                            <input type="text" class="form-control" id="editUserApellido" name="apellidos" required oninput="this.value = this.value.toUpperCase();">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserRol" class="form-label">Rol Sistema</label>
+                            <select class="form-select" id="editUserRol" name="rol" required>
+                                {% for rol in roles %}
+                                    <option value="{{ rol[0] }}">{{ rol[1] }} ({{ rol[0] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserEstado" class="form-label">Estado</label>
+                            <select class="form-select" id="editUserEstado" name="estado" required>
+                                <option value="1">Activo</option>
+                                <option value="0">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserRolStorage" class="form-label">Rol Storage (Azure)</label>
+                            <select class="form-select" id="editUserRolStorage" name="rol_storage" required>
+                                <option value="0">No Asignar</option>  <!-- Opción por defecto -->
+                                {% for rol_storage in roles_storage %}
+                                    <option value="{{ rol_storage[0] }}">{{ rol_storage[1] }} ({{ rol_storage[0] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserRolPowerBI" class="form-label">Rol Power BI</label>
+                            <select class="form-select" id="editUserRolPowerBI" name="rol_powerbi" required>
+                                <option value="0">No Asignar</option>
+                                {% for r in roles_powerbi %}
+                                <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserPassword" class="form-label">Contraseña (opcional)</label>
+                            <input type="password" class="form-control" id="editUserPassword" name="password_user">
+                        </div>
+                        
+                    </div>
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label class="form-label fw-bold" style="font-family:'Century Gothic',sans-serif;font-size:.85rem;display:block;margin-bottom:.25rem;">Flota de Asistencia Checklit y Preoperacionales</label>
+                    <div class="d-flex gap-2 align-items-start">
+                        <select id="editFlotaProcesoSelect" class="form-select" style="max-width:420px;">
+                        <option value="">— Seleccione proceso/subproceso —</option>
+                        {% for p in procesos %}
+                            <option value="{{ p[0] }}" style="font-size:.85rem;">{{ p[1] }} — {{ p[2] }} ({{ p[0] }})</option>
+                        {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-outline-primary" id="editBtnAddFlota">Agregar</button>
+                    </div>
+                    <div id="editFlotaChips" class="mt-2 d-flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- FUNCIONES PARA QUE EL MODAL TRAIGA LOS DATOS DE LA TABLA USUARIOS -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const editUserModal = document.getElementById('editUserModal');
+
+        if (!editUserModal) return;
+
+        editUserModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;           // Botón que abre el modal
+        const userId = button.getAttribute('data-user-id');
+        if (!userId) return;
+
+        // Reset campos
+        document.getElementById('editUserIdHidden').value = userId;   // ✅ set hidden
+        document.getElementById('editUserIdDisplay').value = '';
+        document.getElementById('editUserName').value = '';
+        document.getElementById('editUserApellido').value = '';
+        document.getElementById('editUserUsername').value = '';
+        document.getElementById('editUserRol').value = '';
+        document.getElementById('editUserEstado').value = '';
+        document.getElementById('editUserPassword').value = '';
+        document.getElementById('editUserRolStorage').value = '0';
+        document.getElementById('editUserRolPowerBI').value = '0';
+
+        // Limpia chips por si el modal se reabre
+        const chips = document.getElementById('editFlotaChips');
+        if (chips) chips.innerHTML = '';
+
+        // Carga datos del usuario
+        fetch(`/registrarse/${userId}/datos`)
+            .then(r => {
+            if (!r.ok) throw new Error('Error al obtener los datos del usuario');
+            return r.json();
+            })
+            .then(async data => {
+            // Completa campos
+            document.getElementById('editUserIdDisplay').value = data.id;
+            document.getElementById('editUserName').value = data.nombres;
+            document.getElementById('editUserApellido').value = data.apellidos;
+            document.getElementById('editUserUsername').value = data.username;
+            document.getElementById('editUserRol').value = data.rol;
+            document.getElementById('editUserEstado').value = data.estado;
+            document.getElementById('editUserRolStorage').value = data.rol_storage || '0';
+            document.getElementById('editUserRolPowerBI').value = data.rol_powerbi || '0';
+            document.getElementById('editUserPassword').value = '';
+            document.getElementById('editUserForm').action = `/registrarse/${userId}/editar`;
+
+            // Precargar chips del usuario
+            await precargarFlotaEnEditar(userId);
+            })
+            .catch(err => {
+            console.error(err);
+            alert('No se pudo cargar la información del usuario.');
+            });
+        });
+    });
+</script>
+
+
+<!-- Script para manejar la carga de licencias Power BI -->
+<script>
+    // Capturar la respuesta del formulario y mostrar la notificación
+    document.getElementById('licencias-form').addEventListener('submit', async function (e) {
+        e.preventDefault();  // Evitar la recarga de la página
+        
+        const formData = new FormData(this);
+        
+        // Realizar la solicitud
+        const response = await fetch('/cargar_licencias', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        // Mostrar notificación según el resultado
+        const notification = document.getElementById('notification');
+        if (result.message) {
+            notification.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    ${result.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`;
+        } else if (result.error) {
+            notification.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${result.error}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`;
+        }
+        
+        // Cerrar automáticamente la notificación después de 3 segundos
+        setTimeout(() => {
+            const alertElement = document.querySelector('.alert');
+            if (alertElement) {
+                alertElement.classList.remove('show');
+                alertElement.classList.add('fade');
+                setTimeout(() => {
+                    alertElement.remove();  // Remover el elemento del DOM
+                    window.location.reload();  // Recargar la página
+                }, 300);  
+            }
+        }, 3000);  // Espera 3 segundos antes de cerrar la notificación y recargar
+    });
+</script>
+
+<!-- Script para manejar el envío del formulario de creación de usuarios -->
+<script>
+    document.getElementById('createUserForm').addEventListener('submit', async function (e) {
+        e.preventDefault();  // Evitar el comportamiento por defecto de envío de formulario
+        
+        const formData = new FormData(this);  // Crear un objeto FormData con los datos del formulario
+        
+        // Enviar la solicitud usando fetch
+        const response = await fetch('/registrarse', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            // Recargar la página si la respuesta es exitosa para mostrar los datos actualizados
+            window.location.href = window.location.href;  // Esto asegura que se recargue la página completa
+        } else {
+            // Manejar los errores si la solicitud falla
+            alert('Hubo un error al crear el usuario. Inténtelo de nuevo.');
+        }
+    });
+</script>
+
+<!-- Script para el filtro de usuarios en la tabla -->
+<script>
+    (function () {
+    const input = document.getElementById('filtroUsuarios');
+    const btnClear = document.getElementById('btnLimpiarFiltro');
+    const tbody = document.getElementById('tbodyUsuarios');
+    const filaSin = document.getElementById('filaSinCoincidencias');
+    const filaVacia = document.getElementById('filaNoUsuarios');
+    const contador = document.getElementById('contadorFilas');
+
+    function normalizar(txt) {
+        return (txt || '')
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, ''); // quita tildes
+    }
+
+    function actualizarContador() {
+        const filas = [...tbody.querySelectorAll('tr')]
+        .filter(tr => tr !== filaSin && tr !== filaVacia);
+        const visibles = filas.filter(tr => tr.style.display !== 'none').length;
+        if (contador) contador.textContent = visibles;
+    }
+
+    function filtrar() {
+        const q = normalizar(input.value);
+        const filas = [...tbody.querySelectorAll('tr')]
+        .filter(tr => tr !== filaSin && tr !== filaVacia);
+
+        let vis = 0;
+        filas.forEach(tr => {
+        const texto = normalizar(tr.textContent);
+        const coincide = q === '' || texto.includes(q);
+        tr.style.display = coincide ? '' : 'none';
+        if (coincide) vis++;
+        });
+
+        // Mostrar/ocultar fila “sin coincidencias”
+        if (filaSin) filaSin.style.display = (vis === 0 && filas.length > 0) ? '' : 'none';
+
+        actualizarContador();
+    }
+
+    // Debounce simple
+    let t;
+    input && input.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(filtrar, 120);
+    });
+
+    btnClear && btnClear.addEventListener('click', () => {
+        input.value = '';
+        filtrar();
+        input.focus();
+    });
+
+    // Inicial
+    filtrar();
+    })();
+</script>
+
+<!-- Script para manejar la selección múltiple para agregar procesos a cargo de flota de asistencia -->
+<script>
+    (function(){
+    const sel = document.getElementById('flotaProcesoSelect');
+    const chips = document.getElementById('flotaChips');
+    const btnAdd = document.getElementById('btnAddFlota');
+
+    function addChip(id, label) {
+        // evitar duplicados
+        if (chips.querySelector(`[data-id="${id}"]`)) return;
+
+        const chip = document.createElement('span');
+        chip.className = 'badge bg-secondary d-flex align-items-center gap-2';
+        chip.style.fontSize = '0.7rem';
+        chip.style.fontFamily = "'Century Gothic', sans-serif";
+        chip.dataset.id = id;
+        chip.innerHTML = `
+        <span>${label}</span>
+        <button type="button" class="btn-close btn-close-white btn-sm" aria-label="Eliminar"></button>
+        <input type="hidden" name="procesos_asignados[]" value="${id}">
+        `;
+        chip.querySelector('button').addEventListener('click', () => chip.remove());
+        chips.appendChild(chip);
+    }
+
+    if (btnAdd) {
+        btnAdd.addEventListener('click', () => {
+        const opt = sel.options[sel.selectedIndex];
+        const id = opt?.value;
+        const label = opt?.text;
+        if (!id) return;
+        addChip(id, label);
+        });
+    }
+    })();
+</script>
+
+<!-- Script para manejar la selección múltiple en el modal de edición -->
+<script>
+    function flotaEdit_addChip(id, label) {
+    const chips = document.getElementById('editFlotaChips');
+    if (chips.querySelector(`[data-id="${id}"]`)) return;
+    const chip = document.createElement('span');
+    chip.className = 'badge bg-secondary d-flex align-items-center gap-2';
+    chip.style.fontSize = '0.7rem';
+    chip.style.fontFamily = "'Century Gothic', sans-serif";
+    chip.dataset.id = id;
+    chip.innerHTML = `
+        <span>${label}</span>
+        <button type="button" class="btn-close btn-close-white btn-sm" aria-label="Eliminar"></button>
+        <input type="hidden" name="procesos_asignados[]" value="${id}">
+    `;
+    chip.querySelector('button').addEventListener('click', () => chip.remove());
+    chips.appendChild(chip);
+    }
+
+    document.getElementById('editBtnAddFlota')?.addEventListener('click', ()=>{
+    const sel = document.getElementById('editFlotaProcesoSelect');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt?.value) return;
+    flotaEdit_addChip(opt.value, opt.text);
+    });
+
+    // Cuando abras el modal y cargues los datos del usuario:
+    async function precargarFlotaEnEditar(userId){
+        const r = await fetch(`/registrarse/${userId}/datos`);
+        if (!r.ok) return;
+        const j = await r.json();
+        const asignados = j.procesos_asignados || [];
+
+        const sel = document.getElementById('editFlotaProcesoSelect');
+        const chips = document.getElementById('editFlotaChips');
+        if (!sel || !chips) return;
+
+        chips.innerHTML = '';
+        const labelOf = (id)=> {
+            const opt = [...sel.options].find(o => Number(o.value)===Number(id));
+            return opt ? opt.text : `Proceso ${id}`;
+        };
+
+        asignados.forEach(id => flotaEdit_addChip(id, labelOf(id)));
+    }
+</script>
+
+
+{% endblock %}

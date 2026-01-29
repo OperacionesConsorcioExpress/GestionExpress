@@ -1,0 +1,1390 @@
+{% extends "components/layout.html" %}
+{% block title %} Estaciones de Servicio y Surtidores{% endblock %}
+
+{% block head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    .contenedor-ancho{ width:min(96vw,1920px); margin:0 auto; padding:0 16px; }
+    .btn-action{ padding:.50rem .8rem; font-size:24px; line-height:1.1; }
+    .btn-action i{ font-size:1.2rem; }
+    .overlay-proceso{ position:fixed; inset:0; background:rgba(255,255,255,.70); z-index:2000; display:flex; align-items:center; justify-content:center; }
+    .overlay-proceso[hidden]{ display:none!important; }
+    .upper{ text-transform:uppercase; }
+
+    /* Tablas */
+    .tabla-eds thead th,
+    .tabla-surtidores thead th,
+    .tabla-ubicaciones thead th{
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #0a0f3d !important;
+        color: #ffffff !important;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+    }
+    .tabla-eds td, .tabla-eds th,
+    .tabla-surtidores td, .tabla-surtidores th,
+    .tabla-ubicaciones td, .tabla-ubicaciones th{
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    .tabla-eds td, .tabla-surtidores td, .tabla-ubicaciones td{
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .tabla-scroll{ max-height:55vh; overflow:auto; overflow-x:auto; }
+    .paginador{
+        display:flex; align-items:center; justify-content:space-between;
+        padding:10px 12px; border-top:1px solid #e5e7eb; background:rgb(203,207,231);
+        border-radius:0 0 12px 12px; gap:10px;
+    }
+    .paginacion-wrap{ overflow-x:auto; max-width:100%; }
+    .pagination{ flex-wrap:nowrap; margin:0; }
+
+    .nav-pills .nav-link{
+        border:1px solid #e5e7eb; background:#fff; color:#111827;
+        padding:.45rem .75rem; border-radius:10px; font-weight:600; font-size:12px;
+    }
+    .nav-pills .nav-link.active{
+        background:#0d6efd; border-color:#0b5ed7; color:#fff;
+        box-shadow:0 10px 24px rgba(13,110,253,.18);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="font-size:12px; font-family:'Century Gothic', sans-serif; color:#111827; background:#ffffff; padding:16px 0;">
+    <div class="container-fluid contenedor-ancho">
+
+        <!-- HERO -->
+        <div style="position:relative; border:1px solid #e5e7eb; background:#fff; border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+            <h1 style="margin:0; font-size:18px; font-weight:700; letter-spacing:.2px;">
+                EDS y Surtidores
+            </h1>
+            <div class="text-muted" style="font-size:12px;">
+                Configura Estaciones de Servicio, Surtidores y Ubicaciones (internas/externas)
+            </div>
+            </div>
+            <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="btn-refrescar">
+                <i class="fa-solid fa-rotate me-1"></i> Refrescar
+            </button>
+            <button class="btn btn-sm" id="btn-nueva-eds" data-bs-toggle="modal" data-bs-target="#modalEDS"
+                style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .7rem;">
+                <i class="fa-solid fa-plus me-1"></i> Nueva EDS
+            </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="mt-3">
+            <ul class="nav nav-pills gap-2" id="tabs-eds" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-eds" data-bs-toggle="pill" data-bs-target="#pane-eds" type="button" role="tab">
+                <i class="fa-solid fa-gas-pump me-1"></i> EDS
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-surtidores" data-bs-toggle="pill" data-bs-target="#pane-surtidores" type="button" role="tab">
+                <i class="fa-solid fa-faucet-drip me-1"></i> Surtidores
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-ubicaciones" data-bs-toggle="pill" data-bs-target="#pane-ubicaciones" type="button" role="tab">
+                <i class="fa-solid fa-location-dot me-1"></i> Ubicaciones
+                </button>
+            </li>
+            </ul>
+        </div>
+        </div>
+
+        <div class="tab-content" id="tabs-content">
+
+        <!-- ======================= PANE: EDS ======================= -->
+        <div class="tab-pane fade show active" id="pane-eds" role="tabpanel" aria-labelledby="tab-eds">
+
+            <!-- FILTROS EDS -->
+            <div style="border:1px solid #e5e7eb; background:rgb(220, 222, 236); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+            <div style="background:#ffffff; border:1px dashed #e5e7eb; border-radius:10px; padding:10px;">
+                <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-2">
+                    <label class="form-label mb-1">Buscar</label>
+                    <input id="f-eds-q" type="text" class="form-control upper" placeholder="NOMBRE / CÓDIGO" style="font-size:12px; height:34px;">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1">Estado</label>
+                    <select id="f-eds-estado" class="form-select" style="font-size:12px; height:34px;">
+                    <option value="">Todos</option>
+                    <option value="1">Activos</option>
+                    <option value="0">Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label mb-1">Ubicación</label>
+                    <select id="f-eds-ubicacion" class="form-select" style="font-size:12px; height:34px;">
+                    <option value="">Todas</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-5 text-end">
+                    <button class="btn btn-sm btn-outline-secondary me-2" id="btn-limpiar-eds">
+                    <i class="fa-solid fa-broom me-1"></i> Limpiar
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="btn-consultar-eds">
+                    <i class="fa-solid fa-magnifying-glass me-1"></i> Consultar
+                    </button>
+                </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- TABLA EDS -->
+            <div style="border:1px solid #e5e7eb; background:#fff; border-radius:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+            <div class="table-responsive tabla-scroll">
+                <table class="table table-hover align-middle mb-0 tabla-eds">
+                <thead>
+                    <tr>
+                    <th>ID</th>
+                    <th>Código</th>
+                    <th>EDS</th>
+                    <th>Ubicación</th>
+                    <th style="text-align:center;"># Surtidores</th>
+                    <th style="text-align:center;">Estado</th>
+                    <th>Creado</th>
+                    <th>Actualizado</th>
+                    <th style="text-align:right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-eds"></tbody>
+                </table>
+            </div>
+            <div class="paginador">
+                <div id="txt-total-eds" style="color:#6b7280;">0 de 0 registros</div>
+                <div class="paginacion-wrap">
+                <ul class="pagination pagination-sm" id="paginacion-eds"></ul>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- ======================= PANE: SURTIDORES ======================= -->
+        <div class="tab-pane fade" id="pane-surtidores" role="tabpanel" aria-labelledby="tab-surtidores">
+
+            <!-- FILTROS SURTIDORES -->
+            <div style="border:1px solid #e5e7eb; background:rgb(220, 222, 236); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+            <div style="background:#ffffff; border:1px dashed #e5e7eb; border-radius:10px; padding:10px;">
+                <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-2">
+                    <label class="form-label mb-1">Buscar</label>
+                    <input id="f-sur-q" type="text" class="form-control upper" placeholder="NOMBRE" style="font-size:12px; height:34px;">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1">Tipo Combustible</label>
+                    <select id="f-sur-tipo" class="form-select" style="font-size:12px; height:34px;">
+                    <option value="">Todos</option>
+                    <option value="ACPM">ACPM</option>
+                    <option value="GNV">GNV</option>
+                    <option value="ELECTRICO">ELECTRICO</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1">Estado</label>
+                    <select id="f-sur-estado" class="form-select" style="font-size:12px; height:34px;">
+                    <option value="">Todos</option>
+                    <option value="1">Activos</option>
+                    <option value="0">Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-6 text-end">
+                    <button class="btn btn-sm btn-outline-secondary me-2" id="btn-nuevo-surtidor"
+                    data-bs-toggle="modal" data-bs-target="#modalSurtidor">
+                    <i class="fa-solid fa-plus me-1"></i> Nuevo Surtidor
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="btn-consultar-sur">
+                    <i class="fa-solid fa-magnifying-glass me-1"></i> Consultar
+                    </button>
+                </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- TABLA SURTIDORES -->
+            <div style="border:1px solid #e5e7eb; background:#fff; border-radius:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+            <div class="table-responsive tabla-scroll">
+                <table class="table table-hover align-middle mb-0 tabla-surtidores">
+                <thead>
+                    <tr>
+                    <th>ID</th>
+                    <th>Surtidor</th>
+                    <th>Tipo Combustible</th>
+                    <th style="text-align:center;">Estado</th>
+                    <th>Creado</th>
+                    <th>Actualizado</th>
+                    <th style="text-align:right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-surtidores"></tbody>
+                </table>
+            </div>
+            <div class="paginador">
+                <div id="txt-total-sur" style="color:#6b7280;">0 de 0 registros</div>
+                <div class="paginacion-wrap">
+                <ul class="pagination pagination-sm" id="paginacion-sur"></ul>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- ======================= PANE: UBICACIONES ======================= -->
+        <div class="tab-pane fade" id="pane-ubicaciones" role="tabpanel" aria-labelledby="tab-ubicaciones">
+
+            <!-- FILTROS UBICACIONES -->
+            <div style="border:1px solid #e5e7eb; background:rgb(220, 222, 236); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+            <div style="background:#ffffff; border:1px dashed #e5e7eb; border-radius:10px; padding:10px;">
+                <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label mb-1">Buscar</label>
+                    <input id="f-ubi-q" type="text" class="form-control upper" placeholder="NOMBRE / CIUDAD" style="font-size:12px; height:34px;">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1">Tipo</label>
+                    <select id="f-ubi-tipo" class="form-select" style="font-size:12px; height:34px;">
+                    <option value="">Todos</option>
+                    <option value="INTERNA">INTERNA</option>
+                    <option value="EXTERNA">EXTERNA</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1">Estado</label>
+                    <select id="f-ubi-estado" class="form-select" style="font-size:12px; height:34px;">
+                    <option value="">Todos</option>
+                    <option value="1">Activos</option>
+                    <option value="0">Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-5 text-end">
+                    <button class="btn btn-sm btn-outline-secondary me-2" id="btn-nueva-ubicacion"
+                    data-bs-toggle="modal" data-bs-target="#modalUbicacion">
+                    <i class="fa-solid fa-plus me-1"></i> Nueva Ubicación
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="btn-consultar-ubi">
+                    <i class="fa-solid fa-magnifying-glass me-1"></i> Consultar
+                    </button>
+                </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- TABLA UBICACIONES -->
+            <div style="border:1px solid #e5e7eb; background:#fff; border-radius:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+            <div class="table-responsive tabla-scroll">
+                <table class="table table-hover align-middle mb-0 tabla-ubicaciones">
+                <thead>
+                    <tr>
+                    <th>ID</th>
+                    <th>Ubicación</th>
+                    <th>Tipo</th>
+                    <th>Dirección</th>
+                    <th>Ciudad</th>
+                    <th style="text-align:center;">Estado</th>
+                    <th>Creado</th>
+                    <th>Actualizado</th>
+                    <th style="text-align:right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-ubicaciones"></tbody>
+                </table>
+            </div>
+            <div class="paginador">
+                <div id="txt-total-ubi" style="color:#6b7280;">0 de 0 registros</div>
+                <div class="paginacion-wrap">
+                <ul class="pagination pagination-sm" id="paginacion-ubi"></ul>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        </div><!-- /tab-content -->
+
+    </div>
+</div>
+
+<!-- ======================= MODAL: EDS ======================= -->
+<div class="modal fade" id="modalEDS" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16);">
+        <div class="modal-header" style="border-bottom:1px solid #e5e7eb;">
+            <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+            <i class="fa-solid fa-gas-pump me-2"></i> Crear / Editar EDS
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" style="padding:12px;">
+            <div class="row g-2">
+            <div class="col-12 col-md-3">
+                <label class="form-label mb-1">Código</label>
+                <input id="eds-codigo" type="text" class="form-control upper" placeholder="EDS-001" style="font-size:12px; height:34px;">
+            </div>
+            <div class="col-12 col-md-5">
+                <label class="form-label mb-1">Nombre EDS</label>
+                <input id="eds-nombre" type="text" class="form-control upper" placeholder="EDS CENTRO 191" style="font-size:12px; height:34px;">
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Ubicación</label>
+                <select id="eds-id-ubicacion" class="form-select" style="font-size:12px; height:34px;">
+                <option value="">-- Selecciona --</option>
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label mb-1">Surtidores asociados</label>
+                <select id="eds-surtidores" class="form-select" multiple size="6" style="font-size:12px;">
+                <!-- opciones dinámicas -->
+                </select>
+                <div class="text-muted mt-1" style="font-size:11px;">
+                Tip: Mantén presionada <b>Ctrl</b> (Windows) para seleccionar varios.
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="form-check form-switch" style="padding-left:2.2rem;">
+                <input class="form-check-input" type="checkbox" id="eds-estado" checked>
+                <label class="form-check-label" for="eds-estado">Activo</label>
+                </div>
+            </div>
+
+            <input type="hidden" id="eds-id">
+            </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:10px 12px;">
+            <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="border:1px solid #e5e7eb; background:#fff;">Cancelar</button>
+            <button id="btn-guardar-eds" type="button" class="btn btn-sm" style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7;">Guardar</button>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= MODAL: SURTIDOR ======================= -->
+<div class="modal fade" id="modalSurtidor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16);">
+        <div class="modal-header" style="border-bottom:1px solid #e5e7eb;">
+            <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+            <i class="fa-solid fa-faucet-drip me-2"></i> Crear / Editar Surtidor
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" style="padding:12px;">
+            <div class="row g-2">
+            <div class="col-12 col-md-6">
+                <label class="form-label mb-1">Nombre / Código</label>
+                <input id="sur-nombre" type="text" class="form-control upper" placeholder="SURTIDOR 1" style="font-size:12px; height:34px;">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label mb-1">Tipo Combustible</label>
+                <select id="sur-tipo" class="form-select" style="font-size:12px; height:34px;">
+                <option value="">-- Selecciona --</option>
+                <option value="ACPM">ACPM</option>
+                <option value="GNV">GNV</option>
+                <option value="ELECTRICO">ELECTRICO</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <div class="form-check form-switch" style="padding-left:2.2rem;">
+                <input class="form-check-input" type="checkbox" id="sur-estado" checked>
+                <label class="form-check-label" for="sur-estado">Activo</label>
+                </div>
+            </div>
+            <input type="hidden" id="sur-id">
+            </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:10px 12px;">
+            <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="border:1px solid #e5e7eb; background:#fff;">Cancelar</button>
+            <button id="btn-guardar-sur" type="button" class="btn btn-sm" style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7;">Guardar</button>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================= MODAL: UBICACION ======================= -->
+<div class="modal fade" id="modalUbicacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16);">
+        <div class="modal-header" style="border-bottom:1px solid #e5e7eb;">
+            <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+            <i class="fa-solid fa-location-dot me-2"></i> Crear / Editar Ubicación
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body" style="padding:12px;">
+            <div class="text-muted mb-2" style="font-size:12px;">
+            <i class="fa-solid fa-circle-info me-1"></i>
+            Agrega uno o varios COP(s) habilitados para taqueo o captura de odómetro en esta ubicación.
+            </div>
+
+            <!-- SELECTORES + AGREGAR -->
+            <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Componente</label>
+                <select id="ubi-componente" class="form-select" style="font-size:12px; height:34px;">
+                <option value="">-- Selecciona --</option>
+                </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Zona</label>
+                <select id="ubi-zona" class="form-select" style="font-size:12px; height:34px;">
+                <option value="">-- Selecciona componente primero --</option>
+                </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">COP</label>
+                <select id="ubi-cop" class="form-select" style="font-size:12px; height:34px;">
+                <option value="">-- Selecciona componente y zona --</option>
+                </select>
+            </div>
+
+            <div class="col-12 d-flex gap-2 mt-1">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-agregar-cop">
+                <i class="fa-solid fa-plus me-1"></i> Agregar
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="btn-quitar-cop">
+                <i class="fa-solid fa-trash me-1"></i> Quitar seleccionados
+                </button>
+            </div>
+
+            <div class="col-12">
+                <div class="text-muted" style="font-size:11px;">
+                Los COP(s) agregados quedarán en la lista inferior. Esa lista es la que se guarda.
+                </div>
+            </div>
+            </div>
+
+            <!-- CONTENEDOR / CARRITO -->
+            <div class="mt-2" style="border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
+            <div style="background:#0a0f3d; color:#fff; padding:8px 10px; font-size:12px; font-weight:700;">
+                COP(s) agregados
+            </div>
+
+            <div class="table-responsive" style="max-height:220px; overflow:auto;">
+                <table class="table table-sm table-hover align-middle mb-0" style="font-size:12px;">
+                <thead style="position:sticky; top:0; background:#f3f4f6; z-index:1;">
+                    <tr>
+                    <th style="width:36px; text-align:center;">
+                        <input type="checkbox" id="ubi-cop-check-all">
+                    </th>
+                    <th>Componente</th>
+                    <th>Zona</th>
+                    <th>COP</th>
+                    <th style="width:80px; text-align:center;">ID COP</th>
+                    </tr>
+                </thead>
+                <tbody id="ubi-cop-items">
+                    <!-- filas dinámicas -->
+                </tbody>
+                </table>
+            </div>
+
+            <div class="p-2 d-flex justify-content-between align-items-center" style="background:#fafafa; border-top:1px solid #e5e7eb;">
+                <div class="text-muted" style="font-size:11px;">
+                Total: <b id="ubi-cop-total">0</b>
+                </div>
+                <div class="text-muted" style="font-size:11px;">
+                Tip: Usa “Quitar seleccionados” para limpiar.
+                </div>
+            </div>
+            </div>
+
+            <!-- CAMPOS UBICACION -->
+            <div class="row g-2 mt-2">
+            <div class="col-12 col-md-5">
+                <label class="form-label mb-1">Nombre Ubicación</label>
+                <input id="ubi-nombre" type="text" class="form-control upper" placeholder="PATIO 191 / EDS EXTERNA" style="font-size:12px; height:34px;">
+            </div>
+
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-1">Tipo</label>
+                <select id="ubi-tipo" class="form-select" style="font-size:12px; height:34px;">
+                <option value="">-- Selecciona --</option>
+                <option value="INTERNA">INTERNA</option>
+                <option value="EXTERNA">EXTERNA</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-4">
+                <label class="form-label mb-1">Ciudad</label>
+                <input id="ubi-ciudad" type="text" class="form-control upper" placeholder="BOGOTÁ" style="font-size:12px; height:34px;">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label mb-1">Dirección</label>
+                <input id="ubi-direccion" type="text" class="form-control upper" placeholder="CL 00 # 00 - 00" style="font-size:12px; height:34px;">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label mb-1">Observación</label>
+                <textarea id="ubi-observacion" class="form-control" rows="3" style="font-size:12px;"></textarea>
+            </div>
+
+            <div class="col-12">
+                <div class="form-check form-switch" style="padding-left:2.2rem;">
+                <input class="form-check-input" type="checkbox" id="ubi-estado" checked>
+                <label class="form-check-label" for="ubi-estado">Activo</label>
+                </div>
+            </div>
+
+            <input type="hidden" id="ubi-id">
+            </div>
+        </div>
+
+        <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:10px 12px;">
+            <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="border:1px solid #e5e7eb; background:#fff;">Cancelar</button>
+            <button id="btn-guardar-ubi" type="button" class="btn btn-sm" style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7;">Guardar</button>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay de proceso -->
+<div id="overlay-proceso" class="overlay-proceso" hidden aria-hidden="true">
+    <div class="text-center">
+        <div class="spinner-border mb-2" role="status" aria-hidden="true"></div>
+        <div class="fw-bold">Procesando, por favor espera…</div>
+    </div>
+</div>
+
+<!-- Toasts -->
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index:1080;">
+    <div id="pila-toasts"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    /* ===== Utilidades modal/backdrop ===== */
+    function limpiarBackdrops(){
+        document.querySelectorAll('.modal-backdrop').forEach(el=>el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+    function cerrarModal(id){
+        const el = document.getElementById(id);
+        if(!el) return;
+        const inst = bootstrap.Modal.getOrCreateInstance(el);
+        const onHidden = () => { el.removeEventListener('hidden.bs.modal', onHidden); setTimeout(limpiarBackdrops,0); };
+        el.addEventListener('hidden.bs.modal', onHidden, { once:true });
+        inst.hide();
+        setTimeout(()=>{ if(!document.querySelector('.modal.show')) limpiarBackdrops(); }, 300);
+    }
+    document.addEventListener('hidden.bs.modal', ()=>{ if(!document.querySelector('.modal.show')) limpiarBackdrops(); });
+
+    /* ===== Toasts ===== */
+    function mostrarToast({titulo="Aviso", cuerpo="", tipo="success"}){
+        const id = `t_${Date.now()}`;
+        const color = tipo==="success" ? "#198754" : tipo==="warning" ? "#ffc107" : "#dc3545";
+        const html = `
+        <div id="${id}" class="toast align-items-center border-0 show" role="alert" aria-live="assertive" aria-atomic="true"
+            style="min-width:260px; background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.1); border-left:4px solid ${color}">
+            <div class="d-flex">
+            <div class="toast-body">
+                <div class="fw-bold" style="color:${color}">${titulo}</div>
+                <div style="color:#111827">${cuerpo}</div>
+            </div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>`;
+        const pila = document.getElementById('pila-toasts');
+        const wrap = document.createElement('div'); wrap.innerHTML = html;
+        const el = wrap.firstElementChild; pila.appendChild(el);
+        setTimeout(()=>{ try { bootstrap.Toast.getOrCreateInstance(el).hide(); } catch{} }, 3200);
+        el.addEventListener('hidden.bs.toast', ()=> el.remove());
+    }
+
+    /* ===== Helpers HTTP ===== */
+    function normalizarError(status, payload){
+        if(payload && Array.isArray(payload.detail)){
+        const msgs = payload.detail.map(d => d.msg || JSON.stringify(d)).join(' | ');
+        return {status, detail: msgs};
+        }
+        const det = payload?.detail || payload?.message || JSON.stringify(payload) || `HTTP ${status}`;
+        return {status, detail: det};
+    }
+    async function getJSON(url, params = {}) {
+        const limpio = {};
+        for(const k in params){ const v = params[k]; if(v===''||v===null||v===undefined) continue; limpio[k]=v; }
+        const q = new URLSearchParams(limpio); const full = q.toString()?`${url}?${q}`:url;
+        const res = await fetch(full, { credentials:'same-origin' });
+        let data = null; try{ data = await res.json(); }catch{}
+        if(!res.ok) throw normalizarError(res.status, data);
+        return data;
+    }
+    async function sendJSON(url, method, body) {
+        const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(body) });
+        let data = null; try{ data = await res.json(); }catch{}
+        if(!res.ok) throw normalizarError(res.status, data);
+        return data;
+    }
+    function esc(s){ return (s??'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function badgeEstado(estado){
+        return `<span class="badge ${estado==1?'bg-success-subtle text-success border border-success-subtle':'bg-danger-subtle text-danger border border-danger-subtle'}" style="font-size:11px;">${estado==1?'ACTIVO':'INACTIVO'}</span>`;
+    }
+
+    function bloquearUI(bloquear=true){
+        const overlay = document.getElementById('overlay-proceso');
+        if(!overlay) return;
+        overlay.toggleAttribute('hidden', !bloquear);
+        overlay.setAttribute('aria-hidden', bloquear ? 'false' : 'true');
+    }
+
+    /* ===== API (stubs para backend futuro) ===== */
+    const API = {
+        eds: {
+        listar: (p={})         => getJSON(`/api/config/eds`, p),
+        crear:  (cuerpo)        => sendJSON(`/api/config/eds`, 'POST', cuerpo),
+        actualizar: (id,cuerpo) => sendJSON(`/api/config/eds/${id}`, 'PUT', cuerpo),
+        estado: (id, estado)    => sendJSON(`/api/config/eds/${id}/estado`, 'PATCH', {estado}),
+        },
+        surtidores: {
+        listar: (p={})         => getJSON(`/api/config/eds/surtidores`, p),
+        crear:  (cuerpo)        => sendJSON(`/api/config/eds/surtidores`, 'POST', cuerpo),
+        actualizar: (id,cuerpo) => sendJSON(`/api/config/eds/surtidores/${id}`, 'PUT', cuerpo),
+        estado: (id, estado)    => sendJSON(`/api/config/eds/surtidores/${id}/estado`, 'PATCH', {estado}),
+        listarActivos: (p={})   => getJSON(`/api/config/eds/surtidores/activos`, p),
+        },
+        ubicaciones: {
+        listar: (p={})         => getJSON(`/api/config/eds/ubicaciones`, p),
+        crear:  (cuerpo)        => sendJSON(`/api/config/eds/ubicaciones`, 'POST', cuerpo),
+        actualizar: (id,cuerpo) => sendJSON(`/api/config/eds/ubicaciones/${id}`, 'PUT', cuerpo),
+        estado: (id, estado)    => sendJSON(`/api/config/eds/ubicaciones/${id}/estado`, 'PATCH', {estado}),
+        listarActivas: (p={})   => getJSON(`/api/config/eds/ubicaciones/activas`, p),
+        },
+        filtros: {
+        componentes: () => getJSON(`/api/config/eds/filtros/componentes`),
+        zonas: (p={})   => getJSON(`/api/config/eds/filtros/zonas`, p),
+        cops:  (p={})   => getJSON(`/api/config/eds/filtros/cop`, p),
+        }
+    };
+
+    /* ===== Estado UI ===== */
+    const st = {
+        eds: { pagina:1, tamano:10, q:'', estado:'', id_ubicacion:'' },
+        sur: { pagina:1, tamano:10, q:'', estado:'', tipo:'' },
+        ubi: { pagina:1, tamano:10, q:'', estado:'', tipo:'' }
+    };
+    let cache = {
+        eds: [], surtidores: [], ubicaciones: [],
+        surtidoresActivos: [], ubicacionesActivas: []
+    };
+
+    /* ===== Paginación ===== */
+    function dibujarPaginacion(idContenedor, actual, total, onChange){
+        const ul = document.getElementById(idContenedor);
+        if(!ul) return;
+
+        const windowSize = 5;
+        const start = Math.max(1, actual - Math.floor(windowSize/2));
+        const end   = Math.min(total, start + windowSize - 1);
+        const realStart = Math.max(1, end - windowSize + 1);
+
+        const btn = (p, label = null, disabled = false, active = false) => {
+        const l = label ?? p;
+        const dis = disabled ? ' disabled' : '';
+        const act = active   ? ' active'   : '';
+        return `<li class="page-item${dis}${act}"><a class="page-link" href="#" data-page="${p}">${l}</a></li>`;
+        };
+
+        let html = '';
+        html += btn(1, '«', actual===1);
+        html += btn(Math.max(1, actual-1), '‹', actual===1);
+
+        if(realStart > 1){
+        html += btn(1, '1', false, actual===1);
+        if(realStart > 2) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+        }
+
+        for(let p = realStart; p <= end; p++){
+        html += btn(p, String(p), false, p===actual);
+        }
+
+        if(end < total){
+        if(end < total-1) html += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+        html += btn(total, String(total), false, actual===total);
+        }
+
+        html += btn(Math.min(total, actual+1), '›', actual===total);
+        html += btn(total, '»', actual===total);
+
+        ul.innerHTML = html;
+
+        ul.querySelectorAll('a[data-page]').forEach(a=>{
+        a.onclick = (e)=>{
+            e.preventDefault();
+            const np = Number(a.dataset.page);
+            if(Number.isFinite(np) && np>=1 && np<=total && np!==actual) onChange(np);
+        };
+        });
+    }
+
+    /* ===== Uppercase ===== */
+    function forzarMayusculas(selector){
+        document.querySelectorAll(selector).forEach(el=>{
+        el.addEventListener('input', ()=>{ el.value = (el.value||'').toUpperCase(); });
+        el.addEventListener('blur',  ()=>{ el.value = (el.value||'').toUpperCase(); });
+        });
+    }
+
+    /* ===== Cargar combos compartidos ===== */
+    async function cargarUbicacionesActivas(){
+        const rs = await API.ubicaciones.listarActivas({ estado:1 });
+        cache.ubicacionesActivas = rs.data || [];
+
+        // filtro EDS
+        const selF = document.getElementById('f-eds-ubicacion');
+        selF.innerHTML = `<option value="">Todas</option>`;
+        cache.ubicacionesActivas.forEach(u=>{
+        selF.insertAdjacentHTML('beforeend', `<option value="${u.id}">${esc(u.nombre)} · ${esc(u.ciudad||'')}</option>`);
+        });
+
+        // modal EDS
+        const selM = document.getElementById('eds-id-ubicacion');
+        selM.innerHTML = `<option value="">-- Selecciona --</option>`;
+        cache.ubicacionesActivas.forEach(u=>{
+        selM.insertAdjacentHTML('beforeend', `<option value="${u.id}">${esc(u.nombre)} · ${esc(u.ciudad||'')}</option>`);
+        });
+    }
+
+    async function cargarSurtidoresActivos(){
+        const rs = await API.surtidores.listarActivos({ estado:1 });
+        cache.surtidoresActivos = rs.data || [];
+        const sel = document.getElementById('eds-surtidores');
+        sel.innerHTML = '';
+        cache.surtidoresActivos.forEach(s=>{
+        sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${esc(s.nombre)} · ${esc(s.tipo_combustible)}</option>`);
+        });
+    }
+
+    /* ===== Render tablas ===== */
+    async function cargarEDS(){
+        const p = {
+        pagina: st.eds.pagina, tamano: st.eds.tamano,
+        q: st.eds.q,
+        ...(st.eds.estado!=='' ? { estado: st.eds.estado } : {}),
+        ...(st.eds.id_ubicacion!=='' ? { id_ubicacion: st.eds.id_ubicacion } : {})
+        };
+        bloquearUI(true);
+        try{
+        const resp = await API.eds.listar(p);
+        cache.eds = resp.data || [];
+        const tb = document.getElementById('tbody-eds');
+        tb.innerHTML = cache.eds.map(r=>`
+            <tr>
+            <td>${r.id}</td>
+            <td>${esc(r.codigo||'')}</td>
+            <td>${esc(r.nombre||'')}</td>
+            <td>${esc(r.ubicacion||'')}</td>
+            <td style="text-align:center;">${esc(r.cantidad_surtidores ?? r.num_surtidores ?? '')}</td>
+            <td style="text-align:center;">${badgeEstado(r.estado)}</td>
+            <td>${esc(r.created_at||'')}</td>
+            <td>${esc(r.updated_at||'')}</td>
+            <td style="text-align:right;">
+                <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-action" title="Editar" onclick="abrirEdicionEDS(${Number(r.id)})">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline-${r.estado==1?'warning':'success'} btn-action" title="${r.estado==1?'Inactivar':'Activar'}"
+                        onclick="cambiarEstadoEDS(${Number(r.id)}, ${r.estado==1?0:1})">
+                    <i class="fa-solid ${r.estado==1?'fa-power-off':'fa-check'}"></i>
+                </button>
+                </div>
+            </td>
+            </tr>
+        `).join('');
+        document.getElementById('txt-total-eds').textContent = `${cache.eds.length} de ${resp.total} registros`;
+        dibujarPaginacion('paginacion-eds', st.eds.pagina, Math.max(1, Math.ceil(resp.total / st.eds.tamano)), (np)=>{ st.eds.pagina=np; cargarEDS(); });
+        }catch(err){
+        mostrarToast({titulo:'EDS', cuerpo:esc(err.detail||err), tipo:'danger'});
+        }finally{
+        bloquearUI(false);
+        }
+    }
+
+    async function cargarSurtidores(){
+        const p = {
+        pagina: st.sur.pagina, tamano: st.sur.tamano,
+        q: st.sur.q,
+        ...(st.sur.estado!=='' ? { estado: st.sur.estado } : {}),
+        ...(st.sur.tipo!=='' ? { tipo_combustible: st.sur.tipo } : {})
+        };
+        bloquearUI(true);
+        try{
+        const resp = await API.surtidores.listar(p);
+        cache.surtidores = resp.data || [];
+        const tb = document.getElementById('tbody-surtidores');
+        tb.innerHTML = cache.surtidores.map(r=>`
+            <tr>
+            <td>${r.id}</td>
+            <td>${esc(r.nombre||'')}</td>
+            <td>${esc(r.tipo_combustible||'')}</td>
+            <td style="text-align:center;">${badgeEstado(r.estado)}</td>
+            <td>${esc(r.created_at||'')}</td>
+            <td>${esc(r.updated_at||'')}</td>
+            <td style="text-align:right;">
+                <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-action" title="Editar" onclick="abrirEdicionSurtidor(${Number(r.id)})">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline-${r.estado==1?'warning':'success'} btn-action" title="${r.estado==1?'Inactivar':'Activar'}"
+                        onclick="cambiarEstadoSurtidor(${Number(r.id)}, ${r.estado==1?0:1})">
+                    <i class="fa-solid ${r.estado==1?'fa-power-off':'fa-check'}"></i>
+                </button>
+                </div>
+            </td>
+            </tr>
+        `).join('');
+        document.getElementById('txt-total-sur').textContent = `${cache.surtidores.length} de ${resp.total} registros`;
+        dibujarPaginacion('paginacion-sur', st.sur.pagina, Math.max(1, Math.ceil(resp.total / st.sur.tamano)), (np)=>{ st.sur.pagina=np; cargarSurtidores(); });
+        }catch(err){
+        mostrarToast({titulo:'Surtidores', cuerpo:esc(err.detail||err), tipo:'danger'});
+        }finally{
+        bloquearUI(false);
+        }
+    }
+
+    async function cargarUbicaciones(){
+        const p = {
+        pagina: st.ubi.pagina, tamano: st.ubi.tamano,
+        q: st.ubi.q,
+        ...(st.ubi.estado!=='' ? { estado: st.ubi.estado } : {}),
+        ...(st.ubi.tipo!=='' ? { tipo: st.ubi.tipo } : {})
+        };
+        bloquearUI(true);
+        try{
+        const resp = await API.ubicaciones.listar(p);
+        cache.ubicaciones = resp.data || [];
+        const tb = document.getElementById('tbody-ubicaciones');
+        tb.innerHTML = cache.ubicaciones.map(r=>`
+            <tr>
+            <td>${r.id}</td>
+            <td>${esc(r.nombre||'')}</td>
+            <td>${esc(r.tipo||'')}</td>
+            <td>${esc(r.direccion||'')}</td>
+            <td>${esc(r.ciudad||'')}</td>
+            <td style="text-align:center;">${badgeEstado(r.estado)}</td>
+            <td>${esc(r.created_at||'')}</td>
+            <td>${esc(r.updated_at||'')}</td>
+            <td style="text-align:right;">
+                <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-action" title="Editar" onclick="abrirEdicionUbicacion(${Number(r.id)})">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline-${r.estado==1?'warning':'success'} btn-action" title="${r.estado==1?'Inactivar':'Activar'}"
+                        onclick="cambiarEstadoUbicacion(${Number(r.id)}, ${r.estado==1?0:1})">
+                    <i class="fa-solid ${r.estado==1?'fa-power-off':'fa-check'}"></i>
+                </button>
+                </div>
+            </td>
+            </tr>
+        `).join('');
+        document.getElementById('txt-total-ubi').textContent = `${cache.ubicaciones.length} de ${resp.total} registros`;
+        dibujarPaginacion('paginacion-ubi', st.ubi.pagina, Math.max(1, Math.ceil(resp.total / st.ubi.tamano)), (np)=>{ st.ubi.pagina=np; cargarUbicaciones(); });
+        }catch(err){
+        mostrarToast({titulo:'Ubicaciones', cuerpo:esc(err.detail||err), tipo:'danger'});
+        }finally{
+        bloquearUI(false);
+        }
+    }
+
+    /* ===== Carrito COPs (contenedor que se guarda) ===== */
+    let UBI_COPS = []; 
+    // item: { id_cop, cop, id_componente, componente, id_zona, zona }
+
+    function actualizarTablaCops(){
+    const tb = document.getElementById('ubi-cop-items');
+    const total = document.getElementById('ubi-cop-total');
+    if(!tb) return;
+
+    tb.innerHTML = UBI_COPS.map((x, idx)=>`
+        <tr data-idx="${idx}">
+        <td style="text-align:center;">
+            <input type="checkbox" class="ubi-cop-check">
+        </td>
+        <td>${esc(x.componente||'')}</td>
+        <td>${esc(x.zona||'')}</td>
+        <td>${esc(x.cop||'')}</td>
+        <td style="text-align:center;">
+            <span class="badge bg-secondary-subtle text-secondary border">${esc(x.id_cop)}</span>
+        </td>
+        </tr>
+    `).join('');
+
+    if(total) total.textContent = String(UBI_COPS.length);
+
+    const chkAll = document.getElementById('ubi-cop-check-all');
+    if(chkAll) chkAll.checked = false;
+    }
+
+    function agregarCopUBI(){
+    const selComp = document.getElementById('ubi-componente');
+    const selZona = document.getElementById('ubi-zona');
+    const selCop  = document.getElementById('ubi-cop');
+
+    const id_componente = Number(selComp?.value || 0);
+    const id_zona = Number(selZona?.value || 0);
+    const id_cop  = Number(selCop?.value  || 0);
+
+    if(!id_componente || !id_zona || !id_cop){
+        return mostrarToast({titulo:'Ubicación', cuerpo:'Selecciona Componente, Zona y COP', tipo:'warning'});
+    }
+
+    if(UBI_COPS.some(x => Number(x.id_cop) === id_cop)){
+        return mostrarToast({titulo:'Ubicación', cuerpo:'Ese COP ya fue agregado', tipo:'warning'});
+    }
+
+    const componente = selComp.options[selComp.selectedIndex]?.textContent || '';
+    const zona = selZona.options[selZona.selectedIndex]?.textContent || '';
+    const cop  = selCop.options[selCop.selectedIndex]?.textContent  || (`COP ${id_cop}`);
+
+    UBI_COPS.push({ id_cop, cop, id_componente, componente, id_zona, zona });
+    actualizarTablaCops();
+    mostrarToast({titulo:'Ubicación', cuerpo:'COP agregado al contenedor', tipo:'success'});
+    }
+
+    function quitarSeleccionadosUBI(){
+    const tb = document.getElementById('ubi-cop-items');
+    if(!tb) return;
+
+    const checks = Array.from(tb.querySelectorAll('input.ubi-cop-check'));
+    const idxs = checks.map((chk, i) => chk.checked ? i : -1).filter(i => i >= 0);
+
+    if(!idxs.length){
+        return mostrarToast({titulo:'Ubicación', cuerpo:'Marca filas para quitar', tipo:'warning'});
+    }
+
+    idxs.sort((a,b)=>b-a).forEach(i => UBI_COPS.splice(i,1));
+    actualizarTablaCops();
+    mostrarToast({titulo:'Ubicación', cuerpo:'COP(s) retirado(s)', tipo:'success'});
+    }
+
+    /* ===== Combos Ubicación: componente / zona / cop ===== */
+    async function cargarComponentes(){
+    try{
+        const rs = await API.filtros.componentes();
+        const data = rs.data || [];
+        const sel = document.getElementById('ubi-componente');
+        if(!sel) return;
+
+        sel.innerHTML = `<option value="">-- Selecciona --</option>`;
+        data.forEach(c=>{
+        sel.insertAdjacentHTML('beforeend', `<option value="${c.id}">${esc(c.nombre || c.componente || '')}</option>`);
+        });
+    }catch(err){
+        mostrarToast({titulo:'Filtros', cuerpo:`Error cargando componentes: ${esc(err.detail||err)}`, tipo:'danger'});
+    }
+    }
+
+    async function cargarZonas(id_componente){
+    try{
+        const sel = document.getElementById('ubi-zona');
+        if(!sel) return;
+
+        sel.innerHTML = `<option value="">-- Selecciona --</option>`;
+        if(!id_componente){
+        // si no hay componente, no cargamos zonas
+        return;
+        }
+
+        const rs = await API.filtros.zonas({ id_componente: id_componente });
+        const data = rs.data || [];
+        data.forEach(z=>{
+        sel.insertAdjacentHTML('beforeend', `<option value="${z.id}">${esc(z.nombre || z.zona || '')}</option>`);
+        });
+    }catch(err){
+        mostrarToast({titulo:'Filtros', cuerpo:`Error cargando zonas: ${esc(err.detail||err)}`, tipo:'danger'});
+    }
+    }
+
+    async function cargarCops({id_componente=null, id_zona=null} = {}){
+        try{
+            const sel = document.getElementById('ubi-cop');
+            if(!sel) return;
+
+            sel.innerHTML = `<option value="">-- Selecciona --</option>`;
+            if(!id_componente || !id_zona){
+            return;
+            }
+
+            const rs = await API.filtros.cops({ id_componente, id_zona });
+            const data = rs.data || [];
+            data.forEach(c=>{
+            const txt = c.cop || c.nombre || '';
+            sel.insertAdjacentHTML('beforeend', `<option value="${c.id}">${esc(txt)}</option>`);
+            });
+        }catch(err){
+            mostrarToast({titulo:'Filtros', cuerpo:`Error cargando COP(s): ${esc(err.detail||err)}`, tipo:'danger'});
+        }
+    }
+
+    /* ===== Acciones: abrir edición ===== */
+    window.abrirEdicionEDS = async function(id){
+        const r = cache.eds.find(x=>Number(x.id)===Number(id));
+        if(!r) return mostrarToast({titulo:'EDS', cuerpo:'Registro no encontrado', tipo:'danger'});
+        document.getElementById('eds-id').value = r.id;
+        document.getElementById('eds-codigo').value = r.codigo || '';
+        document.getElementById('eds-nombre').value = r.nombre || '';
+
+        // combos
+        await cargarUbicacionesActivas();
+        await cargarSurtidoresActivos();
+
+        document.getElementById('eds-id-ubicacion').value = r.id_ubicacion || '';
+
+        // seleccionar surtidores asociados (backend debe devolver array ids: r.surtidores_ids)
+        const ids = Array.isArray(r.surtidores_ids) ? r.surtidores_ids.map(Number) : [];
+        const sel = document.getElementById('eds-surtidores');
+        Array.from(sel.options).forEach(o=>{
+        o.selected = ids.includes(Number(o.value));
+        });
+
+        document.getElementById('eds-estado').checked = Number(r.estado)===1;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEDS')).show();
+    };
+
+    window.abrirEdicionSurtidor = function(id){
+        const r = cache.surtidores.find(x=>Number(x.id)===Number(id));
+        if(!r) return mostrarToast({titulo:'Surtidor', cuerpo:'Registro no encontrado', tipo:'danger'});
+        document.getElementById('sur-id').value = r.id;
+        document.getElementById('sur-nombre').value = r.nombre || '';
+        document.getElementById('sur-tipo').value = r.tipo_combustible || '';
+        document.getElementById('sur-estado').checked = Number(r.estado)===1;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSurtidor')).show();
+    };
+
+    window.abrirEdicionUbicacion = async function(id){
+        const r = cache.ubicaciones.find(x=>Number(x.id)===Number(id));
+        if(!r) return mostrarToast({titulo:'Ubicación', cuerpo:'Registro no encontrado', tipo:'danger'});
+
+        // Campos base
+        document.getElementById('ubi-id').value = r.id;
+        document.getElementById('ubi-nombre').value = r.nombre || '';
+        document.getElementById('ubi-tipo').value = r.tipo || '';
+        document.getElementById('ubi-ciudad').value = r.ciudad || '';
+        document.getElementById('ubi-direccion').value = r.direccion || '';
+        document.getElementById('ubi-observacion').value = r.observacion || '';
+        document.getElementById('ubi-estado').checked = Number(r.estado)===1;
+
+        // 1) Cargar componentes
+        await cargarComponentes();
+
+        // 2) COPs asociados (vienen del backend)
+        const copsIds = Array.isArray(r.cops_ids) ? r.cops_ids.map(Number).filter(Boolean) : [];
+
+        // 3) Determinar id_componente / id_zona
+        // Preferencia: los que venga en la fila; si no, los deducimos desde el primer COP
+        let idComp = Number(r.id_componente || 0) || null;
+        let idZona = Number(r.id_zona || 0) || null;
+
+        if((!idComp || !idZona) && copsIds.length){
+            // Traemos COPs filtrando por ids para deducir comp/zona
+            const rs = await API.filtros.cops({ ids: copsIds.join(',') }); // backend puede ignorar si no lo soporta
+            const lista = (rs?.data || []);
+            const first = lista.find(c=>copsIds.includes(Number(c.id)));
+            if(first){
+            idComp = idComp || Number(first.id_componente || 0) || null;
+            idZona = idZona || Number(first.id_zona || 0) || null;
+            }
+        }
+
+        // 4) Set componente y cargar zonas
+        document.getElementById('ubi-componente').value = idComp || '';
+        await cargarZonas(idComp);
+
+        // 5) Set zona y cargar cops
+        document.getElementById('ubi-zona').value = idZona || '';
+        await cargarCops({ id_componente: idComp, id_zona: idZona });
+
+        // 6) Llenar el contenedor/carrito con nombres reales (según cops_ids)
+        let copsInfo = [];
+        if (copsIds.length) {
+        try {
+            const rs = await API.filtros.cops({ ids: copsIds.join(',') }); // ✅ backend debe soportar ids
+            copsInfo = (rs?.data || []).map(x => ({
+            id: Number(x.id),
+            nombre: x.cop || x.nombre || x.name || '' // soporta varias llaves
+            }));
+        } catch (e) {
+            // si falla, caemos al texto "COP id"
+            copsInfo = [];
+        }
+        }
+
+        const compTxt = document.getElementById('ubi-componente')?.selectedOptions?.[0]?.textContent || '';
+        const zonaTxt = document.getElementById('ubi-zona')?.selectedOptions?.[0]?.textContent || '';
+
+        UBI_COPS = copsIds.map(id_cop => {
+        const found = copsInfo.find(c => Number(c.id) === Number(id_cop));
+        return {
+            id_cop,
+            cop: found?.nombre ? found.nombre : `COP ${id_cop}`,
+            id_componente: idComp,
+            componente: compTxt,
+            id_zona: idZona,
+            zona: zonaTxt
+        };
+        });
+
+        actualizarTablaCops();
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUbicacion')).show();
+    };
+
+    /* ===== Acciones: cambiar estado ===== */
+    window.cambiarEstadoEDS = async function(id, estadoNuevo){
+        try{
+        await API.eds.estado(id, estadoNuevo);
+        await cargarEDS();
+        mostrarToast({titulo:'EDS', cuerpo:'Estado actualizado', tipo:'success'});
+        }catch(err){
+        mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'});
+        }
+    };
+    window.cambiarEstadoSurtidor = async function(id, estadoNuevo){
+        try{
+        await API.surtidores.estado(id, estadoNuevo);
+        await cargarSurtidores();
+        await cargarSurtidoresActivos();
+        mostrarToast({titulo:'Surtidor', cuerpo:'Estado actualizado', tipo:'success'});
+        }catch(err){
+        mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'});
+        }
+    };
+    window.cambiarEstadoUbicacion = async function(id, estadoNuevo){
+        try{
+        await API.ubicaciones.estado(id, estadoNuevo);
+        await cargarUbicaciones();
+        await cargarUbicacionesActivas();
+        mostrarToast({titulo:'Ubicación', cuerpo:'Estado actualizado', tipo:'success'});
+        }catch(err){
+        mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'});
+        }
+    };
+
+    /* ===== Botones: guardar ===== */
+    document.getElementById('btn-guardar-eds')?.addEventListener('click', async ()=>{
+        const id = document.getElementById('eds-id').value || null;
+        const surtidoresSel = Array.from(document.getElementById('eds-surtidores').selectedOptions).map(o=>Number(o.value)).filter(Boolean);
+        const cuerpo = {
+        codigo: (document.getElementById('eds-codigo').value||'').toUpperCase().trim(),
+        nombre: (document.getElementById('eds-nombre').value||'').toUpperCase().trim(),
+        id_ubicacion: parseInt(document.getElementById('eds-id-ubicacion').value||0) || null,
+        surtidores_ids: surtidoresSel,
+        estado: document.getElementById('eds-estado').checked ? 1 : 0
+        };
+        if(!cuerpo.codigo || !cuerpo.nombre || !cuerpo.id_ubicacion){
+        return mostrarToast({titulo:'Validación', cuerpo:'Código, Nombre y Ubicación son obligatorios', tipo:'danger'});
+        }
+        try{
+        if(id){ await API.eds.actualizar(id, cuerpo); mostrarToast({titulo:'EDS', cuerpo:'Actualizada correctamente', tipo:'success'}); }
+        else  { await API.eds.crear(cuerpo);        mostrarToast({titulo:'EDS', cuerpo:'Creada correctamente',     tipo:'success'}); }
+        cerrarModal('modalEDS');
+        document.getElementById('eds-id').value = '';
+        await cargarEDS();
+        }catch(err){
+        mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'});
+        }
+    });
+
+    document.getElementById('btn-guardar-sur')?.addEventListener('click', async ()=>{
+        const id = document.getElementById('sur-id').value || null;
+        const cuerpo = {
+        nombre: (document.getElementById('sur-nombre').value||'').toUpperCase().trim(),
+        tipo_combustible: (document.getElementById('sur-tipo').value||'').toUpperCase().trim(),
+        estado: document.getElementById('sur-estado').checked ? 1 : 0
+        };
+        if(!cuerpo.nombre || !cuerpo.tipo_combustible){
+        return mostrarToast({titulo:'Validación', cuerpo:'Nombre y Tipo de combustible son obligatorios', tipo:'danger'});
+        }
+        try{
+        if(id){ await API.surtidores.actualizar(id, cuerpo); mostrarToast({titulo:'Surtidor', cuerpo:'Actualizado correctamente', tipo:'success'}); }
+        else  { await API.surtidores.crear(cuerpo);        mostrarToast({titulo:'Surtidor', cuerpo:'Creado correctamente',     tipo:'success'}); }
+        cerrarModal('modalSurtidor');
+        document.getElementById('sur-id').value = '';
+        await cargarSurtidores();
+        await cargarSurtidoresActivos();
+        }catch(err){
+        mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'});
+        }
+    });
+
+    document.getElementById('btn-guardar-ubi')?.addEventListener('click', async ()=>{
+        const id = document.getElementById('ubi-id').value || null;
+
+        const copsSel = UBI_COPS.map(x => Number(x.id_cop)).filter(Boolean);
+
+        const cuerpo = {
+            nombre: (document.getElementById('ubi-nombre').value||'').toUpperCase().trim(),
+            tipo: (document.getElementById('ubi-tipo').value||'').toUpperCase().trim(),
+            ciudad: (document.getElementById('ubi-ciudad').value||'').toUpperCase().trim() || null,
+            direccion: (document.getElementById('ubi-direccion').value||'').toUpperCase().trim() || null,
+            observacion: (document.getElementById('ubi-observacion').value||'').trim() || null,
+            estado: document.getElementById('ubi-estado').checked ? 1 : 0,
+            cops_ids: copsSel
+        };
+
+        if(!cuerpo.nombre || !cuerpo.tipo){
+            return mostrarToast({titulo:'Validación', cuerpo:'Nombre y Tipo son obligatorios', tipo:'danger'});
+        }
+        if(!cuerpo.cops_ids.length){
+            return mostrarToast({titulo:'Validación', cuerpo:'Debes seleccionar al menos un COP', tipo:'danger'});
+        }
+
+        try{
+            if(id){
+            await API.ubicaciones.actualizar(id, cuerpo);
+            mostrarToast({titulo:'Ubicación', cuerpo:'Actualizada correctamente', tipo:'success'});
+            }else{
+            await API.ubicaciones.crear(cuerpo);
+            mostrarToast({titulo:'Ubicación', cuerpo:'Creada correctamente', tipo:'success'});
+            }
+            cerrarModal('modalUbicacion');
+            document.getElementById('ubi-id').value = '';
+            await cargarUbicaciones();
+            await cargarUbicacionesActivas();
+        }catch(err){
+            mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'});
+        }
+    });
+
+    /* ===== Botones: nuevos ===== */
+    document.getElementById('btn-nueva-eds')?.addEventListener('click', async ()=>{
+        document.getElementById('eds-id').value='';
+        document.getElementById('eds-codigo').value='';
+        document.getElementById('eds-nombre').value='';
+        document.getElementById('eds-estado').checked = true;
+
+        await cargarUbicacionesActivas();
+        await cargarSurtidoresActivos();
+
+        document.getElementById('eds-id-ubicacion').value='';
+        Array.from(document.getElementById('eds-surtidores').options).forEach(o=>o.selected=false);
+    });
+
+    document.getElementById('btn-nuevo-surtidor')?.addEventListener('click', ()=>{
+        document.getElementById('sur-id').value='';
+        document.getElementById('sur-nombre').value='';
+        document.getElementById('sur-tipo').value='';
+        document.getElementById('sur-estado').checked = true;
+    });
+
+    document.getElementById('btn-nueva-ubicacion')?.addEventListener('click', async ()=>{
+        document.getElementById('ubi-id').value='';
+        document.getElementById('ubi-nombre').value='';
+        document.getElementById('ubi-tipo').value='';
+        document.getElementById('ubi-ciudad').value='';
+        document.getElementById('ubi-direccion').value='';
+        document.getElementById('ubi-observacion').value='';
+        document.getElementById('ubi-estado').checked = true;
+
+        // Cargar combos dependientes
+        UBI_COPS = [];
+        actualizarTablaCops();
+
+        await cargarComponentes();
+        document.getElementById('ubi-componente').value = '';
+        await cargarZonas(null);
+        document.getElementById('ubi-zona').value = '';
+        await cargarCops({ id_componente:null, id_zona:null });
+        document.getElementById('ubi-cop').value = '';
+
+    });
+
+    /* ===== Filtros ===== */
+    document.getElementById('btn-consultar-eds')?.addEventListener('click', ()=>{ st.eds.pagina=1; cargarEDS(); });
+    document.getElementById('btn-consultar-sur')?.addEventListener('click', ()=>{ st.sur.pagina=1; cargarSurtidores(); });
+    document.getElementById('btn-consultar-ubi')?.addEventListener('click', ()=>{ st.ubi.pagina=1; cargarUbicaciones(); });
+
+    /* ===== Dependencias: Componente -> Zona -> COP(s) ===== */
+    document.getElementById('ubi-componente')?.addEventListener('change', async (e)=>{
+    const idComp = parseInt(e.target.value||0) || null;
+
+    // Reset zona y cops
+    document.getElementById('ubi-zona').value = '';
+    document.getElementById('ubi-cop').innerHTML = '';
+
+    await cargarZonas(idComp);
+    });
+
+    document.getElementById('ubi-zona')?.addEventListener('change', async (e)=>{
+    const idZona = parseInt(e.target.value||0) || null;
+    const idComp = parseInt(document.getElementById('ubi-componente').value||0) || null;
+
+    // Reset cops
+    document.getElementById('ubi-cop').innerHTML = '';
+
+    await cargarCops({ id_componente:idComp, id_zona:idZona });
+    });
+
+    document.getElementById('btn-agregar-cop')?.addEventListener('click', agregarCopUBI);
+    document.getElementById('btn-quitar-cop')?.addEventListener('click', quitarSeleccionadosUBI);
+
+    document.getElementById('ubi-cop-check-all')?.addEventListener('change', (e)=>{
+    const tb = document.getElementById('ubi-cop-items');
+    if(!tb) return;
+    tb.querySelectorAll('input.ubi-cop-check').forEach(chk => chk.checked = e.target.checked);
+    });
+
+    document.getElementById('btn-limpiar-eds')?.addEventListener('click', ()=>{
+        st.eds.q=''; st.eds.estado=''; st.eds.id_ubicacion=''; st.eds.pagina=1;
+        document.getElementById('f-eds-q').value='';
+        document.getElementById('f-eds-estado').value='';
+        document.getElementById('f-eds-ubicacion').value='';
+        cargarEDS();
+    });
+
+    document.getElementById('f-eds-q')?.addEventListener('input', e=>{ e.target.value=(e.target.value||'').toUpperCase(); st.eds.q=e.target.value; });
+    document.getElementById('f-eds-estado')?.addEventListener('change', e=>{ st.eds.estado=e.target.value; });
+    document.getElementById('f-eds-ubicacion')?.addEventListener('change', e=>{ st.eds.id_ubicacion=e.target.value; });
+
+    document.getElementById('f-sur-q')?.addEventListener('input', e=>{ e.target.value=(e.target.value||'').toUpperCase(); st.sur.q=e.target.value; });
+    document.getElementById('f-sur-tipo')?.addEventListener('change', e=>{ st.sur.tipo=e.target.value; });
+    document.getElementById('f-sur-estado')?.addEventListener('change', e=>{ st.sur.estado=e.target.value; });
+
+    document.getElementById('f-ubi-q')?.addEventListener('input', e=>{ e.target.value=(e.target.value||'').toUpperCase(); st.ubi.q=e.target.value; });
+    document.getElementById('f-ubi-tipo')?.addEventListener('change', e=>{ st.ubi.tipo=e.target.value; });
+    document.getElementById('f-ubi-estado')?.addEventListener('change', e=>{ st.ubi.estado=e.target.value; });
+
+    document.getElementById('btn-refrescar')?.addEventListener('click', async ()=>{
+        try{
+        await cargarUbicacionesActivas();
+        await cargarSurtidoresActivos();
+        await cargarEDS();
+        await cargarSurtidores();
+        await cargarUbicaciones();
+        mostrarToast({titulo:'Refrescado', cuerpo:'Listas actualizadas', tipo:'success'});
+        }catch(err){
+        mostrarToast({titulo:'Error', cuerpo:esc(err.detail||err), tipo:'danger'});
+        }
+    });
+
+    /* ===== Inicio ===== */
+    (async function boot(){
+        try{
+        forzarMayusculas('.upper');
+        await cargarUbicacionesActivas();
+        await cargarSurtidoresActivos();
+        await cargarComponentes(); 
+        await cargarEDS();
+        await cargarSurtidores();
+        await cargarUbicaciones();
+        }catch(err){
+        mostrarToast({titulo:'Error inicial', cuerpo:esc(err.detail||err), tipo:'danger'});
+        }
+    })();
+</script>
+{% endblock %}

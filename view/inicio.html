@@ -1,0 +1,64 @@
+{% extends "components/layout.html" %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<style>
+  .hero-section {
+    position: relative;
+    height: 88vh;
+    background: url('/static/Fondo.jpg') no-repeat center center/cover;
+  }
+  .hero-content {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 20px;
+    border-radius: 8px;
+    color: white;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
+  }
+  .hero-content h1 {
+    font-size: 24px;
+    font-family: 'Century Gothic', sans-serif;
+  }
+  .hero-content p {
+    font-size: 14px;
+    margin-top: 10px;
+  }
+  .logo-reducido {
+    max-width: 550px; /* Ajusta el tamaño a tu preferencia */
+    height: auto; /* Mantiene la proporción de la imagen */
+  }
+  .rounded-background {
+    position: relative;
+    height: 88vh;
+    background: url('/static/Fondo.jpg') no-repeat center center/cover;
+    border-radius: 20px; /* Ajusta el valor para más o menos redondeo */
+    overflow: hidden; /* Oculta cualquier parte desbordada */
+  }
+  .hero-content {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 20px;
+    border-radius: 8px;
+    color: white;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
+  }
+  .logo-reducido {
+    max-width: 550px;
+    height: auto;
+    border-radius: 0%; /* Hace la imagen circular */
+  }
+</style>
+
+<div class="hero-section rounded-background">
+  <div class="hero-content">
+    <h1>¡Bienvenid@ al Centro de Información,<br> {{ user_session.nombres }} {{ user_session.apellidos }}!</h1><br>
+    <img src="/static/images/Redes_cexp.svg" alt="Consorcio Express" class="img-fluid logo-reducido">
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1488 @@
+{% extends "components/layout.html" %}
+{% block title %}Registro EDS · Odómetro & Tanqueo{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  /* mínimo para evitar “pisadas” del layout */
+  #edsApp * { box-sizing: border-box; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="edsApp"
+      style="
+        min-height: calc(100vh - 20px);
+        padding: 1px 16px 2px;
+        color: #0f172a;
+        font-size: 10px; font-family: 'Century Gothic', sans-serif;
+        background:
+          radial-gradient(900px 520px at 10% 0%, rgba(36, 60, 104, 0.12), transparent 80%),
+          radial-gradient(900px 520px at 90% 8%, rgba(64, 108, 80, 0.1), transparent 80%),
+          #fffefe;
+      ">
+
+  <!-- HEADER -->
+  <div class="d-flex align-items-start align-items-lg-center justify-content-between flex-wrap gap-2 mb-3"
+        style="padding: 2px 2px 0;">
+    <div>
+      <div style="font-weight:900;letter-spacing:.2px;font-size: 16px; line-height:1.15; margin-bottom:4px;">
+        Registro EDS: Odómetro & Tanqueo
+      </div>
+
+      <div style="color:#64748b;font-size:11px;">
+        Usuario:
+        <span id="lblUsuario"
+              style="
+                display:inline-flex;align-items:center;gap:6px;
+                background: rgba(15,23,42,.04);
+                border:1px solid rgba(15,23,42,.10);
+                padding: 2px 8px;
+                border-radius: 999px;
+                color:#0f172a;
+                font-weight:800;
+              ">{{ usuario_full_name or "Usuario" }}</span>
+
+        <span style="opacity:.6;">&nbsp;•&nbsp;</span> EDS:
+        <span id="lblEds"
+              style="
+                display:inline-flex;align-items:center;
+                background: rgba(15,23,42,.04);
+                border:1px solid rgba(15,23,42,.10);
+                padding: 2px 8px;
+                border-radius: 999px;
+                color:#0f172a;
+                font-weight:800;
+              ">SIN SELECCIONAR</span>
+
+        <span style="opacity:.6;">&nbsp;•&nbsp;</span> Surtidor:
+        <span id="lblSurtidor"
+              style="
+                display:inline-flex;align-items:center;
+                background: rgba(15,23,42,.04);
+                border:1px solid rgba(15,23,42,.10);
+                padding: 2px 8px;
+                border-radius: 999px;
+                color:#0f172a;
+                font-weight:800;
+              ">SIN SELECCIONAR</span>
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <div class="text-end">
+        <div style="color:#64748b;font-size:11px;margin-bottom:4px;">Fecha operativa</div>
+        <input type="date" id="inpFecha"
+               class="form-control"
+               style="
+                width: 170px;
+                height: 34px !important;
+                font-size: 11px !important;
+                background:#ffffff !important;
+                border:1px solid rgba(15,23,42,.14) !important;
+                color:#0f172a !important;
+                border-radius: 12px !important;
+               ">
+      </div>
+
+      <button class="btn"
+              id="btnRefrescar"
+              style="
+                height:34px !important;
+                border-radius:12px !important;
+                font-size:11px !important;
+                font-weight:900 !important;
+                border:1px solid rgba(15,23,42,.14) !important;
+                background: rgba(0, 1, 4, 0.03) !important;
+                color:#0f172a !important;
+              ">
+        <i class="fa-solid fa-rotate me-1"></i> Refrescar
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-3 g-xl-4">
+    <!-- SECCION IZQUIERDA -->
+    <div class="col-12 col-xl-6">
+      <div class="position-relative"
+            style="
+              border-radius: 16px;
+              border:1px solid rgba(15,23,42,.12);
+              background: linear-gradient(180deg, rgba(255,255,255,1), rgba(15,23,42,.02));
+              box-shadow: 0 14px 28px rgba(15,23,42,.08);
+              padding: 16px;
+            ">
+
+        <!-- PASO 1 y 2 -->
+        <div class="row g-2">
+          <div class="col-12 col-lg-6">
+            <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Paso 1 · Estación de servicio</label>
+            <select id="selEds"
+                    class="form-select"
+                    style="
+                      height:34px !important;
+                      font-size:11px !important;
+                      background:#ffffff !important;
+                      border:1px solid rgba(15,23,42,.14) !important;
+                      color:#0f172a !important;
+                      border-radius:12px !important;
+                    ">
+              <option value="">-- Selecciona EDS --</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-lg-6">
+            <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Paso 2 · Surtidor</label>
+            <select id="selSurtidor"
+                    class="form-select"
+                    disabled
+                    style="
+                      height:34px !important;
+                      font-size:11px !important;
+                      background:#ffffff !important;
+                      border:1px solid rgba(15,23,42,.14) !important;
+                      color:#0f172a !important;
+                      border-radius:12px !important;
+                    ">
+              <option value="">-- Selecciona surtidor --</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- INFO ubicación + COPs -->
+        <div class="mt-3">
+          <div style="
+                background:#d8e3ff;
+                border:1px solid rgba(15,23,42,.12);
+                border-radius: 12px;
+                padding: 10px 12px;
+              ">
+            <div style="color:#64748b;font-size:11px;">Ubicación / COP(s)</div>
+            <div id="lblUbicacion" style="font-weight:900;font-size:13px;margin-top:2px;color:#0f172a;">Selecciona una EDS…</div>
+            <div id="chipsCops" class="mt-2 d-flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+
+        <!-- FORMULARIO REGISTRO -->
+        <div class="mt-3">
+          <div class="row g-2">
+            <div class="col-12">
+              <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Placa o Número interno</label>
+              
+              <div class="d-flex gap-2">
+                <div class="position-relative flex-grow-1">
+                  <input id="inpBusQuery"
+                          class="form-control"
+                          placeholder="Ej: ABC123 o Z15-1234 0 D123"
+                          autocomplete="on"
+                          style="
+                            height:34px !important;
+                            font-size:11px !important;
+                            background:#dedfe1 !important;
+                            border:1px solid rgba(15,23,42,.14) !important;
+                            color:#0f172a !important;
+                            border-radius:12px !important;
+                          ">
+                  <div id="busSuggest"
+                        class="list-group position-absolute w-100"
+                        style="top: calc(100% + 6px); z-index: 3000; display:none;"></div>
+                </div>
+
+                <button type="button"
+                      class="btn btn-sm d-inline-flex align-items-center justify-content-center"
+                      id="btnBuscarBus"
+                      title="Buscar"
+                      style="
+                        height:34px; width:40px;
+                        border-radius:12px;
+                        border:1px solid rgba(15,23,42,.14);
+                        background: rgba(15,23,42,.03);
+                        color:#0f172a;
+                      ">
+                <i class="bi bi-search" style="font-size:14px; line-height:1;"></i>
+              </button>
+
+              <button type="button"
+                      class="btn btn-sm d-inline-flex align-items-center justify-content-center"
+                      id="btnVoz"
+                      title="Dictar (voz)"
+                      style="
+                        height:34px; width:40px;
+                        border-radius:12px;
+                        border:1px solid rgba(15,23,42,.14);
+                        background: rgba(15,23,42,.03);
+                        color:#0f172a;
+                      ">
+                <i class="bi bi-mic" style="font-size:14px; line-height:1;"></i>
+              </button>
+
+              <button type="button"
+                      class="btn btn-sm d-inline-flex align-items-center justify-content-center"
+                      id="btnQR"
+                      title="Leer QR (foto/cámara)"
+                      style="
+                        height:34px; width:40px;
+                        border-radius:12px;
+                        border:1px solid rgba(15,23,42,.14);
+                        background: rgba(15,23,42,.03);
+                        color:#0f172a;
+                      ">
+                <i class="bi bi-qr-code-scan" style="font-size:14px; line-height:1;"></i>
+              </button>
+              </div>
+
+              <div style="color:#64748b;font-size:11px;margin-top:6px;">
+                Tip: escribe 2+ caracteres para ver sugerencias · Enter para buscar.
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="row g-2">
+                <div class="col-12 col-md-6">
+                  <div style="background:#ffffff;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:10px 12px;">
+                    <div style="color:#64748b;font-size:11px;">Bus seleccionado</div>
+                    <div id="lblBus" style="font-weight:900;font-size:13px;margin-top:2px;color:#0f172a;">—</div>
+                    <div id="lblBusExtra" style="color:#64748b;font-size:11px;margin-top:2px;"></div>
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                  <div style="background:#ffffff;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:10px 12px;">
+                    <div style="color:#64748b;font-size:11px;">Últ. Odómetro</div>
+                    <div id="lblUltOdo" style="font-weight:900;font-size:13px;margin-top:2px;color:#0f172a;">—</div>
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                  <div style="background:#ffffff;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:10px 12px;">
+                    <div style="color:#64748b;font-size:11px;">Últ. Tanqueo</div>
+                    <div id="lblUltTanqueo" style="font-weight:900;font-size:13px;margin-top:2px;color:#0f172a;">—</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inputs -->
+            <div class="col-12 col-md-4">
+              <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Tipo de combustible</label>
+              <input id="inpCombustible"
+                      class="form-control"
+                      disabled
+                      placeholder="Auto"
+                      style="
+                        height:34px !important;
+                        font-size:11px !important;
+                        background:#ffffff !important;
+                        border:1px solid rgba(15,23,42,.14) !important;
+                        color:#0f172a !important;
+                        border-radius:12px !important;
+                      ">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Odómetro (obligatorio)</label>
+              <input id="inpOdometro"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      class="form-control"
+                      min="0"
+                      placeholder="Ej: 123456"
+                      style="
+                        height:34px !important;
+                        font-size:11px !important;
+                        background:#ffffff !important;
+                        border:1px solid rgba(15,23,42,.14) !important;
+                        color:#0f172a !important;
+                        border-radius:12px !important;
+                      ">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Odómetro funcional</label>
+              <select id="selOdoFuncional"
+                      class="form-select"
+                      style="
+                        height:34px !important;
+                        font-size:11px !important;
+                        background:#ffffff !important;
+                        border:1px solid rgba(15,23,42,.14) !important;
+                        color:#0f172a !important;
+                        border-radius:12px !important;
+                      ">
+                <option value="true" selected>SI</option>
+                <option value="false">NO</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Volumen (opcional)</label>
+              <input id="inpVolumen"
+                      type="number"
+                      step="0.001"
+                      class="form-control"
+                      placeholder="Ej: 32.500"
+                      style="
+                        height:34px !important;
+                        font-size:11px !important;
+                        background:#ffffff !important;
+                        border:1px solid rgba(15,23,42,.14) !important;
+                        color:#0f172a !important;
+                        border-radius:12px !important;
+                      ">
+            </div>
+
+            <div class="col-12 col-md-8">
+              <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Observación (opcional)</label>
+              <input id="inpObs"
+                      class="form-control"
+                      placeholder="Ej: No marcó QR, lectura manual…"
+                      style="
+                        height:34px !important;
+                        font-size:11px !important;
+                        background:#ffffff !important;
+                        border:1px solid rgba(15,23,42,.14) !important;
+                        color:#0f172a !important;
+                        border-radius:12px !important;
+                      ">
+            </div>
+
+            <div class="col-12">
+              <label style="color:#64748b;font-size:11px;margin-bottom:4px;">Evidencias (opcional)</label>
+              <input id="inpEvidencias"
+                      type="file"
+                      class="form-control"
+                      accept="image/*,.pdf,.xlsx,.xls,.doc,.docx"
+                      multiple
+                      style="
+                        height:34px !important;
+                        font-size:11px !important;
+                        background:#ffffff !important;
+                        border:1px solid rgba(15,23,42,.14) !important;
+                        color:#0f172a !important;
+                        border-radius:12px !important;
+                        padding-top: 6px;
+                      ">
+              <div style="color:#64748b;font-size:11px;margin-top:6px;">
+                Las evidencias se subirán a Azure Blob (container pendiente por definir).
+              </div>
+            </div>
+
+            <div class="col-12 d-flex gap-2 mt-2">
+              <button class="btn flex-grow-1"
+                      id="btnGuardar"
+                      disabled
+                      style="
+                        height:34px !important;
+                        border-radius:12px !important;
+                        font-size:11px !important;
+                        font-weight:900 !important;
+                        background:#274a8b !important;
+                        border:1px solid rgba(79,140,255,.35) !important;
+                        color:#fff !important;
+                        box-shadow: 0 10px 18px rgba(79,140,255,.22);
+                      ">
+                <i class="fa-solid fa-floppy-disk me-1"></i> Guardar registro
+              </button>
+
+              <button class="btn"
+                      id="btnLimpiar"
+                      style="
+                        height:34px !important;
+                        border-radius:12px !important;
+                        font-size:11px !important;
+                        font-weight:900 !important;
+                        border:1px solid rgba(15,23,42,.14) !important;
+                        background: rgba(15,23,42,.03) !important;
+                        color:#0f172a !important;
+                      ">
+                <i class="fa-solid fa-broom me-1"></i> Limpiar
+              </button>
+            </div>
+
+            <div id="lblWarningAsignacion"
+                  style="display:none;margin-top:8px;color:#64748b;font-size:11px;">
+                <span style="
+                  display:inline-flex;align-items:center;gap:8px;
+                  background: rgba(245,158,11,.10);
+                  border:1px solid rgba(245,158,11,.22);
+                  padding: 6px 10px;
+                  border-radius: 999px;
+                  color:#7c5a05;
+                  font-weight:800;
+                ">
+                  <span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+
+                  <span style="display:inline-flex;align-items:center;gap:6px;">
+                    <i class="bi bi-exclamation-triangle-fill"
+                      style="font-size:13px;line-height:1;"></i>
+                    Este bus NO pertenece a los COP asignados a esta EDS. Se permitirá el registro y quedará en Alertas.
+                  </span>
+                </span>
+              </div>
+            </div>
+        </div>
+
+        <!-- BANNER DE BLOQUEO -->
+        <div id="lockBanner"
+            style="
+              position: sticky;
+              top: 10px;
+              z-index: 1200;
+              display: none;
+              margin-top: 12px;
+            ">
+          <div style="
+            display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+            background: rgba(79,140,255,.10);
+            border: 1px solid rgba(79,140,255,.22);
+            border-radius: 14px;
+            padding: 10px 12px;
+            box-shadow: 0 14px 26px rgba(15,23,42,.08);
+          ">
+            <div style="display:flex;gap:10px;">
+              <div style="
+                width:28px;height:28px;border-radius:10px;
+                background: rgba(79,140,255,.18);
+                display:flex;align-items:center;justify-content:center;
+                color:#1d4ed8;
+                flex: 0 0 auto;
+              ">
+                <i class="bi bi-info-circle-fill"
+                  style="font-size:14px;line-height:1;"></i>
+              </div>
+
+              <div>
+                <div style="font-weight:900;color:#0f172a;font-size:12px;line-height:1.2;">
+                  Selecciona EDS y Surtidor
+                </div>
+                <div style="color:#475569;font-size:11px;margin-top:2px;">
+                  Primero elige una estación y un surtidor para habilitar el registro y cargar los pendientes del día.
+                </div>
+              </div>
+            </div>
+
+            <button id="btnCloseLock"
+                    type="button"
+                    class="btn btn-sm d-inline-flex align-items-center justify-content-center"
+                    style="
+                      height:28px;width:28px;
+                      padding:0;
+                      border-radius:10px;
+                      border:1px solid rgba(15,23,42,.14);
+                      background: rgba(255,255,255,.70);
+                      color:#0f172a;
+                      flex: 0 0 auto;
+                    "
+                    title="Cerrar">
+              <i class="bi bi-x-lg" style="font-size:12px;line-height:1;"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCION DERECHA -->
+    <div class="col-12 col-xl-6">
+      <div style="
+            border-radius: 8px;
+            border:1px solid rgba(15,23,42,.12);
+            background: linear-gradient(180deg, rgba(255,255,255,1), rgba(15,23,42,.02));
+            box-shadow: 0 14px 28px rgba(15,23,42,.08);
+            padding: 10px;
+          ">
+
+        <ul class="nav nav-pills gap-2 mb-3" id="tabs">
+          <li class="nav-item">
+            <button class="nav-link active"
+                    data-bs-toggle="pill"
+                    data-bs-target="#panePend"
+                    style="border-radius:10px;font-weight:900;font-size:11px;">
+              Pendientes de hoy
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link"
+                    data-bs-toggle="pill"
+                    data-bs-target="#paneReg"
+                    style="border-radius:10px;font-weight:900;font-size:11px;">
+              Ya registrados
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link"
+                    data-bs-toggle="pill"
+                    data-bs-target="#paneAlert"
+                    style="border-radius:10px;font-weight:900;font-size:11px;">
+              Alertas / Revisar
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- Pendientes -->
+          <div class="tab-pane fade show active" id="panePend">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div style="font-weight:900;">Pendientes</div>
+            <div id="lblCountPend" style="color:#64748b;font-size:11px;">—</div>
+          </div>
+
+          <div class="table-responsive"
+              style="max-height:98vh; overflow:auto; border:1px solid rgba(15,23,42,.12); border-radius: 8px;">
+            <table class="table table-hover table-sm align-middle mb-0"
+                  style="table-layout:fixed; width:100%;">
+              <thead>
+                <tr>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Placa</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">No. Interno</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Tipología</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Combustible</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Ult Odómetro</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Ult Tanqueo</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Registrado por</th>
+                </tr>
+              </thead>
+              <tbody id="tbPend"></tbody>
+            </table>
+          </div>
+        </div>
+
+          <!-- Registrados -->
+          <div class="tab-pane fade" id="paneReg">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div style="font-weight:900;">Ya registrados</div>
+            <div id="lblCountReg" style="color:#64748b;font-size:11px;">—</div>
+          </div>
+
+          <div class="table-responsive"
+              style="max-height:98vh; overflow:auto; border:1px solid rgba(15,23,42,.12); border-radius: 8px;">
+            <table class="table table-hover table-sm align-middle mb-0"
+                  style="table-layout:fixed; width:100%;">
+              <thead>
+                <tr>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Fecha/Hora</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Placa</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">No.Interno</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Tipología</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Odómetro</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Volumen</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Funcion</th>
+                  <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Registrado por</th>
+                </tr>
+              </thead>
+              <tbody id="tbReg"></tbody>
+            </table>
+          </div>
+        </div>
+
+          <!-- Alertas -->
+          <div class="tab-pane fade" id="paneAlert">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div style="font-weight:900;">Alertas / Revisar</div>
+              <div id="lblCountAlert" style="color:#64748b;font-size:11px;">—</div>
+            </div>
+
+            <div class="table-responsive"
+                style="max-height:98vh; overflow:auto; border:1px solid rgba(15,23,42,.12); border-radius:8px;">
+              <table class="table table-hover table-sm align-middle mb-0"
+                    style="table-layout:fixed; width:100%;">
+                <thead>
+                  <tr>
+                    <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Fecha/Hora</th>
+                    <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Tipo</th>
+                    <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Severidad</th>
+                    <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Mensaje</th>
+                    <th style="position:sticky;top:0;z-index:5;background:#2563eb;color:#fff;font-size:11px;white-space:nowrap;">Bus</th>
+                  </tr>
+                </thead>
+                <tbody id="tbAlert"></tbody>
+              </table>
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal QR -->
+<div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header" style="padding:10px 12px;">
+        <h6 class="modal-title" style="font-weight:900;font-size:12px;margin:0;">Lectura QR</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body" style="padding:12px;">
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;">
+          Apunta la cámara al QR de la placa / número interno.
+        </div>
+
+        <video id="qrVideo" autoplay playsinline
+              style="width:100%;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#000;"></video>
+
+        <canvas id="qrCanvas" style="display:none;"></canvas>
+
+        <div class="d-flex gap-2 mt-3">
+          <button type="button" class="btn btn-sm flex-grow-1" id="btnQrStop"
+                  style="border-radius:10px;border:1px solid rgba(15,23,42,.14);background:rgba(15,23,42,.03);font-weight:900;">
+            Detener
+          </button>
+          <button type="button" class="btn btn-sm flex-grow-1" data-bs-dismiss="modal"
+                  style="border-radius:10px;border:1px solid rgba(15,23,42,.14);background:#fff;font-weight:900;">
+            Cerrar
+          </button>
+        </div>
+
+        <div id="qrHint" class="mt-2" style="font-size:11px;color:#64748b;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toastContainer" style="position:fixed;top:1rem;right:1rem;z-index:2000;"></div>
+
+<script>
+  // ---------------------------
+  // Helpers UI
+  // ---------------------------
+  function esc(s){ return (s??'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  function toast({title="Aviso", body="", type="success"}){
+    const id = `t_${Date.now()}`;
+    const color = type==="success" ? "#22c55e" : type==="warning" ? "#f59e0b" : "#ef4444";
+    const html = `
+      <div id="${id}" class="toast show" role="alert" aria-live="assertive" aria-atomic="true"
+            style="min-width:280px;background:#ffffff;border:1px solid rgba(15,23,42,.14);border-left:4px solid ${color};
+                  box-shadow:0 18px 40px rgba(15,23,42,.12);border-radius:14px;">
+        <div class="d-flex">
+          <div class="toast-body">
+            <div class="fw-bold" style="color:${color};font-size:11px;">${esc(title)}</div>
+            <div style="color:#0f172a;font-size:11px;">${esc(body)}</div>
+          </div>
+          <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>`;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    const el = wrap.firstElementChild;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, 3800);
+  }
+
+  function normalizeError(status, payload){
+    if(payload && Array.isArray(payload.detail)){
+      const msgs = payload.detail.map(d => d.msg || JSON.stringify(d)).join(' | ');
+      return {status, detail: msgs};
+    }
+    const det = payload?.detail || payload?.message || JSON.stringify(payload) || `HTTP ${status}`;
+    return {status, detail: det};
+  }
+
+  async function getJSON(url, params={}){
+    const clean = {};
+    for(const k in params){ const v=params[k]; if(v===''||v===null||v===undefined) continue; clean[k]=v; }
+    const q = new URLSearchParams(clean);
+    const full = q.toString()? `${url}?${q}` : url;
+    const res = await fetch(full, { credentials:'same-origin' });
+    let data=null; try{ data = await res.json(); }catch{}
+    if(!res.ok) throw normalizeError(res.status, data);
+    return data;
+  }
+
+  async function postForm(url, formData){
+    const res = await fetch(url, { method:'POST', body: formData, credentials:'same-origin' });
+    let data=null; try{ data = await res.json(); }catch{}
+    if(!res.ok) throw normalizeError(res.status, data);
+    return data;
+  }
+
+  function onlyDigits(str){
+  return (str || "").replace(/\D+/g, ""); // quita TODO lo que no sea dígito
+}
+
+  function formatThousandsCO(numStr){
+    // numStr: "1234567" -> "1.234.567" (estilo Colombia)
+    if(!numStr) return "";
+    const n = Number(numStr);
+    if(!Number.isFinite(n)) return "";
+    return n.toLocaleString("es-CO"); // es-CO usa separador de miles "."
+  }
+
+  // Formatear mientras escribe SIN permitir signos
+  (function initOdoMask(){
+    const el = document.getElementById("inpOdometro");
+    if(!el) return;
+
+    el.addEventListener("input", () => {
+      const digits = onlyDigits(el.value);
+      el.value = formatThousandsCO(digits);
+      validateGuardar();
+    });
+
+    el.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const txt = (e.clipboardData || window.clipboardData).getData("text");
+      const digits = onlyDigits(txt);
+      el.value = formatThousandsCO(digits);
+      validateGuardar();
+    });
+  })();
+
+  // ---------------------------
+  // State
+  // ---------------------------
+  const state = {
+    id_eds: null,
+    id_surtidor: null,
+    fecha: null,
+    bus: null,
+    busAsignado: null,
+    edsDetalle: null,
+    lockBannerClosed: false,
+  };
+
+  // ---------------------------
+  // Lock banner (no bloquea)
+  // ---------------------------
+  function setLockBannerVisible(show){
+    const el = document.getElementById('lockBanner');
+    if(!el) return;
+    if(state.lockBannerClosed){
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = show ? 'block' : 'none';
+  }
+
+  function lockUI(){
+    // ya no bloqueamos UI; solo mostramos banner si falta algo
+    const need = !(state.id_eds && state.id_surtidor);
+    setLockBannerVisible(need);
+  }
+
+  // ---------------------------
+  // Load init
+  // ---------------------------
+  async function init(){
+    try{
+      const rs = await getJSON('/api/eds/registro/init');
+      document.getElementById('lblUsuario').textContent = rs.usuario_full_name || '{{ usuario_full_name }}';
+      document.getElementById('inpFecha').value = rs.hoy;
+      state.fecha = rs.hoy;
+
+      const selEds = document.getElementById('selEds');
+      (rs.eds||[]).forEach(e=>{
+        selEds.insertAdjacentHTML('beforeend', `<option value="${e.id}">${esc(e.nombre)} · ${esc(e.codigo||'')}</option>`);
+      });
+
+      lockUI(); // mostrar banner al inicio
+    }catch(err){
+      toast({title:'Init', body: err.detail || err, type:'danger'});
+    }
+  }
+
+  // ---------------------------
+  // EDS selection
+  // ---------------------------
+  async function onSelectEds(){
+    const id = document.getElementById('selEds').value;
+    state.id_eds = id ? Number(id) : null;
+    state.id_surtidor = null;
+    state.edsDetalle = null;
+
+    document.getElementById('lblEds').textContent = state.id_eds ? 'CARGANDO…' : 'SIN SELECCIONAR';
+    document.getElementById('lblSurtidor').textContent = 'SIN SELECCIONAR';
+    document.getElementById('selSurtidor').innerHTML = `<option value="">-- Selecciona surtidor --</option>`;
+    document.getElementById('selSurtidor').disabled = true;
+
+    document.getElementById('lblUbicacion').textContent = state.id_eds ? 'Cargando ubicación…' : 'Selecciona una EDS…';
+    document.getElementById('chipsCops').innerHTML = '';
+
+    hideSuggest();
+
+    if(!state.id_eds){
+      lockUI();
+      return;
+    }
+
+    try{
+      const det = await getJSON(`/api/eds/registro/eds/${state.id_eds}/detalle`);
+      state.edsDetalle = det;
+
+      document.getElementById('lblEds').textContent = det.eds?.nombre || 'EDS';
+      const u = det.ubicacion || {};
+      const ubicTxt = `${u.nombre||''}${u.ciudad ? ' · '+u.ciudad : ''}${u.direccion ? ' · '+u.direccion : ''}`;
+      document.getElementById('lblUbicacion').textContent = ubicTxt || '—';
+
+      const chips = document.getElementById('chipsCops');
+      (det.cops||[]).forEach(c=>{
+        chips.insertAdjacentHTML('beforeend', `
+          <span style="
+            display:inline-flex;align-items:center;gap:6px;
+            background: rgba(15,23,42,.03);
+            border:1px solid rgba(15,23,42,.12);
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            color:#0f172a;
+            font-weight:800;
+          ">
+            <i class="fa-solid fa-location-dot" style="opacity:.75;"></i>
+            ${esc(c.cop||('COP '+c.id))}
+          </span>
+        `);
+      });
+
+      const selS = document.getElementById('selSurtidor');
+      (det.surtidores||[]).forEach(s=>{
+        selS.insertAdjacentHTML('beforeend', `<option value="${s.id}">${esc(s.nombre)} · ${esc(s.tipo_combustible)}</option>`);
+      });
+      selS.disabled = false;
+
+      await refreshTablas();
+      toast({title:'EDS', body:'EDS cargada. Selecciona el surtidor para habilitar el registro.', type:'success'});
+    }catch(err){
+      toast({title:'EDS', body: err.detail || err, type:'danger'});
+      document.getElementById('lblEds').textContent = 'ERROR';
+    } finally {
+      lockUI();
+      validateGuardar();
+    }
+  }
+
+  async function onSelectSurtidor(){
+    const id = document.getElementById('selSurtidor').value;
+    state.id_surtidor = id ? Number(id) : null;
+
+    const txt = state.id_surtidor
+      ? (document.getElementById('selSurtidor').selectedOptions[0]?.textContent || 'Surtidor')
+      : 'SIN SELECCIONAR';
+
+    document.getElementById('lblSurtidor').textContent = txt;
+
+    lockUI();
+    validateGuardar();
+  }
+
+  // ---------------------------
+  // Fecha
+  // ---------------------------
+  async function onFechaChange(){
+    state.fecha = document.getElementById('inpFecha').value;
+    if(state.id_eds){
+      await refreshTablas();
+    }
+  }
+
+  // ---------------------------
+  // Tablas
+  // ---------------------------
+  async function refreshTablas(){
+    if(!state.id_eds || !state.fecha) return;
+
+    try{
+      const [pend, regs, alerts] = await Promise.all([
+        getJSON('/api/eds/registro/pendientes', {id_eds: state.id_eds, fecha: state.fecha}),
+        getJSON('/api/eds/registro/ya_registrados', {id_eds: state.id_eds, fecha: state.fecha}),
+        getJSON('/api/eds/registro/alertas', {id_eds: state.id_eds, fecha: state.fecha}),
+      ]);
+
+      renderPendientes(pend.data||[]);
+      renderRegistrados(regs.data||[]);
+      renderAlertas(alerts.data||[]);
+    }catch(err){
+      toast({title:'Tablas', body: err.detail || err, type:'danger'});
+    }
+  }
+
+  function tdEllipsis(text, extraStyle=""){
+    const t = (text ?? '').toString();
+    return `
+      <td title="${esc(t)}" style="
+        font-size:11px;color:#0f172a;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+        ${extraStyle}
+      ">${esc(t)}</td>
+    `;
+  }
+
+  function tdEllipsisBold(text, extraStyle=""){
+    const t = (text ?? '').toString();
+    return `
+      <td title="${esc(t)}" style="
+        font-weight:900;font-size:11px;color:#0f172a;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+        ${extraStyle}
+      ">${esc(t)}</td>
+    `;
+  }
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+
+  // Intenta formatear fechas tipo ISO (2026-01-06T10:22:33...), o "2026-01-06 10:22:33"
+  function fmtFechaHoraShort(v){
+    if(!v) return '';
+    const s = String(v).trim();
+
+    // Caso rápido: "YYYY-MM-DD HH:MM:SS" o "YYYY-MM-DDTHH:MM:SS"
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+    if(m) return `${m[1]} ${m[2]}`;
+
+    // Fallback: intentar Date()
+    const d = new Date(s);
+    if(!isNaN(d.getTime())){
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    }
+
+    // Si no se pudo parsear, devolver lo que alcance
+    return s;
+  }
+
+  function renderPendientes(rows){
+    const tb = document.getElementById('tbPend');
+    document.getElementById('lblCountPend').textContent = `${rows.length} buses`;
+
+    tb.innerHTML = rows.map(r=>`
+      <tr data-id="${r.id_bus}" style="border-top:1px solid rgba(15,23,42,.08); height:10px;">
+        ${tdEllipsisBold(r.placa || '', 'max-width:90px;')}
+        ${tdEllipsis(r.no_interno || '', 'max-width:90px;')}
+        ${tdEllipsis(r.tipologia || '', 'max-width:110px;')}
+        ${tdEllipsis(r.combustible || '', 'max-width:110px;')}
+        ${tdEllipsis((r.ult_odometro ?? '—'), 'max-width:90px;')}
+        ${tdEllipsis((r.ult_tanqueo ?? '—'), 'max-width:90px;')}
+        ${tdEllipsis((r.registrado_por || '—'), 'max-width:150px;')}
+      </tr>
+    `).join('');
+
+    tb.querySelectorAll('tr[data-id]').forEach(tr=>{
+      tr.addEventListener('click', async ()=>{
+        const placa = tr.querySelector('td')?.textContent || '';
+        document.getElementById('inpBusQuery').value = placa;
+        hideSuggest();
+        await buscarBus();
+      });
+      tr.addEventListener('mouseenter', ()=>{ tr.style.background = 'rgba(15,23,42,.03)'; tr.style.cursor='pointer'; });
+      tr.addEventListener('mouseleave', ()=>{ tr.style.background = 'transparent'; });
+    });
+  }
+
+  function renderRegistrados(rows){
+    const tb = document.getElementById('tbReg');
+    document.getElementById('lblCountReg').textContent = `${rows.length} registros`;
+
+    tb.innerHTML = rows.map(r=>`
+      <tr style="border-top:1px solid rgba(15,23,42,.08); height:10px;">
+        ${tdEllipsis(fmtFechaHoraShort(r.fecha_hora_registro), 'max-width:100px;')}
+        ${tdEllipsisBold((r.placa || ''), 'max-width:80px;')}
+        ${tdEllipsis((r.no_interno || ''), 'max-width:80px;')}
+        ${tdEllipsis((r.tipologia || ''), 'max-width:100px;')}
+        ${tdEllipsis((r.odometro ?? '—'), 'max-width:90px;')}
+        ${tdEllipsis((r.volumen ?? '—'), 'max-width:90px;')}
+        ${tdEllipsis((r.odometro_funcional ? 'SI' : 'NO'), 'max-width:40px;')}
+        ${tdEllipsis((r.registrado_por || ''), 'max-width:110px;')}
+      </tr>
+    `).join('');
+  }
+
+  function renderAlertas(rows){
+    const tb = document.getElementById('tbAlert');
+    document.getElementById('lblCountAlert').textContent = `${rows.length} alertas`;
+
+    tb.innerHTML = rows.map(r=>`
+      <tr style="border-top:1px solid rgba(15,23,42,.08); height:10px;">
+        ${tdEllipsis((r.created_at || ''), 'max-width:140px;')}
+        ${tdEllipsisBold((r.tipo || ''), 'max-width:140px;')}
+        ${tdEllipsis((r.severidad || ''), 'max-width:90px;')}
+        ${tdEllipsis((r.mensaje || ''), 'max-width:260px;')}
+        ${tdEllipsis((r.placa ?? '—'), 'max-width:90px;')} 
+      </tr>
+    `).join('');
+  }
+
+  // ---------------------------
+  // Buscar Bus
+  // ---------------------------
+  async function buscarBus(){
+    const q = (document.getElementById('inpBusQuery').value||'').trim();
+    if(!q){
+      toast({title:'Bus', body:'Digita placa o número interno', type:'warning'});
+      return;
+    }
+    if(!state.id_eds){
+      toast({title:'EDS', body:'Selecciona una EDS primero', type:'warning'});
+      return;
+    }
+
+    try{
+      const rs = await getJSON('/api/eds/registro/bus_lookup', {q, id_eds: state.id_eds});
+      if(!rs.bus){
+        toast({title:'Bus', body:'No encontrado', type:'danger'});
+        return;
+      }
+      state.bus = rs.bus;
+      state.busAsignado = rs.asignado_a_eds;
+
+      const b = rs.bus;
+      document.getElementById('lblBus').textContent = `${b.placa||''} · ${b.no_interno||''}`;
+      const copNombre = b.cop_nombre || b.cop || null;
+      document.getElementById('lblBusExtra').textContent =
+        `${b.tipologia || ''} · ${copNombre ? copNombre : ('COP ' + (b.id_cop ?? ''))}`;
+      document.getElementById('inpCombustible').value = mapCombustible(b.combustible);
+
+      const ult = b.ultimo || {};
+      document.getElementById('lblUltOdo').textContent = ult.odometro ?? '—';
+      document.getElementById('lblUltTanqueo').textContent = ult.volumen ?? '—';
+
+      document.getElementById('lblWarningAsignacion').style.display = (rs.asignado_a_eds === false) ? 'block' : 'none';
+
+      validateGuardar();
+      toast({title:'Bus', body:'Bus cargado en el formulario', type:'success'});
+    }catch(err){
+      toast({title:'Bus', body: err.detail || err, type:'danger'});
+    }
+  }
+
+  function mapCombustible(raw){
+    const v = (raw||'').toString().toUpperCase();
+    if(v.includes('ACPM')) return 'ACPM';
+    if(v.includes('GNV') || v.includes('GAS')) return 'Gas Natural Vehicular';
+    if(v.includes('ELECT')) return 'Energía Eléctrica';
+    return raw || '';
+  }
+
+  function validateGuardar(){
+    const btn = document.getElementById('btnGuardar');
+    const odo = (document.getElementById('inpOdometro').value||'').trim();
+    const ok = !!(state.id_eds && state.id_surtidor && state.bus && odo);
+    btn.disabled = !ok;
+    btn.style.opacity = ok ? "1" : ".55";
+    btn.style.cursor = ok ? "pointer" : "not-allowed";
+  }
+
+  // ---------------------------
+  // Guardar
+  // ---------------------------
+  async function guardar(){
+    if(!(state.id_eds && state.id_surtidor && state.bus)){
+      return toast({title:'Guardar', body:'Faltan datos: EDS/Surtidor/Bus', type:'warning'});
+    }
+
+    const fd = new FormData();
+    // SIEMPRE strings para Form(...)
+    fd.append('id_bus', String(state.bus.id));
+    fd.append('id_eds', String(state.id_eds));
+    fd.append('id_surtidor', String(state.id_surtidor));
+
+    // odometro int “limpio”
+    const odoRaw = (document.getElementById('inpOdometro').value || '').trim();
+    const odoDigits = onlyDigits(odoRaw);            // <-- QUITA puntos y todo lo que no sea número
+    const odoInt = Number.parseInt(odoDigits, 10);
+
+    if (!Number.isFinite(odoInt) || odoInt <= 0){
+      return toast({title:'Guardar', body:'Odómetro inválido', type:'warning'});
+    }
+    fd.append('odometro', String(odoInt));
+
+    // volumen float “limpio” (acepta coma y punto)
+    let volRaw = (document.getElementById('inpVolumen').value || '').trim();
+    if (volRaw !== ''){
+      volRaw = volRaw.replace(',', '.');        // <-- clave
+      const volNum = Number.parseFloat(volRaw);
+      if (!Number.isFinite(volNum)){
+        return toast({title:'Guardar', body:'Volumen inválido (usa 32.5 o 32,5)', type:'warning'});
+      }
+      fd.append('volumen', String(volNum));
+    }
+
+    // bool como "true"/"false" explícito
+    const odoFunc = (document.getElementById('selOdoFuncional').value === 'true');
+    fd.append('odometro_funcional', odoFunc ? 'true' : 'false');
+
+    const obs = (document.getElementById('inpObs').value || '').trim();
+    if (obs) fd.append('observacion', obs);
+
+    // fecha_operativa string
+    fd.append('fecha_operativa', String(state.fecha || ''));
+
+    // Evidencias: anexar al FormData
+    const inputFiles = document.getElementById('inpEvidencias');
+    const files = inputFiles?.files ? Array.from(inputFiles.files) : [];
+
+    for (const file of files) {
+      // IMPORTANTE: la key debe ser exactamente "evidencias"
+      fd.append('evidencias', file, file.name);
+    }
+
+    try{
+      await postForm('/api/eds/registro/guardar', fd);
+      toast({title:'Guardar', body:'Registro guardado correctamente', type:'success'});
+
+      document.getElementById('inpOdometro').value = '';
+      document.getElementById('inpVolumen').value = '';
+      document.getElementById('inpObs').value = '';
+      document.getElementById('inpEvidencias').value = '';
+      document.getElementById('lblWarningAsignacion').style.display = 'none';
+
+      await refreshTablas();
+      validateGuardar();
+    }catch(err){
+      toast({title:'Guardar', body: err.detail || err, type:'danger'});
+    }
+  }
+
+  function limpiar(){
+    state.bus = null;
+    state.busAsignado = null;
+
+    document.getElementById('inpBusQuery').value = '';
+    hideSuggest();
+
+    document.getElementById('lblBus').textContent = '—';
+    document.getElementById('lblBusExtra').textContent = '';
+    document.getElementById('lblUltOdo').textContent = '—';
+    document.getElementById('lblUltTanqueo').textContent = '—';
+    document.getElementById('inpCombustible').value = '';
+    document.getElementById('inpOdometro').value = '';
+    document.getElementById('inpVolumen').value = '';
+    document.getElementById('inpObs').value = '';
+    document.getElementById('inpEvidencias').value = '';
+    document.getElementById('lblWarningAsignacion').style.display = 'none';
+
+    validateGuardar();
+  }
+
+  // ---------------------------
+  // Autocomplete Bus (placa / no_interno)
+  // ---------------------------
+  let suggestTimer = null;
+
+  function hideSuggest(){
+    const box = document.getElementById('busSuggest');
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+
+  function renderSuggest(items){
+    const box = document.getElementById('busSuggest');
+    if(!items || !items.length){
+      hideSuggest();
+      return;
+    }
+
+    box.innerHTML = items.map(b => `
+      <button type="button" class="list-group-item list-group-item-action"
+        style="
+          background:#ffffff;
+          color:#0f172a;
+          border:1px solid rgba(15,23,42,.14);
+          border-radius: 12px;
+          margin-bottom: 6px;
+          font-size: 11px;
+          box-shadow: 0 10px 20px rgba(15,23,42,.08);
+        "
+        data-placa="${esc(b.placa||'')}">
+        <div class="d-flex justify-content-between">
+          <div style="font-weight:900;">${esc(b.placa||'')}</div>
+          <div style="font-size:11px;color:#64748b;">Int: ${esc(b.no_interno||'')}</div>
+        </div>
+        <div style="font-size:11px;color:#64748b;">${esc(b.tipologia||'')} · COP ${esc(b.id_cop ?? '')}</div>
+      </button>
+    `).join('');
+
+    box.style.display = 'block';
+
+    box.querySelectorAll('button[data-placa]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        document.getElementById('inpBusQuery').value = btn.dataset.placa || '';
+        hideSuggest();
+        await buscarBus();
+      });
+    });
+  }
+
+  async function fetchSuggest(){
+    const q = (document.getElementById('inpBusQuery').value||'').trim();
+    if(!q || q.length < 2){ hideSuggest(); return; }
+    if(!state.id_eds){ hideSuggest(); return; }
+
+    try{
+      const rs = await getJSON('/api/eds/registro/bus_suggest', { q, id_eds: state.id_eds });
+      renderSuggest(rs.data || []);
+    }catch(e){
+      hideSuggest();
+    }
+  }
+
+  // ---------------------------
+  // Voz (SpeechRecognition)
+  // ---------------------------
+  let speechRec = null;
+  let speechActive = false;
+
+  function normalizeBusCode(text){
+    let s = (text || '').toString().toUpperCase();
+
+    // Convertir palabras habladas a guión
+    s = s
+      .replace(/\bGUION\b/g, '-')     // "guion"
+      .replace(/\bGU[IÍ]ON\b/g, '-')  // "guión"
+      .replace(/\bDASH\b/g, '-')      // "dash"
+      .replace(/\bMENOS\b/g, '-');    // a veces dicen "menos"
+
+    // Quitar todo lo que no sea A-Z, 0-9 o '-'
+    s = s.replace(/[^A-Z0-9-]+/g, '');
+
+    // Quitar guiones repetidos y guiones al inicio/fin
+    s = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+
+    return s;
+  }
+
+  function initVoz(){
+    const btn = document.getElementById('btnVoz');
+    if(!btn) return;
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){
+      btn.addEventListener('click', ()=>{
+        toast({title:'Voz', body:'Tu navegador no soporta SpeechRecognition.', type:'warning'});
+      });
+      return;
+    }
+
+    speechRec = new SR();
+    speechRec.lang = 'es-CO';
+    speechRec.interimResults = true;
+    speechRec.continuous = false;
+
+    speechRec.onstart = () => {
+      speechActive = true;
+      toast({title:'Voz', body:'Escuchando… di la placa o número interno.', type:'success'});
+    };
+
+    speechRec.onerror = (e) => {
+      speechActive = false;
+      toast({title:'Voz', body:`Error: ${e.error || 'desconocido'}`, type:'danger'});
+    };
+
+    speechRec.onend = () => {
+      speechActive = false;
+    };
+
+    speechRec.onresult = async (event) => {
+      let finalText = '';
+      let interim = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++){
+        const transcript = event.results[i][0].transcript;
+        if(event.results[i].isFinal) finalText += transcript;
+        else interim += transcript;
+      }
+
+      const text = (finalText || interim || '').trim();
+      if(!text) return;
+
+      // Limpieza básica: quitar caracteres raros, espacios dobles
+      const cleaned = normalizeBusCode(text);
+
+      // Si ya tenemos un final, disparar búsqueda
+      if(finalText){
+        document.getElementById('inpBusQuery').value = cleaned;
+        hideSuggest();
+        await buscarBus();
+      }
+    };
+
+    btn.addEventListener('click', ()=>{
+      try{
+        if(speechActive){
+          speechRec.stop();
+          return;
+        }
+        speechRec.start();
+      }catch(err){
+        toast({title:'Voz', body:'No se pudo iniciar el micrófono (permiso/bloqueo).', type:'danger'});
+      }
+    });
+  }
+
+  // ---------------------------
+  // QR (BarcodeDetector + cámara)
+  // ---------------------------
+  let qrStream = null;
+  let qrTimer = null;
+  let qrModalInstance = null;
+
+  async function startQrScan(){
+    const video = document.getElementById('qrVideo');
+    const canvas = document.getElementById('qrCanvas');
+    const hint = document.getElementById('qrHint');
+
+    if(!video || !canvas) return;
+
+    // Preferido: BarcodeDetector (Chrome)
+    const hasBD = ('BarcodeDetector' in window);
+
+    if(!hasBD){
+      hint.textContent = 'Tu navegador no soporta BarcodeDetector. Si quieres, lo integramos con jsQR/html5-qrcode.';
+      throw new Error('BarcodeDetector no soportado');
+    }
+
+    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false
+    });
+    video.srcObject = qrStream;
+
+    hint.textContent = 'Escaneando…';
+
+    const ctx = canvas.getContext('2d');
+
+    qrTimer = setInterval(async ()=>{
+      try{
+        if(video.readyState < 2) return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const barcodes = await detector.detect(canvas);
+        if(barcodes && barcodes.length){
+          const raw = (barcodes[0].rawValue || '').trim();
+          if(raw){
+            // Detener scan
+            stopQrScan();
+
+            // Set input + buscar
+            const cleaned = raw.toUpperCase().replace(/[^A-Z0-9\- ]+/g, '').replace(/\s+/g, ' ').trim();
+            document.getElementById('inpBusQuery').value = cleaned;
+            hideSuggest();
+
+            // Cerrar modal
+            if(qrModalInstance) qrModalInstance.hide();
+
+            // Buscar
+            await buscarBus();
+
+            toast({title:'QR', body:`Leído: ${cleaned}`, type:'success'});
+          }
+        }
+      }catch(e){
+        // silencioso (para que no spamee)
+      }
+    }, 250);
+  }
+
+  function stopQrScan(){
+    if(qrTimer){
+      clearInterval(qrTimer);
+      qrTimer = null;
+    }
+    if(qrStream){
+      try{ qrStream.getTracks().forEach(t=>t.stop()); }catch{}
+      qrStream = null;
+    }
+    const video = document.getElementById('qrVideo');
+    if(video) video.srcObject = null;
+  }
+
+  function initQR(){
+    const btn = document.getElementById('btnQR');
+    if(!btn) return;
+
+    btn.addEventListener('click', async ()=>{
+      // Modal bootstrap
+      const modalEl = document.getElementById('qrModal');
+      if(!modalEl){
+        toast({title:'QR', body:'No existe el modal QR en el HTML.', type:'danger'});
+        return;
+      }
+
+      qrModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+      qrModalInstance.show();
+
+      // Al abrir
+      setTimeout(async ()=>{
+        try{
+          await startQrScan();
+        }catch(err){
+          toast({title:'QR', body:'No se pudo abrir la cámara (permiso/bloqueo o navegador).', type:'danger'});
+        }
+      }, 250);
+    });
+
+    // Botón detener
+    const btnStop = document.getElementById('btnQrStop');
+    if(btnStop){
+      btnStop.addEventListener('click', ()=>{
+        stopQrScan();
+        toast({title:'QR', body:'Escaneo detenido.', type:'warning'});
+      });
+    }
+
+    // Al cerrar modal, detener cámara
+    const modalEl = document.getElementById('qrModal');
+    if(modalEl){
+      modalEl.addEventListener('hidden.bs.modal', ()=>{
+        stopQrScan();
+      });
+    }
+  }
+
+  // ---------------------------
+  // Events
+  // ---------------------------
+  document.getElementById('selEds').addEventListener('change', onSelectEds);
+  document.getElementById('selSurtidor').addEventListener('change', onSelectSurtidor);
+  document.getElementById('inpFecha').addEventListener('change', onFechaChange);
+
+  document.getElementById('btnRefrescar').addEventListener('click', refreshTablas);
+  document.getElementById('btnBuscarBus').addEventListener('click', ()=>{
+    hideSuggest();
+    buscarBus();
+  });
+
+  document.getElementById('inpBusQuery').addEventListener('input', ()=>{
+    clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(fetchSuggest, 180);
+  });
+
+  document.getElementById('inpBusQuery').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      hideSuggest();
+      buscarBus();
+    }
+    if(e.key === 'Escape'){
+      hideSuggest();
+    }
+  });
+
+  document.addEventListener('click', (e)=>{
+    const wrap = document.getElementById('inpBusQuery').parentElement;
+    if(wrap && !wrap.contains(e.target)){
+      hideSuggest();
+    }
+  });
+
+  document.getElementById('inpOdometro').addEventListener('input', validateGuardar);
+  document.getElementById('btnGuardar').addEventListener('click', guardar);
+  document.getElementById('btnLimpiar').addEventListener('click', limpiar);
+
+  document.getElementById('btnCloseLock').addEventListener('click', ()=>{
+    state.lockBannerClosed = true;
+    setLockBannerVisible(false);
+  });
+
+  initVoz();
+  initQR();
+  init();
+</script>
+
+{% endblock %}

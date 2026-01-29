@@ -1,0 +1,331 @@
+{% extends "components/layout.html" %}
+{% block title %} Procesamiento de Conocimiento Chatbot {% endblock %}
+
+{% block content %}
+<div class="container-fluid d-flex flex-column" style="height: 80vh;">
+    <div class="row justify-content-between align-items-center mb-4">
+        <h1 class="col-auto" style="font-size: 22px; font-family: 'Century Gothic', sans-serif;">Procesamiento de Base de Conocimiento - ChatBot CEXP</h1>
+        <h1 class="col-auto" style="font-size: 14px; font-family: 'Century Gothic', sans-serif;">¡Hola, {{ user_session.nombres }} {{ user_session.apellidos }}!</h1>
+        <img src="/static/Consorcio.png" alt="Consorcio Icon" class="col-auto" style="max-width: 100px; height: auto;">
+    </div>
+
+    <div class="row g-4 flex-wrap">
+        <!-- PDF -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column" style="height: calc(100vh - 200px);">
+                    <h5 class="card-title">PDFs</h5>
+                    <button class="btn btn-primary btn-sm mb-2 w-100" onclick="listarPDFs()">🔄 Cargar PDFs</button>
+                    <div class="flex-grow-1 d-flex flex-column overflow-hidden">
+                      <form id="formPDFs" class="flex-grow-1 d-flex flex-column overflow-hidden">
+                        <ul id="listaPDFs" class="list-group list-group-flush" style="overflow-y: auto; flex-grow: 1;"></ul>
+                      </form>
+                    </div>
+                    <button class="btn btn-success btn-sm mt-2 w-100" onclick="procesarSeleccionados()">🚀 Procesar Seleccionados</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chunks -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column" style="height: calc(100vh - 200px);">
+                    <h5 class="card-title">Chunks</h5>
+                    <div id="logChunks" style="font-size: 12px; height: 120px; overflow-y: auto; border-bottom: 1px solid #ccc;"></div>
+                        <div class="mt-2 flex-grow-1 d-flex flex-column" style="font-size: 12px;">
+                        <strong>📁 Archivos en carpeta chunks/:</strong>
+                        <ul id="listaChunks" class="list-group list-group-flush mt-1" style="overflow-y: auto; flex-grow: 1;"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Embeddings -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column" style="height: calc(100vh - 200px);">
+                <h5 class="card-title">Embeddings</h5>
+                <div id="logEmbeddings" style="font-size: 12px; height: 120px; overflow-y: auto; border-bottom: 1px solid #ccc;"></div>
+                    <div class="mt-2 flex-grow-1 d-flex flex-column" style="font-size: 12px;">
+                    <strong>📁 Archivos en carpeta embeddings/:</strong>
+                    <ul id="listaEmbeddings" class="list-group list-group-flush mt-1" style="overflow-y: auto; flex-grow: 1;"></ul>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAISS Index -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column" style="height: calc(100vh - 200px);">
+                <h5 class="card-title">FAISS Index</h5>
+                <div id="logFaiss" style="font-size: 12px; height: 120px; overflow-y: auto; border-bottom: 1px solid #ccc;"></div>
+                    <div class="mt-2 flex-grow-1 d-flex flex-column" style="font-size: 12px;">
+                    <strong>📁 Archivos en carpeta faiss_index/:</strong>
+                    <ul id="listaFaiss" class="list-group list-group-flush mt-1" style="overflow-y: auto; flex-grow: 1;"></ul>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #listaPDFs li {
+    font-size: 12px;
+    padding: 6px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    background-color: #f9f9f9;
+    transition: background-color 0.2s ease-in-out;
+    }
+
+    #listaPDFs li:hover {
+        background-color: #bccfe2;
+    }
+  
+    #listaChunks li,
+    #listaEmbeddings li,
+    #listaFaiss li {
+        font-size: 12px;
+        padding: 6px 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        margin-bottom: 5px;
+        background-color: #f9f9f9;
+        transition: background-color 0.2s ease-in-out;
+    }
+
+    #listaChunks li:hover,
+    #listaEmbeddings li:hover,
+    #listaFaiss li:hover {
+        background-color: #c0d4e9;
+    }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    listarPDFs();  // Carga los PDF automáticamente al abrir la página
+    listarChunksGenerados(); // Carga los chunks generados al abrir la página
+    listarEmbeddingsGenerados(); // Carga los embeddings generados al abrir la página
+    listarFAISSIndexGenerado(); // Carga los índices FAISS generados al abrir la página
+  });
+
+async function listarPDFs() {
+const lista = document.getElementById('listaPDFs');
+lista.innerHTML = '<li class="list-group-item">🔄 Cargando...</li>';
+
+    try {
+        const res = await fetch('/npl/listar_pdfs');
+        if (!res.ok) throw new Error("No se pudo obtener la lista de PDFs");
+        const data = await res.json();
+        lista.innerHTML = '';
+
+        if (!data.pdfs || data.pdfs.length === 0) {
+        lista.innerHTML = '<li class="list-group-item">📭 No hay archivos PDF en blob.</li>';
+        return;
+        }
+
+        data.pdfs.forEach((pdf) => {
+        const li = document.createElement('li');
+        li.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
+
+        const leftBox = document.createElement('div');
+        leftBox.classList.add('d-flex', 'align-items-center');
+        leftBox.style.flex = '1';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'pdfSeleccionado';
+        checkbox.value = pdf.ruta_pdf;
+        checkbox.classList.add('form-check-input', 'me-3');
+        checkbox.style.transform = "scale(2)";
+        checkbox.style.marginRight = "5px";
+
+        const label = document.createElement('span');
+        label.innerText = pdf.ruta_pdf;
+        label.style.fontSize = '12px';
+
+        leftBox.appendChild(checkbox);
+        leftBox.appendChild(label);
+
+        const estado = document.createElement('span');
+        estado.classList.add('badge');
+        estado.textContent = pdf.procesado ? '✔️ Procesado' : '❌ Sin procesar';
+        estado.classList.add(pdf.procesado ? 'bg-success' : 'bg-secondary');
+
+        li.appendChild(leftBox);
+        li.appendChild(estado);
+        lista.appendChild(li);
+        });
+
+    } catch (error) {
+        console.error('❌ Error al cargar PDFs:', error);
+        lista.innerHTML = '<li class="list-group-item text-danger">Error al obtener los archivos</li>';
+    }
+}
+
+async function procesarSeleccionados() {
+  const seleccionados = [...document.querySelectorAll('input[name="pdfSeleccionado"]:checked')].map(cb => cb.value);
+  if (seleccionados.length === 0) return alert("⚠️ Debes seleccionar al menos un PDF para procesar.");
+
+  const boton = document.querySelector('button[onclick="procesarSeleccionados()"]');
+  boton.disabled = true;
+  boton.innerText = "Procesando...";
+
+  const log = document.getElementById("logChunks");
+  log.innerHTML = "🧠 Iniciando procesamiento de chunks...<br>";
+
+  try {
+    const res = await fetch("/npl/procesar_chunks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rutas_pdf: seleccionados })
+    });
+
+    const data = await res.json();
+
+    for (const r of data.resultado) {
+      if (r.estado === "ok") {
+        log.innerHTML += `✅ ${r.ruta} procesado: ${r.chunks} chunks generados.<br>`;
+        await procesarEmbeddings(r.ruta);  // Procesar embeddings uno a uno
+      } else {
+        log.innerHTML += `❌ Error en ${r.ruta}: ${r.error}<br>`;
+      }
+    }
+
+    listarPDFs(); // Actualizar lista de PDFs
+    listarChunksGenerados(); // Actualizar lista de chunks generados
+    listarEmbeddingsGenerados(); // Actualizar lista de embeddings generados
+    listarFAISSIndexGenerado(); // Actualizar lista de índices FAISS generados
+
+  } catch (error) {
+    console.error("Error en procesamiento:", error);
+    log.innerHTML += "❌ Error en la solicitud al backend.";
+  }
+
+  boton.disabled = false;
+  boton.innerText = "🚀 Procesar Seleccionados";
+}
+
+async function listarChunksGenerados() {
+  const lista = document.getElementById("listaChunks");
+  lista.innerHTML = "<li>Cargando...</li>";
+    try {
+        const res = await fetch("/npl/listar_chunks");
+        const data = await res.json();
+        lista.innerHTML = "";
+        if (data.chunks.length === 0) {
+        lista.innerHTML = "<li class='text-muted'>No hay chunks generados aún.</li>";
+        } else {
+        data.chunks.forEach(c => {
+            const item = document.createElement("li");
+            item.textContent = c;
+            item.style.fontSize = "11px";
+            lista.appendChild(item);
+        });
+        }
+    } catch (error) {
+        lista.innerHTML = "<li class='text-danger'>Error al cargar los chunks.</li>";
+    }
+}
+
+async function procesarEmbeddings(pdfRuta) {
+  const log = document.getElementById("logEmbeddings");
+  log.innerHTML += `🧪 Generando embeddings para: ${pdfRuta}...<br>`;
+
+  try {
+    const res = await fetch("/npl/procesar_embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rutas_pdf: [pdfRuta] })
+    });
+
+    const data = await res.json();
+    for (const r of data.resultado) {
+      if (r.estado === "ok") {
+        log.innerHTML += `✅ ${r.ruta} → ${r.embeddings} vectores generados.<br>`;
+        await procesarFAISSIndex(r.ruta); // procesa FAISS automáticamente
+      } else {
+        log.innerHTML += `❌ Error en ${r.ruta}: ${r.error}<br>`;
+      }
+    }
+  } catch (error) {
+    log.innerHTML += `❌ Error en embeddings para ${pdfRuta}<br>`;
+  }
+}
+
+async function listarEmbeddingsGenerados() {
+  const lista = document.getElementById("listaEmbeddings");
+  lista.innerHTML = "<li>Cargando...</li>";
+    try {
+        const res = await fetch("/npl/listar_embeddings");
+        const data = await res.json();
+        lista.innerHTML = "";
+        if (data.embeddings.length === 0) {
+        lista.innerHTML = "<li class='text-muted'>No hay embeddings generados aún.</li>";
+        } else {
+        data.embeddings.forEach(c => {
+            const item = document.createElement("li");
+            item.textContent = c;
+            item.style.fontSize = "11px";
+            lista.appendChild(item);
+        });
+        }
+    } catch (error) {
+        lista.innerHTML = "<li class='text-danger'>Error al cargar los embeddings.</li>";
+    }
+}
+
+async function procesarFAISSIndex(pdfRuta) {
+  const log = document.getElementById("logFaiss");
+  log.innerHTML += `📦 Generando índice FAISS para: ${pdfRuta}...<br>`;
+
+  try {
+    const res = await fetch("/npl/procesar_faiss_index", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rutas_pdf: [pdfRuta] })
+    });
+
+    const data = await res.json();
+    data.resultado.forEach(r => {
+      if (r.estado === "ok") {
+        log.innerHTML += `✅ ${r.ruta} → ${r.vectores} vectores indexados.<br>`;
+      } else {
+        log.innerHTML += `❌ Error en ${r.ruta}: ${r.error}<br>`;
+      }
+    });
+
+    listarFAISSIndexGenerado(); // ✅ Refrescar visualización
+  } catch (error) {
+    log.innerHTML += `❌ Error al crear índice para ${pdfRuta}<br>`;
+  }
+}
+
+async function listarFAISSIndexGenerado() {
+  const lista = document.getElementById("listaFaiss");
+  lista.innerHTML = "<li>Cargando...</li>";
+  try {
+    const res = await fetch("/npl/listar_faiss_index");
+    const data = await res.json();
+    lista.innerHTML = "";
+    if (data.indices.length === 0) {
+      lista.innerHTML = "<li class='text-muted'>No hay índices FAISS generados.</li>";
+    } else {
+      data.indices.forEach(c => {
+        const item = document.createElement("li");
+        item.textContent = c;
+        item.style.fontSize = "11px";
+        lista.appendChild(item);
+      });
+    }
+  } catch (error) {
+    lista.innerHTML = "<li class='text-danger'>Error al cargar los índices FAISS.</li>";
+  }
+}
+
+</script>
+{% endblock %}
+

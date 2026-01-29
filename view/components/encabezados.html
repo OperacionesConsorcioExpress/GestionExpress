@@ -1,0 +1,301 @@
+{% block encabezados %}
+<headers style="font-family: 'Century Gothic', sans-serif;">
+  <nav class="navbar" style="background-color: rgb(239, 239, 245); padding: 0;">
+    <div class="container-fluid d-flex justify-content-end" style="padding: 0;">
+        <ul class="navbar-nav" style="display: flex; flex-direction: row; align-items: center; margin: 0;">
+            <!-- Botón ChatBot al lado izquierdo -->
+            <li class="nav-item" style="margin-right: 20px;">
+              <div id="chatBotButton">
+                <img src="/static/images/robot-de-chat.gif" alt="Chatbot" style="width: 40px; height: 40px; border-radius: 50%;">
+                <span class="tooltip-text">Abrir Chatbot</span>
+              </div>
+            </li>
+
+            <!-- 🔐 Botón para abrir el modal de cambio de contraseña -->
+            <li class="nav-item" style="margin-right: 20px;">
+              <div id="cambiarContrasenaButton" title="Cambiar contraseña">
+                <img src="/static/images/contraseña.png" alt="Cambiar Contraseña" style="width: 35px; height: 35px; border-radius: 5px; cursor: pointer;">
+              </div>
+            </li>
+          
+            <!-- Botón cerrar sesión -->
+            <li class="nav-item" style="margin-right: 40px;">
+              <a class="nav-link" href="/logout">Cerrar Sesión</a>
+            </li>
+        </ul>
+    </div>
+  </nav>
+</header>
+
+<!-- Modal para el Chatbot -->
+<div id="chatModal" class="chatbot-modal">
+  <div class="chatbot-modal-content">
+    <span id="closeChat">&times;</span>
+    <div id="chatContent">
+      <p style="text-align:center;">Cargando el chat...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Estilos para los modales -->
+<style>
+  #chatBotButton {
+    position: relative;
+    background-color: #a2f9b571;
+    padding: 2px;
+    border-radius: 50%;
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+    font-family: 'Century Gothic', Arial, sans-serif;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: center;
+    display: inline-block;
+  }
+
+  #chatBotButton:hover {
+    background-color: #16A038;
+    transition: background-color 0.3s ease;
+  }
+
+  .tooltip-text {
+    visibility: hidden;
+    background-color: #16A038;
+    color: white;
+    text-align: center;
+    padding: 5px 10px;
+    border-radius: 5px;
+    position: absolute;
+    top: 50%;
+    left: 110%;
+    white-space: nowrap;
+    font-size: 12px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    transform: translateY(-50%);
+    z-index: 1001;
+  }
+
+  #chatBotButton:hover .tooltip-text {
+    visibility: visible;
+  }
+
+  .chatbot-modal {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #a2f9b571;
+  }
+
+  .chatbot-modal-content {
+    background-color: white;
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 900px;
+    width: 100%;
+    max-height: 510px;
+    margin: 50px auto;
+    overflow: hidden; 
+    animation: fadeIn 0.3s ease-out;
+    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  #closeChat {
+    color: #030303;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  #closeChat:hover,
+  #closeChat:focus {
+    color: black;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-300px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  #cambiarContrasenaModal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(22, 160, 56, 0.28); /* Fondo verde translúcido */
+}
+</style>
+
+<!-- Modal para cambiar contraseña -->
+<div id="cambiarContrasenaModal" class="chatbot-modal">
+  <div class="chatbot-modal-content" style="max-width: 420px; padding: 2rem 2.5rem; border-radius: 18px;">
+    <span id="closePasswordModal" style="float:right; font-size:1.7em; cursor:pointer;">&times;</span>
+    <h4 style="text-align:center; margin-bottom: 1.3rem; color:#138d68; font-weight:bold; font-family:'Century Gothic';">Cambiar Contraseña</h4>
+
+    <form id="formCambiarContrasena" autocomplete="off">
+      <!-- Usuario -->
+      <div class="form-floating mb-3">
+        <input type="text" id="usuario" name="usuario" class="form-control" value="{{ user_session.username }}" readonly style="background:#f8f8f8;">
+        <label for="usuario">Usuario</label>
+      </div>
+
+      <!-- Nueva contraseña -->
+      <div class="form-floating mb-3 position-relative">
+        <input type="password" id="nueva_password" name="nueva_password" class="form-control" required>
+        <label for="nueva_password">Nueva Contraseña</label>
+        <button type="button" tabindex="-1" onclick="togglePassword('nueva_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3; padding: 5px;">
+        <img src="/static/images/gafas.gif" alt="Ver contraseña" style="width: 35px; height: 35px;">
+      </button>
+      </div>
+
+      <!-- Confirmar contraseña -->
+      <div class="form-floating mb-3 position-relative">
+        <input type="password" id="confirmar_password" name="confirmar_password" class="form-control" required>
+        <label for="confirmar_password">Repetir Contraseña</label>
+        <button type="button" tabindex="-1" onclick="togglePassword('confirmar_password')" class="btn btn-outline-light btn-sm position-absolute top-50 end-0 translate-middle-y me-2" style="z-index:2; background:#e3e3e3; padding: 5px;">
+        <img src="/static/images/gafas.gif" alt="Ver contraseña" style="width: 35px; height: 35px;">
+      </button>
+      </div>
+
+      <!-- Requisitos de contraseña -->
+      <div class="mb-3 small text-muted" id="password-requisitos" style="font-size: 13px; line-height: 1.4;">
+        La contraseña debe tener:
+        <ul style="margin: 4px 0 0 18px; padding: 0;">
+          <li>Mínimo 8 caracteres</li>
+          <li>Al menos una letra mayúscula (A-Z)</li>
+          <li>Al menos una letra minúscula (a-z)</li>
+          <li>Al menos un número (0-9)</li>
+          <li>Al menos un carácter especial (!@#$...)</li>
+        </ul>
+      </div>
+
+      <!-- Botón enviar -->
+      <div class="text-center mt-3">
+        <button type="submit" class="btn btn-success px-4 py-2 rounded-pill">Actualizar Contraseña</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ###################################################################################### -->
+<!-- FUNCIONES JAVASCRIPT -->
+
+<!-- Script Modal de cambio de contraseña -->
+<script>
+  // Mostrar y ocultar modal
+  const cambiarContrasenaBtn = document.getElementById('cambiarContrasenaButton');
+  const cambiarModal = document.getElementById('cambiarContrasenaModal');
+  const closePasswordModal = document.getElementById('closePasswordModal');
+
+  function limpiarCamposContrasena() {
+    document.getElementById('nueva_password').value = '';
+    document.getElementById('confirmar_password').value = '';
+  }
+
+  cambiarContrasenaBtn.addEventListener('click', () => {
+    cambiarModal.style.display = 'block';
+    limpiarCamposContrasena();
+  });
+
+  closePasswordModal.addEventListener('click', () => {
+    cambiarModal.style.display = 'none';
+    limpiarCamposContrasena();
+  });
+
+  window.addEventListener('click', function (event) {
+    if (event.target === cambiarModal) {
+      cambiarModal.style.display = 'none';
+      limpiarCamposContrasena();
+    }
+  });
+
+  function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  function contrasenaSegura(password) {
+    const requisitos = [
+      /.{8,}/,                         // mínimo 8 caracteres
+      /[A-Z]/,                         // al menos una mayúscula
+      /[a-z]/,                         // al menos una minúscula
+      /[0-9]/,                         // al menos un número
+      /[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]]/ // al menos un carácter especial
+    ];
+    return requisitos.every((regex) => regex.test(password));
+  }
+
+  document.getElementById('formCambiarContrasena').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nueva = document.getElementById('nueva_password').value.trim();
+    const repetir = document.getElementById('confirmar_password').value.trim();
+
+    if (nueva !== repetir) {
+      alert('Las contraseñas no coinciden.');
+      limpiarCamposContrasena();
+      return;
+    }
+
+    if (!contrasenaSegura(nueva)) {
+      alert('La contraseña no cumple con los requisitos de seguridad.');
+      return;
+    }
+
+    const response = await fetch('/cambiar-contrasena', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: nueva })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      alert('Contraseña actualizada correctamente');
+      cambiarModal.style.display = 'none';
+      limpiarCamposContrasena();
+    } else {
+      alert('Error: ' + result.message);
+      limpiarCamposContrasena();
+    }
+  });
+</script>
+
+<!-- Script para manejar el Chatbot -->
+<script>
+  const chatButton = document.getElementById('chatBotButton');
+  const chatModal = document.getElementById('chatModal');
+  const closeChat = document.getElementById('closeChat');
+  const chatContent = document.getElementById('chatContent');
+
+  chatButton.addEventListener('click', function () {
+    chatModal.style.display = 'block';
+    chatContent.innerHTML = `
+      <iframe src="/chatbot"
+              style="width:100%; height:520px; border:none; border-radius:10px; font-family: 'Century Gothic', Arial, sans-serif;"
+              title="Chatbot IA CEXP"></iframe>`;
+  });
+
+  closeChat.addEventListener('click', function () {
+    chatModal.style.display = 'none';
+  });
+
+  window.addEventListener('click', function (event) {
+    if (event.target === chatModal) {
+      chatModal.style.display = 'none';
+    }
+  });
+</script>
+
+{% endblock %}

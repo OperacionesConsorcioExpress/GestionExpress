@@ -1,0 +1,883 @@
+{% extends "components/layout.html" %}
+{% block title %}Configuración COP · Consorcio Express{% endblock %}
+
+{% block head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+    .contenedor-ancho{ width:min(96vw,1920px); margin:0 auto; padding:0 16px; }
+</style>
+
+{% endblock %}
+
+{% block content %}
+<div
+    style="
+        font-size: 12px; font-family: 'Century Gothic', sans-serif;
+        color:#111827; background:#ffffff; padding:16px 0;
+    "
+>
+<div class="container-fluid contenedor-ancho" style="position:relative; border:1px solid #e5e7eb; background:#fff; border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+
+    <!-- HERO -->
+    <div
+        style="
+        position:relative; border:1px solid #e5e7eb; background:#ffffff;
+        border-radius:14px; padding:16px; margin-bottom:14px;
+        box-shadow: 0 6px 16px rgba(17,24,39,.06);
+        "
+    >
+    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+    <h1 style="margin:0; font-size: 18px; font-weight:700; letter-spacing:.2px;">Configuración · Centros de Operación</h1>
+    </div>
+    </div>
+
+    <!-- PESTAÑAS -->
+    <div
+        style="
+            border:1px solid #e5e7eb; background:rgb(202, 203, 218); border-radius:12px; padding:6px 10px; margin-bottom:12px;
+            box-shadow: 0 4px 12px rgba(17,24,39,.04);
+        "
+    >
+        <ul class="nav" id="configTabs" role="tablist" style="gap:8px; position:relative;">
+            <!-- Tab COP -->
+            <li class="nav-item" role="presentation">
+            <button
+                class="nav-link active"
+                id="tab-cop"
+                data-bs-toggle="pill"
+                data-bs-target="#pane-cop"
+                type="button" role="tab" aria-controls="pane-cop" aria-selected="true"
+                style="
+                border:0; background:transparent; border-radius:10px; padding:.45rem .8rem;
+                font-weight:700; font-size:12px; color:#000000; position:relative;
+                "
+            >
+                <i class="fa-solid fa-building me-1"></i> COP
+                <span
+                style="
+                    content:''; position:absolute; left:10px; right:10px; bottom:-6px; height:2px; background:#0d6efd; border-radius:2px; display:block;
+                "
+                ></span>
+            </button>
+            </li>
+            <!-- Tab Componentes -->
+            <li class="nav-item" role="presentation">
+            <button
+                class="nav-link"
+                id="tab-componentes"
+                data-bs-toggle="pill"
+                data-bs-target="#pane-componentes"
+                type="button" role="tab" aria-controls="pane-componentes" aria-selected="false"
+                style="
+                border:0; background:transparent; border-radius:10px; padding:.45rem .8rem;
+                font-weight:600; font-size:12px; color:#6b7280; position:relative;
+                "
+                onmouseover="this.style.background='#f3f4f6'"
+                onmouseout="this.classList.contains('active')?this.style.background='#eef2ff':this.style.background='transparent'"
+            >
+                <i class="fa-solid fa-diagram-project me-1"></i> Componentes
+            </button>
+            </li>
+            <!-- Tab Zonas -->
+            <li class="nav-item" role="presentation">
+            <button
+                class="nav-link"
+                id="tab-zonas"
+                data-bs-toggle="pill"
+                data-bs-target="#pane-zonas"
+                type="button" role="tab" aria-controls="pane-zonas" aria-selected="false"
+                style="
+                border:0; background:transparent; border-radius:10px; padding:.45rem .8rem;
+                font-weight:600; font-size:12px; color:#6b7280; position:relative;
+                "
+                onmouseover="this.style.background='#f3f4f6'"
+                onmouseout="this.classList.contains('active')?this.style.background='#eef2ff':this.style.background='transparent'"
+            >
+                <i class="fa-solid fa-map-location-dot me-1"></i> Zonas
+            </button>
+            </li>
+        </ul>
+    </div>
+
+    <div class="tab-content" id="configTabsContent">
+
+    <!-- ===================== PESTAÑA COP ===================== -->
+    <div class="tab-pane fade show active" id="pane-cop" role="tabpanel" aria-labelledby="tab-cop">
+        <!-- Filtros -->
+        <div
+            style="
+                border:1px solid #e5e7eb; background:rgb(220, 222, 236); border-radius:12px; padding:12px; margin-bottom:10px;
+                box-shadow: 0 6px 16px rgba(17,24,39,.06);
+            "
+            >
+            <div
+                style="background:rgb(255, 255, 255); border:1px dashed #e5e7eb; border-radius:10px; padding:10px;"
+            >
+                <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label style="display:block; margin:0 0 4px; color:#374151;">Buscar</label>
+                    <input id="cop-search" type="text" class="form-control"
+                    placeholder="Nombre del COP…"
+                    style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; box-shadow:none;">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label style="display:block; margin:0 0 4px; color:#374151;">Estado</label>
+                    <select id="cop-estado" class="form-select"
+                    style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; padding-top:2px;">
+                    <option value="">Todos</option>
+                    <option value="1">Activos</option>
+                    <option value="0">Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label style="display:block; margin:0 0 4px; color:#374151;">Componente</label>
+                    <select id="cop-id-componente" class="form-select"
+                    style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; padding-top:2px;">
+                    <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label style="display:block; margin:0 0 4px; color:#374151;">Zona</label>
+                    <select id="cop-id-zona" class="form-select"
+                    style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; padding-top:2px;">
+                    <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-auto ms-auto text-end">
+                    <button id="btn-new-cop" class="btn btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#modalCop"
+                    style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .7rem;">
+                    <i class="fa-solid fa-plus me-1"></i> Nuevo COP
+                    </button>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div
+            style="border:1px solid #e5e7eb; background:#ffffff; border-radius:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);"
+            >
+            <div class="table-responsive" style="max-height:55vh; overflow:auto;">
+                <table class="table table-hover align-middle mb-0" style="--bs-table-bg:#fff; color:#111827;">
+                <thead>
+                    <tr>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">ID</th>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">Centro de Operación</th>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">Componente</th>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">Zona</th>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; text-align:center;">Estado</th>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; white-space:nowrap;">Creado</th>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; white-space:nowrap;">Actualizado</th>
+                    <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; text-align:right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="cop-tbody"><!-- JS render --></tbody>
+                </table>
+            </div>
+
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-top:1px solid #e5e7eb; background:rgb(203, 207, 231); border-radius:0 0 12px 12px;"
+            >
+                <div id="cop-total" style="color:#6b7280;">0 de 0 registros</div>
+                <nav>
+                <ul class="pagination pagination-sm m-0" id="cop-pagination">
+                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                </ul>
+                </nav>
+            </div>
+            </div>
+        </div>
+
+    <!-- ===================== TAB COMPONENTES ===================== -->
+    <div class="tab-pane fade" id="pane-componentes" role="tabpanel" aria-labelledby="tab-componentes">
+    <div
+        style="border:1px solid #e5e7eb; background:rgb(220, 222, 236); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow: 0 6px 16px rgba(17,24,39,.06);"
+    >
+        <div style="background:#fafafa; border:1px dashed #e5e7eb; border-radius:10px; padding:10px;">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Buscar</label>
+            <input id="cmp-search" type="text" class="form-control" placeholder="Nombre del componente…"
+                style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px;">
+            </div>
+            <div class="col-6 col-md-2">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Estado</label>
+            <select id="cmp-estado" class="form-select"
+                style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; padding-top:2px;">
+                <option value="">Todos</option>
+                <option value="1">Activos</option>
+                <option value="0">Inactivos</option>
+            </select>
+            </div>
+            <div class="col-12 col-md-auto ms-auto text-end">
+            <button id="btn-new-cmp" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#modalCmp"
+                style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .7rem;">
+                <i class="fa-solid fa-plus me-1"></i> Nuevo Componente
+            </button>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div style="border:1px solid #e5e7eb; background:#ffffff; border-radius:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+        <div class="table-responsive" style="max-height:55vh; overflow:auto;">
+        <table class="table table-hover align-middle mb-0" style="--bs-table-bg:#fff; color:#111827;">
+            <thead>
+            <tr>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">ID</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">Componente</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; text-align:center;">Estado</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; white-space:nowrap;">Creado</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; white-space:nowrap;">Actualizado</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; text-align:right;">Acciones</th>
+            </tr>
+            </thead>
+            <tbody id="cmp-tbody"><!-- JS render --></tbody>
+        </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-top:1px solid #e5e7eb; background:rgb(203, 207, 231); border-radius:0 0 12px 12px;">
+        <div id="cmp-total" style="color:#6b7280;">0 de 0 registros</div>
+        <nav>
+            <ul class="pagination pagination-sm m-0" id="cmp-pagination">
+            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+            </ul>
+        </nav>
+        </div>
+    </div>
+    </div>
+
+    <!-- ===================== TAB ZONAS ===================== -->
+    <div class="tab-pane fade" id="pane-zonas" role="tabpanel" aria-labelledby="tab-zonas">
+    <div
+        style="border:1px solid #e5e7eb; background:rgb(220, 222, 236); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow: 0 6px 16px rgba(17,24,39,.06);"
+    >
+        <div style="background:#fafafa; border:1px dashed #e5e7eb; border-radius:10px; padding:10px;">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Buscar</label>
+            <input id="zona-search" type="text" class="form-control" placeholder="Nombre de la zona…"
+                style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px;">
+            </div>
+            <div class="col-6 col-md-2">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Estado</label>
+            <select id="zona-estado" class="form-select"
+                style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; padding-top:2px;">
+                <option value="">Todos</option>
+                <option value="1">Activos</option>
+                <option value="0">Inactivos</option>
+            </select>
+            </div>
+            <div class="col-12 col-md-auto ms-auto text-end">
+            <button id="btn-new-zona" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#modalZona"
+                style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .7rem;">
+                <i class="fa-solid fa-plus me-1"></i> Nueva Zona
+            </button>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div style="border:1px solid #e5e7eb; background:#ffffff; border-radius:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+        <div class="table-responsive" style="max-height:55vh; overflow:auto;">
+        <table class="table table-hover align-middle mb-0" style="--bs-table-bg:#fff; color:#111827;">
+            <thead>
+            <tr>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">ID</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700;">Zona</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; text-align:center;">Estado</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; white-space:nowrap;">Creado</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; white-space:nowrap;">Actualizado</th>
+                <th style="position:sticky; top:0; background:#ffffff; z-index:2; border-bottom:1px solid #e5e7eb; color:#111827; font-weight:700; text-align:right;">Acciones</th>
+            </tr>
+            </thead>
+            <tbody id="zona-tbody"><!-- JS render --></tbody>
+        </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-top:1px solid #e5e7eb; background:rgb(203, 207, 231); border-radius:0 0 12px 12px;">
+        <div id="zona-total" style="color:#6b7280;">0 de 0 registros</div>
+        <nav>
+            <ul class="pagination pagination-sm m-0" id="zona-pagination">
+            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+            </ul>
+        </nav>
+        </div>
+    </div>
+    </div>
+
+</div>
+</div>
+
+<!-- ========== MODALES ========== -->
+
+<!-- Modal COP -->
+<div class="modal fade" id="modalCop" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16);">
+    <div class="modal-header" style="border-bottom:1px solid #e5e7eb;">
+        <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+        <i class="fa-solid fa-building me-2"></i> Centro de Operación
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body" style="padding:12px;">
+        <div class="row g-2">
+        <div class="col-12">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Nombre del COP</label>
+            <input id="cop-nombre" type="text" class="form-control" placeholder="Ej: Patio 191"
+            style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px;">
+        </div>
+        <div class="col-12 col-md-6">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Componente</label>
+            <select id="cop-componente" class="form-select"
+            style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; padding-top:2px;">
+            <option value="">-- Selecciona --</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-6">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Zona</label>
+            <select id="cop-zona" class="form-select"
+            style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px; padding-top:2px;">
+            <option value="">-- Selecciona --</option>
+            </select>
+        </div>
+        <div class="col-12">
+            <div class="form-check form-switch" style="padding-left:2.2rem;">
+            <input class="form-check-input" type="checkbox" id="cop-estado-sw" checked>
+            <label class="form-check-label" for="cop-estado-sw" style="color:#111827;">Activo</label>
+            </div>
+        </div>
+        <input type="hidden" id="cop-id">
+        </div>
+    </div>
+    <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:10px 12px;">
+        <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
+        style="border:1px solid #e5e7eb; color:#111827; background:#ffffff; border-radius:8px; padding:.35rem .7rem;">
+        Cancelar
+        </button>
+        <button id="btn-save-cop" type="button" class="btn btn-sm"
+        style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .7rem;">
+        Guardar
+        </button>
+    </div>
+    </div>
+</div>
+</div>
+
+<!-- Modal Componente -->
+<div class="modal fade" id="modalCmp" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16);">
+    <div class="modal-header" style="border-bottom:1px solid #e5e7eb;">
+        <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+        <i class="fa-solid fa-diagram-project me-2"></i> Componente
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body" style="padding:12px;">
+        <div class="row g-2">
+        <div class="col-12">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Nombre del componente</label>
+            <input id="cmp-nombre" type="text" class="form-control" placeholder="Ej: Operación"
+            style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px;">
+        </div>
+        <div class="col-12">
+            <div class="form-check form-switch" style="padding-left:2.2rem;">
+            <input class="form-check-input" type="checkbox" id="cmp-estado-sw" checked>
+            <label class="form-check-label" for="cmp-estado-sw" style="color:#111827;">Activo</label>
+            </div>
+        </div>
+        <input type="hidden" id="cmp-id">
+        </div>
+    </div>
+    <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:10px 12px;">
+        <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
+        style="border:1px solid #e5e7eb; color:#111827; background:#ffffff; border-radius:8px; padding:.35rem .7rem;">
+        Cancelar
+        </button>
+        <button id="btn-save-cmp" type="button" class="btn btn-sm"
+        style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .7rem;">
+        Guardar
+        </button>
+    </div>
+    </div>
+</div>
+</div>
+
+<!-- Modal Zona -->
+<div class="modal fade" id="modalZona" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16);">
+    <div class="modal-header" style="border-bottom:1px solid #e5e7eb;">
+        <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+        <i class="fa-solid fa-map-location-dot me-2"></i> Zona
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body" style="padding:12px;">
+        <div class="row g-2">
+        <div class="col-12">
+            <label style="display:block; margin:0 0 4px; color:#374151;">Nombre de la zona</label>
+            <input id="zona-nombre" type="text" class="form-control" placeholder="Ej: Zona Norte"
+            style="font-size:12px; color:#111827; background:#ffffff; border:1px solid #e5e7eb; height:34px;">
+        </div>
+        <div class="col-12">
+            <div class="form-check form-switch" style="padding-left:2.2rem;">
+            <input class="form-check-input" type="checkbox" id="zona-estado-sw" checked>
+            <label class="form-check-label" for="zona-estado-sw" style="color:#111827;">Activa</label>
+            </div>
+        </div>
+        <input type="hidden" id="zona-id">
+        </div>
+    </div>
+    <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:10px 12px;">
+        <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
+        style="border:1px solid #e5e7eb; color:#111827; background:#ffffff; border-radius:8px; padding:.35rem .7rem;">
+        Cancelar
+        </button>
+        <button id="btn-save-zona" type="button" class="btn btn-sm"
+        style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .7rem;">
+        Guardar
+        </button>
+    </div>
+    </div>
+</div>
+</div>
+
+<!-- contenedor de Avisos -->
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+<div id="toast-stack"></div>
+</div>
+</div>
+
+<style>
+    /* Botones de la columna Acciones (un poco más grandes y cómodos) */
+    .btn-action {
+        padding: .50rem .8rem;    /* más alto que .btn-sm */
+        font-size: 24px;          /* iconos y texto más visibles */
+        line-height: 1.1;
+    }
+    .btn-action i {             /* agranda los íconos */
+        font-size: 1.2rem;          /* puedes subir a 1.1rem si quieres más grande */
+    }
+</style>
+
+
+<!---------------------CODIGO JAVA SCRIPT--------------------->
+<!-- Bootstrap JS (para modales y toasts) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    /* ============ Fix: cierre seguro de modales (evita backdrop pegado) ============ */
+    function cleanupBackdrops(){
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+    function closeModal(modalId){
+        const el = document.getElementById(modalId);
+        if(!el) return;
+        const inst = bootstrap.Modal.getOrCreateInstance(el);
+        const onHidden = () => {
+        el.removeEventListener('hidden.bs.modal', onHidden);
+        setTimeout(cleanupBackdrops, 0);
+        };
+        el.addEventListener('hidden.bs.modal', onHidden, { once: true });
+        inst.hide();
+        // Fallback por si no se dispara el evento (caso extremo)
+        setTimeout(() => {
+        if (!document.querySelector('.modal.show')) cleanupBackdrops();
+        }, 300);
+    }
+    // Extra: si cualquier modal se cierra por X razón, limpiamos si no hay más show
+    document.addEventListener('hidden.bs.modal', () => {
+        if (!document.querySelector('.modal.show')) cleanupBackdrops();
+    });
+
+    /* ============ Avisos ============ */
+    function showToast({title="Aviso", body="", type="success"}){
+        const id = `t_${Date.now()}`;
+        const color = type==="success" ? "#198754" : type==="warning" ? "#ffc107" : "#dc3545";
+        const html = `
+        <div id="${id}" class="toast align-items-center border-0 show" role="alert" aria-live="assertive" aria-atomic="true"
+            style="min-width:260px; background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.1); border-left:4px solid ${color}">
+            <div class="d-flex">
+                <div class="toast-body">
+                <div class="fw-bold" style="color:${color}">${title}</div>
+                <div style="color:#111827">${body}</div>
+                </div>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>`;
+        const stack = document.getElementById('toast-stack');
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const el = wrapper.firstElementChild;
+        stack.appendChild(el);
+        setTimeout(()=>{ try { bootstrap.Toast.getOrCreateInstance(el).hide(); } catch{} }, 3200);
+        el.addEventListener('hidden.bs.toast', ()=> el.remove());
+    }
+
+    /* ============ Helpers HTTP ============ */
+    function normalizeError(status, payload){
+        if(payload && Array.isArray(payload.detail)){
+        const msgs = payload.detail.map(d => d.msg || JSON.stringify(d)).join(' | ');
+        return {status, detail: msgs};
+        }
+        const det = payload?.detail || payload?.message || JSON.stringify(payload) || `HTTP ${status}`;
+        return {status, detail: det};
+    }
+
+    async function getJSON(url, params = {}) {
+        const cleanParams = {};
+        for (const k in params) {
+        const v = params[k];
+        if (v === '' || v === null || v === undefined) continue;
+        cleanParams[k] = v;
+        }
+        const q = new URLSearchParams(cleanParams);
+        const full = q.toString() ? `${url}?${q.toString()}` : url;
+        const res = await fetch(full, { credentials: 'same-origin' });
+        let data = null;
+        try { data = await res.json(); } catch { data = null; }
+        if (!res.ok) throw normalizeError(res.status, data);
+        return data;
+    }
+
+    async function sendJSON(url, method, body) {
+        const res = await fetch(url, {
+        method,
+        headers:{'Content-Type':'application/json'},
+        credentials:'same-origin',
+        body: JSON.stringify(body)
+        });
+        let data = null;
+        try { data = await res.json(); } catch { data = null; }
+        if (!res.ok) throw normalizeError(res.status, data);
+        return data;
+    }
+
+    function fmtBadge(estado) {
+        return `<span class="badge ${estado==1?'bg-success-subtle text-success border border-success-subtle'
+                                            :'bg-danger-subtle text-danger border border-danger-subtle'}" style="font-size:11px;">${estado==1?'ACTIVO':'INACTIVO'}</span>`;
+    }
+    function esc(s){
+        return (s??'').toString().replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    /* ============ API ============ */
+    const API = {
+        cop: {
+        list:   (p={})       => getJSON(`/api/config/cop`, p),
+        create: (body)       => sendJSON(`/api/config/cop`, 'POST', body),
+        update: (id, body)   => sendJSON(`/api/config/cop/${id}`, 'PUT', body),
+        toggle: (id, estado) => sendJSON(`/api/config/cop/${id}/estado`, 'PATCH', {estado})
+        },
+        componente: {
+        list:   (p={})       => getJSON(`/api/config/componentes`, p),
+        create: (body)       => sendJSON(`/api/config/componentes`, 'POST', body),
+        update: (id, body)   => sendJSON(`/api/config/componentes/${id}`, 'PUT', body),
+        toggle: (id, estado) => sendJSON(`/api/config/componentes/${id}/estado`, 'PATCH', {estado})
+        },
+        zona: {
+        list:   (p={})       => getJSON(`/api/config/zonas`, p),
+        create: (body)       => sendJSON(`/api/config/zonas`, 'POST', body),
+        update: (id, body)   => sendJSON(`/api/config/zonas/${id}`, 'PUT', body),
+        toggle: (id, estado) => sendJSON(`/api/config/zonas/${id}/estado`, 'PATCH', {estado})
+        }
+    };
+
+    /* ============ Estado/Caché ============ */
+    const state = {
+        cop:  { page:1, size:10, search:'', estado:'', id_componente:'', id_zona:'' },
+        cmp:  { page:1, size:10, search:'', estado:'' },
+        zona: { page:1, size:10, search:'', estado:'' }
+    };
+    const cache = { cop:[], cmp:[], zona:[] };
+
+    /* ============ Paginación ============ */
+    function renderPagination(containerId, current, total, onChange){
+        const ul = document.getElementById(containerId);
+        if(!ul) return;
+        let html = '';
+        const prevDis = current<=1 ? 'disabled' : '';
+        const nextDis = current>=total ? 'disabled' : '';
+        html += `<li class="page-item ${prevDis}"><a class="page-link" href="#" data-page="${current-1}">«</a></li>`;
+        for(let p=1;p<=total;p++){
+        html += `<li class="page-item ${p===current?'active':''}"><a class="page-link" href="#" data-page="${p}">${p}</a></li>`;
+        }
+        html += `<li class="page-item ${nextDis}"><a class="page-link" href="#" data-page="${current+1}">»</a></li>`;
+        ul.innerHTML = html;
+        ul.querySelectorAll('a[data-page]').forEach(a=>{
+        a.onclick = (e)=>{ e.preventDefault(); const np = parseInt(a.dataset.page); if(np>=1 && np<=total) onChange(np); };
+        });
+    }
+
+    /* ============ COP ============ */
+    async function loadCOP(){
+        const p = state.cop;
+        const params = {
+        page: p.page, size: p.size, q: p.search,
+        ...(p.estado !== '' ? { estado: p.estado } : {}),
+        ...(p.id_componente !== '' ? { id_componente: p.id_componente } : {}),
+        ...(p.id_zona !== '' ? { id_zona: p.id_zona } : {})
+        };
+        const resp = await API.cop.list(params);
+        cache.cop = resp.data || [];
+        const tbody = document.getElementById('cop-tbody');
+        tbody.innerHTML = cache.cop.map(r=>`
+        <tr>
+            <td>${r.id}</td>
+            <td>${esc(r.cop)}</td>
+            <td>${esc(r.componente)}</td>
+            <td>${esc(r.zona)}</td>
+            <td style="text-align:center;">${fmtBadge(r.estado)}</td>
+            <td>${esc(r.created_at)}</td>
+            <td>${esc(r.updated_at)}</td>
+            <td style="text-align:right;">
+            <!-- botones de acciones más grandes -->
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-action" title="Editar" onclick="openEditCOP(${Number(r.id)})">
+                <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline-${r.estado==1?'warning':'success'} btn-action" title="${r.estado==1?'Inactivar':'Activar'}" onclick="toggleCOP(${Number(r.id)}, ${r.estado==1?0:1})">
+                <i class="fa-solid ${r.estado==1?'fa-power-off':'fa-check'}"></i>
+                </button>
+            </div>
+            </td>
+        </tr>`).join('');
+        document.getElementById('cop-total').textContent = `${cache.cop.length} de ${resp.total} registros`;
+        renderPagination('cop-pagination', p.page, Math.max(1, Math.ceil(resp.total / p.size)), (np)=>{ state.cop.page=np; loadCOP(); });
+    }
+    function openEditCOP(id){
+        const r = cache.cop.find(x=> Number(x.id) === Number(id));
+        if(!r){ showToast({title:'COP', body:'Registro no encontrado en la vista', type:'danger'}); return; }
+        document.getElementById('cop-id').value = r.id;
+        document.getElementById('cop-nombre').value = r.cop ?? '';
+        document.getElementById('cop-componente').value = r.id_componente ?? '';
+        document.getElementById('cop-zona').value = r.id_zona ?? '';
+        document.getElementById('cop-estado-sw').checked = Number(r.estado) === 1;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCop')).show();
+    }
+    async function toggleCOP(id, estado){
+        try{
+        await API.cop.toggle(id, estado);
+        await loadCOP();
+        showToast({title:'COP', body:'Estado actualizado', type:'success'});
+        }catch(err){
+        showToast({title:'Error', body:esc(err.detail), type:'danger'});
+        }
+    }
+
+    /* ============ Componentes ============ */
+    async function loadComponentes(){
+        const p = state.cmp;
+        const params = { page:p.page, size:p.size, q:p.search, ...(p.estado!==''?{estado:p.estado}:{}) };
+        const resp = await API.componente.list(params);
+        cache.cmp = resp.data || [];
+        document.getElementById('cmp-tbody').innerHTML = cache.cmp.map(r=>`
+        <tr>
+            <td>${r.id}</td>
+            <td>${esc(r.componente)}</td>
+            <td style="text-align:center;">${fmtBadge(r.estado)}</td>
+            <td>${esc(r.created_at)}</td>
+            <td>${esc(r.updated_at)}</td>
+            <td style="text-align:right;">
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-action" onclick="openEditCmp(${Number(r.id)})">
+                <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline-${r.estado==1?'warning':'success'} btn-action" onclick="toggleCmp(${Number(r.id)}, ${r.estado==1?0:1})">
+                <i class="fa-solid ${r.estado==1?'fa-power-off':'fa-check'}"></i>
+                </button>
+            </div>
+            </td>
+        </tr>`).join('');
+        document.getElementById('cmp-total').textContent = `${cache.cmp.length} de ${resp.total} registros`;
+        renderPagination('cmp-pagination', p.page, Math.max(1, Math.ceil(resp.total / p.size)), (np)=>{ state.cmp.page=np; loadComponentes(); fillSelects(); });
+    }
+    function openEditCmp(id){
+        const r = cache.cmp.find(x=> Number(x.id) === Number(id));
+        if(!r){ showToast({title:'Componente', body:'Registro no encontrado en la vista', type:'danger'}); return; }
+        document.getElementById('cmp-id').value = r.id;
+        document.getElementById('cmp-nombre').value = r.componente ?? '';
+        document.getElementById('cmp-estado-sw').checked = Number(r.estado) === 1;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCmp')).show();
+    }
+    async function toggleCmp(id, estado){
+        try{
+        await API.componente.toggle(id, estado);
+        await loadComponentes(); await fillSelects();
+        showToast({title:'Componente', body:'Estado actualizado', type:'success'});
+        }catch(err){
+        showToast({title:'Error', body:esc(err.detail), type:'danger'});
+        }
+    }
+
+    /* ============ Zonas ============ */
+    async function loadZonas(){
+        const p = state.zona;
+        const params = { page:p.page, size:p.size, q:p.search, ...(p.estado!==''?{estado:p.estado}:{}) };
+        const resp = await API.zona.list(params);
+        cache.zona = resp.data || [];
+        document.getElementById('zona-tbody').innerHTML = cache.zona.map(r=>`
+        <tr>
+            <td>${r.id}</td>
+            <td>${esc(r.zona)}</td>
+            <td style="text-align:center;">${fmtBadge(r.estado)}</td>
+            <td>${esc(r.created_at)}</td>
+            <td>${esc(r.updated_at)}</td>
+            <td style="text-align:right;">
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-action" onclick="openEditZona(${Number(r.id)})">
+                <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline-${r.estado==1?'warning':'success'} btn-action" onclick="toggleZona(${Number(r.id)}, ${r.estado==1?0:1})">
+                <i class="fa-solid ${r.estado==1?'fa-power-off':'fa-check'}"></i>
+                </button>
+            </div>
+            </td>
+        </tr>`).join('');
+        document.getElementById('zona-total').textContent = `${cache.zona.length} de ${resp.total} registros`;
+        renderPagination('zona-pagination', p.page, Math.max(1, Math.ceil(resp.total / p.size)), (np)=>{ state.zona.page=np; loadZonas(); fillSelects(); });
+    }
+    function openEditZona(id){
+        const r = cache.zona.find(x=> Number(x.id) === Number(id));
+        if(!r){ showToast({title:'Zona', body:'Registro no encontrado en la vista', type:'danger'}); return; }
+        document.getElementById('zona-id').value = r.id;
+        document.getElementById('zona-nombre').value = r.zona ?? '';
+        document.getElementById('zona-estado-sw').checked = Number(r.estado) === 1;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalZona')).show();
+    }
+    async function toggleZona(id, estado){
+        try{
+        await API.zona.toggle(id, estado);
+        await loadZonas(); await fillSelects();
+        showToast({title:'Zona', body:'Estado actualizado', type:'success'});
+        }catch(err){
+        showToast({title:'Error', body:esc(err.detail), type:'danger'});
+        }
+    }
+
+    /* ============ Guardar (CREATE/UPDATE) + closeModal() ============ */
+    document.getElementById('btn-save-cop')?.addEventListener('click', async ()=>{
+        const id = document.getElementById('cop-id').value || null;
+        const body = {
+        cop: (document.getElementById('cop-nombre').value||'').toUpperCase().trim(),
+        id_componente: parseInt(document.getElementById('cop-componente').value||0) || null,
+        id_zona: parseInt(document.getElementById('cop-zona').value||0) || null,
+        estado: document.getElementById('cop-estado-sw').checked ? 1 : 0
+        };
+        if(!body.cop || !body.id_componente || !body.id_zona)
+        return showToast({title:'Validación', body:'COP, Componente y Zona son obligatorios', type:'danger'});
+        try{
+        if(id) { await API.cop.update(id, body); showToast({title:'COP', body:'Actualizado correctamente', type:'success'}); }
+        else   { await API.cop.create(body);     showToast({title:'COP', body:'Creado correctamente',    type:'success'}); }
+        closeModal('modalCop');              // <--- cierre seguro
+        document.getElementById('cop-id').value='';
+        await loadCOP();
+        }catch(err){ showToast({title:'Error', body:esc(err.detail), type:'danger'}); }
+    });
+
+    document.getElementById('btn-save-cmp')?.addEventListener('click', async ()=>{
+        const id = document.getElementById('cmp-id').value || null;
+        const body = {
+        componente: (document.getElementById('cmp-nombre').value||'').toUpperCase().trim(),
+        estado: document.getElementById('cmp-estado-sw').checked ? 1 : 0
+        };
+        if(!body.componente) return showToast({title:'Validación', body:'El componente es obligatorio', type:'danger'});
+        try{
+        if(id) { await API.componente.update(id, body); showToast({title:'Componente', body:'Actualizado correctamente', type:'success'}); }
+        else   { await API.componente.create(body);     showToast({title:'Componente', body:'Creado correctamente',    type:'success'}); }
+        closeModal('modalCmp');              // <--- cierre seguro
+        document.getElementById('cmp-id').value='';
+        await loadComponentes(); await fillSelects();
+        }catch(err){ showToast({title:'Error', body:esc(err.detail), type:'danger'}); }
+    });
+
+    document.getElementById('btn-save-zona')?.addEventListener('click', async ()=>{
+        const id = document.getElementById('zona-id').value || null;
+        const body = {
+        zona: (document.getElementById('zona-nombre').value||'').toUpperCase().trim(),
+        estado: document.getElementById('zona-estado-sw').checked ? 1 : 0
+        };
+        if(!body.zona) return showToast({title:'Validación', body:'La zona es obligatoria', type:'danger'});
+        try{
+        if(id) { await API.zona.update(id, body); showToast({title:'Zona', body:'Actualizada correctamente', type:'success'}); }
+        else   { await API.zona.create(body);     showToast({title:'Zona', body:'Creada correctamente',    type:'success'}); }
+        closeModal('modalZona');             // <--- cierre seguro
+        document.getElementById('zona-id').value='';
+        await loadZonas(); await fillSelects();
+        }catch(err){ showToast({title:'Error', body:esc(err.detail), type:'danger'}); }
+    });
+
+    /* ============ Filtros ============ */
+    document.getElementById('cop-search')?.addEventListener('input', e=>{ state.cop.search = e.target.value; state.cop.page=1; loadCOP(); });
+    document.getElementById('cop-estado')?.addEventListener('change', e=>{ state.cop.estado = e.target.value; state.cop.page=1; loadCOP(); });
+    document.getElementById('cop-id-componente')?.addEventListener('change', e=>{ state.cop.id_componente = e.target.value; state.cop.page=1; loadCOP(); });
+    document.getElementById('cop-id-zona')?.addEventListener('change', e=>{ state.cop.id_zona = e.target.value; state.cop.page=1; loadCOP(); });
+
+    document.getElementById('cmp-search')?.addEventListener('input', e=>{ state.cmp.search = e.target.value; state.cmp.page=1; loadComponentes(); });
+    document.getElementById('cmp-estado')?.addEventListener('change', e=>{ state.cmp.estado = e.target.value; state.cmp.page=1; loadComponentes(); });
+
+    document.getElementById('zona-search')?.addEventListener('input', e=>{ state.zona.search = e.target.value; state.zona.page=1; loadZonas(); });
+    document.getElementById('zona-estado')?.addEventListener('change', e=>{ state.zona.estado = e.target.value; state.zona.page=1; loadZonas(); });
+
+    /* ============ Selects COP (activos) ============ */
+    async function fillSelects(){
+        const [cmps, zonas] = await Promise.all([
+        API.componente.list({ estado:1, page:1, size:500 }),
+        API.zona.list({ estado:1, page:1, size:500 })
+        ]);
+        const selCmp  = document.getElementById('cop-componente');
+        const selZona = document.getElementById('cop-zona');
+        const selFCmp = document.getElementById('cop-id-componente');
+        const selFZona= document.getElementById('cop-id-zona');
+
+        function fill(sel, items, label, includeTodos=false){
+        sel.innerHTML = includeTodos? `<option value="">Todos</option>` : `<option value="">-- Selecciona --</option>`;
+        (items.data||[]).forEach(it=>{
+            sel.insertAdjacentHTML('beforeend', `<option value="${it.id}">${esc(it[label])}</option>`);
+        });
+        }
+        fill(selCmp,  cmps,  'componente', false);
+        fill(selZona, zonas, 'zona',       false);
+        fill(selFCmp, cmps,  'componente', true);
+        fill(selFZona, zonas,'zona',       true);
+    }
+
+    /* ============ Inicialización ============ */
+    document.getElementById('btn-new-cop')?.addEventListener('click', ()=>{
+        document.getElementById('cop-id').value='';
+        document.getElementById('cop-nombre').value='';
+        document.getElementById('cop-componente').value='';
+        document.getElementById('cop-zona').value='';
+        document.getElementById('cop-estado-sw').checked = true;
+    });
+    document.getElementById('btn-new-cmp')?.addEventListener('click', ()=>{
+        document.getElementById('cmp-id').value='';
+        document.getElementById('cmp-nombre').value='';
+        document.getElementById('cmp-estado-sw').checked = true;
+    });
+    document.getElementById('btn-new-zona')?.addEventListener('click', ()=>{
+        document.getElementById('zona-id').value='';
+        document.getElementById('zona-nombre').value='';
+        document.getElementById('zona-estado-sw').checked = true;
+    });
+
+    (async function boot(){
+        try{
+        await fillSelects();
+        await Promise.all([loadComponentes(), loadZonas(), loadCOP()]);
+        }catch(err){
+        showToast({title:'Error inicial', body:esc(err.detail||err), type:'danger'});
+        }
+    })();
+</script>
+
+{% endblock %}
