@@ -1,4 +1,4 @@
-#'''
+'''
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -66,4 +66,4 @@ async def finalizar_chat(request: Request):
     return StreamingResponse(buffer, media_type="text/plain", headers={
         "Content-Disposition": f"attachment; filename=chat_bot_cexp_{nombre.replace(' ', '_').lower()}.txt"
     })
-#'''
+'''

@@ -1,4 +1,4 @@
-#'''
+'''
 from openai import OpenAI
 import google.generativeai as genai
 from langchain.prompts import PromptTemplate
@@ -286,4 +286,4 @@ class AgenteIA:
                 print(f"⚠️ Error al procesar {ruta_index}: {e}")
 
         return "\n\n".join(contexto_total[:top_k])
-#'''
+'''

@@ -1718,7 +1718,8 @@ async def get_NPL_chatbot(req: Request, user_session: dict = Depends(get_user_se
     return templates.TemplateResponse("NPL_chatbot.html", {"request": req, "user_session": user_session})
 '''
 ############################### MODULO DE CHATBOT ##################################
-app.include_router(chatbot_router) # Incluir las rutas factorizadas en `route_checklist.py`
+'''
+app.include_router(chatbot_router) # Incluir las rutas factorizadas en `route_chatbot.py`
 
 # Ruta para servir el chatbot.html
 @app.get("/chatbot", response_class=HTMLResponse, include_in_schema=False)
@@ -1726,7 +1727,7 @@ async def get_chatbot(req: Request, user_session: dict = Depends(get_user_sessio
     if not user_session:
         return RedirectResponse(url="/", status_code=302)    
     return templates.TemplateResponse("chatbot.html", {"request": req, "user_session": user_session})
-
+'''
 ############################### MODULO DE CHECKLIST #################################
 app.include_router(checklist_router) # Incluir las rutas factorizadas en `route_checklist.py`
 
