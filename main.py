@@ -32,7 +32,7 @@ from lib.asignar_controles import fecha_asignacion, puestos_SC, puestos_UQ, conc
 ################### Importar Controladores Endpoint ##########################
 from controller.user import User
 from controller.cargues import ProcesarCargueControles
-from controller.route_chatbot import chatbot_router # Comentar
+#from controller.route_chatbot import chatbot_router # Comentar
 #from controller.route_NPL_chatbot import npl_router # Comentar
 from controller.route_checklist import checklist_router
 from controller.cambiar_contrasena import cambiar_contrasena_post
