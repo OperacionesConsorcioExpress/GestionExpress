@@ -1,0 +1,45 @@
+name: Enviar Correos de Recordatorio
+
+on:
+  schedule:
+    - cron: '30 12 * * *' # 7:30 AM Bogotá (12:30 PM UTC)
+  workflow_dispatch: # Habilita la ejecución manual
+
+jobs:
+  enviar-correos-recordatorio:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python environment
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Verificar conexión a la base de datos
+      env:
+        DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+      run: |
+        python -c "
+        import psycopg2
+        try:
+            conn = psycopg2.connect('${{ secrets.DATABASE_PATH }}')
+            print('Conexión a la base de datos exitosa')
+            conn.close()
+        except Exception as e:
+            print(f'Error al conectar a la base de datos: {e}')
+            raise e
+        "
+    - name: Enviar correos de recordatorio
+      env:
+        DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+        USUARIO_CORREO_JURIDICO: ${{ secrets.USUARIO_CORREO_JURIDICO }}
+        CLAVE_CORREO_JURIDICO: ${{ secrets.CLAVE_CORREO_JURIDICO }}
+      run: |
+        python -c "from model.job import TareasProgramadasJuridico; TareasProgramadasJuridico().tarea_diaria_recordatorio()"
