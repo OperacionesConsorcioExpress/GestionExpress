@@ -2,6 +2,8 @@ import psycopg2
 import json
 import os
 import re
+import requests
+import msal
 import pandas as pd
 from io import BytesIO
 import calendar
@@ -894,6 +896,55 @@ class GestionClausulas:
             return "Desconocido"
 
 # REPORTES Y NOTIFICACIONES
+    # Obtener token de Microsoft Graph
+    def _get_graph_token(self) -> str:
+        """Obtiene token usando Client Credentials (Entra ID / App Registration)."""
+        tenant_id = os.getenv("TENANT_ID")
+        client_id = os.getenv("CLIENT_ID")
+        client_secret = os.getenv("CLIENT_SECRET")
+
+        if not tenant_id or not client_id or not client_secret:
+            raise RuntimeError("Faltan variables de entorno: TENANT_ID, CLIENT_ID, CLIENT_SECRET")
+
+        authority = f"https://login.microsoftonline.com/{tenant_id}"
+        app = msal.ConfidentialClientApplication(
+            client_id=client_id,
+            client_credential=client_secret,
+            authority=authority,
+        )
+
+        result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+        if "access_token" not in result:
+            raise RuntimeError(f"No se pudo obtener token Graph: {result}")
+
+        return result["access_token"]
+    # Enviar correo por Microsoft Graph
+    def _send_mail_graph(self, sender_upn: str, to_list: list[str], cc_list: list[str], subject: str, html_body: str) -> None:
+        """Envía correo por Microsoft Graph desde el buzón sender_upn."""
+        token = self._get_graph_token()
+
+        url = f"https://graph.microsoft.com/v1.0/users/{sender_upn}/sendMail"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "message": {
+                "subject": subject,
+                "body": {"contentType": "HTML", "content": html_body},
+                "toRecipients": [{"emailAddress": {"address": x}} for x in to_list],
+                "ccRecipients": [{"emailAddress": {"address": x}} for x in cc_list] if cc_list else [],
+            },
+            "saveToSentItems": "false",
+        }
+
+        resp = requests.post(url, headers=headers, data=json.dumps(payload))
+
+        # Graph devuelve 202 si lo aceptó.
+        if resp.status_code != 202:
+            raise RuntimeError(f"Graph sendMail falló. Status={resp.status_code} Body={resp.text[:2000]}")
+
 # Recordatorio de Notificaciones
     def validar_conexion(self):
         """
@@ -1106,57 +1157,45 @@ class GestionClausulas:
 
     def enviar_correos_recordatorio(self):
         """
-        Envía correos utilizando la información generada por la función `generar_datos_recordatorio`.
+        Envía correos utilizando la información generada por la función `generar_datos_recordatorio`,
+        pero usando Microsoft Graph (Entra ID).
         """
-        # Credenciales del correo remitente
-        remitente = os.getenv("USUARIO_CORREO_JURIDICO")
-        contrasena = os.getenv("CLAVE_CORREO_JURIDICO")
-
-        # Configuración del servidor SMTP
-        smtp_server = "smtp.office365.com"
-        smtp_port = 587
+        remitente = os.getenv("USUARIO_CORREO_JURIDICO")  # UPN del buzón que envía (Graph)
+        if not remitente:
+            raise RuntimeError("Falta la variable de entorno USUARIO_CORREO_JURIDICO")
 
         try:
-            # Obtener los datos de recordatorio del día
             datos_recordatorio = self.generar_datos_recordatorio()
 
             if not datos_recordatorio or all(d["ID"] is None for d in datos_recordatorio):
                 print("No hay recordatorios para enviar hoy.")
                 return
 
-            # Conectar al servidor SMTP
-            server = smtplib.SMTP(smtp_server, smtp_port)
-            server.starttls()  # Iniciar conexión segura
-            server.login(remitente, contrasena)
-
-            # Enviar correos
             for recordatorio in datos_recordatorio:
                 if recordatorio["ID"] is None:
-                    continue  # Saltar encabezados o filas vacías
-                
+                    continue
+
                 destinatario = recordatorio["Correo"]
                 cc_destinatarios = [cc for cc in recordatorio["CC_Correos"].split(", ") if cc] if recordatorio["CC_Correos"] else []
-                
+
                 # Formatear la fecha de entrega
                 try:
                     fecha_entrega = recordatorio["Fecha Entrega"]
 
                     if isinstance(fecha_entrega, str):
-                        # Verificar si la fecha viene en "DD/MM/YYYY" y convertirla a "YYYY-MM-DD"
                         if "/" in fecha_entrega:
                             fecha_entrega = datetime.strptime(fecha_entrega, "%d/%m/%Y")
                         else:
                             fecha_entrega = datetime.strptime(fecha_entrega, "%Y-%m-%d")
 
-                    fecha_entrega_formateada = fecha_entrega.strftime("%d/%m/%Y")  # Convertir a formato DD/MM/YYYY
+                    fecha_entrega_formateada = fecha_entrega.strftime("%d/%m/%Y")
 
                 except Exception as e:
                     print(f"⚠️ Error al formatear la fecha de entrega ({recordatorio['Fecha Entrega']}): {e}")
-                    fecha_entrega_formateada = recordatorio["Fecha Entrega"]  # Usar la fecha original si hay error
+                    fecha_entrega_formateada = recordatorio["Fecha Entrega"]
 
-                # Crear el asunto y cuerpo del correo
                 asunto = f"Recordatorio: {recordatorio['ID']} - {recordatorio['Clausula']} (Contrato: {recordatorio['Contrato Concesion']}) - Entrega Maxima {fecha_entrega_formateada}"
-                
+
                 cuerpo = (
                     f"<div style='background-color: #004080; color: white; padding: 10px; text-align: center; border-radius: 8px;'>"
                     f"<h2 style='margin: 0; font-size: 20px;'>Acreditación del cumplimiento de clausula {recordatorio['Clausula']} </h2>"
@@ -1174,7 +1213,7 @@ class GestionClausulas:
                     f"<p>Estado actual: <strong>{recordatorio['Estado']}</strong></p>"
                     f"<p style='margin-top: 20px;'>Por favor, recuerde actualizar el estado del cumplimiento con fecha, radicado y los soportes pertinentes a la plataforma de GestiónExpress.</p>"
                     f"<div style='text-align: center; margin-top: 20px;'>"
-                    f"<a href='https://gestionconsorcioexpress.onrender.com/' style='"
+                    f"<a href='https://gestionconsorcioexpress.azurewebsites.net/' style='"
                     f"display: inline-block; background-color: #004080; color: white; padding: 10px 20px; text-decoration: none; "
                     f"border-radius: 5px; font-size: 16px;'>Ir a GestiónExpress</a>"
                     f"</div>"
@@ -1186,21 +1225,17 @@ class GestionClausulas:
                     f"</div>"
                 )
 
-                # Crear el correo
-                mensaje = MIMEMultipart()
-                mensaje["From"] = remitente
-                mensaje["To"] = destinatario
-                if cc_destinatarios:
-                    mensaje["Cc"] = ", ".join(cc_destinatarios)  # Agregar correos en copia
-                mensaje["Subject"] = asunto
-                mensaje.attach(MIMEText(cuerpo, "html"))
+                # Envío por Graph
+                self._send_mail_graph(
+                    sender_upn=remitente,
+                    to_list=[destinatario],
+                    cc_list=cc_destinatarios,
+                    subject=asunto,
+                    html_body=cuerpo,
+                )
 
-                # Enviar el correo
-                server.sendmail(remitente, [destinatario] + cc_destinatarios, mensaje.as_string())
                 print(f"Correo enviado a: {destinatario}")
 
-            # Cerrar conexión con el servidor SMTP
-            server.quit()
         except Exception as e:
             print(f"Error al enviar correos: {e}")
             raise
@@ -1298,12 +1333,12 @@ class GestionClausulas:
 
     def enviar_correos_incumplimiento(self):
         """
-        Envía correos con las fechas de entrega incumplidas por responsable.
+        Envía correos con las fechas de entrega incumplidas por responsable,
+        usando Microsoft Graph (Entra ID) en lugar de SMTP.
         """
         remitente = os.getenv("USUARIO_CORREO_JURIDICO")
-        contrasena = os.getenv("CLAVE_CORREO_JURIDICO")
-        smtp_server = "smtp.office365.com"
-        smtp_port = 587
+        if not remitente:
+            raise RuntimeError("Falta la variable de entorno USUARIO_CORREO_JURIDICO")
 
         try:
             datos_incumplimiento = self.generar_datos_incumplimiento()
@@ -1312,23 +1347,14 @@ class GestionClausulas:
                 print("No hay fechas de incumplimiento para enviar.")
                 return
 
-            # Agrupar datos por responsable
+            # Agrupar por responsable
             responsables = {}
             for registro in datos_incumplimiento:
                 responsable = registro["Responsable Entrega"]
                 if responsable not in responsables:
-                    responsables[responsable] = {
-                        "Correo": registro["Correo"],
-                        "Clausulas": []
-                    }
+                    responsables[responsable] = {"Correo": registro["Correo"], "Clausulas": []}
                 responsables[responsable]["Clausulas"].append(registro)
 
-            # Conectar al servidor SMTP
-            server = smtplib.SMTP(smtp_server, smtp_port)
-            server.starttls()
-            server.login(remitente, contrasena)
-
-            # Enviar correos
             for responsable, datos in responsables.items():
                 destinatario = datos["Correo"]
                 cc_destinatarios = [cc for cc in datos["Clausulas"][0]["CC_Correos"].split(", ") if cc] if datos["Clausulas"][0]["CC_Correos"] else []
@@ -1369,12 +1395,11 @@ class GestionClausulas:
                     )
 
                 cuerpo += (
-                    f"</tbody>"
-                    f"</table>"
+                    f"</tbody></table>"
                     f"<p>Por favor, recuerde actualizar el estado del cumplimiento con fecha, radicado y los soportes pertinentes "
                     f"a la plataforma de GestiónExpress.</p>"
                     f"<div style='text-align: center; margin-top: 20px;'>"
-                    f"<a href='https://gestionconsorcioexpress.onrender.com/' style='"
+                    f"<a href='https://gestionconsorcioexpress.azurewebsites.net/' style='"
                     f"display: inline-block; background-color: #004080; color: white; padding: 10px 20px; text-decoration: none; "
                     f"border-radius: 5px; font-size: 16px;'>Ir a GestiónExpress</a>"
                     f"</div>"
@@ -1386,20 +1411,15 @@ class GestionClausulas:
                     f"</div>"
                 )
 
-                # Crear el correo
-                mensaje = MIMEMultipart()
-                mensaje["From"] = remitente
-                mensaje["To"] = destinatario
-                if cc_destinatarios:
-                    mensaje["Cc"] = ", ".join(cc_destinatarios)  # Agregar correos en copia
-                mensaje["Subject"] = "¡Importante! Reporte de Incumplimientos de Cláusulas Jurídicas"
-                mensaje.attach(MIMEText(cuerpo, "html"))
+                self._send_mail_graph(
+                    sender_upn=remitente,
+                    to_list=[destinatario],
+                    cc_list=cc_destinatarios,
+                    subject="¡Importante! Reporte de Incumplimientos de Cláusulas Jurídicas",
+                    html_body=cuerpo,
+                )
 
-                # Enviar el correo
-                server.sendmail(remitente, [destinatario] + cc_destinatarios, mensaje.as_string())
                 print(f"Correo enviado a: {destinatario}")
-
-            server.quit()
 
         except Exception as e:
             print(f"Error al enviar correos de incumplimiento: {e}")
@@ -1407,22 +1427,22 @@ class GestionClausulas:
 
     def enviar_correos_incumplimiento_direccion(self):
         """
-        Envía un correo consolidado a una dirección específica con los incumplimientos de todos los responsables.
+        Envía un correo consolidado a una dirección específica con los incumplimientos de todos los responsables,
+        usando Microsoft Graph (Entra ID) en lugar de SMTP.
         """
         remitente = os.getenv("USUARIO_CORREO_JURIDICO")
-        contrasena = os.getenv("CLAVE_CORREO_JURIDICO")
+        if not remitente:
+            raise RuntimeError("Falta la variable de entorno USUARIO_CORREO_JURIDICO")
+
         destinatario_fijo = [
             "patrick.barros@consorcioexpress.co",
-            "geraldine.perez@consorcioexpress.co"
-        ] 
-        
+            "natalia.morales@consorcioexpress.co"
+        ]
+
         cc_fijo = [
             "laura.bonilla@consorcioexpress.co",
             "sergio.hincapie@consorcioexpress.co"
-        ] 
-        
-        smtp_server = "smtp.office365.com"
-        smtp_port = 587
+        ]
 
         try:
             datos_incumplimiento = self.generar_datos_incumplimiento()
@@ -1431,22 +1451,14 @@ class GestionClausulas:
                 print("No hay fechas de incumplimiento para enviar.")
                 return
 
-            # Agrupar datos por responsable
+            # Agrupar por responsable
             responsables = {}
             for registro in datos_incumplimiento:
                 responsable = registro["Responsable Entrega"]
                 if responsable not in responsables:
-                    responsables[responsable] = {
-                        "Clausulas": []
-                    }
+                    responsables[responsable] = {"Clausulas": []}
                 responsables[responsable]["Clausulas"].append(registro)
 
-            # Conectar al servidor SMTP
-            server = smtplib.SMTP(smtp_server, smtp_port)
-            server.starttls()
-            server.login(remitente, contrasena)
-
-            # Construcción del cuerpo del correo
             cuerpo = (
                 f"<div style='background-color: #004080; color: white; padding: 10px; text-align: center; border-radius: 8px;'>"
                 f"<h2 style='margin: 0; font-size: 20px;'>Consolidado de Incumplimientos de Cláusulas Jurídicas</h2>"
@@ -1489,7 +1501,7 @@ class GestionClausulas:
                 f"<p>Por favor, recuerde actualizar el estado del cumplimiento con fecha, radicado y los soportes pertinentes "
                 f"a la plataforma de GestiónExpress.</p>"
                 f"<div style='text-align: center; margin-top: 20px;'>"
-                f"<a href='https://gestionconsorcioexpress.onrender.com/' style='"
+                f"<a href='https://gestionconsorcioexpress.azurewebsites.net/' style='"
                 f"display: inline-block; background-color: #004080; color: white; padding: 10px 20px; text-decoration: none; "
                 f"border-radius: 5px; font-size: 16px;'>Ir a GestiónExpress</a>"
                 f"</div>"
@@ -1501,21 +1513,15 @@ class GestionClausulas:
                 f"</div>"
             )
 
-            # Crear el correo
-            mensaje = MIMEMultipart()
-            mensaje["From"] = remitente
-            mensaje["To"] = ", ".join(destinatario_fijo)
-            mensaje["Subject"] = "¡Importante! Consolidado de Incumplimientos de Cláusulas Jurídicas"
-            mensaje.attach(MIMEText(cuerpo, "html"))
+            self._send_mail_graph(
+                sender_upn=remitente,
+                to_list=destinatario_fijo,
+                cc_list=cc_fijo,
+                subject="¡Importante! Consolidado de Incumplimientos de Cláusulas Jurídicas",
+                html_body=cuerpo,
+            )
 
-            # Solo agregar el correo en copia (CC)
-            mensaje["Cc"] = ", ".join(cc_fijo) 
-
-            # Enviar el correo
-            server.sendmail(remitente, destinatario_fijo + cc_fijo, mensaje.as_string())
             print(f"Correo consolidado enviado a: {', '.join(destinatario_fijo)} con copia a: {', '.join(cc_fijo)}")
-
-            server.quit()
 
         except Exception as e:
             print(f"Error al enviar correos de incumplimiento a la dirección: {e}")
