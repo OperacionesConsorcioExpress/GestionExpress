@@ -22,11 +22,11 @@ def now_bogota() -> datetime:
 
 class Eds_config:
     """
-    CRUD configuración EDS (schema config):
-    - config.eds_ubicaciones
-    - config.eds_surtidores
-    - config.eds_estaciones
-    - config.eds_estacion_surtidor
+    CRUD configuración EDS (schema eds):
+    - eds.eds_ubicaciones
+    - eds.eds_surtidores
+    - eds.eds_estaciones
+    - eds.eds_estacion_surtidor
     """
 
     def __init__(self):
@@ -152,7 +152,7 @@ class Eds_config:
 
         sql_count = """
             SELECT COUNT(*)::int AS total
-            FROM config.eds_ubicaciones u
+            FROM eds.eds_ubicaciones u
             WHERE
                 (%s::text IS NULL OR (u.nombre ILIKE '%%' || %s || '%%' OR COALESCE(u.ciudad,'') ILIKE '%%' || %s || '%%'))
                 AND (%s::text IS NULL OR u.tipo = %s)
@@ -182,8 +182,8 @@ class Eds_config:
                 MIN(c.id_componente) AS id_componente,
                 MIN(c.id_zona)       AS id_zona
 
-            FROM config.eds_ubicaciones u
-            LEFT JOIN config.eds_ubicaciones_cop uc ON uc.id_ubicacion = u.id
+            FROM eds.eds_ubicaciones u
+            LEFT JOIN eds.eds_ubicaciones_cop uc ON uc.id_ubicacion = u.id
             LEFT JOIN config.cop c ON c.id = uc.id_cop
             WHERE
                 (%s::text IS NULL OR (u.nombre ILIKE '%%' || %s || '%%' OR COALESCE(u.ciudad,'') ILIKE '%%' || %s || '%%'))
@@ -199,7 +199,7 @@ class Eds_config:
     def ubicaciones_activas(self, estado: int = 1) -> List[Dict[str, Any]]:
         sql = """
             SELECT id, nombre, ciudad
-            FROM config.eds_ubicaciones
+            FROM eds.eds_ubicaciones
             WHERE estado = %s
             ORDER BY nombre ASC;
         """
@@ -219,13 +219,13 @@ class Eds_config:
             raise ValueError("Debes seleccionar al menos un COP.")
 
         sql_ins = """
-            INSERT INTO config.eds_ubicaciones (nombre, tipo, direccion, ciudad, observacion, estado)
+            INSERT INTO eds.eds_ubicaciones (nombre, tipo, direccion, ciudad, observacion, estado)
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING *;
         """
 
         sql_rel = """
-            INSERT INTO config.eds_ubicaciones_cop (id_ubicacion, id_cop)
+            INSERT INTO eds.eds_ubicaciones_cop (id_ubicacion, id_cop)
             VALUES (%s, %s)
             ON CONFLICT (id_ubicacion, id_cop) DO NOTHING;
         """
@@ -259,7 +259,7 @@ class Eds_config:
             raise ValueError("Debes seleccionar al menos un COP.")
 
         sql_upd = """
-            UPDATE config.eds_ubicaciones
+            UPDATE eds.eds_ubicaciones
             SET nombre=%s, tipo=%s, direccion=%s, ciudad=%s, observacion=%s, estado=%s,
                 updated_at = NOW()
             WHERE id=%s
@@ -267,12 +267,12 @@ class Eds_config:
         """
 
         sql_del = """
-            DELETE FROM config.eds_ubicaciones_cop
+            DELETE FROM eds.eds_ubicaciones_cop
             WHERE id_ubicacion=%s;
         """
 
         sql_rel = """
-            INSERT INTO config.eds_ubicaciones_cop (id_ubicacion, id_cop)
+            INSERT INTO eds.eds_ubicaciones_cop (id_ubicacion, id_cop)
             VALUES (%s, %s)
             ON CONFLICT (id_ubicacion, id_cop) DO NOTHING;
         """
@@ -299,7 +299,7 @@ class Eds_config:
 
     def ubicacion_cambiar_estado(self, id_ubicacion: int, estado: int) -> Dict[str, Any]:
         sql = """
-            UPDATE config.eds_ubicaciones
+            UPDATE eds.eds_ubicaciones
             SET estado=%s
             WHERE id=%s
             RETURNING *;
@@ -314,7 +314,7 @@ class Eds_config:
 
         sql_count = """
             SELECT COUNT(*)::int AS total
-            FROM config.eds_surtidores
+            FROM eds.eds_surtidores
             WHERE
                 (%s::text IS NULL OR nombre ILIKE '%%' || %s || '%%')
                 AND (%s::text IS NULL OR tipo_combustible = %s)
@@ -326,7 +326,7 @@ class Eds_config:
             SELECT id, nombre, tipo_combustible, estado,
                     to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
                     to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
-            FROM config.eds_surtidores
+            FROM eds.eds_surtidores
             WHERE
                 (%s::text IS NULL OR nombre ILIKE '%%' || %s || '%%')
                 AND (%s::text IS NULL OR tipo_combustible = %s)
@@ -340,7 +340,7 @@ class Eds_config:
     def surtidores_activos(self, estado: int = 1) -> List[Dict[str, Any]]:
         sql = """
             SELECT id, nombre, tipo_combustible
-            FROM config.eds_surtidores
+            FROM eds.eds_surtidores
             WHERE estado = %s
             ORDER BY nombre ASC;
         """
@@ -348,7 +348,7 @@ class Eds_config:
 
     def surtidor_crear(self, nombre: str, tipo_combustible: str, estado: int) -> Dict:
         sql = """
-            INSERT INTO config.eds_surtidores (nombre, tipo_combustible, estado)
+            INSERT INTO eds.eds_surtidores (nombre, tipo_combustible, estado)
             VALUES (%s, %s, %s)
             RETURNING *;
         """
@@ -356,7 +356,7 @@ class Eds_config:
 
     def surtidor_actualizar(self, id_surtidor: int, nombre: str, tipo_combustible: str, estado: int) -> Dict:
         sql = """
-            UPDATE config.eds_surtidores
+            UPDATE eds.eds_surtidores
             SET nombre=%s, tipo_combustible=%s, estado=%s
             WHERE id=%s
             RETURNING *;
@@ -365,7 +365,7 @@ class Eds_config:
 
     def surtidor_cambiar_estado(self, id_surtidor: int, estado: int) -> Dict:
         sql = """
-            UPDATE config.eds_surtidores
+            UPDATE eds.eds_surtidores
             SET estado=%s
             WHERE id=%s
             RETURNING *;
@@ -380,7 +380,7 @@ class Eds_config:
 
         sql_count = """
             SELECT COUNT(*)::int AS total
-            FROM config.eds_estaciones e
+            FROM eds.eds_estaciones e
             WHERE
                 (%s::text IS NULL OR (e.codigo ILIKE '%%'||%s||'%%' OR e.nombre ILIKE '%%'||%s||'%%'))
                 AND (%s::int  IS NULL OR e.estado = %s)
@@ -400,9 +400,9 @@ class Eds_config:
                 e.estado,
                 to_char(e.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
                 to_char(e.updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
-            FROM config.eds_estaciones e
-            JOIN config.eds_ubicaciones u ON u.id = e.id_ubicacion
-            LEFT JOIN config.eds_estacion_surtidor es ON es.id_estacion = e.id
+            FROM eds.eds_estaciones e
+            JOIN eds.eds_ubicaciones u ON u.id = e.id_ubicacion
+            LEFT JOIN eds.eds_estacion_surtidor es ON es.id_estacion = e.id
             WHERE
                 (%s::text IS NULL OR (e.codigo ILIKE '%%'||%s||'%%' OR e.nombre ILIKE '%%'||%s||'%%'))
                 AND (%s::int  IS NULL OR e.estado = %s)
@@ -417,7 +417,7 @@ class Eds_config:
     def eds_crear(self, codigo: str, nombre: str, id_ubicacion: int, surtidores_ids: List[int], estado: int) -> Dict:
         # Crear EDS
         sql = """
-            INSERT INTO config.eds_estaciones (codigo, nombre, id_ubicacion, estado)
+            INSERT INTO eds.eds_estaciones (codigo, nombre, id_ubicacion, estado)
             VALUES (%s, %s, %s, %s)
             RETURNING *;
         """
@@ -431,7 +431,7 @@ class Eds_config:
 
     def eds_actualizar(self, id_eds: int, codigo: str, nombre: str, id_ubicacion: int, surtidores_ids: List[int], estado: int) -> Dict:
         sql = """
-            UPDATE config.eds_estaciones
+            UPDATE eds.eds_estaciones
             SET codigo=%s, nombre=%s, id_ubicacion=%s, estado=%s
             WHERE id=%s
             RETURNING *;
@@ -443,7 +443,7 @@ class Eds_config:
 
     def eds_cambiar_estado(self, id_eds: int, estado: int) -> Dict:
         sql = """
-            UPDATE config.eds_estaciones
+            UPDATE eds.eds_estaciones
             SET estado=%s
             WHERE id=%s
             RETURNING *;
@@ -453,11 +453,11 @@ class Eds_config:
     def _eds_set_surtidores(self, id_eds: int, surtidores_ids: List[int]) -> None:
         # Reemplazar relaciones: borra y reinserta
         with self.conn.cursor() as c:
-            c.execute("DELETE FROM config.eds_estacion_surtidor WHERE id_estacion=%s;", [id_eds])
+            c.execute("DELETE FROM eds.eds_estacion_surtidor WHERE id_estacion=%s;", [id_eds])
 
             if surtidores_ids:
                 c.execute("""
-                    INSERT INTO config.eds_estacion_surtidor (id_estacion, id_surtidor)
+                    INSERT INTO eds.eds_estacion_surtidor (id_estacion, id_surtidor)
                     SELECT %s, x::bigint
                     FROM UNNEST(%s::bigint[]) AS x
                     ON CONFLICT DO NOTHING;
@@ -548,7 +548,7 @@ class RegistroEDS:
     def eds_activas(self) -> List[Dict[str, Any]]:
         sql = """
             SELECT e.id, e.codigo, e.nombre, e.id_ubicacion
-            FROM config.eds_estaciones e
+            FROM eds.eds_estaciones e
             WHERE e.estado = 1
             ORDER BY e.nombre ASC;
         """
@@ -559,12 +559,12 @@ class RegistroEDS:
         Retorna:
         - datos EDS
         - ubicación
-        - COPs asociados a la ubicación (config.eds_ubicaciones_cop)
-        - surtidores asociados a la EDS (config.eds_estacion_surtidor + config.eds_surtidores)
+        - COPs asociados a la ubicación (eds.eds_ubicaciones_cop)
+        - surtidores asociados a la EDS (eds.eds_estacion_surtidor + eds.eds_surtidores)
         """
         eds = self._fetchone("""
             SELECT e.id, e.codigo, e.nombre, e.id_ubicacion
-            FROM config.eds_estaciones e
+            FROM eds.eds_estaciones e
             WHERE e.id = %s;
         """, [id_eds])
         if not eds:
@@ -572,13 +572,13 @@ class RegistroEDS:
 
         ubic = self._fetchone("""
             SELECT u.id, u.nombre, u.tipo, u.ciudad, u.direccion, u.observacion
-            FROM config.eds_ubicaciones u
+            FROM eds.eds_ubicaciones u
             WHERE u.id = %s;
         """, [eds["id_ubicacion"]])
 
         cops = self._fetchall("""
             SELECT c.id, c.cop
-            FROM config.eds_ubicaciones_cop uc
+            FROM eds.eds_ubicaciones_cop uc
             JOIN config.cop c ON c.id = uc.id_cop
             WHERE uc.id_ubicacion = %s
             ORDER BY c.cop ASC;
@@ -586,8 +586,8 @@ class RegistroEDS:
 
         surtidores = self._fetchall("""
             SELECT s.id, s.nombre, s.tipo_combustible
-            FROM config.eds_estacion_surtidor es
-            JOIN config.eds_surtidores s ON s.id = es.id_surtidor
+            FROM eds.eds_estacion_surtidor es
+            JOIN eds.eds_surtidores s ON s.id = es.id_surtidor
             WHERE es.id_estacion = %s
                 AND s.estado = 1
             ORDER BY s.nombre ASC;
@@ -601,13 +601,13 @@ class RegistroEDS:
         }
 
     def _cops_ids_de_eds(self, id_eds: int) -> List[int]:
-        row = self._fetchone("SELECT id_ubicacion FROM config.eds_estaciones WHERE id=%s;", [id_eds])
+        row = self._fetchone("SELECT id_ubicacion FROM eds.eds_estaciones WHERE id=%s;", [id_eds])
         if not row:
             return []
         id_ubicacion = row["id_ubicacion"]
         cops = self._fetchall("""
             SELECT id_cop
-            FROM config.eds_ubicaciones_cop
+            FROM eds.eds_ubicaciones_cop
             WHERE id_ubicacion = %s;
         """, [id_ubicacion])
         return [int(x["id_cop"]) for x in cops]
@@ -714,15 +714,15 @@ class RegistroEDS:
         Pendientes = buses de COPs asociados a la ubicación de la EDS que aún NO tienen registro en el día.
         """
         # Validación defensiva
-        row = self._fetchone("SELECT id_ubicacion FROM config.eds_estaciones WHERE id=%s;", [id_eds])
+        row = self._fetchone("SELECT id_ubicacion FROM eds.eds_estaciones WHERE id=%s;", [id_eds])
         if not row:
             return []
 
         sql = """
             WITH cops AS (
                 SELECT uc.id_cop
-                FROM config.eds_estaciones e
-                JOIN config.eds_ubicaciones_cop uc ON uc.id_ubicacion = e.id_ubicacion
+                FROM eds.eds_estaciones e
+                JOIN eds.eds_ubicaciones_cop uc ON uc.id_ubicacion = e.id_ubicacion
                 WHERE e.id = %s
             )
             SELECT
