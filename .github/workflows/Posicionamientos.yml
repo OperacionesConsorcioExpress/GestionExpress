@@ -46,7 +46,7 @@ jobs:
       - name: 🐍 Setup Python 3.12.4
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12.4"  # ⚠️ CAMBIADO de 3.9 a 3.12.4
+          python-version: "3.12.4"
           cache: 'pip'  # ⚡ Cache de dependencias
       
       # ==========================================
@@ -272,7 +272,23 @@ jobs:
           echo "📦 Polars: $(python -c 'import polars; print(polars.__version__)')"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
-          python lib/posicionamientos.py
+          # Ejecutar como módulo importable
+          python -c "
+          import os
+          from model.posicionamientos import ejecutar_job_posicionamientos
+          
+          # Obtener parámetros desde variables de entorno
+          limite_dias = int(os.getenv('POS_LIMITE_DIAS', '2'))
+          modo_verbose = os.getenv('POS_VERBOSE', '0') == '1'
+          
+          print(f'✅ Módulo importado correctamente')
+          print(f'   Días a procesar: {limite_dias}')
+          print(f'   Modo verbose: {modo_verbose}')
+          print()
+          
+          # Ejecutar la función
+          ejecutar_job_posicionamientos(limite_dias_por_ejecucion=limite_dias, verbose=modo_verbose)
+          "
           
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Proceso completado exitosamente"
