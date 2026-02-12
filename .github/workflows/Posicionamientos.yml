@@ -92,53 +92,139 @@ jobs:
       - name: 📚 Instalar requirements.txt
         run: |
           echo "📦 Instalando resto de dependencias..."
+          echo ""
           
-          # Convertir a UTF-8 si es necesario y crear requirements temporal
-          file -i requirements.txt || echo "No se pudo verificar encoding"
-          
-          # Opción más robusta: usar Python para filtrar
-          python3 << 'EOF'
+          # Usar script Python para procesar requirements.txt con cualquier encoding
+          python3 << 'PYTHON_SCRIPT'
           import sys
+          
+          def detectar_y_convertir_encoding():
+              """Detecta el encoding y convierte a UTF-8 si es necesario."""
+              encodings_a_probar = [
+                  'utf-8',
+                  'utf-16',
+                  'utf-16-le',
+                  'utf-16-be',
+                  'latin-1',
+                  'cp1252',
+                  'iso-8859-1',
+              ]
+              
+              for encoding in encodings_a_probar:
+                  try:
+                      with open('requirements.txt', 'r', encoding=encoding) as f:
+                          contenido = f.read()
+                      print(f"✅ Detectado encoding: {encoding}")
+                      return contenido
+                  except (UnicodeDecodeError, LookupError):
+                      continue
+              
+              print("⚠️  Usando fallback UTF-16LE con errors='replace'")
+              with open('requirements.txt', 'rb') as f:
+                  raw = f.read()
+              return raw.decode('utf-16-le', errors='replace')
+          
+          def limpiar_linea(linea: str) -> str:
+              """Limpia una línea de caracteres especiales y espacios."""
+              linea = ''.join(char for char in linea if ord(char) >= 32 or char in '\n\t\r')
+              return linea.strip()
+          
+          def extraer_nombre_paquete(linea: str) -> str:
+              """Extrae el nombre del paquete de una línea de requirement."""
+              for sep in ['==', '>=', '<=', '!=', '<', '>', '[']:
+                  if sep in linea:
+                      linea = linea.split(sep)[0]
+              return linea.strip().lower()
           
           # Paquetes ya instalados
           instalados = {
               'numpy', 'pyarrow', 'polars', 
-              'psycopg2-binary', 'azure-storage-blob'
+              'psycopg2-binary', 'psycopg2',
+              'azure-storage-blob'
           }
           
           try:
-              with open('requirements.txt', 'r', encoding='utf-8', errors='replace') as f:
+              # 1. Detectar y convertir encoding
+              print("🔍 Detectando encoding de requirements.txt...")
+              contenido = detectar_y_convertir_encoding()
+              
+              # 2. Convertir el archivo a UTF-8
+              print("📝 Convirtiendo requirements.txt a UTF-8...")
+              with open('requirements.txt', 'w', encoding='utf-8') as f:
+                  f.write(contenido)
+              print("✅ requirements.txt convertido a UTF-8")
+              
+              # 3. Leer línea por línea y filtrar
+              print("🔄 Filtrando dependencias duplicadas...")
+              with open('requirements.txt', 'r', encoding='utf-8') as f:
                   lineas = f.readlines()
-          except Exception as e:
-              print(f"Error al leer requirements.txt: {e}", file=sys.stderr)
-              sys.exit(1)
-          
-          with open('requirements_temp.txt', 'w', encoding='utf-8') as out:
-              for linea in lineas:
-                  linea = linea.strip()
-                  if not linea or linea.startswith('#'):
+              
+              lineas_filtradas = []
+              lineas_descartadas = []
+              
+              for i, linea in enumerate(lineas, 1):
+                  linea_limpia = limpiar_linea(linea)
+                  
+                  if not linea_limpia or linea_limpia.startswith('#'):
+                      if linea_limpia.startswith('#'):
+                          lineas_filtradas.append(linea_limpia)
                       continue
                   
-                  # Obtener nombre del paquete
-                  pkg_name = linea.split('==')[0].split('>=')[0].split('<=')[0].split('!=')[0].split('<')[0].split('>')[0].split('[')[0].strip()
+                  pkg_name = extraer_nombre_paquete(linea_limpia)
                   
-                  if pkg_name.lower() not in instalados:
-                      out.write(linea + '\n')
+                  if pkg_name in instalados:
+                      lineas_descartadas.append(f"  ⊘ {linea_limpia}")
+                      continue
+                  
+                  lineas_filtradas.append(linea_limpia)
+              
+              # 4. Escribir archivo temporal
+              print(f"📝 Escribiendo requirements_temp.txt...")
+              with open('requirements_temp.txt', 'w', encoding='utf-8') as out:
+                  for linea in lineas_filtradas:
+                      if linea.strip() and not linea.startswith('#'):
+                          out.write(linea + '\n')
+              
+              # 5. Resumen
+              count_temp = len([l for l in lineas_filtradas if l.strip() and not l.startswith('#')])
+              count_descartados = len(lineas_descartados)
+              
+              print(f"\n📊 Resumen:")
+              print(f"  Total de líneas: {len(lineas)}")
+              print(f"  Paquetes a instalar: {count_temp}")
+              print(f"  Paquetes descartados: {count_descartados}")
+              
+              if lineas_descartados and count_descartados <= 10:
+                  print(f"\n🔕 Paquetes descartados:")
+                  for desc in lineas_descartados:
+                      print(desc)
+              
+              print(f"\n✅ requirements_temp.txt generado correctamente")
+              
+          except Exception as e:
+              print(f"❌ Error: {e}")
+              import traceback
+              traceback.print_exc()
+              sys.exit(1)
           
-          print("✅ requirements_temp.txt creado correctamente")
-          EOF
+          PYTHON_SCRIPT
           
-          # Contar líneas del archivo temporal
-          lineas=$(wc -l < requirements_temp.txt)
-          echo "📦 Instalando ${lineas} paquetes adicionales..."
+          echo ""
           
-          if [ ${lineas} -gt 0 ]; then
-              pip install -r requirements_temp.txt --no-cache-dir
+          # Instalar paquetes del archivo temporal
+          if [ -f requirements_temp.txt ]; then
+              num_lineas=$(wc -l < requirements_temp.txt)
+              if [ "$num_lineas" -gt 0 ]; then
+                  echo "📦 Instalando ${num_lineas} paquetes adicionales..."
+                  pip install -r requirements_temp.txt --no-cache-dir
+                  echo "✅ Paquetes instalados exitosamente"
+              else
+                  echo "ℹ️  No hay paquetes adicionales para instalar"
+              fi
           else
-              echo "ℹ️  No hay dependencias adicionales para instalar"
+              echo "❌ Error: requirements_temp.txt no se generó"
+              exit 1
           fi
-          
-          echo "✅ Todas las dependencias instaladas"
       
       # ==========================================
       # 7. VERIFICAR INSTALACIÓN
@@ -155,8 +241,8 @@ jobs:
           python -c "from azure.storage.blob import BlobServiceClient; print('✅ Azure Blob Storage')"
           
           echo ""
-          echo "📦 Paquetes instalados:"
-          pip list | grep -E "(polars|pyarrow|pandas|numpy|psycopg2|azure)"
+          echo "📦 Paquetes instalados (resumen):"
+          pip list | grep -E "(polars|pyarrow|pandas|numpy|psycopg2|azure)" || echo "No hay coincidencias"
       
       # ==========================================
       # 8. EJECUTAR PROCESO POSICIONAMIENTOS
