@@ -275,7 +275,7 @@ jobs:
           # Ejecutar como módulo importable
           python -c "
           import os
-          from model.posicionamientos import ejecutar_job_posicionamientos
+          from lib.posicionamientos import ejecutar_job_posicionamientos
           
           # Obtener parámetros desde variables de entorno
           limite_dias = int(os.getenv('POS_LIMITE_DIAS', '2'))
