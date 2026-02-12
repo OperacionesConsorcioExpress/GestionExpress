@@ -2,33 +2,200 @@ name: Proceso Posicionamientos (Blob -> PostgreSQL)
 
 on:
   schedule:
-    - cron: "0 10 * * *"  # 5:00 AM Bogotá (UTC-5) => 10:00 UTC
+    # 5:00 AM Bogotá (UTC-5) = 10:00 UTC
+    - cron: "0 10 * * *"
+  
+  # Permite ejecución manual desde GitHub UI
   workflow_dispatch:
+    inputs:
+      dias_procesar:
+        description: 'Días pendientes a procesar'
+        required: false
+        default: '2'
+        type: string
+      modo_verbose:
+        description: 'Modo verbose (0=no, 1=sí)'
+        required: false
+        default: '0'
+        type: choice
+        options:
+          - '0'
+          - '1'
 
 jobs:
   posicionamientos:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
+    
+    # Permisos necesarios
+    permissions:
+      contents: read
+    
     steps:
-      - name: Checkout repo
+      # ==========================================
+      # 1. CHECKOUT DEL REPOSITORIO
+      # ==========================================
+      - name: 📦 Checkout repositorio
         uses: actions/checkout@v4
-
-      - name: Setup Python
+        with:
+          fetch-depth: 1  # Solo último commit (más rápido)
+      
+      # ==========================================
+      # 2. CONFIGURAR PYTHON 3.12 (CRÍTICO)
+      # ==========================================
+      - name: 🐍 Setup Python 3.12.4
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      - name: Install dependencies
+          python-version: "3.12.4"  # ⚠️ CAMBIADO de 3.9 a 3.12.4
+          cache: 'pip'  # ⚡ Cache de dependencias
+      
+      # ==========================================
+      # 3. VERIFICAR VERSIÓN DE PYTHON
+      # ==========================================
+      - name: 🔍 Verificar Python
+        run: |
+          python --version
+          python -c "import sys; print(f'Python {sys.version}')"
+          if [[ "$(python -c 'import sys; print(sys.version_info[:2])')" != "(3, 12)" ]]; then
+            echo "❌ ERROR: Se requiere Python 3.12"
+            exit 1
+          fi
+          echo "✅ Python 3.12 confirmado"
+      
+      # ==========================================
+      # 4. ACTUALIZAR PIP
+      # ==========================================
+      - name: ⬆️ Actualizar pip
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Ejecutar job posicionamientos
+          pip --version
+      
+      # ==========================================
+      # 5. INSTALAR DEPENDENCIAS CRÍTICAS PRIMERO
+      # ==========================================
+      - name: 📦 Instalar dependencias críticas
+        run: |
+          echo "📦 Instalando dependencias críticas para posicionamientos..."
+          
+          # Instalar en orden específico para evitar conflictos
+          pip install numpy==2.0.2
+          pip install pyarrow==21.0.0
+          pip install polars==1.32.3
+          pip install psycopg2-binary==2.9.10
+          pip install azure-storage-blob==12.28.0
+          
+          echo "✅ Dependencias críticas instaladas"
+      
+      # ==========================================
+      # 6. INSTALAR RESTO DE DEPENDENCIAS
+      # ==========================================
+      - name: 📚 Instalar requirements.txt
+        run: |
+          echo "📦 Instalando resto de dependencias..."
+          
+          # Crear requirements temporal sin las ya instaladas
+          grep -v "^numpy==" requirements.txt | \
+          grep -v "^pyarrow==" | \
+          grep -v "^polars==" | \
+          grep -v "^psycopg2-binary==" | \
+          grep -v "^azure-storage-blob" > requirements_temp.txt
+          
+          pip install -r requirements_temp.txt
+          
+          echo "✅ Todas las dependencias instaladas"
+      
+      # ==========================================
+      # 7. VERIFICAR INSTALACIÓN
+      # ==========================================
+      - name: 🔍 Verificar paquetes críticos
+        run: |
+          echo "🔍 Verificando paquetes instalados..."
+          
+          python -c "import polars as pl; print(f'✅ Polars: {pl.__version__}')"
+          python -c "import pyarrow as pa; print(f'✅ PyArrow: {pa.__version__}')"
+          python -c "import pandas as pd; print(f'✅ Pandas: {pd.__version__}')"
+          python -c "import numpy as np; print(f'✅ NumPy: {np.__version__}')"
+          python -c "import psycopg2; print(f'✅ psycopg2: {psycopg2.__version__}')"
+          python -c "from azure.storage.blob import BlobServiceClient; print('✅ Azure Blob Storage')"
+          
+          echo ""
+          echo "📦 Paquetes instalados:"
+          pip list | grep -E "(polars|pyarrow|pandas|numpy|psycopg2|azure)"
+      
+      # ==========================================
+      # 8. EJECUTAR PROCESO POSICIONAMIENTOS
+      # ==========================================
+      - name: 🚀 Ejecutar job posicionamientos
         env:
+          # Credenciales desde GitHub Secrets
           DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-          POS_LIMITE_DIAS: "2"   # Procesar hasta 2 días pendientes
-          POS_VERBOSE: "0"
+          
+          # Parámetros configurables
+          POS_LIMITE_DIAS: ${{ github.event.inputs.dias_procesar || '2' }}
+          POS_VERBOSE: ${{ github.event.inputs.modo_verbose || '0' }}
+          
+          # Información del workflow
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_ACTOR: ${{ github.actor }}
         run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔄 Iniciando proceso de posicionamientos"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📅 Días a procesar: ${POS_LIMITE_DIAS}"
+          echo "🔊 Modo verbose: ${POS_VERBOSE}"
+          echo "👤 Ejecutado por: ${GITHUB_ACTOR}"
+          echo "🐍 Python: $(python --version)"
+          echo "📦 Polars: $(python -c 'import polars; print(polars.__version__)')"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
           python lib/posicionamientos.py
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Proceso completado exitosamente"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
+      # ==========================================
+      # 9. NOTIFICACIÓN EN CASO DE ERROR
+      # ==========================================
+      - name: 📧 Notificar error
+        if: failure()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "❌ ERROR: El proceso de posicionamientos falló"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔗 Ver detalles en:"
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
+      # ==========================================
+      # 10. GUARDAR LOGS (OPCIONAL)
+      # ==========================================
+      - name: 💾 Guardar logs de ejecución
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-posicionamientos-${{ github.run_number }}
+          path: |
+            *.log
+            logs/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+      
+      # ==========================================
+      # 11. RESUMEN DE EJECUCIÓN
+      # ==========================================
+      - name: 📊 Resumen de ejecución
+        if: success()
+        run: |
+          echo "### ✅ Ejecución Exitosa - Posicionamientos" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuración:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐍 Python: $(python --version)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 Polars: $(python -c 'import polars; print(polars.__version__)')" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 PyArrow: $(python -c 'import pyarrow; print(pyarrow.__version__)')" >> $GITHUB_STEP_SUMMARY
+          echo "- 📅 Días procesados: ${POS_LIMITE_DIAS}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔊 Modo verbose: ${POS_VERBOSE}" >> $GITHUB_STEP_SUMMARY
+          echo "- 👤 Ejecutado por: ${GITHUB_ACTOR}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🕐 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
