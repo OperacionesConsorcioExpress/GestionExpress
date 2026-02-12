@@ -187,16 +187,16 @@ jobs:
               
               # 5. Resumen
               count_temp = len([l for l in lineas_filtradas if l.strip() and not l.startswith('#')])
-              count_descartados = len(lineas_descartados)
+              count_descartadas = len(lineas_descartadas)
               
               print(f"\n📊 Resumen:")
               print(f"  Total de líneas: {len(lineas)}")
               print(f"  Paquetes a instalar: {count_temp}")
-              print(f"  Paquetes descartados: {count_descartados}")
+              print(f"  Paquetes descartados: {count_descartadas}")
               
-              if lineas_descartados and count_descartados <= 10:
+              if lineas_descartadas and count_descartadas <= 10:
                   print(f"\n🔕 Paquetes descartados:")
-                  for desc in lineas_descartados:
+                  for desc in lineas_descartadas:
                       print(desc)
               
               print(f"\n✅ requirements_temp.txt generado correctamente")
