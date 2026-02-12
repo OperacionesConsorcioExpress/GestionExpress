@@ -352,34 +352,95 @@ def _get_pg_conn():
         dsn = dsn + ("&" if "?" in dsn else "?") + "sslmode=require"
     return psycopg2.connect(dsn)
 
-def asegurar_fechas_log(cur, fecha_inicio: date, fecha_fin: date):
+def obtener_ultima_fecha_procesada(cur) -> date | None:
     """
-    Inserta en log.procesa_posicionamientos todas las fechas faltantes en el rango.
-    """
-    if fecha_fin < fecha_inicio:
-        return
-
-    sql = """
-    INSERT INTO log.procesa_posicionamientos (fecha)
-    SELECT d::date
-    FROM generate_series(%s::date, %s::date, interval '1 day') AS d
-    ON CONFLICT (fecha) DO NOTHING;
-    """
-    cur.execute(sql, (fecha_inicio, fecha_fin))
-
-def obtener_fechas_pendientes(cur, limite_dias: int):
-    """
-    Prioriza: pendiente -> error (reintentos)
+    Obtiene la última fecha procesada exitosamente del log.
+    Retorna None si no hay ninguna procesada.
     """
     sql = """
     SELECT fecha
     FROM log.procesa_posicionamientos
-    WHERE estado IN ('pendiente','error')
-    ORDER BY fecha
-    LIMIT %s;
+    WHERE estado = 'ok'
+    ORDER BY fecha DESC
+    LIMIT 1;
     """
-    cur.execute(sql, (limite_dias,))
-    return [r[0] for r in cur.fetchall()]
+    cur.execute(sql)
+    result = cur.fetchone()
+    return result[0] if result else None
+
+def obtener_carpetas_disponibles_en_blob(cliente_contenedor) -> list[date]:
+    """
+    Lista todas las carpetas con formato YYYYMMDD en Azure Blob Storage.
+    Retorna lista de dates ordenadas cronológicamente.
+    """
+    carpetas = set()
+    
+    # Listar todos los blobs en el contenedor con el prefijo base
+    for blob in cliente_contenedor.list_blobs(name_starts_with=PREFIJO_BASE):
+        # Extraer la carpeta (formato: posicionamientos/YYYYMMDD/archivo.parquet)
+        partes = blob.name.split("/")
+        if len(partes) >= 2:
+            carpeta_str = partes[1]
+            # Validar que sea un formato YYYYMMDD válido (8 dígitos)
+            if carpeta_str.isdigit() and len(carpeta_str) == 8:
+                try:
+                    d = datetime.strptime(carpeta_str, "%Y%m%d").date()
+                    carpetas.add(d)
+                except ValueError:
+                    continue
+    
+    # Retornar ordenadas cronológicamente
+    return sorted(list(carpetas))
+
+def obtener_fechas_a_procesar(cur, cliente_contenedor, limite_dias: int) -> list[date]:
+    """
+    Obtiene las fechas a procesar basándose en:
+    1. Última fecha procesada del log
+    2. Carpetas disponibles en Azure Blob Storage
+    
+    Retorna las siguientes N fechas (donde N = limite_dias) que tengan datos en Blob.
+    """
+    # 1. Obtener última fecha procesada
+    ultima_procesada = obtener_ultima_fecha_procesada(cur)
+    
+    # 2. Obtener todas las carpetas disponibles en Blob
+    carpetas_blob = obtener_carpetas_disponibles_en_blob(cliente_contenedor)
+    
+    if not carpetas_blob:
+        print("⚠️  No hay carpetas disponibles en Azure Blob Storage")
+        return []
+    
+    # 3. Filtrar carpetas que no han sido procesadas
+    if ultima_procesada:
+        # Si hay última procesada, tomar carpetas posteriores a esa fecha
+        fechas_pendientes = [f for f in carpetas_blob if f > ultima_procesada]
+        print(f"ℹ️  Última fecha procesada: {ultima_procesada}")
+    else:
+        # Si no hay ninguna procesada, tomar todas desde la más antigua
+        fechas_pendientes = carpetas_blob
+        print(f"ℹ️  Primera ejecución - procesando desde: {carpetas_blob[0] if carpetas_blob else 'N/A'}")
+    
+    # 4. Tomar solo las primeras N fechas
+    fechas_a_procesar = fechas_pendientes[:limite_dias]
+    
+    if fechas_a_procesar:
+        print(f"✅ Fechas encontradas a procesar: {[f.strftime('%Y-%m-%d') for f in fechas_a_procesar]}")
+    else:
+        print("ℹ️  No hay fechas nuevas a procesar")
+    
+    return fechas_a_procesar
+
+def asegurar_fecha_en_log(cur, fecha: date):
+    """
+    Asegura que la fecha existe en el log.procesa_posicionamientos.
+    Si no existe, la inserta con estado 'pendiente'.
+    """
+    sql = """
+    INSERT INTO log.procesa_posicionamientos (fecha)
+    VALUES (%s)
+    ON CONFLICT (fecha) DO NOTHING;
+    """
+    cur.execute(sql, (fecha,))
 
 def marcar_inicio(cur, dia: date):
     sql = """
@@ -504,38 +565,34 @@ def cargar_a_postgresql(posicionamientos: pl.DataFrame, km_recorrido_bus: pl.Dat
         conn.commit()
 
 # ============================================================
-# 7) ORQUESTADOR: CATCH-UP POR LOG (procesa días atrasados)
+# 7) ORQUESTADOR: BARRIDO DE BLOB (procesa días disponibles)
 # ============================================================
 def ejecutar_job_posicionamientos(limite_dias_por_ejecucion: int = 1, verbose: bool = False):
-    """
-    - Asegura que el log tenga fechas desde 2026-01-01 hasta ayer.
-    - Procesa días pendientes/errores (máximo N por ejecución).
-    """
-    inicio_log = date(2026, 1, 1)
-    bogota_tz = timezone(timedelta(hours=-5))
-    hoy = datetime.now(bogota_tz).date()
-    ayer = hoy - timedelta(days=1)
-
+    print(f"📅 Días a procesar: {limite_dias_por_ejecucion}")
+    print()
+    
+    # Obtener cliente de contenedor
+    cliente_contenedor = obtener_cliente_contenedor()
+    
+    # Obtener fechas a procesar desde Blob Storage
     with _get_pg_conn() as conn:
         with conn.cursor() as cur:
-            # 1) asegurar rango en log
-            asegurar_fechas_log(cur, inicio_log, ayer)
-
-            # 2) tomar pendientes
-            dias = obtener_fechas_pendientes(cur, limite_dias_por_ejecucion)
+            dias = obtener_fechas_a_procesar(cur, cliente_contenedor, limite_dias_por_ejecucion)
             conn.commit()
-
+    
     if not dias:
-        print(" No hay días pendientes por procesar. Todo al día.")
+        print("✅ No hay fechas nuevas a procesar")
         return
 
-    for dia in dias:
-        print(f"\n Procesando día: {dia} ...")
+    # Procesar cada día
+    for i, dia in enumerate(dias, 1):
+        print(f"\n[{i}/{len(dias)}] Procesando día: {dia} ...")
         t0 = time.time()
 
-        # marcar inicio
+        # Asegurar que la fecha existe en el log
         with _get_pg_conn() as conn:
             with conn.cursor() as cur:
+                asegurar_fecha_en_log(cur, dia)
                 marcar_inicio(cur, dia)
             conn.commit()
 
@@ -548,7 +605,7 @@ def ejecutar_job_posicionamientos(limite_dias_por_ejecucion: int = 1, verbose: b
                     with conn.cursor() as cur:
                         marcar_resultado(cur, dia, "sin_archivos", dur, meta, "No hay parquets para ese día")
                     conn.commit()
-                print(f"  Día {dia}: sin archivos. Marcado en log.")
+                print(f"  ⚠️  Día {dia}: sin archivos. Marcado en log.")
                 continue
 
             if meta["estado"] != "ok":
@@ -563,7 +620,7 @@ def ejecutar_job_posicionamientos(limite_dias_por_ejecucion: int = 1, verbose: b
                     marcar_resultado(cur, dia, "ok", dur, meta, None)
                 conn.commit()
 
-            print(f" Día {dia} OK | registros={meta.get('registros_pos'):,} | dur={dur}s")
+            print(f"  ✅ Día {dia} OK | registros={meta.get('registros_pos'):,} | dur={dur}s")
 
         except Exception:
             dur = int(time.time() - t0)
@@ -573,7 +630,8 @@ def ejecutar_job_posicionamientos(limite_dias_por_ejecucion: int = 1, verbose: b
                 with conn.cursor() as cur:
                     marcar_resultado(cur, dia, "error", dur, meta, err[:4000])
                 conn.commit()
-            print(f" Día {dia} ERROR\n{err}")
+            print(f"  ❌ Día {dia} ERROR")
+            print(f"     {err[:200]}...")
 
 # ============================================================
 # 8) CLI
