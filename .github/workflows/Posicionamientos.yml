@@ -93,14 +93,50 @@ jobs:
         run: |
           echo "📦 Instalando resto de dependencias..."
           
-          # Crear requirements temporal sin las ya instaladas
-          grep -v "^numpy==" requirements.txt | \
-          grep -v "^pyarrow==" | \
-          grep -v "^polars==" | \
-          grep -v "^psycopg2-binary==" | \
-          grep -v "^azure-storage-blob" > requirements_temp.txt
+          # Convertir a UTF-8 si es necesario y crear requirements temporal
+          file -i requirements.txt || echo "No se pudo verificar encoding"
           
-          pip install -r requirements_temp.txt
+          # Opción más robusta: usar Python para filtrar
+          python3 << 'EOF'
+          import sys
+          
+          # Paquetes ya instalados
+          instalados = {
+              'numpy', 'pyarrow', 'polars', 
+              'psycopg2-binary', 'azure-storage-blob'
+          }
+          
+          try:
+              with open('requirements.txt', 'r', encoding='utf-8', errors='replace') as f:
+                  lineas = f.readlines()
+          except Exception as e:
+              print(f"Error al leer requirements.txt: {e}", file=sys.stderr)
+              sys.exit(1)
+          
+          with open('requirements_temp.txt', 'w', encoding='utf-8') as out:
+              for linea in lineas:
+                  linea = linea.strip()
+                  if not linea or linea.startswith('#'):
+                      continue
+                  
+                  # Obtener nombre del paquete
+                  pkg_name = linea.split('==')[0].split('>=')[0].split('<=')[0].split('!=')[0].split('<')[0].split('>')[0].split('[')[0].strip()
+                  
+                  if pkg_name.lower() not in instalados:
+                      out.write(linea + '\n')
+          
+          print("✅ requirements_temp.txt creado correctamente")
+          EOF
+          
+          # Contar líneas del archivo temporal
+          lineas=$(wc -l < requirements_temp.txt)
+          echo "📦 Instalando ${lineas} paquetes adicionales..."
+          
+          if [ ${lineas} -gt 0 ]; then
+              pip install -r requirements_temp.txt --no-cache-dir
+          else
+              echo "ℹ️  No hay dependencias adicionales para instalar"
+          fi
           
           echo "✅ Todas las dependencias instaladas"
       
