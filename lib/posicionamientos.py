@@ -39,8 +39,8 @@ MAPEO_COLUMNAS = {
     "eventdatetime": "fecha_evento_utc",
     "driverregistrnum": "operador",
     "lineid": "id_linea",
-    "routeid": "id_ruta",
-    "lineservid": "linea_servicio",
+    "routeid": "id_sublinea",
+    "lineservid": "id_viaje",
     "loctypecd": "estado_localizacion",
     "driverservid": "servcond",
     "vehservid": "servbus",
@@ -52,7 +52,7 @@ MAPEO_COLUMNAS = {
     "nodeid": "id_nodo",
     "servtripseq": "secuencia_viaje",
     "sectionid": "id_seccion",
-    "sectionoffsetvalue": "seccion_offset",
+    "sectionoffsetvalue": "posicion",
 }
 
 R_TIERRA_M = 6371000.0 # Radio promedio de la Tierra en metros
@@ -65,11 +65,14 @@ COLUMNAS_SALIDA = [
         "hora",
         "estado_localizacion",
         "nombre_estado",
-        "servcond",
         "servbus",
         "movil_bus",
         "longitud",
         "latitud",
+        "id_linea",
+        "id_sublinea",
+        "id_viaje",
+        "posicion",
         "DIST (m)",
         "TIEMPO (s)",
         "VEL (m/s)",
@@ -493,7 +496,7 @@ def _iter_rows_for_execute_values(df: pl.DataFrame, cols: list[str]):
 def cargar_a_postgresql(posicionamientos: pl.DataFrame, km_recorrido_bus: pl.DataFrame, dia: date,
                     page_size_pos: int = 20000, page_size_km: int = 5000):
     """
-    - config.posicionamientos: DELETE del día + INSERT batch
+    - config.posicionamientos: DELETE del día + INSERT batch (con columnas ajustadas)
     - config.km_recorrido_bus: UPSERT batch
     """
     df_pos = (
@@ -509,11 +512,14 @@ def cargar_a_postgresql(posicionamientos: pl.DataFrame, km_recorrido_bus: pl.Dat
             pl.col("hora").cast(pl.Utf8),
             pl.col("estado_localizacion").cast(pl.Int64, strict=False),
             pl.col("nombre_estado").cast(pl.Utf8),
-            pl.col("servcond").cast(pl.Utf8),
             pl.col("servbus").cast(pl.Utf8),
             pl.col("movil_bus").cast(pl.Utf8),
             pl.col("longitud").cast(pl.Float64, strict=False),
             pl.col("latitud").cast(pl.Float64, strict=False),
+            pl.col("id_linea").cast(pl.Utf8),
+            pl.col("id_sublinea").cast(pl.Utf8),
+            pl.col("id_viaje").cast(pl.Utf8),
+            pl.col("posicion").cast(pl.Utf8),
             pl.col("dist_m").cast(pl.Float64, strict=False),
             pl.col("tiempo_s").cast(pl.Float64, strict=False),
             pl.col("vel_m_s").cast(pl.Float64, strict=False),
@@ -521,9 +527,10 @@ def cargar_a_postgresql(posicionamientos: pl.DataFrame, km_recorrido_bus: pl.Dat
         ])
     )
     cols_pos = [
-        "fecha_evento","hora","estado_localizacion","nombre_estado",
-        "servcond","servbus","movil_bus","longitud","latitud",
-        "dist_m","tiempo_s","vel_m_s","dist_final_m"
+        "fecha_evento", "hora", "estado_localizacion", "nombre_estado",
+        "servbus", "movil_bus", "longitud", "latitud",
+        "id_linea", "id_sublinea", "id_viaje", "posicion",
+        "dist_m", "tiempo_s", "vel_m_s", "dist_final_m"
     ]
 
     df_km = (
@@ -541,7 +548,8 @@ def cargar_a_postgresql(posicionamientos: pl.DataFrame, km_recorrido_bus: pl.Dat
     sql_insert_pos = f"""
         INSERT INTO {PG_SCHEMA}.{PG_TABLE_POS} (
             fecha_evento, hora, estado_localizacion, nombre_estado,
-            servcond, servbus, movil_bus, longitud, latitud,
+            servbus, movil_bus, longitud, latitud,
+            id_linea, id_sublinea, id_viaje, posicion,
             dist_m, tiempo_s, vel_m_s, dist_final_m
         ) VALUES %s
     """
