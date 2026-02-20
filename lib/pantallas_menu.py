@@ -16,5 +16,7 @@ def get_pantallas_menu():
         "Gestión de Roles",
         "Roles Blob Storage",
         "Roles PowerBI",
-        "NPL Chatbot"
+        "Motivos SNE",
+        "NPL Chatbot",
+        "Rutas CEXP"
     ]
