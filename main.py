@@ -40,7 +40,9 @@ from controller.route_roles_powerbi import router_roles_powerbi
 from controller.route_sgi import router_sgi
 from controller.route_cop import router_cop
 from controller.route_buses import router_buses
+from controller.route_rutas import router_rutas
 from controller.route_eds import router_eds
+from controller.route_sne_motivos import router_sne_motivos
 from controller.route_sne import router_sne
 
 ##################### Importar Modelos Backend ##########################
@@ -1141,7 +1143,7 @@ def download_file(container_name: str, file_path: str):
     try:
         file_content = container_model.download_file(container_name, file_path)
         return StreamingResponse(BytesIO(file_content), media_type="application/octet-stream",
-                                 headers={"Content-Disposition": f"attachment; filename={os.path.basename(file_path)}"})
+                                headers={"Content-Disposition": f"attachment; filename={os.path.basename(file_path)}"})
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -1256,14 +1258,14 @@ async def obtener_id_proceso(proceso: str, subproceso: str):
 
 @app.post("/clausulas/nueva")
 async def crear_clausula(req: Request, control: str = Form(...), etapa: str = Form(...), 
-                         clausula: str = Form(...), modificaciones: str = Form(None), 
-                         contrato: str = Form(...), tema: str = Form(...), subtema: str = Form(...), 
-                         descripcion: str = Form(...), tipo: str = Form(...), norma: str = Form(None), 
-                         consecuencia: str = Form(None), frecuencia: str = Form(...), 
-                         periodo_control: str = Form(...), inicio_cumplimiento: str = Form(...), 
-                         fin_cumplimiento: str = Form(...), observacion: str = Form(None), 
-                         procesos_subprocesos: str = Form(...), 
-                         responsable_entrega: str = Form(...), ruta_soporte: str = Form(None)):
+                        clausula: str = Form(...), modificaciones: str = Form(None), 
+                        contrato: str = Form(...), tema: str = Form(...), subtema: str = Form(...), 
+                        descripcion: str = Form(...), tipo: str = Form(...), norma: str = Form(None), 
+                        consecuencia: str = Form(None), frecuencia: str = Form(...), 
+                        periodo_control: str = Form(...), inicio_cumplimiento: str = Form(...), 
+                        fin_cumplimiento: str = Form(...), observacion: str = Form(None), 
+                        procesos_subprocesos: str = Form(...), 
+                        responsable_entrega: str = Form(...), ruta_soporte: str = Form(None)):
     try:       
         # Validar campos obligatorios
         #print(f"Datos del formulario recibidos: {locals()}")
@@ -1764,6 +1766,15 @@ def buses_cexp(req: Request, user_session: dict = Depends(get_user_session)):
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("buses_cexp.html", {"request": req, "user_session": user_session})
 
+############################### MODULO DE RUTAS CEXP #################################
+app.include_router(router_rutas) # Incluir las rutas factorizadas en `route_rutas.py`
+
+@app.get("/rutas_cexp", response_class=HTMLResponse)
+def rutas_cexp(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("rutas_cexp.html", {"request": req, "user_session": user_session})
+
 ############################### MODULO DE SGI   #################################
 app.include_router(router_sgi) # Incluir las rutas factorizadas en `route_sgi.py`
 
@@ -1792,16 +1803,22 @@ def eds(req: Request, user_session: dict = Depends(get_user_session)):
     return templates.TemplateResponse("eds_registro.html", {"request": req, "user_session": user_session})
 
 ######################  MODULO SNE SERVICIOS NO EJECUTADOS   #########################
-app.include_router(router_sne) # Incluir las rutas factorizadas en `route_sne.py`
+app.include_router(router_sne_motivos) # Incluir las rutas factorizadas en `route_sne_motivos.py`
+@app.get("/motivos_sne", response_class=HTMLResponse)
+def sne_motivos(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("sne_motivos.html", {"request": req, "user_session": user_session})
 
+app.include_router(router_sne) # Incluir las rutas factorizadas en `route_sne.py`
 @app.get("/sne_asignacion", response_class=HTMLResponse)
-def sne(req: Request, user_session: dict = Depends(get_user_session)):
+def sne_asignancion(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("sne_asignacion.html", {"request": req, "user_session": user_session})
 
 @app.get("/sne_objecion", response_class=HTMLResponse)
-def sne(req: Request, user_session: dict = Depends(get_user_session)):
+def sne_objecion(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("sne_objecion.html", {"request": req, "user_session": user_session})
