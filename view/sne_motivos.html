@@ -1,0 +1,522 @@
+{% extends "components/layout.html" %}
+{% block title %}SNE · Motivos de Eliminación · Consorcio Express{% endblock %}
+
+{% block head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  .contenedor-ancho{ width:min(96vw,1920px); margin:0 auto; padding:0 16px; }
+  .btn-action{ padding:.45rem .75rem; font-size:20px; line-height:1.1; }
+  .btn-action i{ font-size:1.1rem; }
+  .overlay-proceso{ position:fixed; inset:0; background:rgba(255,255,255,.70); z-index:2000; display:flex; align-items:center; justify-content:center; }
+  .overlay-proceso[hidden]{ display:none!important; }
+
+  /* Tabla */
+  .tabla-motivos thead th{
+    position: sticky; top: 0; z-index: 2;
+    background: #0a0f3d !important;
+    color: #ffffff !important;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  .tabla-motivos td, .tabla-motivos th{
+    white-space: nowrap; vertical-align: middle;
+  }
+  .tabla-motivos td{
+    max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tabla-scroll{ max-height:58vh; overflow:auto; }
+
+  /* Paginación */
+  .paginador{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px; border-top:1px solid #e5e7eb;
+    background:rgb(203,207,231); border-radius:0 0 12px 12px; gap:10px;
+  }
+  .paginacion-wrap{ overflow-x:auto; max-width:100%; }
+  .pagination{ flex-wrap:nowrap; margin:0; }
+
+  /* Badge responsable */
+  .badge-resp{
+    font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px;
+    background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="font-size:12px; font-family:'Century Gothic', sans-serif; color:#111827; background:#ffffff; padding:16px 0;">
+    <div class="container-fluid contenedor-ancho">
+
+        <!-- HERO -->
+        <div style="position:relative; border:1px solid #e5e7eb; background:#fff; border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+            <h1 style="margin:0; font-size:18px; font-weight:700; letter-spacing:.2px;">
+                <i class="fa-solid fa-circle-xmark me-2" style="color:#0a0f3d;"></i>SNE · Motivos de Eliminación
+            </h1>
+            <p class="mb-0 mt-1" style="font-size:11px; color:#6b7280;">Parametrización de motivos para eliminación de servicios no ejecutados</p>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+            <!-- Botón sincronizar ICS -->
+            <button id="btn-sincronizar" class="btn btn-sm btn-outline-success"
+                title="Importar observaciones nuevas desde sne.ics"
+                style="border-radius:8px; padding:.35rem .9rem;">
+                <i class="fa-solid fa-rotate me-1"></i> Sincronizar ICS
+            </button>
+            <!-- Botón nuevo motivo -->
+            <button id="btn-nuevo-motivo" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#modalMotivo"
+                style="background:#0d6efd; color:#fff; border:1px solid #0b5ed7; border-radius:8px; padding:.35rem .9rem;">
+                <i class="fa-solid fa-plus me-1"></i> Nuevo Motivo
+            </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div style="border:1px solid #e5e7eb; background:rgb(220,222,236); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+        <div style="background:#fff; border:1px dashed #e5e7eb; border-radius:10px; padding:10px;">
+            <div class="row g-2 align-items-end">
+
+            <div class="col-12 col-md-4">
+                <label class="form-label mb-1">Buscar observación / responsable</label>
+                <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input id="f-q" type="text" class="form-control" placeholder="Ej: Accidente / Operación" style="font-size:12px; height:34px;">
+                </div>
+            </div>
+
+            <div class="col-12 col-md-3">
+                <label class="form-label mb-1">Responsable</label>
+                <select id="f-responsable" class="form-select" style="font-size:12px; height:34px;">
+                <option value="">Todos</option>
+                </select>
+            </div>
+
+            <div class="col-auto">
+                <button id="btn-limpiar" class="btn btn-sm btn-outline-secondary" style="height:34px;">
+                <i class="fa-solid fa-broom me-1"></i> Limpiar
+                </button>
+            </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA -->
+    <div style="border:1px solid #e5e7eb; background:#fff; border-radius:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+        <div class="table-responsive tabla-scroll">
+            <table class="table table-hover align-middle mb-0 tabla-motivos">
+            <thead>
+                <tr>
+                <th style="width:60px;">ID</th>
+                <th>Observación / Motivo</th>
+                <th>Responsable</th>
+                <th style="text-align:right; width:120px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-motivos"></tbody>
+            </table>
+        </div>
+        <div class="paginador">
+            <div id="txt-total" style="color:#6b7280;">0 de 0 registros</div>
+            <div class="paginacion-wrap">
+            <ul class="pagination pagination-sm" id="paginacion-motivos"></ul>
+            </div>
+        </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+    MODAL: Crear / Editar Motivo
+══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalMotivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+        <div class="modal-content" style="border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16);">
+        <div class="modal-header" style="border-bottom:1px solid #e5e7eb; background:#f9fafb; border-radius:12px 12px 0 0;">
+            <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+            <i class="fa-solid fa-circle-xmark me-2" style="color:#0a0f3d;"></i>
+            <span id="modal-titulo">Nuevo Motivo de Eliminación</span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" style="padding:20px;">
+            <div class="row g-3">
+
+            <!-- Observación -->
+            <div class="col-12">
+                <label class="form-label mb-1" style="font-weight:600;">
+                Observación / Motivo <span class="text-danger">*</span>
+                </label>
+                <textarea id="mot-observacion" class="form-control" rows="3"
+                placeholder="Ej: Accidente, Conato de Bomba, Vandalismo…"
+                style="font-size:12px; resize:vertical;"></textarea>
+                <div class="form-text">Describe claramente el motivo de eliminación.</div>
+            </div>
+
+            <!-- Responsable -->
+            <div class="col-12">
+                <label class="form-label mb-1" style="font-weight:600;">
+                Responsable <span class="text-danger">*</span>
+                </label>
+                <select id="mot-responsable" class="form-select" style="font-size:12px; height:36px;">
+                <option value="">-- Selecciona el responsable --</option>
+                </select>
+            </div>
+
+            <input type="hidden" id="mot-id">
+            </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:12px 20px; background:#f9fafb; border-radius:0 0 12px 12px;">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+            <i class="fa-solid fa-xmark me-1"></i>Cancelar
+            </button>
+            <button id="btn-guardar-motivo" type="button" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Guardar
+            </button>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+    MODAL: Confirmar eliminación
+══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content" style="border:1px solid #fca5a5; border-radius:12px;">
+        <div class="modal-header" style="background:#fef2f2; border-bottom:1px solid #fca5a5; border-radius:12px 12px 0 0;">
+            <h5 class="modal-title" style="font-size:14px; font-weight:700; color:#dc2626;">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>Confirmar eliminación
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="padding:20px;">
+            <p class="mb-1" style="font-size:13px;">¿Estás seguro de que deseas eliminar el motivo?</p>
+            <p id="txt-motivo-eliminar" class="fw-bold mb-0" style="font-size:13px; color:#dc2626;"></p>
+            <p class="mt-2 mb-0 text-muted" style="font-size:11px;">
+            Esta acción es irreversible. Si el motivo está en uso en otros registros, el sistema lo impedirá.
+            </p>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #fca5a5; background:#fef2f2; border-radius:0 0 12px 12px;">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button id="btn-confirmar-eliminar" type="button" class="btn btn-sm btn-danger">
+            <i class="fa-solid fa-trash me-1"></i> Eliminar definitivamente
+            </button>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div id="overlay-proceso" class="overlay-proceso" hidden aria-hidden="true">
+    <div class="text-center">
+        <div class="spinner-border mb-2" role="status"></div>
+        <div class="fw-bold">Procesando…</div>
+    </div>
+</div>
+
+<!-- Toasts -->
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index:1080;">
+    <div id="pila-toasts"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    /* ── Backdrop / Modal ──────────────────────────────────────────────── */
+    function limpiarBackdrops(){
+        document.querySelectorAll('.modal-backdrop').forEach(el=>el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+    function cerrarModal(id){
+        const el=document.getElementById(id); if(!el) return;
+        bootstrap.Modal.getOrCreateInstance(el).hide();
+        el.addEventListener('hidden.bs.modal',()=>setTimeout(limpiarBackdrops,0),{once:true});
+        setTimeout(()=>{ if(!document.querySelector('.modal.show')) limpiarBackdrops(); },300);
+    }
+    document.addEventListener('hidden.bs.modal',()=>{ if(!document.querySelector('.modal.show')) limpiarBackdrops(); });
+
+    /* ── Toasts ────────────────────────────────────────────────────────── */
+    function mostrarToast({titulo="Aviso", cuerpo="", tipo="success"}){
+        const color = tipo==="success"?"#198754":tipo==="warning"?"#ffc107":"#dc3545";
+        const html=`
+        <div class="toast align-items-center border-0 show" role="alert" aria-live="assertive" aria-atomic="true"
+            style="min-width:260px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.1);border-left:4px solid ${color}">
+            <div class="d-flex">
+            <div class="toast-body">
+                <div class="fw-bold" style="color:${color}">${titulo}</div>
+                <div style="color:#111827">${cuerpo}</div>
+            </div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>`;
+        const wrap=document.createElement('div'); wrap.innerHTML=html;
+        const el=wrap.firstElementChild;
+        document.getElementById('pila-toasts').appendChild(el);
+        setTimeout(()=>{ try{bootstrap.Toast.getOrCreateInstance(el).hide();}catch{} },3400);
+        el.addEventListener('hidden.bs.toast',()=>el.remove());
+    }
+
+    /* ── HTTP helpers ──────────────────────────────────────────────────── */
+    function normalizarError(status,payload){
+        if(payload&&Array.isArray(payload.detail))
+        return {status, detail: payload.detail.map(d=>d.msg||JSON.stringify(d)).join(' | ')};
+        return {status, detail: payload?.detail||payload?.message||`HTTP ${status}`};
+    }
+    async function getJSON(url, params={}){
+        const limpio={};
+        for(const k in params){ const v=params[k]; if(v===''||v===null||v===undefined) continue; limpio[k]=v; }
+        const q=new URLSearchParams(limpio);
+        const res=await fetch(q.toString()?`${url}?${q}`:url, {credentials:'same-origin'});
+        let data=null; try{data=await res.json();}catch{}
+        if(!res.ok) throw normalizarError(res.status,data);
+        return data;
+    }
+    async function sendJSON(url, method, body){
+        const res=await fetch(url,{method,headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)});
+        let data=null; try{data=await res.json();}catch{}
+        if(!res.ok) throw normalizarError(res.status,data);
+        return data;
+    }
+    async function deleteJSON(url){
+        const res=await fetch(url,{method:'DELETE',credentials:'same-origin'});
+        let data=null; try{data=await res.json();}catch{}
+        if(!res.ok) throw normalizarError(res.status,data);
+        return data;
+    }
+    function esc(s){ return (s??'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    /* ── API ───────────────────────────────────────────────────────────── */
+    const API = {
+        motivos: {
+        listar:     (p={})       => getJSON('/api/sne/motivos', p),
+        crear:      (cuerpo)     => sendJSON('/api/sne/motivos','POST',cuerpo),
+        actualizar: (id,cuerpo)  => sendJSON(`/api/sne/motivos/${id}`,'PUT',cuerpo),
+        eliminar:   (id)         => deleteJSON(`/api/sne/motivos/${id}`)
+        },
+        responsables: () => getJSON('/api/sne/motivos/responsables')
+    };
+
+    /* ── Estado ────────────────────────────────────────────────────────── */
+    const estado = { pagina:1, tamano:15, q:'', resp:'' };
+    let cache = { filas:[], responsables:[], idEliminar:null };
+
+    /* ── Paginación ────────────────────────────────────────────────────── */
+    function dibujarPaginacion(idContenedor, actual, total, onChange){
+        const ul=document.getElementById(idContenedor); if(!ul) return;
+        const ws=5, start=Math.max(1,actual-Math.floor(ws/2));
+        const end=Math.min(total,start+ws-1), rs=Math.max(1,end-ws+1);
+        const btn=(p,l=null,dis=false,act=false)=>{
+        const lb=l??p;
+        return `<li class="page-item${dis?' disabled':''}${act?' active':''}"><a class="page-link" href="#" data-page="${p}">${lb}</a></li>`;
+        };
+        let h=btn(1,'«',actual===1)+btn(Math.max(1,actual-1),'‹',actual===1);
+        if(rs>1){ h+=btn(1,'1',false,actual===1); if(rs>2) h+=`<li class="page-item disabled"><span class="page-link">…</span></li>`; }
+        for(let p=rs;p<=end;p++) h+=btn(p,String(p),false,p===actual);
+        if(end<total){ if(end<total-1) h+=`<li class="page-item disabled"><span class="page-link">…</span></li>`; h+=btn(total,String(total),false,actual===total); }
+        h+=btn(Math.min(total,actual+1),'›',actual===total)+btn(total,'»',actual===total);
+        ul.innerHTML=h;
+        ul.querySelectorAll('a[data-page]').forEach(a=>{
+        a.onclick=e=>{ e.preventDefault(); const np=Number(a.dataset.page); if(np>=1&&np<=total&&np!==actual) onChange(np); };
+        });
+    }
+
+    /* ── Colores por responsable ───────────────────────────────────────── */
+    const PALETA = [
+        {bg:'#e0e7ff',color:'#3730a3',border:'#c7d2fe'},
+        {bg:'#dcfce7',color:'#166534',border:'#bbf7d0'},
+        {bg:'#fef9c3',color:'#854d0e',border:'#fde68a'},
+        {bg:'#fee2e2',color:'#991b1b',border:'#fca5a5'},
+        {bg:'#f3e8ff',color:'#6b21a8',border:'#e9d5ff'},
+        {bg:'#e0f2fe',color:'#0c4a6e',border:'#bae6fd'},
+    ];
+    function badgeResponsable(nombre, idResp){
+        const p=PALETA[(Number(idResp)-1)%PALETA.length];
+        return `<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:${p.bg};color:${p.color};border:1px solid ${p.border};">${esc(nombre||'')}</span>`;
+    }
+
+    /* ── Cargar responsables ───────────────────────────────────────────── */
+    async function cargarResponsables(){
+        const rs=await API.responsables();
+        cache.responsables=rs.data||[];
+        // Filtro
+        const selF=document.getElementById('f-responsable');
+        selF.innerHTML=`<option value="">Todos</option>`;
+        cache.responsables.forEach(r=>selF.insertAdjacentHTML('beforeend',`<option value="${r.id}">${esc(r.responsable)}</option>`));
+        // Modal
+        const selM=document.getElementById('mot-responsable');
+        selM.innerHTML=`<option value="">-- Selecciona el responsable --</option>`;
+        cache.responsables.forEach(r=>selM.insertAdjacentHTML('beforeend',`<option value="${r.id}">${esc(r.responsable)}</option>`));
+    }
+
+    /* ── Cargar tabla ──────────────────────────────────────────────────── */
+    async function cargarMotivos(){
+        const p={
+        pagina:estado.pagina, tamano:estado.tamano,
+        ...(estado.q    ? {q:estado.q}                        : {}),
+        ...(estado.resp ? {id_responsable:estado.resp}        : {})
+        };
+        const resp=await API.motivos.listar(p);
+        cache.filas=resp.data||[];
+        const tb=document.getElementById('tbody-motivos');
+
+        if(!cache.filas.length){
+        tb.innerHTML=`<tr><td colspan="4" class="text-center text-muted py-4"><i class="fa-solid fa-inbox me-2"></i>Sin registros</td></tr>`;
+        } else {
+        tb.innerHTML=cache.filas.map(r=>`
+            <tr>
+            <td><span class="text-muted" style="font-size:11px;">#${r.id}</span></td>
+            <td title="${esc(r.observacion)}">${esc(r.observacion||'')}</td>
+            <td>${badgeResponsable(r.nombre_responsable, r.id_responsable)}</td>
+            <td style="text-align:right;">
+                <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-action" title="Editar"
+                        onclick="abrirEdicion(${Number(r.id)})">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-action" title="Eliminar"
+                        onclick="pedirEliminar(${Number(r.id)})">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+                </div>
+            </td>
+            </tr>
+        `).join('');
+        }
+
+        document.getElementById('txt-total').textContent=`${cache.filas.length} de ${resp.total} registros`;
+        dibujarPaginacion('paginacion-motivos', estado.pagina, Math.max(1,Math.ceil(resp.total/estado.tamano)), np=>{estado.pagina=np; cargarMotivos();});
+    }
+
+    /* ── CRUD ──────────────────────────────────────────────────────────── */
+    function abrirEdicion(id){
+        const r=cache.filas.find(x=>Number(x.id)===Number(id));
+        if(!r) return mostrarToast({titulo:'Error',cuerpo:'Registro no encontrado',tipo:'danger'});
+        document.getElementById('mot-id').value           = r.id;
+        document.getElementById('mot-observacion').value  = r.observacion||'';
+        document.getElementById('mot-responsable').value  = r.id_responsable||'';
+        document.getElementById('modal-titulo').textContent = 'Editar Motivo de Eliminación';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMotivo')).show();
+    }
+
+    function pedirEliminar(id){
+        const r=cache.filas.find(x=>Number(x.id)===Number(id));
+        if(!r) return;
+        cache.idEliminar=id;
+        document.getElementById('txt-motivo-eliminar').textContent=`"${r.observacion}"`;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEliminar')).show();
+    }
+
+    document.getElementById('btn-confirmar-eliminar')?.addEventListener('click', async ()=>{
+        if(!cache.idEliminar) return;
+        try{
+        await API.motivos.eliminar(cache.idEliminar);
+        mostrarToast({titulo:'Motivo',cuerpo:'Eliminado correctamente',tipo:'success'});
+        cerrarModal('modalEliminar');
+        cache.idEliminar=null;
+        estado.pagina=1;
+        await cargarMotivos();
+        }catch(err){
+        mostrarToast({titulo:'Error',cuerpo:esc(err.detail),tipo:'danger'});
+        }
+    });
+
+    document.getElementById('btn-guardar-motivo')?.addEventListener('click', async ()=>{
+        const id  = document.getElementById('mot-id').value||null;
+        const obs = document.getElementById('mot-observacion').value.trim();
+        const resp= document.getElementById('mot-responsable').value;
+
+        if(!obs)  return mostrarToast({titulo:'Validación',cuerpo:'La observación es obligatoria',tipo:'warning'});
+        if(!resp) return mostrarToast({titulo:'Validación',cuerpo:'Selecciona un responsable',tipo:'warning'});
+
+        const cuerpo={observacion:obs, id_responsable:parseInt(resp)};
+        try{
+        if(id){ await API.motivos.actualizar(id,cuerpo); mostrarToast({titulo:'Motivo',cuerpo:'Actualizado correctamente',tipo:'success'}); }
+        else  { await API.motivos.crear(cuerpo);         mostrarToast({titulo:'Motivo',cuerpo:'Creado correctamente',tipo:'success'}); }
+        cerrarModal('modalMotivo');
+        document.getElementById('mot-id').value='';
+        estado.pagina=1;
+        await cargarMotivos();
+        }catch(err){ mostrarToast({titulo:'Error',cuerpo:esc(err.detail),tipo:'danger'}); }
+    });
+
+    /* Reset modal al abrir "Nuevo" */
+    document.getElementById('btn-nuevo-motivo')?.addEventListener('click', ()=>{
+        document.getElementById('mot-id').value          = '';
+        document.getElementById('mot-observacion').value = '';
+        document.getElementById('mot-responsable').value = '';
+        document.getElementById('modal-titulo').textContent = 'Nuevo Motivo de Eliminación';
+    });
+
+    /* ── Sincronización desde sne.ics ─────────────────────────────────── */
+    async function ejecutarSincronizacion(silencioso = false){
+        const btn = document.getElementById('btn-sincronizar');
+        const iconoOriginal = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sincronizando…';
+        try {
+        const res = await fetch('/api/sne/motivos/sincronizar', {
+            method: 'POST', credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if(!res.ok) throw data;
+
+        if(data.nuevos > 0){
+            // Hay motivos nuevos: recargar tabla y avisar
+            await cargarMotivos();
+            mostrarToast({
+            titulo: 'Sincronización ICS',
+            cuerpo: `✅ ${data.nuevos} motivo(s) nuevo(s) importado(s). Asígnales un responsable.`,
+            tipo: 'success'
+            });
+        } else if(!silencioso) {
+            // Sin cambios y fue manual: informar
+            mostrarToast({
+            titulo: 'Sincronización ICS',
+            cuerpo: `Sin cambios: los ${data.existentes} motivo(s) de ICS ya estaban registrados.`,
+            tipo: 'success'
+            });
+        }
+        } catch(err){
+        mostrarToast({titulo:'Error sincronización', cuerpo: esc(err.detail||String(err)), tipo:'danger'});
+        } finally {
+        btn.disabled = false;
+        btn.innerHTML = iconoOriginal;
+        }
+    }
+
+    document.getElementById('btn-sincronizar')?.addEventListener('click', ()=> ejecutarSincronizacion(false));
+
+    /* ── Filtros ───────────────────────────────────────────────────────── */
+    let debounceTimer;
+    document.getElementById('f-q')?.addEventListener('input', e=>{
+        clearTimeout(debounceTimer);
+        debounceTimer=setTimeout(()=>{ estado.q=e.target.value; estado.pagina=1; cargarMotivos(); },350);
+    });
+    document.getElementById('f-responsable')?.addEventListener('change', e=>{
+        estado.resp=e.target.value; estado.pagina=1; cargarMotivos();
+    });
+    document.getElementById('btn-limpiar')?.addEventListener('click', ()=>{
+        document.getElementById('f-q').value='';
+        document.getElementById('f-responsable').value='';
+        estado.q=''; estado.resp=''; estado.pagina=1;
+        cargarMotivos();
+    });
+
+    /* ── Arranque ──────────────────────────────────────────────────────── */
+    (async function boot(){
+        try{
+        await cargarResponsables();
+        // Sincronizar silenciosamente al cargar: importa nuevos sin molestar si no hay cambios
+        await ejecutarSincronizacion(true);
+        // cargarMotivos ya se llama dentro de ejecutarSincronizacion si hay nuevos,
+        // pero lo forzamos siempre para garantizar que la tabla se pinta.
+        await cargarMotivos();
+        }catch(err){ mostrarToast({titulo:'Error inicial',cuerpo:String(err.detail||err),tipo:'danger'}); }
+    })();
+</script>
+{% endblock %}

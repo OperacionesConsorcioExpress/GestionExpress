@@ -1,18 +1,1792 @@
 {% extends "components/layout.html" %}
-{% block title %}Gestion y Objeción de Kilómetros{% endblock %}
+{% block title %}Gestión y Objeción de Kilómetros{% endblock %}
 
 {% block head %}
+<!-- Bootstrap 5.3 -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Font Awesome & Bootstrap Icons -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+<!-- Leaflet Maps (OSM) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- Leaflet plugins CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-minimap/dist/Control.MiniMap.min.css">
+
 <style>
-  /* mínimo para evitar “pisadas” del layout */
-  #edsApp * { box-sizing: border-box; }
+  * { font-family: 'Century Gothic', Arial, sans-serif; }
+
+  /* MAPA PARA OBJECIONES */
+  .map-fullscreen { position: fixed; top: 0; left: 0; width: 100% !important; height: 100% !important; z-index: 9999; border-radius: 0; }
+  /* Mapa - animación entrada panel filtros */
+  .map-filter-panel { transition: all 0.25s ease; }
+  .map-filter-panel.collapsed { display: none !important; }
+  /* Botón popout */
+  #mapPopoutBtn { cursor:pointer; }
+  /* Leyenda mapa */
+  .map-legend { background:white; padding:0.5rem 0.7rem; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15); font-size:0.65rem; line-height:1.6; min-width:130px; }
+  .map-legend-row { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.2rem; }
+  .map-legend-line { height:3px; width:22px; border-radius:2px; }
+  .map-legend-dot  { height:10px; width:10px; border-radius:50%; flex-shrink:0; }
+
+  /* Tooltip bus */
+  .bus-tooltip { font-size:0.7rem; font-weight:700; white-space:nowrap; }
+  /* Panel info bus */
+  #mapBusInfo { transition: all 0.3s; }
+  /* Forzar hora en formato 24h */
+  input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
+
+  /* ESTILOS TABLA EXCEL O GRILLA REPORTES */
+  .drag-drop-area { border: 2px dashed #0d6efd; border-radius: 6px; padding: 1rem; background: #f0f7ff; transition: all 0.3s; cursor: pointer; }
+  .drag-drop-area.dragover { background: #d4e6ff; border-color: #0b5ed7; }
+  .file-item { background: white; padding: 0.6rem 0.8rem; border-radius: 4px; border-left: 3px solid #0d6efd; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; font-size: 0.75rem; }
+  .excel-table { border-collapse: collapse; width: 100%; }
+  .excel-table th {
+    background: #0d6efd;
+    color: white;
+    padding: 0.25rem 0.35rem;     /* <-- más angosto */
+    text-align: left;
+    font-weight: 700;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.70rem;           /* <-- más compacto */
+    line-height: 1.1;
+  }
+  .excel-table th:hover { background: #0b5ed7; }
+  .excel-table td {
+    padding: 0.35rem 0.55rem;     /* <-- más angosto */
+    border: 1px solid #e2e8f0;
+    font-size: 0.72rem;
+    line-height: 1.15;
+  }
+  .excel-table tbody tr:hover { background: #f8fafc; }
+  .excel-table tbody tr:nth-child(even) { background: #fafbfc; }
+  .excel-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .table-scroll {
+    max-height: 520px;        /* <-- ajusta a gusto (ej: 55vh, 60vh, 520px) */
+    overflow-y: auto;        /* <-- scroll vertical */
+    overflow-x: auto;     /* <-- scroll horizontal si es necesario */
+    width: 100%;        
+    border-radius: 6px;
+  }
+  .sort-indicator { font-size: 0.7rem; margin-left: 0.3rem; } 
+  .page-btn { background:white; border:1px solid #e2e8f0; border-radius:4px; padding:0.3rem 0.6rem; cursor:pointer; font-size:0.72rem; margin:0 1px; }
+  .page-btn:hover { background:#e7f3ff; border-color:#0d6efd; }
+  .page-btn.active { background:#0d6efd; color:white; border-color:#0d6efd; }
+  .page-btn:disabled { opacity:0.4; cursor:default; }
 </style>
 {% endblock %}
 
-
 {% block content %}
+<!-- CONTAINER PRINCIPAL COMPACTO -->
+<div style="padding: 0.8rem; background: #f8f9fa; min-height: 100vh; font-family: 'Century Gothic', Arial, sans-serif;">
 
+  <!-- ENCABEZADO EN UNA LÍNEA COMPACTA -->
+  <div style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color: white; padding: 0.6rem 1rem; border-radius: 6px; box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2); margin-bottom: 1rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; font-weight: 700;">
+      <i class="bi bi-map-fill"></i>Gestión y Objeción de Kilómetros
+    </div>
+    <div style="font-size: 0.8rem; opacity: 0.95;">Sistema de validación de rutas</div>
+    <div style="display: flex; gap: 1.5rem; align-items: center; font-size: 0.8rem; margin-left: auto;">
+      <div style="display: flex; align-items: center; gap: 0.3rem;">
+        <i class="bi bi-person-circle"></i>
+        <span>Usuario: <strong id="currentUser">--</strong></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.3rem;">
+        <i class="bi bi-calendar-event"></i>
+        <span>Fecha: <strong id="today">--</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAMIFICATION / ESTADISTICAS DIA  -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.8rem; margin-bottom: 1rem;" id="statsContainer">
+    <!-- Se cargará dinámicamente con JS -->
+  </div>
+
+  <!-- FILTROS COMPACTO -->
+  <div style="background: rgb(219, 222, 226); padding: 0.8rem; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); margin-bottom: 1rem;">
+
+    <!-- ENCABEZADOS -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin: 0 0 0.8rem 0;">
+      <h6 style="font-size: 0.85rem; font-weight: 700; margin: 0; color: #0f172a;">
+        <i class="bi bi-funnel"></i> Filtros
+      </h6>
+
+      <div style="display:flex; gap:0.4rem;">
+        <!-- Filtrar -->
+        <button onclick="applyFilters()"
+          title="Filtrar"
+          aria-label="Filtrar"
+          style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+            color: white; border-radius: 8px; border: none;
+            font-weight: 600; cursor: pointer; font-size: 0.9rem;
+            height: 22px; width: 30px; display:flex; align-items:center; justify-content:center;"
+          onmouseover="this.style.boxShadow='0 2px 6px rgba(13, 110, 253, 0.3)'"
+          onmouseout="this.style.boxShadow='none'">
+          <i class="bi bi-search"></i>
+        </button>
+
+        <!-- Limpiar -->
+        <button onclick="clearFilters()"
+          title="Limpiar"
+          aria-label="Limpiar"
+          style="background: transparent; color: #0d6efd;
+            border: 1px solid #0d6efd; border-radius: 8px;
+            font-weight: 600; cursor: pointer; font-size: 0.9rem;
+            height: 22px; width: 30px; display:flex; align-items:center; justify-content:center;"
+          onmouseover="this.style.backgroundColor='#f0f0f0'"
+          onmouseout="this.style.backgroundColor='transparent'">
+          <i class="bi bi-arrow-counterclockwise"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Grid con separación fija controlada -->
+    <div style="
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        column-gap: 0.4rem;
+        row-gap: 0.6rem;
+        align-items: end;
+      ">
+
+      <div>
+        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Fecha</label>
+        <input type="date" id="filterDate" onchange="onFechaChange()"
+          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+      </div>
+
+      <div>
+        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">ID ICS</label>
+        <select id="filterIcs"
+          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          <option value="">-- Todos --</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Componente</label>
+        <select id="filterComponente" onchange="onComponenteChange()"
+          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          <option value="">-- Todos --</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Zona</label>
+        <select id="filterZona" onchange="onZonaChange()"
+          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          <option value="">-- Todas --</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">COP</label>
+        <select id="filterCop" onchange="onCopChange()"
+          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          <option value="">-- Todos --</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Ruta</label>
+        <select id="filterRuta"
+          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          <option value="">-- Todas --</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Responsable</label>
+        <select id="filterResponsable"
+          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          <option value="">-- Todos --</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TABS para separar por estado de revisión -->
+  <ul style="border-bottom: 1px solid #0342f0; gap: 0.3rem; margin-bottom: 1rem; display: flex; list-style: none; padding: 0;">
+    <li>
+      <button class="tab-button active" data-tab="revisar" onclick="switchTab(event, 'revisar')"
+        style="color: white; background: #0a2f75; border: none; border-bottom: 2px solid #0a2f75; font-weight: 700; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; border-radius:15px 15px 0 0;">
+        <i class="bi bi-eye"></i> Por Revisar
+      </button>
+    </li>
+
+    <li>
+      <button class="tab-button" data-tab="revisados" onclick="switchTab(event, 'revisados')"
+        style="color: #64748b; background: white; border: none; border-bottom: 2px solid transparent; font-weight: 700; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; border-radius:15px 15px 0 0;">
+        <i class="bi bi-check2-circle"></i> Revisados
+      </button>
+    </li>
+
+    <li>
+      <button class="tab-button" data-tab="validar" onclick="switchTab(event, 'validar')"
+        style="color: #64748b; background: white; border: none; border-bottom: 2px solid transparent; font-weight: 700; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; border-radius:15px 15px 0 0;">
+        <i class="bi bi-shield-check"></i> Por Validar
+      </button>
+    </li>
+
+    <li>
+      <button class="tab-button" data-tab="resultados" onclick="switchTab(event, 'resultados')"
+        style="color: #64748b; background: white; border: none; border-bottom: 2px solid transparent; font-weight: 700; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; border-radius:15px 15px 0 0;">
+        <i class="bi bi-graph-up-arrow"></i> Resultados
+      </button>
+    </li>
+  </ul>
+
+<!-- TAB CONTENT -->
+<div id="tab-revisar" class="tab-content" style="display: block;"></div>
+<div id="tab-revisados" class="tab-content" style="display: none;"></div>
+<div id="tab-validar" class="tab-content" style="display: none;"></div>
+<div id="tab-resultados" class="tab-content" style="display: none;"></div>
+
+<!-- MODAL GESTIÓN -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content" style="border: none;">
+      
+      <!-- MODAL PARA GESTIÓN DE OBJECIONES -->
+      <div style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color: white; border: none; padding: 0.8rem 1.2rem; display: flex; justify-content: space-between; align-items: center;">
+        <h5 style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+          <i class="bi bi-pencil-square"></i> Revisión de Kilómetros - <span id="modalRecordId">--</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1);"></button>
+      </div>
+
+      <!-- MODAL PARA MOSTRAR INFORMACIÓN Y GESTIÓN -->
+      <div style="padding: 1rem; background: #f8f9fa; display: grid; grid-template-columns: 0.6fr 1.4fr 0.4fr; gap: 1rem; height: calc(100vh - 130px); overflow-y: auto;">
+        
+        <!-- COLUMNA IZQUIERDA - FORMULARIO -->
+        <div style="display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; padding-right: 0.5rem;">
+          
+          <!-- INFORMACIÓN BÁSICA -->
+          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);">
+            <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.7rem;">
+              <i class="bi bi-info-circle" style="color: #0d6efd; margin-right: 0.3rem;"></i>Información General
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem;" id="basicInfoContainer">
+              <!-- Se cargará dinámicamente -->
+            </div>
+          </div>
+
+          <!-- COMPARACIÓN DE KM -->
+          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);">
+            <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem;">
+              <i class="bi bi-speedometer2" style="color: #0d6efd; margin-right: 0.3rem;"></i>Km
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.8rem;" id="kmComparisonContainer">
+              <!-- Se cargará dinámicamente -->
+            </div>
+            <div style="background: #e7f3ff; border-left: 3px solid #0066cc; padding: 0.6rem; border-radius: 5px; font-size: 0.7rem;" id="kmSummaryContainer">
+              <!-- Se cargará dinámicamente -->
+            </div>
+          </div>
+
+          <!-- GESTIÓN PRINCIPAL DE OBJECIONES -->
+          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); flex: 0 0 auto;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.8rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0;">
+            <i class="bi bi-pencil-square" style="color: #0d6efd; margin-right: 0.3rem;"></i>Gestionar Objeción
+          </div>
+
+          <!-- FILA 1: Responsable + Motivo/Observación (dependiente) -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.6rem;">
+            <div>
+              <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
+                <i class="bi bi-person-badge" style="color:#0d6efd;"></i> Responsable
+              </label>
+              <select id="gestionResponsable" onchange="onGestionResponsableChange()"
+                style="border:1px solid #e2e8f0;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fafbfc;width:100%;color:#0f172a;transition:border-color 0.2s;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                <option value="">-- Seleccionar --</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
+                <i class="bi bi-chat-square-text" style="color:#0d6efd;"></i> Motivo
+              </label>
+              <select id="gestionMotivo"
+                style="border:1px solid #e2e8f0;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fafbfc;width:100%;color:#0f172a;transition:border-color 0.2s;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                <option value="">-- Seleccionar responsable primero --</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- FILA 2: Acción + Justificación (dependiente) -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.6rem;">
+            <div>
+              <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
+                <i class="bi bi-lightning-charge" style="color:#f59e0b;"></i> Acción
+              </label>
+              <select id="gestionAccion" onchange="onGestionAccionChange()"
+                style="border:1px solid #e2e8f0;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fafbfc;width:100%;color:#0f172a;transition:border-color 0.2s;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                <option value="">-- Seleccionar --</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
+                <i class="bi bi-card-checklist" style="color:#0d6efd;"></i> Justificación
+              </label>
+              <select id="gestionJustificacion"
+                style="border:1px solid #e2e8f0;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fafbfc;width:100%;color:#0f172a;transition:border-color 0.2s;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                <option value="">-- Seleccionar acción primero --</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- FILA 3: Km a Objetar + Km No Objetado (solo visibles si acción = Objetado / id_acc=2) -->
+          <div id="kmObjecionContainer" style="display:none; background:#fff8e1; border:1px solid #ffc107; border-radius:8px; padding:0.7rem; margin-bottom:0.6rem; transition:all 0.3s;">
+            <div style="font-size:0.65rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:0.5rem;">
+              <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b;"></i> Detalle de Objeción
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div>
+                <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
+                  Km a Objetar
+                </label>
+                <input type="number" id="kmObjetar" min="0.001" step="0.001" placeholder="0.000"
+                  oninput="calcularKmNoObjetado()"
+                  style="border:1px solid #ffc107;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fffef5;width:100%;color:#0f172a;font-weight:600;"
+                  onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#ffc107'">
+                <div id="kmObjetarError" style="display:none;font-size:0.62rem;color:#dc3545;margin-top:0.2rem;font-weight:600;">
+                  <i class="bi bi-exclamation-circle"></i> Debe ser &gt; 0 y ≤ Km Revisión (<span id="kmRevLabel">0</span>)
+                </div>
+              </div>
+              <div>
+                <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
+                  Km No Objetado
+                </label>
+                <input type="number" id="kmNoObjetado" readonly placeholder="0.000"
+                  style="border:1px solid #e2e8f0;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#f1f5f9;width:100%;color:#64748b;font-weight:600;cursor:not-allowed;">
+              </div>
+            </div>
+          </div>
+
+          <!-- FILA 4: Comentarios -->
+          <div style="margin-bottom: 0.6rem;">
+            <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
+              <i class="bi bi-pencil" style="color:#0d6efd;"></i> Comentarios para el Informe
+            </label>
+            <textarea id="commentText"
+              style="border:1px solid #e2e8f0;border-radius:8px;padding:0.4rem 0.5rem;width:100%;background:#fafbfc;color:#0f172a;min-height:65px;font-size:0.72rem;resize:vertical;transition:border-color 0.2s;"
+              placeholder="Justificar al Ente Gestor..."
+              onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+          </div>
+
+          <!-- IDs contenedores legacy (por si algo los referencia) -->
+          <div id="managementRow1Container" style="display:none;"></div>
+          <div id="managementRow2Container" style="display:none;"></div>
+        </div>
+
+        </div>
+
+        <!-- COLUMNA CENTRAL - MAPA Y ACTIVIDADES -->
+        <div style="display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto;">
+          
+          <!-- MAPA -->
+          <div id="mapCard" style="background:white;border-radius:6px;padding:0.9rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;flex-direction:column;min-height:420px;">
+
+          <!-- HEADER MAPA -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-shrink:0;">
+            <div style="font-size:0.85rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:0.4rem;">
+              <i class="bi bi-map-fill" style="color:#0d6efd;"></i>Trazado GPS
+              <span id="mapStatusBadge" style="display:none;background:#e7f3ff;color:#0d6efd;border-radius:20px;padding:0.1rem 0.5rem;font-size:0.6rem;font-weight:700;border:1px solid #bfdbfe;">Sin datos</span>
+            </div>
+            <div style="display:flex;gap:0.35rem;align-items:center;">
+              <!-- Toggle filtros -->
+              <button onclick="toggleMapFilters()" title="Filtros de consulta"
+                style="background:transparent;border:1px solid #e2e8f0;color:#475569;padding:0.25rem 0.55rem;border-radius:6px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:all 0.2s;"
+                onmouseover="this.style.borderColor='#0d6efd';this.style.color='#0d6efd'"
+                onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#475569'">
+                <i class="bi bi-sliders"></i>
+              </button>
+              <!-- Capas -->
+              <button onclick="cycleMapLayer()" title="Cambiar capa base" id="layerBtn"
+                style="background:transparent;border:1px solid #e2e8f0;color:#475569;padding:0.25rem 0.55rem;border-radius:6px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:all 0.2s;"
+                onmouseover="this.style.borderColor='#0d6efd';this.style.color='#0d6efd'"
+                onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#475569'">
+                <i class="bi bi-layers"></i> OSM
+              </button>
+              <!-- Popout nueva ventana -->
+              <button id="mapPopoutBtn" onclick="popoutMap()" title="Abrir en nueva ventana"
+                style="background:transparent;border:1px solid #e2e8f0;color:#475569;padding:0.25rem 0.55rem;border-radius:6px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:all 0.2s;"
+                onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'"
+                onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#475569'">
+                <i class="bi bi-box-arrow-up-right"></i>
+              </button>
+              <!-- Fullscreen -->
+              <button id="mapToggleBtn" onclick="toggleMapFullscreen()"
+                style="background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:white;border:none;padding:0.25rem 0.6rem;border-radius:6px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:all 0.2s;"
+                onmouseover="this.style.boxShadow='0 2px 8px rgba(13,110,253,0.4)'"
+                onmouseout="this.style.boxShadow='none'">
+                <i class="bi bi-arrows-fullscreen"></i> Maximizar
+              </button>
+            </div>
+          </div>
+
+          <!-- PANEL FILTROS MAPA (colapsable) -->
+          <div id="mapFilterPanel" class="map-filter-panel collapsed" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.5rem;flex-shrink:0;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:0.5rem;align-items:end;">
+              <div>
+                <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-bus-front" style="color:#0d6efd;"></i> Bus</label>
+                <input type="text" id="mapFilterBus" placeholder="Ej: D127, Z10-4539"
+                  style="border:1px solid #e2e8f0;border-radius:6px;padding:0.3rem 0.5rem;font-size:0.72rem;width:100%;background:white;color:#0f172a;"
+                  onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+              </div>
+              <div>
+                <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-clock" style="color:#0d6efd;"></i> Hora Ini</label>
+                <input type="text" id="mapFilterHoraIni" value="00:00"
+                maxlength="5" placeholder="00:00" autocomplete="off"
+                oninput="maskHora(this)" onblur="validateHora(this,'00:00')"
+                style="border:1px solid #e2e8f0;border-radius:6px;padding:0.3rem 0.5rem;font-size:0.72rem;width:100%;background:white;color:#0f172a;font-family:monospace;letter-spacing:1px;"
+                onfocus="this.style.borderColor='#0d6efd'" >
+              </div>
+              <div>
+                <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-clock-history" style="color:#0d6efd;"></i> Hora Fin</label>
+                <input type="text" id="mapFilterHoraFin" value="23:59"
+                maxlength="5" placeholder="23:59" autocomplete="off"
+                oninput="maskHora(this)" onblur="validateHora(this,'23:59')"
+                style="border:1px solid #e2e8f0;border-radius:6px;padding:0.3rem 0.5rem;font-size:0.72rem;width:100%;background:white;color:#0f172a;font-family:monospace;letter-spacing:1px;"
+                onfocus="this.style.borderColor='#0d6efd'" >
+              </div>
+              <div style="display:flex;gap:0.3rem;">
+                <button onclick="loadMapData()" title="Consultar"
+                  style="background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:white;border:none;border-radius:6px;padding:0.3rem 0.7rem;font-size:0.72rem;font-weight:700;cursor:pointer;height:30px;"
+                  onmouseover="this.style.boxShadow='0 2px 6px rgba(13,110,253,0.4)'"
+                  onmouseout="this.style.boxShadow='none'">
+                  <i class="bi bi-search"></i>
+                </button>
+                <button onclick="clearMapData()" title="Limpiar"
+                  style="background:transparent;color:#475569;border:1px solid #e2e8f0;border-radius:6px;padding:0.3rem 0.7rem;font-size:0.72rem;font-weight:700;cursor:pointer;height:30px;"
+                  onmouseover="this.style.borderColor='#dc3545';this.style.color='#dc3545'"
+                  onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#475569'">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+
+            <!-- Info resultado -->
+            <div id="mapQueryInfo"
+                style="display:none;
+                        font-size:0.65rem;
+                        color:#475569;
+                        background:white;
+                        border-radius:4px;
+                        padding:0.3rem 0.6rem;
+                        border:1px solid #e2e8f0;
+                        height:30px;
+                        display:flex;
+                        align-items:center;">
+            </div>
+          </div>
+        </div>
+
+          <!-- CONTENEDOR MAPA -->
+          <iframe id="mapModal" style="flex:1;border-radius:8px;border:1px solid #e2e8f0;height:300px;min-height:300px;width:100%;display:block;" frameborder="0"></iframe>
+        </div>
+
+          <!-- ACTIVIDADES EN 2 COLUMNAS PARA EL CONSOLIDADO DE ACCIONES POR HORA -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; height: 350px;">
+
+            <!-- ACTIVIDADES UNIDAD LOGICA -->
+            <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; overflow: hidden;">
+              <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem; border-bottom: 2px solid #198754; padding-bottom: 0.4rem;">
+                <i class="bi bi-geo" style="color: #198754; margin-right: 0.3rem;"></i>Datos Posicionamientos
+              </div>
+              <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem;" id="gpsActivitiesContainer">
+                <!-- Se cargará dinámicamente -->
+              </div>
+            </div>
+            
+            <!-- ACTIVIDADES OPERACION -->
+            <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; overflow: hidden;">
+              <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem; border-bottom: 2px solid #dc3545; padding-bottom: 0.4rem;">
+                <i class="bi bi-activity" style="color: #dc3545; margin-right: 0.3rem;"></i>Actividades en la Operación
+              </div>
+              <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem;" id="operatorActivitiesContainer">
+                <!-- Se cargará dinámicamente -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMNA DERECHA - REPORTES Y ARCHIVOS -->
+        <div style="display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; padding-left: 0.5rem;">
+          
+          <!-- REPORTES -->
+          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem;">
+              <i class="bi bi-file-earmark-text" style="color: #0d6efd; margin-right: 0.3rem; font-size: 0.9rem;"></i>Reportes
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <button onclick="openReport('detail')" style="background: transparent; color: #0d6efd; padding: 0.5rem; border: 1px solid #0d6efd; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; width: 100%; text-align: left;" onmouseover="this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.backgroundColor='transparent'">
+                <i class="bi bi-file-earmark"></i> Detallado
+              </button>
+              <button onclick="openReport('activity')" style="background: transparent; color: #0d6efd; padding: 0.5rem; border: 1px solid #0d6efd; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; width: 100%; text-align: left;" onmouseover="this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.backgroundColor='transparent'">
+                <i class="bi bi-bus-front"></i> Actividad
+              </button>
+              <button onclick="openReport('stats')" style="background: transparent; color: #0d6efd; padding: 0.5rem; border: 1px solid #0d6efd; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; width: 100%; text-align: left;" onmouseover="this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.backgroundColor='transparent'">
+                <i class="bi bi-graph-up"></i> Estadísticas
+              </button>
+            </div>
+          </div>
+
+          <!-- CARGA DE ARCHIVOS -->
+          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem;">
+              <i class="bi bi-cloud-upload" style="color: #0d6efd; margin-right: 0.3rem; font-size: 0.9rem;"></i>Archivos
+            </div>
+            
+            <div class="drag-drop-area" id="dragDropArea" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFiles(event)">
+              <div style="text-align: center; pointer-events: none;">
+                <i class="bi bi-cloud-arrow-up" style="font-size: 1.5rem; color: #0d6efd; margin-bottom: 0.3rem; display: block;"></i>
+                <div style="font-size: 0.7rem; color: #0d6efd; font-weight: 600;">Arrastra archivos aquí</div>
+                <div style="font-size: 0.65rem; color: #64748b; margin-top: 0.2rem;">o haz click</div>
+              </div>
+              <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFiles(event)">
+            </div>
+
+            <div style="margin-top: 0.8rem; font-size: 0.75rem; font-weight: 600; color: #0f172a; margin-bottom: 0.4rem;">Archivos:</div>
+            <div id="filesList" style="flex: 1; overflow-y: auto; padding-right: 0.3rem;"></div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- MODAL PARA ACCIONES -->
+      <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 0.7rem 1.2rem; display: flex; gap: 0.8rem; justify-content: flex-end;">
+        <button type="button" data-bs-dismiss="modal" style="background: transparent; color: #475569; padding: 0.5rem 1rem; border: 1px solid #e2e8f0; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem;">
+          <i class="bi bi-x-lg"></i> Cerrar
+        </button>
+        <button type="button" style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(13, 110, 253, 0.4)'" onmouseout="this.style.boxShadow='none'">
+          <i class="bi bi-file-earmark-pdf"></i> PDF
+        </button>
+        <button type="button" onclick="saveRecord()" style="background: #198754; color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(25, 135, 84, 0.4)'" onmouseout="this.style.boxShadow='none'">
+          <i class="bi bi-check-lg"></i> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REPORTES -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content" style="border: none;">
+      <div style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color: white; padding: 0.8rem 1.2rem; display: flex; justify-content: space-between; align-items: center;">
+        <h5 id="reportTitle" style="margin: 0; font-weight: 700; font-size: 0.95rem;"><i class="bi bi-file-earmark"></i> Reporte</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1);"></button>
+      </div>
+      
+      <!-- CONTROLES -->
+      <div style="background: white; padding: 0.8rem 1.2rem; border-bottom: 1px solid #e2e8f0; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="reportSearch" placeholder="Buscar..." style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 0.4rem 0.8rem; font-size: 0.75rem; width: 200px;">
+        <select id="reportFilter" style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
+          <option>Filtrar por...</option>
+          <option>Estado: Aprobado</option>
+          <option>Estado: Rechazado</option>
+          <option>Estado: Pendiente</option>
+        </select>
+        <button onclick="exportReportExcel()" style="background: #198754; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem; margin-left: auto;">
+          <i class="bi bi-download"></i> Exportar
+        </button>
+        <button onclick="printReport()" style="background: #0d6efd; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem;">
+          <i class="bi bi-printer"></i> Imprimir
+        </button>
+      </div>
+
+      <!-- CONTENIDO -->
+      <div id="reportContent" style="padding: 1rem; overflow: auto; height: calc(100vh - 160px); background: #f8f9fa;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ==================== CONFIGURACION GLOBAL DE COLORES ==================== */
+  const COLORS = {
+    primary: '#0d6efd',
+    primaryDark: '#0b5ed7',
+    primaryLight: '#e7f3ff',
+    danger: '#dc3545',
+    success: '#198754',
+    warning: '#ffc107',
+    info: '#0dcaf0',
+    textDark: '#0f172a',
+    textGray: '#64748b',
+    border: '#e2e8f0',
+    background: '#f8f9fa',
+    bgLight: '#fafbfc',
+    white: '#ffffff',
+    headerBg: '#0d6efd', // Color de fondo para encabezados
+    headerText: '#ffffff',
+    headerBorder: '#e2e8f0',
+    filterBg: 'rgb(207, 212, 221)'
+  };
+
+  /* ==================== API BASE ==================== */
+  const API = '/sne/api';
+
+  /* ==================== ESTADO ==================== */
+  let currentTab  = 'revisar';
+  let currentPage = 1;
+  const PAGE_SIZE = 50;
+
+  /* ==================== INIT ==================== */
+  async function initializeApp() {
+    const today = new Date();
+    document.getElementById('today').textContent = today.toLocaleDateString('es-ES');
+    document.getElementById('currentUser').textContent = '{{ user_session.nombres }} {{ user_session.apellidos }}' || 'Usuario';
+
+    await initFiltros();
+    loadStats();
+    loadTabData('revisar');
+  }
+
+  /* ==================== FILTROS EN CASCADA ==================== */
+  async function initFiltros() {
+    try {
+      const r = await fetch(API + '/filtros/ultima-fecha');
+      const j = await r.json();
+      if (j.ok && j.data) document.getElementById('filterDate').value = j.data;
+    } catch(e) { console.error('ultima-fecha', e); }
+    await loadIcsByFecha();
+    await loadComponentes();
+    await loadResponsables();
+  }
+
+  async function loadIcsByFecha() {
+    const fecha = document.getElementById('filterDate').value;
+    const sel = document.getElementById('filterIcs');
+    sel.innerHTML = '<option value="">-- Todos --</option>';
+    if (!fecha) return;
+    try {
+      const r = await fetch(API + '/filtros/ics?fecha=' + encodeURIComponent(fecha));
+      const j = await r.json();
+      if (j.ok) j.data.forEach(id => {
+        const o = document.createElement('option');
+        o.value = id; o.textContent = id; sel.appendChild(o);
+      });
+    } catch(e) { console.error('filtros/ics', e); }
+  }
+
+  async function loadComponentes() {
+    const sel = document.getElementById('filterComponente');
+    sel.innerHTML = '<option value="">-- Todos --</option>';
+    try {
+      const r = await fetch(API + '/filtros/componentes');
+      const j = await r.json();
+      if (j.ok) j.data.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c; sel.appendChild(o);
+      });
+    } catch(e) { console.error('filtros/componentes', e); }
+  }
+
+  async function loadZonas(componente) {
+    const sel = document.getElementById('filterZona');
+    sel.innerHTML = '<option value="">-- Todas --</option>';
+    const qs = componente ? '?componente=' + encodeURIComponent(componente) : '';
+    try {
+      const r = await fetch(API + '/filtros/zonas' + qs);
+      const j = await r.json();
+      if (j.ok) j.data.forEach(z => {
+        const o = document.createElement('option');
+        o.value = z; o.textContent = z; sel.appendChild(o);
+      });
+    } catch(e) { console.error('filtros/zonas', e); }
+    resetSel('filterCop',  '-- Todos --');
+    resetSel('filterRuta', '-- Todas --');
+  }
+
+  async function loadCop(componente, zona) {
+    const sel = document.getElementById('filterCop');
+    sel.innerHTML = '<option value="">-- Todos --</option>';
+    const p = new URLSearchParams();
+    if (componente) p.set('componente', componente);
+    if (zona)       p.set('zona', zona);
+    try {
+      const r = await fetch(API + '/filtros/cop?' + p.toString());
+      const j = await r.json();
+      if (j.ok) j.data.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id; o.textContent = c.cop; sel.appendChild(o);
+      });
+    } catch(e) { console.error('filtros/cop', e); }
+    resetSel('filterRuta', '-- Todas --');
+  }
+
+  async function loadRutas(idCop) {
+    const sel = document.getElementById('filterRuta');
+    sel.innerHTML = '<option value="">-- Todas --</option>';
+    if (!idCop) return;
+    try {
+      const r = await fetch(API + '/filtros/rutas?id_cop=' + encodeURIComponent(idCop));
+      const j = await r.json();
+      if (j.ok) j.data.forEach(rt => {
+        const o = document.createElement('option');
+        o.value = rt.id_linea; o.textContent = rt.ruta_comercial; sel.appendChild(o);
+      });
+    } catch(e) { console.error('filtros/rutas', e); }
+  }
+
+  async function loadResponsables() {
+    const sel = document.getElementById('filterResponsable');
+    sel.innerHTML = '<option value="">-- Todos --</option>';
+    try {
+      const r = await fetch(API + '/filtros/responsables');
+      const j = await r.json();
+      if (j.ok) j.data.forEach(rs => {
+        const o = document.createElement('option');
+        o.value = rs.id; o.textContent = rs.responsable; sel.appendChild(o);
+      });
+    } catch(e) { console.error('filtros/responsables', e); }
+  }
+
+  function resetSel(id, ph) {
+    const s = document.getElementById(id);
+    if (s) s.innerHTML = '<option value="">' + ph + '</option>';
+  }
+
+  async function onFechaChange()      { await loadIcsByFecha(); }
+  async function onComponenteChange() {
+    const comp = document.getElementById('filterComponente').value;
+    await loadZonas(comp);
+    await loadCop(comp, '');
+  }
+  async function onZonaChange() {
+    await loadCop(
+      document.getElementById('filterComponente').value,
+      document.getElementById('filterZona').value
+    );
+  }
+  async function onCopChange() { await loadRutas(document.getElementById('filterCop').value); }
+
+  /* ==================== APLICAR / LIMPIAR ==================== */
+  function getFilterParams() {
+    const p = {};
+    const fecha      = document.getElementById('filterDate').value;
+    const idIcs      = document.getElementById('filterIcs').value;
+    const idLinea    = document.getElementById('filterRuta').value;
+    const componente = document.getElementById('filterComponente').value;
+    const zona       = document.getElementById('filterZona').value;
+    const idCop      = document.getElementById('filterCop').value;
+    const idResp     = document.getElementById('filterResponsable').value;
+    if (fecha)      p.fecha          = fecha;
+    if (idIcs)      p.id_ics         = idIcs;
+    if (idLinea)    p.id_linea       = idLinea;
+    if (componente) p.componente     = componente;
+    if (zona)       p.zona           = zona;
+    if (idCop)      p.id_cop         = idCop;
+    if (idResp)     p.id_responsable = idResp;
+    return p;
+  }
+
+  function applyFilters() { currentPage = 1; loadTabData(currentTab); loadStats(); }
+
+  async function clearFilters() {
+    ['filterIcs','filterComponente','filterZona','filterCop','filterRuta','filterResponsable']
+      .forEach(id => { document.getElementById(id).value = ''; });
+    await loadIcsByFecha();
+    currentPage = 1;
+    loadTabData(currentTab);
+    loadStats();
+  }
+
+  /* ==================== TABS O PESTAÑAS ==================== */
+  function switchTab(e, tabName) {
+    e.preventDefault();
+    currentTab = tabName;
+    currentPage = 1;
+
+    const TAB_ACTIVE = '#0a2f75'; // azul oscuro
+    const TAB_HOVER  = '#dcdee3'; // hover suave
+    const TAB_TEXT   = '#64748b';
+
+    // Ocultar contenidos
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    const target = document.getElementById('tab-' + tabName);
+    if (target) target.style.display = 'block';
+
+    // Reset visual + hover handlers controlados aquí
+    document.querySelectorAll('.tab-button').forEach(btn => {
+      // quitar estado
+      btn.classList.remove('active');
+
+      // estilos base (inactivos)
+      btn.style.color = TAB_TEXT;
+      btn.style.background = 'white';
+      btn.style.border = 'none';
+      btn.style.borderBottom = '1px solid transparent';
+      btn.style.borderBottomColor = 'transparent';
+      btn.style.borderRadius = '10px 10px 0 0';
+      btn.style.transition = 'all 0.18s ease';
+      btn.style.boxShadow = 'none';
+
+      // hover SOLO si no está activo
+      btn.onmouseover = function () {
+        if (!btn.classList.contains('active')) {
+          btn.style.background = TAB_HOVER;
+        }
+      };
+      btn.onmouseout = function () {
+        if (!btn.classList.contains('active')) {
+          btn.style.background = 'white';
+        }
+      };
+    });
+
+    // Activar el botón clickeado
+    const ab = e.currentTarget;
+    ab.classList.add('active');
+
+    ab.style.color = 'white';
+    ab.style.background = TAB_ACTIVE;
+    ab.style.borderBottomColor = TAB_ACTIVE;
+    ab.style.boxShadow = '0 6px 14px rgba(10,47,117,.18)'; 
+
+    // Para el activo: anulamos hover para que NO lo vuelva blanco
+    ab.onmouseover = null;
+    ab.onmouseout = null;
+
+    loadTabData(tabName);
+  }
+
+  /* ==================== ESTADISTICAS DE LA PANTALLA PRINCIPAL ==================== */
+  async function loadStats() {
+    const fecha = document.getElementById('filterDate').value;
+    try {
+      const url = fecha ? API + '/estadisticas?fecha=' + fecha : API + '/estadisticas';
+      const r = await fetch(url);
+      const j = await r.json();
+      if (!j.ok) return;
+      const d = j.data;
+      const container = document.getElementById('statsContainer');
+      container.innerHTML = '';
+      const statsTemplate = [
+        { icon: 'bi-speedometer2',        label: 'Km Asignados',        value: parseFloat(d.km_totales_asignados||0).toFixed(1), detail: parseFloat(d.km_ejecutados||0).toFixed(1) + ' km ejecutados', colorBorder: '#f5576c' },
+        { icon: 'bi-check-circle',         label: 'Registros Revisados', value: d.total_revisados||0,  detail: 'de ' + (d.total_asignados||0) + ' asignados', colorBorder: '#43e97b' },
+        { icon: 'bi-hourglass-split',      label: 'Pendientes',          value: d.total_pendientes||0, detail: 'por revisar',       colorBorder: '#667eea' },
+        { icon: 'bi-exclamation-triangle', label: 'Objeciones',          value: d.total_objeciones||0, detail: 'abiertas',          colorBorder: '#ffc107' },
+      ];
+      statsTemplate.forEach(function(stat) {
+        const div = document.createElement('div');
+        div.style.cssText = 'background:white;padding:0.8rem;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:3px solid ' + stat.colorBorder + ';transition:all 0.2s;';
+        div.innerHTML = '<div style="font-size:0.65rem;color:#64748b;margin-bottom:0.2rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi ' + stat.icon + '"></i> ' + stat.label + '</div>'
+          + '<div style="font-size:1.2rem;font-weight:800;color:' + COLORS.textDark + ';margin:0.1rem 0;line-height:1;">' + stat.value + '</div>'
+          + '<div style="font-size:0.7rem;color:' + COLORS.success + ';margin-top:0.2rem;font-weight:600;">' + stat.detail + '</div>';
+        div.onmouseover = function() { this.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)'; };
+        div.onmouseout  = function() { this.style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)'; };
+        container.appendChild(div);
+      });
+    } catch(e) { console.error('loadStats', e); }
+  }
+
+  /* =============================================================================== */
+  /* INICIO DE FUNCIONES PARA CARGA DE DATOS Y RENDERIZADO DE TABLAS - [POR REVISAR] */
+  /* =============================================================================== */
+
+  /* ==================== CARGAR DATOS [POR REVISAR] ==================== */
+  async function loadTabData(tabName) {
+    if (tabName === 'resultados') return;
+    const container = document.getElementById('tab-' + tabName);
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:#64748b;font-size:1.2rem;"><i class="bi bi-hourglass-split"></i> Cargando Registros...</div>';
+    const params = new URLSearchParams({ tab: tabName, pagina: currentPage, tamano: PAGE_SIZE });
+    Object.entries(getFilterParams()).forEach(([k, v]) => params.set(k, v));
+    try {
+      const r = await fetch(API + '/registros?' + params.toString());
+      const j = await r.json();
+      if (!j.ok) { container.innerHTML = '<div style="text-align:center;padding:2rem;color:#dc3545;">Error al cargar datos.</div>'; return; }
+      renderTable(container, j, tabName);
+    } catch(e) {
+      container.innerHTML = '<div style="text-align:center;padding:2rem;color:#dc3545;">Error de conexion.</div>';
+    }
+  }
+
+  /* ==================== RENDER TABLA - [POR REVISAR] ==================== */
+  function renderTable(container, j, tabName) {
+    const { data, total, pagina, tamano } = j;
+    const totalPages = Math.ceil(total / tamano);
+    const KM = ['km_prog_ad','km_elim_eic','km_ejecutado','km_revision'];
+    const COLS = [
+      { label: 'Accion',          key: null },
+      { label: 'Fecha',           key: 'fecha' },
+      { label: 'ID ICS',          key: 'id_ics' },
+      { label: 'Ruta',            key: 'ruta_comercial' },
+      { label: 'Servicio',        key: 'servicio' },
+      { label: 'Tabla',           key: 'tabla' },
+      { label: 'Viaje Linea',     key: 'viaje_linea' },
+      { label: 'ID Viaje',        key: 'id_viaje' },
+      { label: 'Sentido',         key: 'sentido' },
+      { label: 'Vehiculo',        key: 'vehiculo_real' },
+      { label: 'H. Ini. Teo', key: 'hora_ini_teorica' },
+      { label: 'Km Prog',         key: 'km_prog_ad' },
+      { label: 'Conductor',       key: 'conductor' },
+      { label: 'Km Elim EIC',     key: 'km_elim_eic' },
+      { label: 'Km Ejecutado',    key: 'km_ejecutado' },
+      { label: 'Offset Ini',   key: 'offset_inicio' },
+      { label: 'Offset Fin',      key: 'offset_fin' },
+      { label: 'Km Revision',     key: 'km_revision' },
+      { label: 'Observacion',     key: 'observacion' },
+      { label: 'Responsable',     key: 'responsable_nombre' },
+    ];
+    const thead = COLS.map(c =>
+    '<th style="background:' + COLORS.headerBg + ';'
+      + 'padding:0.28rem 0.45rem;'
+      + 'border:1px solid ' + COLORS.headerBorder + ';'
+      + 'color:' + COLORS.headerText + ';'
+      + 'font-weight:700;'
+      + 'white-space:nowrap;'
+      + 'font-size:0.70rem;'
+      + 'line-height:1.5;'
+      + 'vertical-align:middle;">'
+    + c.label +
+    '</th>'
+    ).join('');
+    const rows = data.length === 0
+      ? '<tr><td colspan="' + COLS.length + '" style="text-align:center;padding:1.5rem;color:#64748b;">Sin registros para los filtros seleccionados.</td></tr>'
+      : data.map(function(row) {
+          const cells = COLS.map(function(c) {
+            if (c.key === null) {
+              return '<td style="padding:0.28rem 0.45rem;border:1px solid ' + COLORS.border + ';white-space:nowrap;">'
+              + '<div style="display:flex;justify-content:center;align-items:center;">'
+              + '<button type="button" class="btn btn-primary btn-sm fw-semibold shadow-sm" '
+              + 'onclick="openEditModal(' + row.id_ics + ')" '
+              + 'style="border-radius:8px;padding:0.18rem 0.55rem;font-size:0.70rem;line-height:1.1;" '
+              + 'title="Abrir gestión">'
+              + '<i class="bi bi-box-arrow-up-right"></i>'
+              + '</button>'
+              + '</div></td>';
+            }
+            var v = row[c.key];
+            if (v === null || v === undefined) v = '';
+            if (KM.includes(c.key) && v !== '') v = parseFloat(v).toFixed(3);
+            if (c.key === 'km_revision' && v !== '') {
+            return '<td style="padding:0.28rem 0.45rem;'
+              + 'border:1px solid ' + COLORS.border + ';'
+              + 'white-space:nowrap;'
+              + 'font-size:0.9rem;'
+              + 'line-height:1.15;'
+              + 'font-weight:700;'
+              + 'color:#0f5132;'
+              + 'background-color:#d1e7dd;'
+              + 'text-align:center;">'
+              + v +
+              '</td>';
+          }
+
+            return '<td style="padding:0.28rem 0.45rem;border:1px solid ' + COLORS.border + ';white-space:nowrap;font-size:0.72rem;line-height:1.15;">'
+              + v +
+              '</td>';
+          }).join('');
+          return '<tr onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'\'">' + cells + '</tr>';
+        }).join('');
+
+    var paginationHtml = '';
+    if (totalPages > 1) {
+      var maxBtns = 7;
+      var start = Math.max(1, pagina - Math.floor(maxBtns/2));
+      var end   = Math.min(totalPages, start + maxBtns - 1);
+      if (end - start < maxBtns - 1) start = Math.max(1, end - maxBtns + 1);
+      var btns = '';
+      for (var i = start; i <= end; i++) {
+        btns += '<button class="page-btn ' + (i===pagina?'active':'') + '" onclick="goPage(\'' + tabName + '\',' + i + ')">' + i + '</button>';
+      }
+      paginationHtml = '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem;font-size:0.75rem;">'
+        + '<span style="color:#475569;">Pagina ' + pagina + ' de ' + totalPages + ' &nbsp;|&nbsp; Total: <strong>' + total + '</strong></span>'
+        + '<button class="page-btn" ' + (pagina<=1?'disabled':'') + ' onclick="goPage(\'' + tabName + '\',1)"><i class="bi bi-chevron-double-left"></i></button>'
+        + '<button class="page-btn" ' + (pagina<=1?'disabled':'') + ' onclick="goPage(\'' + tabName + '\',' + (pagina-1) + ')"><i class="bi bi-chevron-left"></i></button>'
+        + btns
+        + '<button class="page-btn" ' + (pagina>=totalPages?'disabled':'') + ' onclick="goPage(\'' + tabName + '\',' + (pagina+1) + ')"><i class="bi bi-chevron-right"></i></button>'
+        + '<button class="page-btn" ' + (pagina>=totalPages?'disabled':'') + ' onclick="goPage(\'' + tabName + '\',' + totalPages + ')"><i class="bi bi-chevron-double-right"></i></button>'
+        + '</div>';
+    } else {
+      paginationHtml = '<div style="margin-top:0.4rem;font-size:0.75rem;color:#475569;">Total: <strong>' + total + '</strong> registros</div>';
+    }
+
+    container.innerHTML =
+      '<div style="background:white;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);overflow:hidden;width:100%;">'
+    +   '<div style="max-height:520px;overflow:auto;width:100%;">'
+    +     '<table class="excel-table" style="width:100%;font-size:0.72rem;border-collapse:collapse;">'
+    +       '<thead style="position:sticky;top:0;z-index:10;background:' + COLORS.headerBg + ';">'
+              +   '<tr>' + thead + '</tr>'
+          + '</thead>'
+    +       '<tbody>' + rows + '</tbody>'
+    +     '</table>'
+    +   '</div>'
+    + '</div>'
+    + paginationHtml;
+  }
+
+  function goPage(tabName, page) { currentPage = page; loadTabData(tabName); window.scrollTo(0,0); }
+
+  /* ==================== MODAL EDICION PARA REVISAR REGISTRO OBJECIÓN ==================== */
+  function openEditModal(idIcs) {
+    document.getElementById('modalRecordId').textContent = idIcs;
+    _pendingIcsData = null;
+    _mapReady       = false;
+
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+
+    fetch(API + '/registros/' + idIcs)
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j.ok) return;
+        if (_mapReady) {
+          populateModal(j.data);       // mapa listo: poblar directo
+        } else {
+          _pendingIcsData = j.data;    // mapa no listo: guardar y esperar
+        }
+      })
+      .catch(function(e) { console.error('detalle ICS', e); });
+  }
+
+  /* ==================== RELLENAR DATOS EN EL MODAL ==================== */
+  function populateModal(d) {
+    const basicFields = [
+      { label: 'Fecha',     value: d.fecha },
+      { label: 'ID ICS',    value: d.id_ics },
+      { label: 'Ruta',      value: d.ruta_comercial || d.id_linea },
+      { label: 'COP',       value: d.cop_nombre },
+      { label: 'Sentido',   value: d.sentido },
+      { label: 'Vehiculo',  value: d.vehiculo_real },
+      { label: 'Servicio',  value: d.servicio },
+      { label: 'Tabla',     value: d.tabla },
+      { label: 'Conductor', value: d.conductor },
+    ];
+    document.getElementById('basicInfoContainer').innerHTML = basicFields.map(function(f) {
+      return '<div style="background:#f8fafc;border-radius:4px;padding:0.4rem 0.6rem;">'
+        + '<div style="font-size:0.6rem;color:#64748b;font-weight:700;text-transform:uppercase;">' + f.label + '</div>'
+        + '<div style="font-size:0.75rem;font-weight:600;color:#0f172a;">' + (f.value != null ? f.value : '--') + '</div></div>';
+    }).join('');
+
+    const kmFields = [
+      { label: 'Km Prog',      value: d.km_prog_ad,  color: '#0d6efd' },
+      { label: 'Km Ejecutado', value: d.km_ejecutado, color: '#198754' },
+      { label: 'Km Elim EIC',  value: d.km_elim_eic,  color: '#dc3545' },
+      { label: 'Km Revision',  value: d.km_revision,  color: '#ffc107' },
+    ];
+    document.getElementById('kmComparisonContainer').innerHTML = kmFields.map(function(f) {
+      return '<div style="background:#f8fafc;border-radius:4px;padding:0.4rem 0.6rem;border-left:3px solid ' + f.color + ';">'
+        + '<div style="font-size:0.6rem;color:#64748b;font-weight:700;text-transform:uppercase;">' + f.label + '</div>'
+        + '<div style="font-size:0.85rem;font-weight:800;color:#0f172a;">' + (f.value != null ? parseFloat(f.value).toFixed(3) : '--') + '</div></div>';
+    }).join('');
+
+    document.getElementById('kmSummaryContainer').innerHTML =
+      '<strong>Offset:</strong> ' + (d.offset_inicio||'--') + ' &rarr; ' + (d.offset_fin||'--') +
+      ' &nbsp;|&nbsp; <strong>H. Ini. Teorica:</strong> ' + (d.hora_ini_teorica||'--') +
+      ' &nbsp;|&nbsp; <strong>Responsable:</strong> ' + (d.responsable_nombre||'--');
+
+    // Comentarios
+    document.getElementById('commentText').value = d.observacion || '';
+
+    // Guardar km_revision en variable global para validaciones
+    window._modalKmRevision = d.km_revision ? parseFloat(d.km_revision) : 0;
+
+    // Guardar datos del ICS para el mapa
+    _currentIcsData = d;
+
+    // Pre-llenar bus con vehiculo_real del ICS
+    const busInput = document.getElementById('mapFilterBus');
+    if (d.vehiculo_real) busInput.value = d.vehiculo_real;
+    document.getElementById('mapFilterHoraIni').value = '00:00';
+    document.getElementById('mapFilterHoraFin').value = '23:59';
+
+    // Abrir panel de filtros automáticamente
+    const panel = document.getElementById('mapFilterPanel');
+    if (panel.classList.contains('collapsed')) panel.classList.remove('collapsed');
+
+    // Esperar a que el modal esté completamente visible (shown.bs.modal fires ~300ms)
+    // y el mapa inicializado (~50ms más) antes de cargar datos
+    setTimeout(function() { loadMapData(); }, 100);
+
+    // Cargar selects de gestión con valor por defecto del registro
+    loadGestionSelects(d);
+  }
+
+  /* ==================== GESTIÓN: SELECTS EN CASCADA ==================== */
+
+  async function loadGestionSelects(d) {
+    // 1. Cargar Responsables y preseleccionar el del registro
+    await loadGestionResponsables(d.id_responsable);
+    // 2. Cargar Motivos según el responsable actual
+    if (d.id_responsable) await loadGestionMotivos(d.id_responsable, d.observacion);
+    // 3. Cargar Acciones
+    await loadGestionAcciones();
+    // 4. Restablecer Justificaciones y Km objeción
+    document.getElementById('gestionJustificacion').innerHTML = '<option value="">-- Seleccionar acción primero --</option>';
+    document.getElementById('kmObjecionContainer').style.display = 'none';
+    document.getElementById('kmObjetar').value = '';
+    document.getElementById('kmObjetar').max = window._modalKmRevision || 0;
+    document.getElementById('kmNoObjetado').value = '';
+    const lbl = document.getElementById('kmRevLabel');
+    if (lbl) lbl.textContent = (window._modalKmRevision || 0).toFixed(3);
+  }
+
+  async function loadGestionResponsables(preselect) {
+    const sel = document.getElementById('gestionResponsable');
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    try {
+      const r = await fetch(API + '/filtros/responsables');
+      const j = await r.json();
+      if (j.ok) j.data.forEach(function(rs) {
+        const o = document.createElement('option');
+        o.value = rs.id;
+        o.textContent = rs.responsable;
+        if (preselect && rs.id == preselect) o.selected = true;
+        sel.appendChild(o);
+      });
+    } catch(e) { console.error('gestion/responsables', e); }
+  }
+
+  async function loadGestionMotivos(id_responsable, preselect_text) {
+    const sel = document.getElementById('gestionMotivo');
+    sel.innerHTML = '<option value="">-- Sin motivo específico --</option>';
+    if (!id_responsable) { sel.innerHTML = '<option value="">-- Seleccionar responsable primero --</option>'; return; }
+    try {
+      const r = await fetch(API + '/filtros/motivos?id_responsable=' + id_responsable);
+      const j = await r.json();
+      if (j.ok) j.data.forEach(function(m) {
+        const o = document.createElement('option');
+        o.value = m.id;
+        o.textContent = m.observacion;
+        // Si el texto coincide con la observación actual, preseleccionar
+        if (preselect_text && m.observacion === preselect_text) o.selected = true;
+        sel.appendChild(o);
+      });
+    } catch(e) { console.error('gestion/motivos', e); }
+  }
+
+  async function loadGestionAcciones() {
+    const sel = document.getElementById('gestionAccion');
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    try {
+      const r = await fetch(API + '/filtros/acciones');
+      const j = await r.json();
+      if (j.ok) j.data.forEach(function(a) {
+        const o = document.createElement('option');
+        o.value = a.id_acc;
+        o.textContent = a.accion;
+        sel.appendChild(o);
+      });
+    } catch(e) { console.error('gestion/acciones', e); }
+  }
+
+  async function onGestionResponsableChange() {
+    const id_resp = document.getElementById('gestionResponsable').value;
+    await loadGestionMotivos(id_resp, null);
+  }
+
+  async function onGestionAccionChange() {
+    const id_acc = document.getElementById('gestionAccion').value;
+    const selJust = document.getElementById('gestionJustificacion');
+    const kmBox   = document.getElementById('kmObjecionContainer');
+
+    // Limpiar justificaciones
+    selJust.innerHTML = '<option value="">-- Seleccionar --</option>';
+
+    if (!id_acc) { kmBox.style.display = 'none'; return; }
+
+    // Cargar justificaciones dependientes
+    try {
+      const r = await fetch(API + '/filtros/justificaciones?id_acc=' + id_acc);
+      const j = await r.json();
+      if (j.ok) j.data.forEach(function(jt) {
+        const o = document.createElement('option');
+        o.value = jt.id;
+        o.textContent = jt.justificacion;
+        selJust.appendChild(o);
+      });
+    } catch(e) { console.error('gestion/justificaciones', e); }
+
+    // Mostrar / ocultar sección Km Objeción (id_acc == 2 = "Objetado")
+    if (parseInt(id_acc) === 2) {
+      kmBox.style.display = 'block';
+      document.getElementById('kmObjetar').value = '';
+      document.getElementById('kmNoObjetado').value = '';
+    } else {
+      kmBox.style.display = 'none';
+      document.getElementById('kmObjetar').value = '';
+      document.getElementById('kmNoObjetado').value = '';
+    }
+  }
+
+  function calcularKmNoObjetado() {
+    const kmRev    = window._modalKmRevision || 0;
+    const inputObj = document.getElementById('kmObjetar');
+    const inputNoObj = document.getElementById('kmNoObjetado');
+    const errDiv   = document.getElementById('kmObjetarError');
+    const errLabel = document.getElementById('kmRevLabel');
+
+    // Forzar max en el input
+    inputObj.max = kmRev;
+    if (errLabel) errLabel.textContent = kmRev.toFixed(3);
+
+    let kmObj = parseFloat(inputObj.value) || 0;
+
+    // Recortar si supera el máximo
+    if (kmObj > kmRev) {
+      kmObj = kmRev;
+      inputObj.value = kmRev.toFixed(3);
+    }
+
+    if (kmObj <= 0 || kmObj > kmRev) {
+      inputObj.style.borderColor = '#dc3545';
+      if (errDiv) errDiv.style.display = 'block';
+      inputNoObj.value = '';
+    } else {
+      inputObj.style.borderColor = '#198754';
+      if (errDiv) errDiv.style.display = 'none';
+      inputNoObj.value = (kmRev - kmObj).toFixed(3);
+    }
+  }
+
+  function saveRecord() {
+    const idIcs = document.getElementById('modalRecordId').textContent;
+    if (!idIcs || idIcs === '--') return;
+
+    const id_acc    = document.getElementById('gestionAccion').value;
+    const kmObjetar = parseFloat(document.getElementById('kmObjetar').value);
+    const kmRev     = window._modalKmRevision || 0;
+
+    // Validar km si acción es Objetado
+    if (parseInt(id_acc) === 2) {
+      if (!kmObjetar || kmObjetar <= 0 || kmObjetar > kmRev) {
+        document.getElementById('kmObjetar').style.borderColor = '#dc3545';
+        document.getElementById('kmObjetar').focus();
+        return;
+      }
+    }
+
+    const payload = {
+      observacion:      document.getElementById('commentText').value || null,
+      id_responsable:   parseInt(document.getElementById('gestionResponsable').value) || null,
+      id_accion:        parseInt(id_acc) || null,
+      id_justificacion: parseInt(document.getElementById('gestionJustificacion').value) || null,
+      km_objetado:      (parseInt(id_acc) === 2 && kmObjetar > 0) ? kmObjetar : null,
+      estado_objecion:  parseInt(id_acc) === 2 ? 1 : null,
+    };
+
+    fetch(API + '/registros/' + idIcs + '/gestion', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      if (j.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+        loadTabData(currentTab);
+        loadStats();
+      } else {
+        alert('Error al guardar: ' + (j.detail || 'Error desconocido'));
+      }
+    })
+    .catch(function(e) { console.error('saveRecord', e); });
+  }
+
+  /* ==================== MÁSCARA HORA HH:MM (24h) ==================== */
+  function maskHora(input) {
+    let v = input.value.replace(/[^0-9]/g, '');
+    if (v.length >= 3) v = v.substring(0, 2) + ':' + v.substring(2, 4);
+    input.value = v;
+  }
+
+  function validateHora(input, fallback) {
+    const v = input.value.trim();
+    const re = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!re.test(v)) {
+      input.value = fallback;
+      input.style.borderColor = '#e2e8f0';
+    } else {
+      input.style.borderColor = '#198754';
+      setTimeout(function() { input.style.borderColor = '#e2e8f0'; }, 800);
+    }
+  }
+
+  /* ==================== MAPA PARA OBJETAR ==================== */
+  /* ================= MAPA IFRAME VENTANA MODAL ==================== */
+  var _currentIcsData = null;
+  var _mapLayerIndex  = 1;
+  var _mapLayerNames  = ['OSM','Satelite','Oscuro'];
+  var _lastGpsData    = [];
+  var modalMap        = null; // legacy — otras funciones lo referencian
+  var _gpsLayer       = null;
+
+  function _buildMapHtml(layerName) {
+    return `<!DOCTYPE html><html><head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-minimap/dist/Control.MiniMap.min.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"><\/script>
+  <script src="https://unpkg.com/leaflet-minimap/dist/Control.MiniMap.min.js"><\/script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Century Gothic',Arial,sans-serif;}
+    html,body,#map{width:100%;height:100%;overflow:hidden;}
+    #map{position:absolute;inset:0;}
+    .ll{height:3px;width:22px;border-radius:2px;}
+    .ld{height:12px;width:12px;border-radius:50%;flex-shrink:0;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+    .leg{background:rgba(255,255,255,.95);padding:.5rem .7rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.18);font-size:.63rem;line-height:1.8;max-height:80vh;overflow-y:auto;}
+    .lr{display:flex;align-items:center;gap:.4rem;}
+    #loading{position:absolute;inset:0;background:rgba(15,23,42,.7);display:flex;align-items:center;justify-content:center;z-index:9999;color:white;font-size:.85rem;font-weight:700;gap:.5rem;}
+  </style>
+  </head><body>
+  <div id="loading">⟳ Cargando mapa...</div>
+  <div id="map"></div>
+  <script>
+  // ── Paleta de colores por estado_localizacion ──────────────────────────────
+  var ESTADO_COLOR = {
+    1:  '#94a3b8', // No asignado       → gris azulado
+    2:  '#1e293b', // Apagado           → gris muy oscuro
+    3:  '#6366f1', // Incorporacion     → violeta
+    4:  '#8b5cf6', // Retorno           → púrpura
+    5:  '#22c55e', // Localizado en linea → verde brillante
+    6:  '#ef4444', // Fuera de linea    → rojo
+    7:  '#f59e0b', // Viaje en vacio    → ámbar
+    8:  '#f97316', // Desvio            → naranja
+    9:  '#7d0a0a', // Averia            → rojo oscuro
+    10: '#0ea5e9', // Ubicado en patio  → celeste
+    11: '#10b981', // Ubicado en estacion/parada → esmeralda
+    12: '#e879f9', // Fuera de ruta     → fucsia
+    13: '#facc15', // Ubicado en polígono cabecera → amarillo
+    14: '#64748b'  // (reserva)         → gris
+  };
+  var ESTADO_NOMBRE = {
+    1:'No asignado', 2:'Apagado', 3:'Incorporacion', 4:'Retorno',
+    5:'Localizado en linea', 6:'Fuera de linea', 7:'Viaje en vacio',
+    8:'Desvio', 9:'Averia', 10:'Ubicado en patio',
+    11:'Ubicado en estacion/parada', 12:'Fuera de ruta', 13:'En cabecera', 14:'Otro'
+  };
+
+  function estadoColor(estado) {
+    return ESTADO_COLOR[parseInt(estado)] || '#64748b';
+  }
+
+  var layers = {
+    'OSM':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}),
+    'Satelite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}),
+    'Oscuro':   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:20})
+  };
+  var map = L.map('map',{
+    center:[4.7110,-74.0054],zoom:12,
+    layers:[layers['${layerName}']||layers['Satelite']],
+    zoomControl:false,attributionControl:false
+  });
+
+  L.control.zoom({position:'topright'}).addTo(map);
+
+  // Botón centrar/resetear vista
+  var resetCtrl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd: function() {
+      var btn = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      btn.innerHTML = '<a title="Centrar mapa" style="font-size:1rem;display:flex;align-items:center;justify-content:center;width:30px;height:30px;cursor:pointer;background:white;text-decoration:none;color:#333;" id="btnResetView">⌖</a>';
+      btn.onclick = function() {
+        map.setView([4.7110, -74.0721], 12);
+      };
+      L.DomEvent.disableClickPropagation(btn);
+      return btn;
+    }
+  });
+  new resetCtrl().addTo(map);
+
+  L.control.scale({position:'bottomleft',imperial:false}).addTo(map);
+  new L.Control.MiniMap(
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+    {position:'bottomright',toggleDisplay:true,minimized:true,width:110,height:80,zoomLevelOffset:-5}
+  ).addTo(map);
+  L.control.layers(layers,null,{position:'topright'}).addTo(map);
+  map.on('click',function(e){
+    L.popup().setLatLng(e.latlng)
+      .setContent('<span style="font-size:.7rem;font-weight:600;">'+e.latlng.lat.toFixed(6)+', '+e.latlng.lng.toFixed(6)+'</span>')
+      .openOn(map);
+  });
+
+  // ── Leyenda dinámica (se reconstruye al renderizar puntos) ─────────────────
+  var legendCtrl = L.control({position:'bottomleft'});
+  legendCtrl.onAdd = function() {
+    this._div = L.DomUtil.create('div','leg');
+    this._div.innerHTML = _buildLegendHtml({});
+    L.DomEvent.disableClickPropagation(this._div);
+    return this._div;
+  };
+  legendCtrl.update = function(estadosPresentes) {
+    if (this._div) this._div.innerHTML = _buildLegendHtml(estadosPresentes);
+  };
+  legendCtrl.addTo(map);
+
+  function _buildLegendHtml(estadosPresentes) {
+    var html = '<div style="font-weight:800;margin-bottom:.3rem;font-size:.65rem;border-bottom:1px solid #e2e8f0;padding-bottom:.2rem;">Convenciones</div>'
+      + '<div class="lr" style="margin-bottom:.2rem;"><div class="ll" style="background:#f97316;height:3px;width:22px;border-radius:2px;flex-shrink:0;"></div><span>Recorrido GPS</span></div>'
+      + '<div class="lr" style="margin-bottom:.2rem;"><div class="ld" style="background:#198754;"></div><span>Inicio</span></div>'
+      + '<div class="lr" style="margin-bottom:.4rem;"><div class="ld" style="background:#dc3545;"></div><span>Fin</span></div>';
+
+    var ids = Object.keys(estadosPresentes);
+    if (ids.length > 0) {
+      html += '<div style="font-size:.6rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.3px;margin-bottom:.2rem;">Estados GPS</div>';
+      ids.forEach(function(id) {
+        var color = estadoColor(id);
+        var nombre = ESTADO_NOMBRE[parseInt(id)] || ('Estado ' + id);
+        var count  = estadosPresentes[id];
+        html += '<div class="lr" style="margin-bottom:.15rem;">'
+          + '<div class="ld" style="background:' + color + ';"></div>'
+          + '<span>' + nombre + ' <span style="color:#94a3b8;font-size:.58rem;">(' + count + ')</span></span>'
+          + '</div>';
+      });
+    }
+    return html;
+  }
+
+  var poly=null,cgrp=null;
+
+  function renderGps(points) {
+    if(poly){map.removeLayer(poly);poly=null;}
+    if(cgrp){map.removeLayer(cgrp);cgrp=null;}
+
+    var lls = [];
+    var estadosPresentes = {}; // {id: count}
+
+    cgrp = L.markerClusterGroup({
+      maxClusterRadius: 40,
+      showCoverageOnHover: false,
+      // Cluster del mismo tamaño que los puntos GPS, sin número visible —
+      // el número se muestra en el tooltip al hacer hover
+      iconCreateFunction: function(cluster) {
+        var count   = cluster.getChildCount();
+        // Color dominante del cluster = color más frecuente entre sus hijos
+        var children = cluster.getAllChildMarkers();
+        var freq = {};
+        children.forEach(function(m) {
+          var c = m.options.fillColor || '#64748b';
+          freq[c] = (freq[c] || 0) + 1;
+        });
+        var dominante = Object.keys(freq).reduce(function(a,b){ return freq[a]>freq[b]?a:b; }, '#64748b');
+
+        var icon = L.divIcon({
+          html: '<div style="'
+            + 'background:' + dominante + ';'
+            + 'border:2.5px solid white;'
+            + 'border-radius:50%;'
+            + 'width:14px;height:14px;'
+            + 'box-shadow:0 1px 4px rgba(0,0,0,.4);"'
+            + ' title="' + count + ' puntos">'
+            + '</div>',
+          className: '',
+          iconSize: [14, 14],
+          iconAnchor: [7, 7]
+        });
+        return icon;
+      }
+    });
+
+    points.forEach(function(p, i) {
+      var lat = parseFloat(p.latitud), lng = parseFloat(p.longitud);
+      if (isNaN(lat) || isNaN(lng)) return;
+      lls.push([lat, lng]);
+
+      var isF = i === 0, isL = i === points.length - 1;
+      var estado = parseInt(p.estado_localizacion) || 0;
+      var color  = isF ? '#198754' : isL ? '#dc3545' : estadoColor(estado);
+
+      // Conteo para leyenda (excluir inicio/fin)
+      if (!isF && !isL) {
+        estadosPresentes[estado] = (estadosPresentes[estado] || 0) + 1;
+      }
+
+      var m = L.circleMarker([lat, lng], {
+        radius:      (isF || isL) ? 10 : 7,
+        color:       'white',
+        weight:      2.5,
+        fillColor:   color,
+        fillOpacity: 1
+      });
+
+      var vel    = p.vel_m_s != null ? (parseFloat(p.vel_m_s) * 3.6).toFixed(1) + ' km/h' : '--';
+      var est    = p.nombre_estado || ESTADO_NOMBRE[estado] || '--';
+      var pos    = p.posicion != null ? p.posicion : '--';
+      var hora   = p.hora || '--';
+      var etq    = isF ? '🟢 Inicio' : isL ? '🔴 Fin' : '📍';
+
+      m.bindTooltip(
+        '<div style="font-size:.7rem;font-weight:700;min-width:160px;line-height:1.7;">'
+        + '<div style="border-bottom:1px solid #e2e8f0;margin-bottom:.3rem;padding-bottom:.2rem;">'
+        + etq + ' <span style="color:#0d6efd;">' + (p.movil_bus||'') + '</span>'
+        + ' <span style="color:#64748b;font-size:.65rem;">' + hora + '</span></div>'
+        + '<div style="display:grid;grid-template-columns:auto 1fr;gap:.1rem .5rem;">'
+        + '<span style="color:#64748b;font-size:.65rem;">Estado</span>'
+        + '<span style="font-weight:600;color:' + color + ';">● ' + est + '</span>'
+        + '<span style="color:#64748b;font-size:.65rem;">Posición</span>'
+        + '<span style="font-weight:600;">' + pos + '</span>'
+        + '<span style="color:#64748b;font-size:.65rem;">Velocidad</span>'
+        + '<span style="font-weight:600;color:' + (parseFloat(p.vel_m_s)>0?'#198754':'#64748b') + ';">' + vel + '</span>'
+        + '</div></div>',
+        {direction:'top', offset:[0,-5], opacity:.97, sticky:true}
+      );
+
+      cgrp.addLayer(m);
+    });
+
+    if (lls.length > 1)
+      poly = L.polyline(lls, {color:'#f97316', weight:3, opacity:.9, smoothFactor:1.5}).addTo(map);
+
+    map.addLayer(cgrp);
+
+    // Marcadores inicio/fin encima del cluster (directos al mapa, no al cluster)
+    if (lls.length > 0) {
+      [{i:0, c:'#198754', t:'Inicio'}, {i:lls.length-1, c:'#dc3545', t:'Fin'}].forEach(function(e){
+        L.circleMarker(lls[e.i], {radius:11, color:'white', weight:3, fillColor:e.c, fillOpacity:1})
+          .bindPopup('<strong>' + e.t + '</strong><br><span style="font-size:.7rem;">' + (points[e.i].hora||'') + '</span>')
+          .addTo(map);
+      });
+      map.fitBounds(L.latLngBounds(lls), {padding:[30,30], maxZoom:16});
+    }
+
+    // Actualizar leyenda con estados presentes en esta consulta
+    legendCtrl.update(estadosPresentes);
+  }
+
+  window.addEventListener('message', function(ev) {
+    var d = ev.data; if(!d||!d.type) return;
+    if(d.type==='gps'){document.getElementById('loading').style.display='none'; renderGps(d.points);}
+    if(d.type==='clear'){
+      if(poly){map.removeLayer(poly);poly=null;}
+      if(cgrp){map.removeLayer(cgrp);cgrp=null;}
+      map.setView([4.7110,-74.0054],12);
+      legendCtrl.update({});
+    }
+    if(d.type==='loading'){document.getElementById('loading').innerHTML='⟳ Cargando...';document.getElementById('loading').style.display='flex';}
+    if(d.type==='nodata'){document.getElementById('loading').innerHTML='📍 Sin posicionamientos';document.getElementById('loading').style.display='flex';setTimeout(function(){document.getElementById('loading').style.display='none';},3000);}
+  });
+  setTimeout(function(){document.getElementById('loading').style.display='none';},2500);
+  <\/script>
+  </body></html>`;
+  }
+
+  var _pendingIcsData = null;
+  var _mapReady       = false;
+
+  const editModal = document.getElementById('editModal');
+  if (editModal) {
+    editModal.addEventListener('shown.bs.modal', function() {
+      var iframe = document.getElementById('mapModal');
+      iframe.srcdoc = _buildMapHtml(_mapLayerNames[_mapLayerIndex]);
+      _mapReady = true;
+      if (_pendingIcsData) {
+        var data = _pendingIcsData;
+        _pendingIcsData = null;
+        populateModal(data);
+      }
+    });
+    editModal.addEventListener('hidden.bs.modal', function() {
+      _pendingIcsData = null;
+      _mapReady       = false;
+      _lastGpsData    = [];
+      _gpsLayer       = null;
+      document.getElementById('mapStatusBadge').style.display = 'none';
+      document.getElementById('mapQueryInfo').style.display   = 'none';
+    });
+  }
+
+  function _iframeMsg(data) {
+    var iframe = document.getElementById('mapModal');
+    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage(data, '*');
+  }
+
+  function cycleMapLayer() {
+    _mapLayerIndex = (_mapLayerIndex + 1) % _mapLayerNames.length;
+    var name = _mapLayerNames[_mapLayerIndex];
+    document.getElementById('layerBtn').innerHTML = '<i class="bi bi-layers"></i> ' + name;
+    document.getElementById('mapModal').srcdoc = _buildMapHtml(name);
+    if (_lastGpsData.length > 0) {
+      setTimeout(function() { _iframeMsg({ type: 'gps', points: _lastGpsData }); }, 1500);
+    }
+  }
+
+  function _clearMapDataLayers() {
+    _iframeMsg({ type: 'clear' });
+    _lastGpsData = [];
+    _gpsLayer    = null;
+    document.getElementById('mapQueryInfo').style.display   = 'none';
+    document.getElementById('mapStatusBadge').style.display = 'none';
+  }
+
+  function toggleMapFilters() {
+    document.getElementById('mapFilterPanel').classList.toggle('collapsed');
+  }
+
+  async function loadMapData() {
+    var bus      = document.getElementById('mapFilterBus').value.trim().toUpperCase();
+    var horaIniR = document.getElementById('mapFilterHoraIni').value.trim() || '00:00';
+    var horaFinR = document.getElementById('mapFilterHoraFin').value.trim() || '23:59';
+    var horaIni  = horaIniR + ':00';
+    var horaFin  = horaFinR + ':59';
+    var fecha    = _currentIcsData ? _currentIcsData.fecha : document.getElementById('filterDate').value;
+
+    if (!bus) {
+      document.getElementById('mapFilterBus').style.borderColor = '#dc3545';
+      document.getElementById('mapFilterBus').focus();
+      return;
+    }
+    document.getElementById('mapFilterBus').style.borderColor = '#e2e8f0';
+
+    var badge = document.getElementById('mapStatusBadge');
+    badge.style.cssText = 'display:inline-block;background:#fef9c3;color:#92400e;border-radius:20px;padding:.1rem .5rem;font-size:.6rem;font-weight:700;border:1px solid #fde68a;';
+    badge.textContent   = 'Cargando...';
+    _iframeMsg({ type: 'loading' });
+
+    try {
+      var params = new URLSearchParams({ bus: bus, hora_ini: horaIni, hora_fin: horaFin });
+      if (fecha) params.set('fecha', fecha);
+      var r = await fetch(API + '/mapa/posicionamientos?' + params.toString());
+      var j = await r.json();
+
+      if (!j.ok || !j.data || j.data.length === 0) {
+        badge.style.cssText = 'display:inline-block;background:#fef2f2;color:#dc3545;border-radius:20px;padding:.1rem .5rem;font-size:.6rem;font-weight:700;border:1px solid #fca5a5;';
+        badge.textContent   = 'Sin resultados';
+        _iframeMsg({ type: 'nodata' });
+        return;
+      }
+
+      _lastGpsData = j.data;
+      _iframeMsg({ type: 'gps', points: j.data });
+
+      badge.style.cssText = 'display:inline-block;background:#dcfce7;color:#166534;border-radius:20px;padding:.1rem .5rem;font-size:.6rem;font-weight:700;border:1px solid #86efac;';
+      badge.textContent   = j.data.length + ' puntos';
+
+      var info = document.getElementById('mapQueryInfo');
+      info.style.display = 'flex';
+      info.innerHTML =
+        '<i class="bi bi-bus-front" style="color:#0d6efd;"></i>&nbsp;<strong>' + bus + '</strong>'
+      + '&nbsp;|&nbsp;<i class="bi bi-calendar3"></i>&nbsp;' + (fecha||'--')
+      + '&nbsp;|&nbsp;<i class="bi bi-clock"></i>&nbsp;' + horaIniR + '–' + horaFinR
+      + '&nbsp;|&nbsp;<strong>' + j.data.length + '</strong> posicionamientos';
+
+    } catch(e) {
+      console.error('[MAPA]', e);
+      badge.style.cssText = 'display:inline-block;background:#fef2f2;color:#dc3545;border-radius:20px;padding:.1rem .5rem;font-size:.6rem;font-weight:700;border:1px solid #fca5a5;';
+      badge.textContent   = 'Error de conexión';
+    }
+  }
+
+  function clearMapData() {
+    _clearMapDataLayers();
+    document.getElementById('mapFilterBus').value     = '';
+    document.getElementById('mapFilterHoraIni').value = '00:00';
+    document.getElementById('mapFilterHoraFin').value = '23:59';
+  }
+
+  function toggleMapFullscreen() {
+    var iframe = document.getElementById('mapModal');
+    var btn    = document.getElementById('mapToggleBtn');
+    var existing = document.getElementById('_mapMinBtn');
+
+    if (!iframe._fs) {
+      iframe.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;border:none;border-radius:0;display:block;';
+      btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Maximizar';
+      iframe._fs = true;
+      // Botón flotante de Minimizar encima del iframe
+      if (!existing) {
+        var minBtn = document.createElement('button');
+        minBtn.id = '_mapMinBtn';
+        minBtn.innerHTML = '<i class="bi bi-arrows-collapse"></i> Minimizar';
+        minBtn.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10000;background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:white;border:none;border-radius:8px;padding:0.4rem 0.9rem;font-size:0.75rem;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);';
+        minBtn.onclick = toggleMapFullscreen;
+        document.body.appendChild(minBtn);
+      }
+    } else {
+      iframe.style.cssText = 'flex:1;border-radius:8px;border:1px solid #e2e8f0;height:300px;min-height:300px;width:100%;display:block;';
+      btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Maximizar';
+      iframe._fs = false;
+      // Eliminar botón flotante
+      var minBtn = document.getElementById('_mapMinBtn');
+      if (minBtn) minBtn.remove();
+    }
+  }
+
+  function popoutMap() {
+    var win  = window.open('','_blank','width=1200,height=750,toolbar=0,menubar=0,location=0,status=0,resizable=1');
+    var html = _buildMapHtml(_mapLayerNames[_mapLayerIndex]);
+    win.document.write(html);
+    win.document.close();
+    if (_lastGpsData.length > 0) {
+      setTimeout(function() { win.postMessage({ type: 'gps', points: _lastGpsData }, '*'); }, 1500);
+    }
+  }
+
+  /* ==================== REPORTES ==================== */
+  function openReport(type) {
+    const m = new bootstrap.Modal(document.getElementById('reportModal'));
+    document.getElementById('reportContent').innerHTML = '<p>Cargando Reporte...</p>';
+    m.show();
+  }
+  function exportReportExcel() { console.log('Exportar Excel'); }
+  function printReport()       { window.print(); }
+
+  /* ============== DRAG & DROP  PARA  CARGAR ADJUNTOS ================== */
+  const dragDropArea = document.getElementById('dragDropArea');
+  const fileInput    = document.getElementById('fileInput');
+  const filesList    = document.getElementById('filesList');
+
+  dragDropArea.addEventListener('click', function() { fileInput.click(); });
+
+  function dragOver(e)  { e.preventDefault(); dragDropArea.classList.add('dragover'); }
+  function dragLeave(e) { dragDropArea.classList.remove('dragover'); }
+  function dropFiles(e) {
+    e.preventDefault(); dragDropArea.classList.remove('dragover');
+    handleFiles({ target: { files: e.dataTransfer.files } });
+  }
+  function handleFiles(e) {
+    filesList.innerHTML = '';
+    Array.from(e.target.files).forEach(function(file) {
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-item';
+      fileItem.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:white;padding:0.6rem 0.8rem;border-radius:4px;border-left:3px solid ' + COLORS.primary + ';margin-bottom:0.4rem;gap:0.8rem;';
+      const maxLength = 30;
+      const displayName = file.name.length > maxLength ? file.name.substring(0, maxLength) + '...' : file.name;
+      const nameDiv = document.createElement('div');
+      nameDiv.style.cssText = 'display:flex;align-items:center;gap:0.4rem;flex:1;min-width:0;';
+      nameDiv.innerHTML = '<i class="bi bi-file-earmark" style="flex-shrink:0;font-size:0.7rem;color:' + COLORS.primary + ';"></i>'
+        + '<span style="font-size:0.65rem;color:' + COLORS.textDark + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + file.name + '">' + displayName + '</span>';
+      const btnRemove = document.createElement('button');
+      btnRemove.innerHTML = '\u2715';
+      btnRemove.style.cssText = 'background:none;border:none;color:' + COLORS.danger + ';cursor:pointer;padding:0 0.3rem;font-weight:600;font-size:1rem;flex-shrink:0;line-height:1;transition:all 0.2s;';
+      btnRemove.onmouseover = function() { this.style.color = '#a02622'; this.style.fontSize = '1.1rem'; };
+      btnRemove.onmouseout  = function() { this.style.color = COLORS.danger; this.style.fontSize = '1rem'; };
+      btnRemove.onclick     = function() { fileItem.remove(); };
+      fileItem.appendChild(nameDiv); fileItem.appendChild(btnRemove);
+      filesList.appendChild(fileItem);
+    });
+  }
+
+  /* ==================== INICIALIZACIÓN ==================== */
+  document.addEventListener('DOMContentLoaded', initializeApp);
+
+</script>
+
+<!-- Scripts Leaflet cargados -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet-minimap/dist/Control.MiniMap.min.js"></script>
+<script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
 
 {% endblock %}
