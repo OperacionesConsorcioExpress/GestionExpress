@@ -8,6 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import psycopg2
 from psycopg2.extras import execute_values
+from model.database_manager import get_db_connection as _get_pg_conn
 from azure.storage.blob import BlobServiceClient
 # ============================================================
 # 0) CONFIG AZURE BLOB
@@ -350,14 +351,6 @@ def procesar_dia_completo(dia: date, verbose: bool = False):
 PG_SCHEMA = "config"
 PG_TABLE_POS = "posicionamientos"
 PG_TABLE_KM = "km_recorrido_bus"
-
-def _get_pg_conn():
-    dsn = os.getenv("DATABASE_PATH")
-    if not dsn:
-        raise ValueError("No existe la variable de entorno DATABASE_PATH")
-    if "sslmode=" not in dsn:
-        dsn = dsn + ("&" if "?" in dsn else "?") + "sslmode=require"
-    return psycopg2.connect(dsn)
 
 def obtener_ultima_fecha_procesada(cur) -> date | None:
     """
