@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from model.agente_IA import AgenteIA
+from model.gestion_agente_IA import AgenteIA
 import os, io
 
 chatbot_router = APIRouter()

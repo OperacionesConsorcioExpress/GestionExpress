@@ -13,7 +13,7 @@ def obtener_sesion_usuario(req: Request):
 
 # ── Esquemas ──────────────────────────────────────────────────────────────────
 class MotivoIn(BaseModel):
-    observacion: str = Field(..., min_length=2, max_length=255)
+    motivo: str = Field(..., min_length=2, max_length=255)
     id_responsable: int = Field(..., ge=1)
 
 def parametros_paginacion(
@@ -57,7 +57,7 @@ def crear_motivo(payload: MotivoIn):
     db = GestionSneMotivos()
     try:
         return db.crear_motivo(
-            observacion=payload.observacion,
+            motivo=payload.motivo,
             id_responsable=payload.id_responsable,
         )
     except ValueError as e:
@@ -71,7 +71,7 @@ def actualizar_motivo(id: int, payload: MotivoIn):
     try:
         return db.actualizar_motivo(
             id=id,
-            observacion=payload.observacion,
+            motivo=payload.motivo,
             id_responsable=payload.id_responsable,
         )
     except ValueError as e:
@@ -102,7 +102,7 @@ def listar_responsables():
 @router_sne_motivos.post("/api/sne/motivos/sincronizar")
 def sincronizar_desde_ics():
     """
-    Detecta observaciones nuevas en sne.ics que no estén en
+    Detecta motivos nuevas en sne.ics que no estén en
     sne.motivos_eliminacion e inserta las faltantes con responsable = NULL.
     """
     db = GestionSneMotivos()

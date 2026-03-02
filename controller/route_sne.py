@@ -190,9 +190,22 @@ def filtros_motivos(
     id_responsable: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
-    """Retorna motivos/observaciones filtrados por responsable."""
+    """Retorna motivos filtrados por responsable."""
     with GestionSneObjecion() as db:
         data = db.listar_motivos_por_responsable(id_responsable=id_responsable)
+    return {"ok": True, "data": [{"id": r["id"], "motivo": r["motivo"], "responsable": r["responsable"]} for r in data]}
+
+@router_sne.get("/api/registros/{id_ics}/motivos-responsables")
+def motivos_responsables_ics(
+    id_ics: int,
+    user_session: dict = Depends(require_session),
+):
+    """
+    Retorna los motivos y responsables asignados al ICS
+    desde sne.ics_motivo_resp. Solo lectura.
+    """
+    with GestionSneObjecion() as db:
+        data = db.listar_motivos_responsables_por_ics(id_ics=id_ics)
     return {"ok": True, "data": [dict(r) for r in data]}
 
 @router_sne.get("/api/estadisticas")
@@ -261,7 +274,6 @@ def listar_registros(
     id_cop: Optional[int] = None,
     zona: Optional[str] = None,
     componente: Optional[str] = None,
-    id_responsable: Optional[int] = None,
     pagina: int = Query(1, ge=1),
     tamano: int = Query(50, ge=1, le=500),
     user_session: dict = Depends(require_session),
@@ -285,7 +297,6 @@ def listar_registros(
             id_cop=id_cop,
             zona=zona,
             componente=componente,
-            id_responsable=id_responsable,
             tab=tab,
             pagina=pagina,
             tamano=tamano,
@@ -326,7 +337,7 @@ class GestionPayload(BaseModel):
     estado_asignacion: Optional[int] = None
     estado_objecion: Optional[int] = None
     estado_transmitools: Optional[int] = None
-    observacion: Optional[str] = None
+    motivo: Optional[str] = None
     id_responsable: Optional[int] = None
     id_accion: Optional[int] = None
     id_justificacion: Optional[int] = None
@@ -351,7 +362,7 @@ def actualizar_gestion(
                 estado_asignacion=payload.estado_asignacion,
                 estado_objecion=payload.estado_objecion,
                 estado_transmitools=payload.estado_transmitools,
-                observacion=payload.observacion,
+                motivo=payload.motivo,
                 id_responsable=payload.id_responsable,
                 id_accion=payload.id_accion,
                 id_justificacion=payload.id_justificacion,

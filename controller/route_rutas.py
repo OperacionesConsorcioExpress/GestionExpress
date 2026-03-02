@@ -3,7 +3,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
 from pydantic import BaseModel, Field
-from model.gestion_rutas import GestionRutas
+from model.gestion_rutas import GestionRutas, GestionRutasKML
 
 # Router del módulo
 router_rutas = APIRouter()
@@ -173,5 +173,89 @@ async def previsualizar_carga(file: UploadFile = File(...)):
         return reporte
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        db.cerrar_conexion()
+
+# ════════════════════════════════════════════════════════════════════════════════
+# KML — Trazados y paraderos de ruta
+# ════════════════════════════════════════════════════════════════════════════════
+
+@router_rutas.post("/api/config/rutas/{id_linea}/kml", status_code=201)
+async def subir_kml_ruta(
+    id_linea: int,
+    file: UploadFile = File(...),
+    reemplazar: bool = Query(True, description="Reemplaza geometrías previas de la línea"),
+    usuario: str = Query("sistema", description="Usuario que realiza la carga"),
+):
+    """
+    Procesa y persiste el archivo .kml de una ruta en config.rutas_kml.
+    Extrae trazados (LineString) y paraderos (Point) con geometrías PostGIS.
+    """
+    nombre = file.filename or ""
+    if not nombre.lower().endswith(".kml"):
+        raise HTTPException(status_code=400, detail="El archivo debe tener extensión .kml")
+
+    contenido = await file.read()
+    if not contenido:
+        raise HTTPException(status_code=400, detail="El archivo KML está vacío")
+
+    db = GestionRutasKML()
+    try:
+        resumen = db.cargar_kml(
+            id_linea=id_linea,
+            contenido_bytes=contenido,
+            nombre_archivo=nombre,
+            usuario=usuario,
+            reemplazar=reemplazar,
+        )
+        return {"ok": True, **resumen}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.cerrar_conexion()
+
+@router_rutas.get("/api/config/rutas/{id_linea}/kml/estado")
+def estado_kml_ruta(id_linea: int):
+    """
+    Devuelve si hay KML cargado para la línea y cuántos trazados/paraderos tiene.
+    """
+    db = GestionRutasKML()
+    try:
+        return db.estado_kml(id_linea)
+    finally:
+        db.cerrar_conexion()
+
+@router_rutas.get("/api/config/rutas/{id_linea}/kml/trazados")
+def trazados_geojson(id_linea: int):
+    """
+    GeoJSON FeatureCollection con los trazados (LineString) de la ruta.
+    Usado por sne_objecion.html para pintar la capa de ruta en el mapa Leaflet.
+    """
+    db = GestionRutasKML()
+    try:
+        return db.trazados_geojson(id_linea)
+    finally:
+        db.cerrar_conexion()
+
+@router_rutas.get("/api/config/rutas/{id_linea}/kml/paraderos")
+def paraderos_geojson(id_linea: int):
+    """
+    GeoJSON FeatureCollection con los paraderos (Point) de la ruta.
+    """
+    db = GestionRutasKML()
+    try:
+        return db.paraderos_geojson(id_linea)
+    finally:
+        db.cerrar_conexion()
+
+@router_rutas.delete("/api/config/rutas/{id_linea}/kml")
+def eliminar_kml_ruta(id_linea: int):
+    """Elimina todos los registros KML de la línea indicada."""
+    db = GestionRutasKML()
+    try:
+        eliminados = db.eliminar_kml(id_linea)
+        return {"ok": True, "id_linea": id_linea, "eliminados": eliminados}
     finally:
         db.cerrar_conexion()

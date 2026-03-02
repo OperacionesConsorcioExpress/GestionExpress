@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException, Form
 from starlette.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import List
-from model.roles_powerbi import ModeloRolesPowerBI
+from model.gestion_roles_powerbi import ModeloRolesPowerBI
 
 # Crear router
 router_roles_powerbi = APIRouter()

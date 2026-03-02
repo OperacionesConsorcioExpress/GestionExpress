@@ -8,11 +8,11 @@ from typing import List, Optional, Dict, Any
 import io, json, os, re, tempfile, zipfile
 import pandas as pd
 from model.gestion_sgi import GestionSGI
-from model.gestionar_db import HandleDB
+from model.gestion_usuarios import HandleDB
 
 # Importar sistema de auditoría
 try:
-    from model.auditoria_sgi import AuditoriaSGI
+    from model.gestion_auditoria_sgi import AuditoriaSGI
     AUDITORIA_AVAILABLE = True
     # Print ya mostrado en gestion_sgi.py al cargar el módulo
 except ImportError as e:
@@ -693,7 +693,6 @@ class ActividadGC(BaseModel):
             raise ValueError('La descripción es obligatoria')
         return v.strip()
 
-
 class GestionCambioCreate(BaseModel):
     proceso: str
     subproceso: str
@@ -1209,7 +1208,6 @@ def descargar_todas_evidencias(
             content={"success": False, "mensaje": f"Error del servidor: {str(e)}"}
         )
 
-
 class EvidenciasDownloadRequest(BaseModel):
     evidencias: List[int]
 
@@ -1217,7 +1215,6 @@ class RegistroAdminRequest(BaseModel):
     tipo: str
     codigo: str
     datos: Dict[str, Any] = {}
-
 
 class CierreRegistroRequest(BaseModel):
     codigo: str
@@ -2825,11 +2822,9 @@ async def exportar_pendientes(
             }
         )
 
-
 # =====================================================
 # ENDPOINTS DE AUDITORÍA SGI
 # =====================================================
-
 @router_sgi.get("/sgi/auditoria/logs")
 def obtener_logs_auditoria(
     req: Request,
@@ -2925,7 +2920,6 @@ def obtener_logs_auditoria(
             except Exception as e:
                 print(f"⚠️ Error al cerrar conexión de auditoría: {e}")
 
-
 @router_sgi.get("/sgi/auditoria/estadisticas")
 def obtener_estadisticas_auditoria(
     req: Request,
@@ -2975,7 +2969,6 @@ def obtener_estadisticas_auditoria(
             except Exception as e:
                 print(f"⚠️ Error al cerrar conexión de auditoría: {e}")
 
-
 @router_sgi.get("/sgi/auditoria/actividad-reciente")
 def obtener_actividad_reciente_auditoria(
     req: Request,
@@ -3018,7 +3011,6 @@ def obtener_actividad_reciente_auditoria(
                 "mensaje": f"Error al obtener actividad reciente: {str(e)}"
             }
         )
-
 
 @router_sgi.get("/sgi/auditoria/exportar")
 def exportar_auditoria(
@@ -3215,11 +3207,9 @@ def exportar_auditoria(
             except Exception as e:
                 print(f"⚠️ Error al cerrar conexión de auditoría: {e}")
 
-
 # ========================================================================================
 #                        ENDPOINTS DE NOTIFICACIONES
 # ========================================================================================
-
 @router_sgi.get("/sgi/notificaciones")
 def obtener_notificaciones(
     req: Request,
@@ -3268,7 +3258,6 @@ def obtener_notificaciones(
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
 
-
 @router_sgi.post("/sgi/notificaciones/{notificacion_id}/marcar-leida")
 def marcar_notificacion_leida(
     notificacion_id: int,
@@ -3301,7 +3290,6 @@ def marcar_notificacion_leida(
             status_code=500,
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
-
 
 @router_sgi.post("/sgi/notificaciones/marcar-todas-leidas")
 def marcar_todas_notificaciones_leidas(
@@ -3336,7 +3324,6 @@ def marcar_todas_notificaciones_leidas(
             status_code=500,
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
-
 
 @router_sgi.delete("/sgi/notificaciones/{notificacion_id}")
 def eliminar_notificacion(
@@ -3373,9 +3360,6 @@ def eliminar_notificacion(
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
 
-
 # ========================================================================================
 #                        EXPORTAR PENDIENTES SGI (TODOS LOS MÓDULOS)
 # ========================================================================================
-
-
