@@ -570,7 +570,7 @@
 
       </div>
 
-      <!-- MODAL PARA ACCIONES -->
+      <!-- MODAL PARA ACCIONES DE GUARDADO, EXPORTACIÓN, ETC -->
       <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 0.7rem 1.2rem; display: flex; gap: 0.8rem; justify-content: flex-end;">
         <button type="button" data-bs-dismiss="modal" style="background: transparent; color: #475569; padding: 0.5rem 1rem; border: 1px solid #e2e8f0; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem;">
           <i class="bi bi-x-lg"></i> Cerrar
@@ -586,7 +586,7 @@
   </div>
 </div>
 
-<!-- MODAL REPORTES -->
+<!-- MODAL REPORTES DE FMS Y TRANSMITOOLS -->
 <div class="modal fade" id="reportModal" tabindex="-1">
   <div class="modal-dialog modal-fullscreen">
     <div class="modal-content" style="border: none;">
@@ -595,7 +595,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1);"></button>
       </div>
       
-      <!-- CONTROLES -->
+      <!-- CONTROLES DE BÚSQUEDA, FILTROS Y EXPORTACIÓN -->
       <div style="background: white; padding: 0.8rem 1.2rem; border-bottom: 1px solid #e2e8f0; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;">
         <input type="text" id="reportSearch" placeholder="Buscar..." style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 0.4rem 0.8rem; font-size: 0.75rem; width: 200px;">
         <select id="reportFilter" style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
@@ -943,7 +943,7 @@
       { label: 'Offset Ini',   key: 'offset_inicio' },
       { label: 'Offset Fin',      key: 'offset_fin' },
       { label: 'Km Revision',     key: 'km_revision' },
-      { label: 'Observacion',     key: 'observacion' },
+      { label: 'Motivo',     key: 'motivo' },
       { label: 'Responsable',     key: 'responsable_nombre' },
     ];
     const thead = COLS.map(c =>
@@ -1058,7 +1058,7 @@
       .catch(function(e) { console.error('detalle ICS', e); });
   }
 
-  /* ==================== RELLENAR DATOS EN EL MODAL ==================== */
+  /* ==================== RELLENAR DATOS EN EL MODAL PESTAÑA 1.1 ==================== */
   function populateModal(d) {
     const basicFields = [
       { label: 'Fecha',     value: d.fecha },
@@ -1094,8 +1094,8 @@
       ' &nbsp;|&nbsp; <strong>H. Ini. Teorica:</strong> ' + (d.hora_ini_teorica||'--') +
       ' &nbsp;|&nbsp; <strong>Responsable:</strong> ' + (d.responsable_nombre||'--');
 
-    // Comentarios
-    document.getElementById('commentText').value = d.observacion || '';
+    // Motivos de Eliminación
+    document.getElementById('commentText').value = d.motivo || '';
 
     // Guardar km_revision en variable global para validaciones
     window._modalKmRevision = d.km_revision ? parseFloat(d.km_revision) : 0;
@@ -1119,15 +1119,15 @@
 
     // Cargar selects de gestión con valor por defecto del registro
     loadGestionSelects(d);
+    // Cargar tabla de motivos/responsables desde ics_motivo_resp
+    loadIcsMotivosResponsables(d.id_ics);
   }
 
   /* ==================== GESTIÓN: SELECTS EN CASCADA ==================== */
 
   async function loadGestionSelects(d) {
     // 1. Cargar Responsables y preseleccionar el del registro
-    await loadGestionResponsables(d.id_responsable);
-    // 2. Cargar Motivos según el responsable actual
-    if (d.id_responsable) await loadGestionMotivos(d.id_responsable, d.observacion);
+    await loadGestionResponsables(null);
     // 3. Cargar Acciones
     await loadGestionAcciones();
     // 4. Restablecer Justificaciones y Km objeción
@@ -1138,6 +1138,43 @@
     document.getElementById('kmNoObjetado').value = '';
     const lbl = document.getElementById('kmRevLabel');
     if (lbl) lbl.textContent = (window._modalKmRevision || 0).toFixed(3);
+  }
+
+  async function loadIcsMotivosResponsables(id_ics) {
+    try {
+      const r = await fetch(API + '/registros/' + id_ics + '/motivos-responsables');
+      const j = await r.json();
+      const container = document.getElementById('kmSummaryContainer');
+
+      // Agregar sección de motivos/responsables debajo del resumen de km
+      var existente = document.getElementById('icsMotivosBox');
+      if (existente) existente.remove();
+
+      if (!j.ok || !j.data || j.data.length === 0) return;
+
+      var html = '<div id="icsMotivosBox" style="margin-top:.6rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.6rem;">'
+        + '<div style="font-size:.65rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.3px;margin-bottom:.4rem;">'
+        + '<i class="bi bi-people" style="color:#0d6efd;"></i> Motivos / Responsables</div>';
+
+      j.data.forEach(function(item) {
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-bottom:.3rem;padding:.3rem .4rem;background:white;border-radius:4px;border-left:3px solid #0d6efd;">'
+          + '<div>'
+          + '<div style="font-size:.58rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Responsable</div>'
+          + '<div style="font-size:.7rem;font-weight:600;color:#0f172a;">' + item.responsable_nombre + '</div>'
+          + '</div>'
+          + '<div>'
+          + '<div style="font-size:.58rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Motivo</div>'
+          + '<div style="font-size:.7rem;font-weight:600;color:#0f172a;">' + item.motivo_nombre + '</div>'
+          + '</div>'
+          + '</div>';
+      });
+
+      html += '</div>';
+
+      // Insertar después del kmSummaryContainer
+      container.insertAdjacentHTML('afterend', html);
+
+    } catch(e) { console.error('loadIcsMotivosResponsables', e); }
   }
 
   async function loadGestionResponsables(preselect) {
@@ -1156,7 +1193,7 @@
     } catch(e) { console.error('gestion/responsables', e); }
   }
 
-  async function loadGestionMotivos(id_responsable, preselect_text) {
+  async function loadGestionMotivos(id_responsable, preselect_id) {
     const sel = document.getElementById('gestionMotivo');
     sel.innerHTML = '<option value="">-- Sin motivo específico --</option>';
     if (!id_responsable) { sel.innerHTML = '<option value="">-- Seleccionar responsable primero --</option>'; return; }
@@ -1166,9 +1203,8 @@
       if (j.ok) j.data.forEach(function(m) {
         const o = document.createElement('option');
         o.value = m.id;
-        o.textContent = m.observacion;
-        // Si el texto coincide con la observación actual, preseleccionar
-        if (preselect_text && m.observacion === preselect_text) o.selected = true;
+        o.textContent = m.motivo;
+        if (preselect_id && m.id == preselect_id) o.selected = true;
         sel.appendChild(o);
       });
     } catch(e) { console.error('gestion/motivos', e); }
@@ -1276,7 +1312,7 @@
     }
 
     const payload = {
-      observacion:      document.getElementById('commentText').value || null,
+      motivo:      document.getElementById('commentText').value || null,
       id_responsable:   parseInt(document.getElementById('gestionResponsable').value) || null,
       id_accion:        parseInt(id_acc) || null,
       id_justificacion: parseInt(document.getElementById('gestionJustificacion').value) || null,
@@ -1669,6 +1705,7 @@
 
       _lastGpsData = j.data;
       _iframeMsg({ type: 'gps', points: j.data });
+      renderGpsTable(j.data); 
 
       badge.style.cssText = 'display:inline-block;background:#dcfce7;color:#166534;border-radius:20px;padding:.1rem .5rem;font-size:.6rem;font-weight:700;border:1px solid #86efac;';
       badge.textContent   = j.data.length + ' puntos';
@@ -1693,8 +1730,242 @@
     document.getElementById('mapFilterBus').value     = '';
     document.getElementById('mapFilterHoraIni').value = '00:00';
     document.getElementById('mapFilterHoraFin').value = '23:59';
+    renderGpsTable([]); 
   }
 
+  /* ==================== TABLA DATOS POSICIONAMIENTOS ==================== */
+  var ESTADO_COLOR_TABLE = {
+    1:'#94a3b8', 2:'#1e293b', 3:'#6366f1', 4:'#8b5cf6',
+    5:'#22c55e', 6:'#ef4444', 7:'#f59e0b', 8:'#f97316',
+    9:'#7d0a0a', 10:'#0ea5e9', 11:'#10b981', 12:'#e879f9',
+    13:'#facc15', 14:'#64748b'
+  };
+  var _gpsTableData = [];  // cache para filtrado por selección
+
+  function renderGpsTable(points) {
+    var container = document.getElementById('gpsActivitiesContainer');
+    _gpsTableData = points;
+    container.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;padding-right:0;height:100%;';
+
+    if (!points || points.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.75rem;"><i class="bi bi-geo-alt" style="font-size:1.5rem;display:block;margin-bottom:.4rem;"></i>Sin posicionamientos</div>';
+      return;
+    }
+
+    // ── BOTONES fijos arriba ────────────────────────────────────────────
+    var html = '<div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding-bottom:.3rem;border-bottom:1px solid #e2e8f0;margin-bottom:.3rem;">'
+      + '<span style="font-size:.62rem;color:#64748b;font-weight:600;"><span id="gpsSelCount">0</span> de ' + points.length + ' seleccionados</span>'
+      + '<div style="display:flex;gap:.3rem;">'
+      + '<button onclick="_gpsTableApplySelection()" style="background:#0d6efd;color:white;border:none;border-radius:5px;padding:.0rem .5rem;font-size:.62rem;font-weight:700;cursor:pointer;"><i class="bi bi-map"></i> Filtrar mapa</button>'
+      + '<button onclick="_gpsTableClearSelection()" style="background:transparent;color:#475569;border:1px solid #e2e8f0;border-radius:5px;padding:.0rem .5rem;font-size:.62rem;font-weight:700;cursor:pointer;"><i class="bi bi-x"></i> Limpiar</button>'
+      + '<button onclick="_gpsTablePopout()" style="background:transparent;color:#6366f1;border:1px solid #6366f1;border-radius:5px;padding:.2rem .5rem;font-size:.62rem;font-weight:700;cursor:pointer;"><i class="bi bi-box-arrow-up-right"></i></button>'
+      + '</div>'
+      + '</div>'
+
+      // ── UNA SOLA TABLA con thead sticky, scroll en ambas direcciones ──
+      + '<div style="flex:1;min-height:0;overflow-y:auto;overflow-x:scroll;">'
+      + '<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:.63rem;">'
+      + '<thead>'
+      + '<tr style="background:#0f172a;color:white;position:sticky;top:0;z-index:5;">'
+      + '<th style="padding:.25rem .3rem;text-align:center;font-weight:700;white-space:nowrap;border:1px solid #1e293b;">'
+      + '<input type="checkbox" id="gpsChkAll" onchange="_gpsTableToggleAll(this.checked)" style="cursor:pointer;accent-color:#0d6efd;"></th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;">Hora</th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;text-align:center;">Id</th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;">Estado</th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;text-align:right;">Pos.</th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;text-align:right;">Dist[m]</th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;text-align:right;">Vel[km/h]</th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;">Servbus</th>'
+      + '<th style="padding:.25rem .4rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;text-align:right;">Id viaje</th>'
+      + '</tr>'
+      + '</thead>'
+      + '<tbody id="gpsTableBody">';
+
+    points.forEach(function(p, i) {
+      var estado = parseInt(p.estado_localizacion) || 0;
+      var color  = ESTADO_COLOR_TABLE[estado] || '#64748b';
+      var nombre = p.nombre_estado || '--';
+      var vel    = p.vel_m_s != null ? (parseFloat(p.vel_m_s) * 3.6).toFixed(1) : '--';
+      var dist   = p.dist_m  != null ? parseFloat(p.dist_m).toFixed(2) : '--';
+      var pos    = p.posicion != null ? p.posicion : '--';
+      var hora   = p.hora || '--';
+      var serv   = p.servbus || '--';
+      var viaje  = p.id_viaje || '--';
+      var bgRow  = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+      html += '<tr id="gpsRow_' + i + '" data-idx="' + i + '" '
+        + 'style="background:' + bgRow + ';transition:background .1s;cursor:pointer;" '
+        + 'onmouseover="this.style.background=\'#eff6ff\'" '
+        + 'onmouseout="_gpsRowMouseOut(' + i + ',this)" '
+        + 'onclick="_gpsTableRowClick(' + i + ',event)">'
+        + '<td style="padding:.2rem .3rem;border:1px solid #e2e8f0;text-align:center;">'
+        + '<input type="checkbox" class="gpsChk" data-idx="' + i + '" onchange="_gpsTableOnCheck()" onclick="event.stopPropagation()" style="cursor:pointer;accent-color:#0d6efd;"></td>'
+        + '<td style="padding:.2rem .4rem;border:1px solid #e2e8f0;white-space:nowrap;font-family:monospace;font-weight:600;color:#0f172a;">' + hora + '</td>'
+        + '<td style="padding:.2rem .3rem;border:1px solid #e2e8f0;text-align:center;">'
+        + '<span style="background:' + color + ';color:white;border-radius:10px;padding:.05rem .35rem;font-size:.58rem;font-weight:800;">' + estado + '</span></td>'
+        + '<td style="padding:.2rem .4rem;border:1px solid #e2e8f0;white-space:nowrap;">'
+        + '<span style="display:inline-flex;align-items:center;gap:.25rem;">'
+        + '<span style="width:7px;height:7px;border-radius:50%;background:' + color + ';flex-shrink:0;"></span>'
+        + '<span style="color:#0f172a;font-weight:500;">' + nombre + '</span></span></td>'
+        + '<td style="padding:.2rem .4rem;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">' + pos + '</td>'
+        + '<td style="padding:.2rem .4rem;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">' + dist + '</td>'
+        + '<td style="padding:.2rem .4rem;border:1px solid #e2e8f0;text-align:right;font-family:monospace;font-weight:600;color:' + (parseFloat(p.vel_m_s) > 0 ? '#198754' : '#94a3b8') + ';">' + vel + '</td>'
+        + '<td style="padding:.2rem .4rem;border:1px solid #e2e8f0;white-space:nowrap;color:#475569;">' + serv + '</td>'
+        + '<td style="padding:.2rem .4rem;border:1px solid #e2e8f0;text-align:right;color:#475569;">' + viaje + '</td>'
+        + '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  function _gpsRowMouseOut(idx, row) {
+    var chk = document.querySelector('.gpsChk[data-idx="' + idx + '"]');
+    var isChecked = chk && chk.checked;
+    row.style.background = isChecked ? '#dbeafe' : (idx % 2 === 0 ? '#ffffff' : '#f8fafc');
+  }
+
+  function _gpsTableRowClick(idx, e) {
+    // Click en fila togglea el checkbox
+    var chk = document.querySelector('.gpsChk[data-idx="' + idx + '"]');
+    if (!chk) return;
+    chk.checked = !chk.checked;
+    var row = document.getElementById('gpsRow_' + idx);
+    if (row) row.style.background = chk.checked ? '#dbeafe' : (idx % 2 === 0 ? '#ffffff' : '#f8fafc');
+    _gpsTableOnCheck();
+  }
+
+  function _gpsTableToggleAll(checked) {
+    document.querySelectorAll('.gpsChk').forEach(function(chk, i) {
+      chk.checked = checked;
+      var row = document.getElementById('gpsRow_' + chk.dataset.idx);
+      if (row) row.style.background = checked ? '#dbeafe' : (i % 2 === 0 ? '#ffffff' : '#f8fafc');
+    });
+    _gpsTableOnCheck();
+  }
+
+  function _gpsTableOnCheck() {
+    var total   = document.querySelectorAll('.gpsChk').length;
+    var checked = document.querySelectorAll('.gpsChk:checked').length;
+    var counter = document.getElementById('gpsSelCount');
+    if (counter) counter.textContent = checked;
+    // Sincronizar checkbox "todos"
+    var chkAll = document.getElementById('gpsChkAll');
+    if (chkAll) {
+      chkAll.indeterminate = checked > 0 && checked < total;
+      chkAll.checked = checked === total && total > 0;
+    }
+  }
+
+  function _gpsTableApplySelection() {
+    var selected = [];
+    document.querySelectorAll('.gpsChk:checked').forEach(function(chk) {
+      var idx = parseInt(chk.dataset.idx);
+      if (_gpsTableData[idx]) selected.push(_gpsTableData[idx]);
+    });
+
+    // Si no hay selección usar todos
+    var points = selected.length > 0 ? selected : _gpsTableData;
+    if (!points || points.length === 0) return;
+
+    // Ajustar filtros de hora según selección
+    var horas = points.map(function(p) { return p.hora || '00:00:00'; }).sort();
+    var horaMin = horas[0].substring(0, 5);
+    var horaMax = horas[horas.length - 1].substring(0, 5);
+    document.getElementById('mapFilterHoraIni').value = horaMin;
+    document.getElementById('mapFilterHoraFin').value = horaMax;
+
+    // Enviar al iframe solo los puntos seleccionados
+    _iframeMsg({ type: 'gps', points: points });
+  }
+
+  function _gpsTableClearSelection() {
+    // Desmarcar todos y restaurar mapa completo
+    document.querySelectorAll('.gpsChk').forEach(function(chk) {
+      chk.checked = false;
+      var row = document.getElementById('gpsRow_' + chk.dataset.idx);
+      var idx = parseInt(chk.dataset.idx);
+      if (row) row.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+    });
+    var chkAll = document.getElementById('gpsChkAll');
+    if (chkAll) { chkAll.checked = false; chkAll.indeterminate = false; }
+    var counter = document.getElementById('gpsSelCount');
+    if (counter) counter.textContent = '0';
+
+    // Restaurar horas originales y mapa completo
+    document.getElementById('mapFilterHoraIni').value = '00:00';
+    document.getElementById('mapFilterHoraFin').value = '23:59';
+    if (_lastGpsData.length > 0) _iframeMsg({ type: 'gps', points: _lastGpsData });
+  }
+
+  function _gpsTablePopout() {
+    var points = _gpsTableData;
+    if (!points || points.length === 0) return;
+
+    var bus   = document.getElementById('mapFilterBus').value || '--';
+    var fecha = _currentIcsData ? _currentIcsData.fecha : (document.getElementById('filterDate').value || '--');
+
+    // Construir filas HTML
+    var rows = points.map(function(p, i) {
+      var estado = parseInt(p.estado_localizacion) || 0;
+      var color  = ESTADO_COLOR_TABLE[estado] || '#64748b';
+      var nombre = p.nombre_estado || '--';
+      var vel    = p.vel_m_s != null ? (parseFloat(p.vel_m_s) * 3.6).toFixed(1) : '--';
+      var dist   = p.dist_m  != null ? parseFloat(p.dist_m).toFixed(2) : '--';
+      var pos    = p.posicion != null ? p.posicion : '--';
+      var hora   = p.hora || '--';
+      var serv   = p.servbus || '--';
+      var viaje  = p.id_viaje || '--';
+      var bg     = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+      return '<tr style="background:' + bg + ';">'
+        + '<td style="padding:.25rem .4rem;border:1px solid #e2e8f0;font-family:monospace;font-weight:600;">' + hora + '</td>'
+        + '<td style="padding:.25rem .3rem;border:1px solid #e2e8f0;text-align:center;"><span style="background:' + color + ';color:white;border-radius:10px;padding:.05rem .4rem;font-size:.65rem;font-weight:800;">' + estado + '</span></td>'
+        + '<td style="padding:.25rem .4rem;border:1px solid #e2e8f0;white-space:nowrap;"><span style="display:inline-flex;align-items:center;gap:.3rem;"><span style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0;"></span>' + nombre + '</span></td>'
+        + '<td style="padding:.25rem .4rem;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">' + pos + '</td>'
+        + '<td style="padding:.25rem .4rem;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">' + dist + '</td>'
+        + '<td style="padding:.25rem .4rem;border:1px solid #e2e8f0;text-align:right;font-family:monospace;font-weight:600;color:' + (parseFloat(p.vel_m_s) > 0 ? '#198754' : '#94a3b8') + ';">' + vel + '</td>'
+        + '<td style="padding:.25rem .4rem;border:1px solid #e2e8f0;color:#475569;">' + serv + '</td>'
+        + '<td style="padding:.25rem .4rem;border:1px solid #e2e8f0;text-align:right;color:#475569;">' + viaje + '</td>'
+        + '</tr>';
+    }).join('');
+
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+      + '<title>Posicionamientos — ' + bus + ' | ' + fecha + '</title>'
+      + '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">'
+      + '<style>'
+      + '*{margin:0;padding:0;box-sizing:border-box;font-family:\'Century Gothic\',Arial,sans-serif;}'
+      + 'html,body{height:100%;margin:0;}'
+      + 'body{background:#f8f9fa;padding:1rem;display:flex;flex-direction:column;box-sizing:border-box;}'
+      + '.topbar{background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:white;padding:.6rem 1rem;border-radius:6px; margin-bottom:.8rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}'
+      + '.badge-info{font-size:.72rem;opacity:.9;}'
+      + '.table-wrap{flex:1;min-height:0;overflow-y:auto;overflow-x:auto;border-radius:6px;}'
+      + 'table{width:100%;border-collapse:collapse;font-size:.72rem;}'
+      + 'thead tr{background:#0f172a;color:white;position:sticky;top:0;z-index:5;}'
+      + 'th{padding:.3rem .5rem;font-weight:700;white-space:nowrap;border:1px solid #1e293b;}'
+      + 'tbody tr:hover{background:#eff6ff !important;}'
+      + '</style>'
+      + '</head><body>'
+      + '<div class="topbar">'
+      + '<span style="font-weight:700;font-size:.9rem;"><i class="bi bi-geo-alt-fill"></i> Posicionamientos GPS</span>'
+      + '<span class="badge-info"><i class="bi bi-bus-front"></i> ' + bus + ' &nbsp;|&nbsp; <i class="bi bi-calendar3"></i> ' + fecha + ' &nbsp;|&nbsp; <strong>' + points.length + '</strong> registros</span>'
+      + '</div>'
+      + '<div class="table-wrap">'
+      + '<table>'
+      + '<thead><tr>'
+      + '<th>Hora</th><th style="text-align:center;">Id</th><th>Estado</th>'
+      + '<th style="text-align:right;">Pos.</th><th style="text-align:right;">Dist[m]</th>'
+      + '<th style="text-align:right;">Vel[km/h]</th><th>Servbus</th><th style="text-align:right;">Id viaje</th>'
+      + '</tr></thead>'
+      + '<tbody>' + rows + '</tbody>'
+      + '</table></div>'
+      + '</body></html>';
+
+    var win = window.open('', '_blank', 'width=1000,height=700,toolbar=0,menubar=0,location=0,resizable=1');
+    win.document.write(html);
+    win.document.close();
+  }
+
+  /* ==================== FUNCIONES MAPA ==================== */
   function toggleMapFullscreen() {
     var iframe = document.getElementById('mapModal');
     var btn    = document.getElementById('mapToggleBtn');

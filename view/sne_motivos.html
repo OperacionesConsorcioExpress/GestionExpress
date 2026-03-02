@@ -60,7 +60,7 @@
             <div class="d-flex gap-2 align-items-center">
             <!-- Botón sincronizar ICS -->
             <button id="btn-sincronizar" class="btn btn-sm btn-outline-success"
-                title="Importar observaciones nuevas desde sne.ics"
+                title="Importar motivos nuevas desde sne.ics"
                 style="border-radius:8px; padding:.35rem .9rem;">
                 <i class="fa-solid fa-rotate me-1"></i> Sincronizar ICS
             </button>
@@ -79,7 +79,7 @@
             <div class="row g-2 align-items-end">
 
             <div class="col-12 col-md-4">
-                <label class="form-label mb-1">Buscar observación / responsable</label>
+                <label class="form-label mb-1">Buscar motivo / responsable</label>
                 <div class="input-group input-group-sm">
                 <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
                 <input id="f-q" type="text" class="form-control" placeholder="Ej: Accidente / Operación" style="font-size:12px; height:34px;">
@@ -150,7 +150,7 @@
                 <label class="form-label mb-1" style="font-weight:600;">
                 Observación / Motivo <span class="text-danger">*</span>
                 </label>
-                <textarea id="mot-observacion" class="form-control" rows="3"
+                <textarea id="mot-motivo" class="form-control" rows="3"
                 placeholder="Ej: Accidente, Conato de Bomba, Vandalismo…"
                 style="font-size:12px; resize:vertical;"></textarea>
                 <div class="form-text">Describe claramente el motivo de eliminación.</div>
@@ -370,7 +370,7 @@
         tb.innerHTML=cache.filas.map(r=>`
             <tr>
             <td><span class="text-muted" style="font-size:11px;">#${r.id}</span></td>
-            <td title="${esc(r.observacion)}">${esc(r.observacion||'')}</td>
+            <td title="${esc(r.motivo)}">${esc(r.motivo||'')}</td>
             <td>${badgeResponsable(r.nombre_responsable, r.id_responsable)}</td>
             <td style="text-align:right;">
                 <div class="btn-group">
@@ -397,7 +397,7 @@
         const r=cache.filas.find(x=>Number(x.id)===Number(id));
         if(!r) return mostrarToast({titulo:'Error',cuerpo:'Registro no encontrado',tipo:'danger'});
         document.getElementById('mot-id').value           = r.id;
-        document.getElementById('mot-observacion').value  = r.observacion||'';
+        document.getElementById('mot-motivo').value  = r.motivo||'';
         document.getElementById('mot-responsable').value  = r.id_responsable||'';
         document.getElementById('modal-titulo').textContent = 'Editar Motivo de Eliminación';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMotivo')).show();
@@ -407,7 +407,7 @@
         const r=cache.filas.find(x=>Number(x.id)===Number(id));
         if(!r) return;
         cache.idEliminar=id;
-        document.getElementById('txt-motivo-eliminar').textContent=`"${r.observacion}"`;
+        document.getElementById('txt-motivo-eliminar').textContent=`"${r.motivo}"`;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEliminar')).show();
     }
 
@@ -427,13 +427,13 @@
 
     document.getElementById('btn-guardar-motivo')?.addEventListener('click', async ()=>{
         const id  = document.getElementById('mot-id').value||null;
-        const obs = document.getElementById('mot-observacion').value.trim();
+        const obs = document.getElementById('mot-motivo').value.trim();
         const resp= document.getElementById('mot-responsable').value;
 
-        if(!obs)  return mostrarToast({titulo:'Validación',cuerpo:'La observación es obligatoria',tipo:'warning'});
+        if(!obs)  return mostrarToast({titulo:'Validación',cuerpo:'El motivo es obligatorio',tipo:'warning'});
         if(!resp) return mostrarToast({titulo:'Validación',cuerpo:'Selecciona un responsable',tipo:'warning'});
 
-        const cuerpo={observacion:obs, id_responsable:parseInt(resp)};
+        const cuerpo={motivo:obs, id_responsable:parseInt(resp)};
         try{
         if(id){ await API.motivos.actualizar(id,cuerpo); mostrarToast({titulo:'Motivo',cuerpo:'Actualizado correctamente',tipo:'success'}); }
         else  { await API.motivos.crear(cuerpo);         mostrarToast({titulo:'Motivo',cuerpo:'Creado correctamente',tipo:'success'}); }
@@ -447,7 +447,7 @@
     /* Reset modal al abrir "Nuevo" */
     document.getElementById('btn-nuevo-motivo')?.addEventListener('click', ()=>{
         document.getElementById('mot-id').value          = '';
-        document.getElementById('mot-observacion').value = '';
+        document.getElementById('mot-motivo').value = '';
         document.getElementById('mot-responsable').value = '';
         document.getElementById('modal-titulo').textContent = 'Nuevo Motivo de Eliminación';
     });

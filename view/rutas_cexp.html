@@ -49,6 +49,14 @@
   }
   .paginacion-wrap{ overflow-x:auto; max-width:100%; }
   .pagination{ flex-wrap:nowrap; margin:0; }
+
+  /* Badge KML */
+  .badge-kml-ok  { background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:5px; font-size:10px; padding:2px 6px; }
+  .badge-kml-no  { background:#f3f4f6; color:#9ca3af; border:1px solid #e5e7eb; border-radius:5px; font-size:10px; padding:2px 6px; }
+
+  /* Zona drop KML */
+  #kml-drop-zone:hover { border-color:#0d6efd !important; background:#f0f7ff; }
+  #kml-drop-zone.drag-over { border-color:#0d6efd !important; background:#dbeafe; }
 </style>
 {% endblock %}
 
@@ -79,21 +87,20 @@
       <div style="background:#ffffff; border:1px dashed #e5e7eb; border-radius:10px; padding:10px;">
         <div class="row g-2 align-items-end">
 
-          <div class="col-12 col-md-2">
-            <label class="form-label mb-1">Ruta / ID Línea</label>
-            <input id="f-q" type="text" class="form-control upper" placeholder="Ej: 13-7 / 80" style="font-size:12px; height:34px;">
+          <div class="col-12 col-md-3">
+            <label class="form-label mb-1">Buscar</label>
+            <input id="f-q" type="text" class="form-control upper" placeholder="Ruta o ID línea…" style="font-size:12px; height:34px;">
           </div>
 
-          <div class="col-6 col-md-1">
+          <div class="col-6 col-md-2">
             <label class="form-label mb-1">Estado</label>
             <select id="f-estado" class="form-select" style="font-size:12px; height:34px;">
               <option value="">Todos</option>
-              <option value="1">Activos</option>
-              <option value="0">Inactivos</option>
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
             </select>
           </div>
 
-          <!-- Filtros encadenados -->
           <div class="col-6 col-md-2">
             <label class="form-label mb-1">Componente</label>
             <select id="f-componente" class="form-select" style="font-size:12px; height:34px;">
@@ -132,6 +139,7 @@
               <th>Zona</th>
               <th>COP</th>
               <th style="text-align:center;">Estado</th>
+              <th style="text-align:center;">KML</th>
               <th>Creado</th>
               <th>Actualizado</th>
               <th style="text-align:right;">Acciones</th>
@@ -277,6 +285,83 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════════════
+    MODAL: Carga / Estado KML de Ruta
+════════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalKML" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:500px;">
+    <div class="modal-content" style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 60px rgba(17,24,39,.16); font-size:12px; font-family:'Century Gothic',sans-serif;">
+
+      <div class="modal-header" style="border-bottom:1px solid #e5e7eb; padding:10px 14px;">
+        <h5 class="modal-title" style="font-weight:700; font-size:13px; color:#111827; margin:0;">
+          <i class="fa-solid fa-map-location-dot me-2" style="color:#0a0f3d;"></i>
+          Trazado KML &middot; <span id="kml-titulo-ruta" style="color:#0d6efd;"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body" style="padding:16px;">
+
+        <!-- Estado actual -->
+        <div id="kml-estado-wrap" style="margin-bottom:14px; padding:10px 12px; border-radius:8px; border:1px dashed #d1d5db; background:#f9fafb; min-height:46px;">
+          <div id="kml-estado-inner">
+            <span style="color:#9ca3af;"><i class="fa-solid fa-circle-notch fa-spin me-1"></i> Verificando…</span>
+          </div>
+        </div>
+
+        <!-- Drop zone -->
+        <div id="kml-drop-zone"
+             style="border:2px dashed #d1d5db; border-radius:10px; padding:22px 16px; text-align:center; background:#fafafa; cursor:pointer; transition:all .2s;"
+             ondragover="event.preventDefault(); this.classList.add('drag-over');"
+             ondragleave="this.classList.remove('drag-over');"
+             ondrop="kmlOnDrop(event)">
+          <i class="fa-solid fa-file-code" style="font-size:1.8rem; color:#9ca3af; display:block; margin-bottom:6px;"></i>
+          <p style="margin:0; color:#6b7280; font-size:11px; line-height:1.5;">
+            Arrastra tu archivo <strong>.kml</strong> aquí o
+            <label for="kml-input-file" style="color:#0d6efd; cursor:pointer; text-decoration:underline;">selecciónalo</label>
+          </p>
+          <input type="file" id="kml-input-file" accept=".kml" style="display:none;" onchange="kmlOnFileSelect(this)">
+          <div id="kml-nombre-archivo" style="margin-top:8px; font-weight:600; color:#374151; font-size:11px;"></div>
+        </div>
+
+        <!-- Opciones -->
+        <div class="form-check form-switch mt-3" style="padding-left:2.4rem;">
+          <input class="form-check-input" type="checkbox" id="kml-check-reemplazar" checked>
+          <label class="form-check-label" for="kml-check-reemplazar">Reemplazar KML existente</label>
+        </div>
+
+        <!-- Progreso -->
+        <div id="kml-progreso" style="display:none; margin-top:10px;">
+          <div class="progress" style="height:5px; border-radius:4px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width:100%;"></div>
+          </div>
+          <p style="margin:3px 0 0; color:#9ca3af; font-size:10px; text-align:center;">Procesando KML…</p>
+        </div>
+
+        <!-- Resultado -->
+        <div id="kml-resultado" style="display:none; margin-top:10px;"></div>
+
+        <input type="hidden" id="kml-id-linea">
+      </div>
+
+      <div class="modal-footer" style="border-top:1px solid #e5e7eb; padding:8px 14px; gap:8px;">
+        <button id="kml-btn-eliminar" type="button" class="btn btn-sm btn-outline-danger me-auto" style="display:none;"
+                onclick="kmlEliminar()">
+          <i class="fa-solid fa-trash me-1"></i> Eliminar KML
+        </button>
+        <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
+                style="border:1px solid #e5e7eb; background:#fff;">Cerrar</button>
+        <button id="kml-btn-cargar" type="button" class="btn btn-sm"
+                style="background:#0a0f3d; color:#fff; border:none;" disabled
+                onclick="kmlSubir()">
+          <i class="fa-solid fa-cloud-arrow-up me-1"></i> Cargar KML
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <!-- Overlay de proceso -->
 <div id="overlay-proceso" class="overlay-proceso" hidden aria-hidden="true">
   <div class="text-center">
@@ -382,6 +467,11 @@
     carga: {
       preview: (fd) => fetch('/api/config/rutas/upload/preview', {method:'POST', body:fd, credentials:'same-origin'}).then(async r=>{const j=await r.json(); if(!r.ok) throw j; return j;}),
       subir:   (fd) => fetch('/api/config/rutas/upload',         {method:'POST', body:fd, credentials:'same-origin'}).then(async r=>{const j=await r.json(); if(!r.ok) throw j; return j;})
+    },
+    kml: {
+      estado:   (idLinea)            => getJSON(`/api/config/rutas/${idLinea}/kml/estado`),
+      subir:    (idLinea, fd, reempl) => fetch(`/api/config/rutas/${idLinea}/kml?reemplazar=${reempl}&usuario=web`, {method:'POST', body:fd, credentials:'same-origin'}).then(async r=>{ const j=await r.json(); if(!r.ok) throw j; return j; }),
+      eliminar: (idLinea)            => fetch(`/api/config/rutas/${idLinea}/kml`, {method:'DELETE', credentials:'same-origin'}).then(async r=>{ const j=await r.json(); if(!r.ok) throw j; return j; })
     }
   };
 
@@ -438,11 +528,9 @@
   async function cargarCOPs(componente='', zona=''){
     const rs = await API.rutas.cop({componente, zona, estado:1});
     cache.cop = rs.data || [];
-    // Filtro
     const selF = document.getElementById('f-cop');
     selF.innerHTML = `<option value="">Todos</option>`;
     cache.cop.forEach(c => selF.insertAdjacentHTML('beforeend', `<option value="${c.id}">${esc(c.cop)}</option>`));
-    // Modal
     const selM = document.getElementById('ruta-cop');
     selM.innerHTML = `<option value="">-- Selecciona --</option>`;
     cache.cop.forEach(c => selM.insertAdjacentHTML('beforeend', `<option value="${c.id}">${esc(c.cop)}</option>`));
@@ -528,6 +616,13 @@
         <td>${esc(r.zona||'')}</td>
         <td>${esc(r.cop||'')}</td>
         <td style="text-align:center;">${badgeEstado(r.estado)}</td>
+        <td style="text-align:center;">
+          <button class="btn btn-sm btn-outline-info" style="padding:2px 8px; font-size:11px;"
+                  title="Cargar o ver KML de trazado"
+                  onclick="kmlAbrirModal(${Number(r.id_linea)}, '${esc(r.ruta_comercial||'')}')">
+            <i class="fa-solid fa-map-location-dot me-1"></i>KML
+          </button>
+        </td>
         <td>${esc(r.created_at||'')}</td>
         <td>${esc(r.updated_at||'')}</td>
         <td style="text-align:right;">
@@ -549,7 +644,7 @@
   }
 
   /* ═══════════════════════════════════════════════
-    CRUD
+    CRUD Rutas
   ═══════════════════════════════════════════════ */
   function abrirEdicion(id){
     const r = cache.filas.find(x=> Number(x.id)===Number(id));
@@ -558,7 +653,6 @@
     document.getElementById('ruta-id-linea').value  = r.id_linea || '';
     document.getElementById('ruta-comercial').value = r.ruta_comercial || '';
     document.getElementById('ruta-estado').checked  = Number(r.estado)===1;
-    // Encadenados: establecer componente → zona → cop
     document.getElementById('ruta-componente').value = r.componente || '';
     (async ()=>{
       await cargarZonas(r.componente || '');
@@ -577,7 +671,6 @@
     }catch(err){ mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'}); }
   }
 
-  /* Guardar (Crear / Actualizar) */
   document.getElementById('btn-guardar-ruta')?.addEventListener('click', async ()=>{
     const id    = document.getElementById('ruta-id').value || null;
     const cuerpo = {
@@ -598,7 +691,6 @@
     }catch(err){ mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'}); }
   });
 
-  /* Resetear modal al crear nueva ruta */
   document.getElementById('btn-nueva-ruta')?.addEventListener('click', async ()=>{
     document.getElementById('ruta-id').value         = '';
     document.getElementById('ruta-id-linea').value   = '';
@@ -687,6 +779,135 @@
       mostrarToast({titulo:'Error carga', cuerpo:esc(msg), tipo:'danger'});
     }finally{ bloquearUI(false); }
   });
+
+  /* ═══════════════════════════════════════════════
+    KML — Trazado de ruta
+  ═══════════════════════════════════════════════ */
+  let _kmlArchivo = null;   // File seleccionado
+  let _kmlIdLinea = null;   // id_linea en contexto
+
+  async function kmlAbrirModal(idLinea, nombreRuta){
+    _kmlIdLinea  = idLinea;
+    _kmlArchivo  = null;
+    document.getElementById('kml-id-linea').value       = idLinea;
+    document.getElementById('kml-titulo-ruta').textContent = nombreRuta || `Línea ${idLinea}`;
+    document.getElementById('kml-nombre-archivo').textContent = '';
+    document.getElementById('kml-btn-cargar').disabled  = true;
+    document.getElementById('kml-resultado').style.display   = 'none';
+    document.getElementById('kml-progreso').style.display    = 'none';
+    document.getElementById('kml-drop-zone').style.borderColor = '#d1d5db';
+    document.getElementById('kml-input-file').value = '';
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKML')).show();
+    await _kmlRefrescarEstado(idLinea);
+  }
+
+  async function _kmlRefrescarEstado(idLinea){
+    const inner     = document.getElementById('kml-estado-inner');
+    const btnElim   = document.getElementById('kml-btn-eliminar');
+    inner.innerHTML = `<span style="color:#9ca3af;"><i class="fa-solid fa-circle-notch fa-spin me-1"></i> Verificando…</span>`;
+    try{
+      const res = await API.kml.estado(idLinea);
+      if(!res.tiene_kml){
+        inner.innerHTML = `<i class="fa-regular fa-circle me-1" style="color:#9ca3af;"></i><span style="color:#9ca3af;">Sin KML cargado para esta línea</span>`;
+        btnElim.style.display = 'none';
+      } else {
+        const d = res.detalle || {};
+        const badges = Object.entries(d).map(([tipo, info])=>
+          `<span class="badge me-1" style="background:${tipo==='trazado'?'#0a0f3d':'#198754'}; color:#fff; font-size:10px;">
+             ${tipo}: ${info.cantidad}
+           </span>`
+        ).join('');
+        const arch  = d.trazado?.archivo  || d.paradero?.archivo  || '';
+        const fecha = d.trazado?.ultima_carga || d.paradero?.ultima_carga || '';
+        const fechaFmt = fecha ? new Date(fecha).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'}) : '';
+        inner.innerHTML = `
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <i class="fa-solid fa-check-circle" style="color:#16a34a;"></i>
+            <strong>KML cargado</strong> ${badges}
+          </div>
+          <div style="color:#9ca3af; font-size:10px; margin-top:3px;">
+            <i class="fa-regular fa-file me-1"></i>${esc(arch)}
+            &nbsp;&middot;&nbsp;
+            <i class="fa-regular fa-clock me-1"></i>${fechaFmt}
+          </div>`;
+        btnElim.style.display = 'inline-flex';
+      }
+    }catch{
+      inner.innerHTML = `<span style="color:#dc3545;"><i class="fa-solid fa-triangle-exclamation me-1"></i> Error al verificar estado</span>`;
+    }
+  }
+
+  function kmlOnFileSelect(input){
+    const f = input.files[0];
+    if(!f) return;
+    if(!f.name.toLowerCase().endsWith('.kml')){
+      mostrarToast({titulo:'KML', cuerpo:'Solo se permiten archivos .kml', tipo:'danger'});
+      return;
+    }
+    _kmlArchivo = f;
+    document.getElementById('kml-nombre-archivo').innerHTML =
+      `<i class="fa-solid fa-file-code me-1" style="color:#0d6efd;"></i>${esc(f.name)} <span style="color:#9ca3af;">(${(f.size/1024).toFixed(1)} KB)</span>`;
+    document.getElementById('kml-btn-cargar').disabled = false;
+    document.getElementById('kml-drop-zone').style.borderColor = '#0d6efd';
+  }
+
+  function kmlOnDrop(event){
+    event.preventDefault();
+    document.getElementById('kml-drop-zone').classList.remove('drag-over');
+    const f = event.dataTransfer.files[0];
+    if(!f) return;
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    const input = document.getElementById('kml-input-file');
+    input.files = dt.files;
+    kmlOnFileSelect(input);
+  }
+
+  async function kmlSubir(){
+    if(!_kmlArchivo || !_kmlIdLinea) return;
+    const reemplazar = document.getElementById('kml-check-reemplazar').checked;
+    const fd = new FormData();
+    fd.append('file', _kmlArchivo);
+
+    document.getElementById('kml-btn-cargar').disabled   = true;
+    document.getElementById('kml-progreso').style.display = 'block';
+    document.getElementById('kml-resultado').style.display = 'none';
+
+    try{
+      const res = await API.kml.subir(_kmlIdLinea, fd, reemplazar);
+      document.getElementById('kml-progreso').style.display = 'none';
+      document.getElementById('kml-resultado').innerHTML = `
+        <div style="padding:10px 12px; border-radius:8px; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:11px;">
+          <i class="fa-solid fa-circle-check me-1"></i><strong>KML cargado correctamente</strong><br>
+          Línea ${res.id_linea} &middot; <b>${res.trazados}</b> trazado(s) &middot; <b>${res.paraderos}</b> paradero(s) &middot; Total: ${res.total}
+        </div>`;
+      document.getElementById('kml-resultado').style.display = 'block';
+      await _kmlRefrescarEstado(_kmlIdLinea);
+      mostrarToast({titulo:'KML', cuerpo:`${res.trazados} trazados · ${res.paraderos} paraderos cargados`, tipo:'success'});
+    }catch(err){
+      document.getElementById('kml-progreso').style.display = 'none';
+      document.getElementById('kml-resultado').innerHTML = `
+        <div style="padding:10px; border-radius:8px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; font-size:11px;">
+          <i class="fa-solid fa-triangle-exclamation me-1"></i>${esc(err.detail||JSON.stringify(err))}
+        </div>`;
+      document.getElementById('kml-resultado').style.display = 'block';
+      document.getElementById('kml-btn-cargar').disabled = false;
+    }
+  }
+
+  async function kmlEliminar(){
+    if(!_kmlIdLinea) return;
+    if(!confirm(`¿Eliminar el KML de la línea ${_kmlIdLinea}? Esta acción no se puede deshacer.`)) return;
+    try{
+      const res = await API.kml.eliminar(_kmlIdLinea);
+      await _kmlRefrescarEstado(_kmlIdLinea);
+      document.getElementById('kml-resultado').style.display = 'none';
+      mostrarToast({titulo:'KML', cuerpo:`${res.eliminados} registros eliminados`, tipo:'warning'});
+    }catch(err){
+      mostrarToast({titulo:'Error', cuerpo:esc(err.detail||'No se pudo eliminar'), tipo:'danger'});
+    }
+  }
 
   /* ═══════════════════════════════════════════════
     Arranque
