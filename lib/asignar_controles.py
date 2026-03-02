@@ -1,12 +1,6 @@
-import psycopg2
 from datetime import datetime
 from fastapi import HTTPException
-from dotenv import load_dotenv
-import os
-
-# Cargar las variables de entorno desde .env
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
+from model.database_manager import get_db_connection
 
 def fecha_asignacion(fecha_str):
     try:
@@ -18,99 +12,65 @@ def fecha_asignacion(fecha_str):
         raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use DD/MM/YYYY.")
 
 def puestos_SC():
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT puestos FROM controles WHERE concesion = 'SAN CRISTÓBAL'")
-    puestos = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return puestos
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT puestos FROM controles WHERE concesion = 'SAN CRISTÓBAL'")
+            return [row[0] for row in cursor.fetchall()]
 
 def puestos_UQ():
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT puestos FROM controles WHERE concesion = 'USAQUÉN'")
-    puestos = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return puestos
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT puestos FROM controles WHERE concesion = 'USAQUÉN'")
+            return [row[0] for row in cursor.fetchall()]
 
 def concesion():
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT concesion FROM controles")
-    concesiones = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return concesiones
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT concesion FROM controles")
+            return [row[0] for row in cursor.fetchall()]
 
 def control(concesion_seleccionada, puestos_seleccionado):
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    query = """
-    SELECT DISTINCT control FROM controles 
-    WHERE concesion = %s AND puestos = %s
-    """
-    cursor.execute(query, (concesion_seleccionada, puestos_seleccionado))
-    controles = [row[0] for row in cursor.fetchall()]
-    
-    conn.close()
-    return controles
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT DISTINCT control FROM controles
+                WHERE concesion = %s AND puestos = %s
+            """, (concesion_seleccionada, puestos_seleccionado))
+            return [row[0] for row in cursor.fetchall()]
 
 def rutas(concesion, puestos, control):
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    #print(f"Filtrando rutas para concesion: {concesion}, puestos: {puestos}, control: {control}")  # Validación
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT ruta FROM controles
+                WHERE concesion = %s AND puestos = %s AND control = %s
+            """, (concesion, puestos, control))
+            rutas_list = [row[0] for row in cursor.fetchall()]
 
-    #Consulta basada en concesion, puestos, and control
-    query = """
-    SELECT ruta FROM controles 
-    WHERE concesion = %s AND puestos = %s AND control = %s
-    """
-    cursor.execute(query, (concesion, puestos, control))
-    rutas = [row[0] for row in cursor.fetchall()]
-    #print(f"Rutas obtenidas: {rutas}") 
-    conn.close()
-    
-    # Ordenar las rutas y unirlas en una cadena separada por comas
-    if rutas:
-        rutas_unidas = ", ".join(sorted(rutas))
-    else:
-        rutas_unidas = ""
-    
-    return rutas_unidas
+    # Ordenar y unir en cadena separada por comas (procesamiento fuera de la conexión)
+    return ", ".join(sorted(rutas_list)) if rutas_list else ""
 
 def turnos():
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT turno FROM turnos")
-    turnos = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return turnos
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT turno FROM turnos")
+            return [row[0] for row in cursor.fetchall()]
 
 def turno_descripcion(turno):
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT descripcion FROM turnos WHERE turno = %s", (turno,))
-    descripcion = cursor.fetchone()
-    conn.close()
-    return descripcion[0] if descripcion else None
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT descripcion FROM turnos WHERE turno = %s", (turno,))
+            descripcion = cursor.fetchone()
+            return descripcion[0] if descripcion else None
 
 def hora_inicio(turno):
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT hora_inicio FROM turnos WHERE turno = %s", (turno,))
-    hora_inicio = cursor.fetchone()[0]
-    conn.close()
-    return hora_inicio
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT hora_inicio FROM turnos WHERE turno = %s", (turno,))
+            return cursor.fetchone()[0]
 
 def hora_fin(turno):
-    conn = psycopg2.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT hora_fin FROM turnos WHERE turno = %s", (turno,))
-    hora_fin = cursor.fetchone()[0]
-    conn.close()
-    return hora_fin
-
-
-    
-
-
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DISTINCT hora_fin FROM turnos WHERE turno = %s", (turno,))
+            return cursor.fetchone()[0]

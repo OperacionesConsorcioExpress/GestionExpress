@@ -13,19 +13,15 @@ Arquitectura:
 - Métricas y monitoreo completo
 """
 
-import asyncio
-import json
-import time
-import select
-import psycopg2
+import json, time, select, asyncio, threading, logging
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from psycopg2.extras import RealDictCursor
+from psycopg2 import extensions as pg_extensions
 from typing import Dict, List, Optional, Callable, Any
 from datetime import datetime, timedelta
-import threading
-import logging
 from dataclasses import dataclass
 from enum import Enum
+from model.database_manager import _get_pool as get_db_pool, get_dedicated_connection
 
 # Configurar logging profesional
 logging.basicConfig(
@@ -64,8 +60,7 @@ class SGIEnterpriseDataManager:
     - Métricas y observabilidad completa
     """
     
-    def __init__(self, connection_string: str):
-        self.connection_string = connection_string
+    def __init__(self):
         self.connection = None
         self.listener_connection = None
         self.performance_metrics = {
@@ -90,20 +85,17 @@ class SGIEnterpriseDataManager:
         logger.info("🚀 SGI Enterprise Data Manager inicializado")
 
     def _setup_connections(self):
-        """Configurar conexiones con pool y parámetros optimizados."""
+        """Configurar conexiones desde el pool centralizado."""
         try:
-            # Conexión principal optimizada
-            self.connection = psycopg2.connect(
-                self.connection_string,
-                options='-c timezone=America/Bogota',
-                cursor_factory=RealDictCursor
-            )
-            
-            # Conexión dedicada para listener (no puede usar transacciones)
-            self.listener_connection = psycopg2.connect(
-                self.connection_string,
-                options='-c timezone=America/Bogota'
-            )
+            # Conexión principal desde el pool centralizado
+            self.connection = get_db_pool().getconn()
+            if not self.connection.closed:
+                self.connection.rollback()
+            self.connection.cursor_factory = RealDictCursor
+
+            # Conexión dedicada para LISTEN/NOTIFY — fuera del pool
+            # ISOLATION_LEVEL_AUTOCOMMIT es obligatorio para pg_notify
+            self.listener_connection = get_dedicated_connection()
             self.listener_connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
             
             logger.info("✅ Conexiones PostgreSQL establecidas")
