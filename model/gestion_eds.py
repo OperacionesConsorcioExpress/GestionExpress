@@ -1,5 +1,4 @@
 import os, re, uuid, json, mimetypes
-import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from dotenv import load_dotenv
@@ -7,10 +6,11 @@ from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict, Any, Tuple
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError
+# Importar función para obtener el pool de conexiones
+from model.database_manager import _get_pool as get_db_pool
 
-# Cargar variables de entorno
+# Variables de entorno Azure (no son DB — se mantienen aquí)
 load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 CONTAINER_NAME = "eds-adjuntos-gestionexpress"
 TIMEZONE_BOGOTA = ZoneInfo("America/Bogota")
@@ -30,13 +30,14 @@ class Eds_config:
     """
 
     def __init__(self):
-        self.conn = psycopg2.connect(DATABASE_PATH, cursor_factory=RealDictCursor,
-                                    options='-c timezone=America/Bogota')
-        with self.conn.cursor() as c:
-            c.execute("SET TIME ZONE 'America/Bogota';")
-        self.conn.commit()
+        self.conn = get_db_pool().getconn()
+        # Limpiar estado residual antes de usar
+        if not self.conn.closed:
+            self.conn.rollback()
+        # Configurar RealDictCursor como factory por defecto
+        self.conn.cursor_factory = RealDictCursor
 
-    # Context manager
+    # Context manager para asegurar commit/rollback y devolución al pool
     def __enter__(self):
         return self
 
@@ -47,15 +48,20 @@ class Eds_config:
             else:
                 self.conn.commit()
         finally:
-            self.conn.close()
+            if self.conn and not self.conn.closed:
+                self.conn.rollback()
+            get_db_pool().putconn(self.conn)
+            self.conn = None
 
     def close(self):
-        try:
-            if getattr(self, "cur", None):
-                self.cur.close()
-        finally:
-            if getattr(self, "conn", None):
-                self.conn.close()
+        if getattr(self, "conn", None):
+            try:
+                if not self.conn.closed:
+                    self.conn.rollback()
+                get_db_pool().putconn(self.conn)
+            except Exception:
+                pass
+            self.conn = None
 
     def _execute(self, sql: str, params: list = None) -> None:
         with self.conn.cursor() as c:
@@ -465,14 +471,12 @@ class Eds_config:
 
 class RegistroEDS:
     def __init__(self):
-        self.conn = psycopg2.connect(
-            DATABASE_PATH,
-            cursor_factory=RealDictCursor,
-            options='-c timezone=America/Bogota'
-        )
-        with self.conn.cursor() as c:
-            c.execute("SET TIME ZONE 'America/Bogota';")
-        self.conn.commit()
+        self.conn = get_db_pool().getconn()
+        # Limpiar estado residual antes de usar
+        if not self.conn.closed:
+            self.conn.rollback()
+        # Configurar RealDictCursor como factory por defecto
+        self.conn.cursor_factory = RealDictCursor
 
     def __enter__(self):
         return self
@@ -484,7 +488,10 @@ class RegistroEDS:
             else:
                 self.conn.commit()
         finally:
-            self.conn.close()
+            if self.conn and not self.conn.closed:
+                self.conn.rollback()
+            get_db_pool().putconn(self.conn)
+            self.conn = None
 
     # ---------------------------
     # Helpers DB
@@ -963,21 +970,27 @@ class GestionEDS:
 
     def __init__(self):
         try:
-            self.connection = psycopg2.connect(DATABASE_PATH,
-                options='-c timezone=America/Bogota')
-            self.cursor = self.connection.cursor()
-            
-            # Fallback defensivo (por si el options no se respeta en algún entorno)
-            with self.connection.cursor() as c:
-                c.execute("SET TIME ZONE 'America/Bogota';")
-            self.connection.commit()
-            
-        except psycopg2.OperationalError as e:
-            print(f"Error al conectar a la base de datos: {e}")
+            self.connection = get_db_pool().getconn()
+            self.cursor = None
+            # Limpiar estado residual antes de usar
+            if not self.connection.closed:
+                self.connection.rollback()
+        except Exception as e:
+            print(f"Error al obtener conexión del pool: {e}")
             raise e
 
     def cerrar_conexion(self):
         if getattr(self, "cursor", None):
-            self.cursor.close()
+            try:
+                self.cursor.close()
+            except Exception:
+                pass
+            self.cursor = None
         if getattr(self, "connection", None):
-            self.connection.close()
+            try:
+                if not self.connection.closed:
+                    self.connection.rollback()
+                get_db_pool().putconn(self.connection)
+            except Exception:
+                pass
+            self.connection = None

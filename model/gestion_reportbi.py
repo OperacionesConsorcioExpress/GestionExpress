@@ -1,17 +1,13 @@
-import os
-import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2 import extensions as pg_extensions
 from typing import List, Dict, Any
-
-DATABASE_PATH = os.getenv("DATABASE_PATH")
+from model.database_manager import _get_pool as get_db_pool
 
 class ReportBIGestion:
     def __init__(self):
-        try:
-            self.connection = psycopg2.connect(DATABASE_PATH)
-        except psycopg2.OperationalError as e:
-            print(f"Error al conectar a la base de datos: {e}")
-            raise e
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
 
     # ---------- utilitario interno ----------
     @staticmethod
@@ -88,4 +84,7 @@ class ReportBIGestion:
             return None
 
     def close(self):
-        self.connection.close()
+        if not self.connection.closed:
+            self.connection.rollback()
+            self.connection.cursor_factory = pg_extensions.cursor
+            get_db_pool().putconn(self.connection)

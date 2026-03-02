@@ -1,12 +1,9 @@
-import os
-import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2 import extensions as pg_extensions
 from datetime import datetime
-from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
+from model.database_manager import _get_pool as get_db_pool
 
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
 TZ_BOGOTA = ZoneInfo("America/Bogota")
 
 def ahora_bogota() -> datetime:
@@ -19,7 +16,6 @@ class GestionSneObjecion:
     Tablas involucradas:
         sne.ics              - registros ICS cargados
         sne.gestion_sne      - gestion/estado por revisor (PK = id_ics)
-        sne.responsable_sne  - responsables asignables
         config.rutas         - id_linea -> ruta_comercial
         config.cop           - id_cop   -> cop / componente / zona
         config.componente    - id       -> componente
@@ -28,10 +24,11 @@ class GestionSneObjecion:
     """
 
     def __init__(self):
-        self.connection = psycopg2.connect(
-            DATABASE_PATH, options="-c timezone=America/Bogota"
-        )
-        self.cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
+        self.connection.cursor_factory = RealDictCursor
+        self.cursor = self.connection.cursor()
         with self.connection.cursor() as c:
             c.execute("SET TIME ZONE 'America/Bogota';")
         self.connection.commit()
@@ -39,8 +36,10 @@ class GestionSneObjecion:
     def cerrar_conexion(self):
         if getattr(self, "cursor", None):
             self.cursor.close()
-        if getattr(self, "connection", None):
-            self.connection.close()
+        if getattr(self, "connection", None) and not self.connection.closed:
+            self.connection.rollback()
+            self.connection.cursor_factory = pg_extensions.cursor
+            get_db_pool().putconn(self.connection)
 
     def __enter__(self):
         return self
@@ -132,21 +131,45 @@ class GestionSneObjecion:
         return self.cursor.fetchall()
 
     def listar_motivos_por_responsable(self, id_responsable: int = None):
-        """Lista motivos/observaciones desde sne.motivos_eliminacion filtrados por responsable."""
+        """Lista motivos desde sne.motivos_eliminacion filtrados por responsable."""
         if id_responsable:
             self.cursor.execute(
                 """
-                SELECT me.id, me.observacion, me.responsable
+                SELECT me.id, me.motivo, me.responsable
                 FROM sne.motivos_eliminacion me
                 WHERE me.responsable = %s
-                ORDER BY me.observacion
+                ORDER BY me.motivo
                 """,
                 (id_responsable,)
             )
         else:
             self.cursor.execute(
-                "SELECT id, observacion, responsable FROM sne.motivos_eliminacion ORDER BY responsable, observacion"
+                "SELECT id, motivo, responsable FROM sne.motivos_eliminacion ORDER BY responsable, motivo"
             )
+        return self.cursor.fetchall()
+
+    def listar_motivos_responsables_por_ics(self, id_ics: int):
+        """
+        Retorna los motivos y responsables asignados a un ICS
+        desde sne.ics_motivo_resp cruzando con sus tablas de descripción.
+        Solo lectura — no se agregan ni eliminan desde el frontend.
+        """
+        self.cursor.execute(
+            """
+            SELECT
+                imr.id_ics,
+                imr.motivo       AS id_motivo,
+                me.motivo        AS motivo_nombre,
+                imr.responsable  AS id_responsable,
+                rs.responsable   AS responsable_nombre
+            FROM sne.ics_motivo_resp imr
+            JOIN sne.motivos_eliminacion me ON me.id  = imr.motivo
+            JOIN sne.responsable_sne    rs ON rs.id   = imr.responsable
+            WHERE imr.id_ics = %s
+            ORDER BY rs.responsable, me.motivo
+            """,
+            (id_ics,)
+        )
         return self.cursor.fetchall()
 
     # ── Filtros de selects (cascada componente -> zona -> cop -> ruta) ───────────
@@ -257,7 +280,9 @@ class GestionSneObjecion:
                 p.longitud,
                 p.latitud,
                 p.posicion,
-                p.vel_m_s
+                p.vel_m_s,
+                p.dist_m,
+                p.id_viaje
             FROM config.posicionamientos p
             WHERE p.movil_bus = %s
                 AND p.fecha_evento >= (%s || ' ' || %s)::timestamptz
@@ -282,7 +307,6 @@ class GestionSneObjecion:
         id_cop: int = None,
         zona: str = None,
         componente: str = None,
-        id_responsable: int = None,
         tab: str = "revisar",
         pagina: int = 1,
         tamano: int = 50,
@@ -291,9 +315,9 @@ class GestionSneObjecion:
         Trae los registros ICS asignados al usuario logueado.
 
         Logica de tabs:
-          - revisar   -> revisor > 0 y estado_asignacion = 1 (pendiente)
-          - revisados -> estado_asignacion = 2 (ya revisado)
-          - validar   -> estado_objecion = 1 (objecion pendiente)
+        - revisar   -> revisor > 0 y estado_asignacion = 1 (pendiente)
+        - revisados -> estado_asignacion = 2 (ya revisado)
+        - validar   -> estado_objecion = 1 (objecion pendiente)
 
         NOTA: sne.gestion_sne NO tiene columna 'id'; la PK es id_ics.
         """
@@ -330,9 +354,6 @@ class GestionSneObjecion:
         if componente:
             where += f" AND UPPER({comp_expr}) = %s "
             params.append(componente.strip().upper())
-        if id_responsable:
-            where += " AND i.id_responsable = %s "
-            params.append(int(id_responsable))
 
         # COUNT
         sql_count = f"""
@@ -374,21 +395,18 @@ class GestionSneObjecion:
                 i.offset_inicio,
                 i.offset_fin,
                 i.km_revision,
-                i.observacion,
+                i.motivo,
                 i.id_concesion,
-                i.id_responsable,
-
                 r.ruta_comercial,
                 r.id_cop,
                 c.cop                                                    AS cop_nombre,
                 {comp_expr}                                              AS componente,
-                {zona_expr}                                              AS zona,
-                rs.responsable                                           AS responsable_nombre
+                {zona_expr}                                              AS zona
+            
             FROM sne.gestion_sne gs
             JOIN sne.ics i           ON i.id_ics = gs.id_ics
             LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
             LEFT JOIN config.cop c   ON c.id = r.id_cop
-            LEFT JOIN sne.responsable_sne rs ON rs.id = i.id_responsable
             {joins_cop}
             {where}
             ORDER BY i.fecha DESC, gs.id_ics ASC
@@ -417,7 +435,6 @@ class GestionSneObjecion:
                 gs.estado_transmitools,
                 to_char(gs.fecha_hora_asignacion, 'YYYY-MM-DD HH24:MI') AS fecha_asignacion,
                 to_char(gs.fecha_hora_objecion,   'YYYY-MM-DD HH24:MI') AS fecha_objecion,
-
                 i.fecha::text                                            AS fecha,
                 i.id_linea,
                 i.servicio,
@@ -434,21 +451,18 @@ class GestionSneObjecion:
                 i.offset_inicio,
                 i.offset_fin,
                 i.km_revision,
-                i.observacion,
+                i.motivo,
                 i.id_concesion,
-                i.id_responsable,
-
                 r.ruta_comercial,
                 r.id_cop,
                 c.cop                                                    AS cop_nombre,
                 {comp_expr}                                              AS componente,
-                {zona_expr}                                              AS zona,
-                rs.responsable                                           AS responsable_nombre
+                {zona_expr}                                              AS zona
+            
             FROM sne.gestion_sne gs
             JOIN sne.ics i           ON i.id_ics = gs.id_ics
             LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
             LEFT JOIN config.cop c   ON c.id = r.id_cop
-            LEFT JOIN sne.responsable_sne rs ON rs.id = i.id_responsable
             {joins_cop}
             WHERE gs.id_ics = %s AND gs.revisor = %s
             """,
@@ -489,8 +503,7 @@ class GestionSneObjecion:
         estado_asignacion: int = None,
         estado_objecion: int = None,
         estado_transmitools: int = None,
-        observacion: str = None,
-        id_responsable: int = None,
+        motivo: str = None,
         id_accion: int = None,
         id_justificacion: int = None,
         km_objetado: float = None,
@@ -502,12 +515,9 @@ class GestionSneObjecion:
         """
         # Actualizar campos en sne.ics si aplica
         ics_sets, ics_params = [], []
-        if id_responsable is not None:
-            ics_sets.append("id_responsable = %s")
-            ics_params.append(id_responsable)
-        if observacion is not None:
-            ics_sets.append("observacion = %s")
-            ics_params.append(observacion)
+        if motivo is not None:
+            ics_sets.append("motivo = %s")
+            ics_params.append(motivo)
         if km_objetado is not None:
             ics_sets.append("km_objetado = %s")
             ics_params.append(km_objetado)
@@ -562,10 +572,10 @@ class GestionSneObjecion:
                 sets.append("fecha_hora_transmitools = %s")
                 params.append(ahora)
 
-        if observacion is not None:
+        if motivo is not None:
             self.cursor.execute(
-                "UPDATE sne.ics SET observacion = %s WHERE id_ics = %s",
-                (observacion, id_ics),
+                "UPDATE sne.ics SET motivo = %s WHERE id_ics = %s",
+                (motivo, id_ics),
             )
 
         if sets:

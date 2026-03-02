@@ -2,8 +2,8 @@
 import os, re, time, uuid
 import psycopg2
 from psycopg2 import pool
-import threading
 from psycopg2.extras import RealDictCursor
+from model.database_manager import _get_pool as get_db_pool
 from datetime import datetime, timedelta, date, timezone
 from dotenv import load_dotenv
 from pathlib import Path
@@ -13,7 +13,7 @@ from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPerm
 
 # Importar sistema de cache ultra
 try:
-    from model.cache_ultra_sgi import cache_sgi_method, cache_invalidate_sgi, get_ultra_cache
+    from model.gestion_cache_sgi import cache_sgi_method, cache_invalidate_sgi, get_ultra_cache
     CACHE_AVAILABLE = True
     print("[OK] Ultra Cache SGI cargado correctamente")
 except ImportError as e:
@@ -27,7 +27,7 @@ except ImportError as e:
 
 # Importar sistema de auditoría
 try:
-    from model.auditoria_sgi import AuditoriaSGI
+    from model.gestion_auditoria_sgi import AuditoriaSGI
     AUDITORIA_AVAILABLE = True
     print("[OK] Sistema de Auditoria SGI cargado correctamente")
 except ImportError as e:
@@ -102,24 +102,6 @@ def _build_content_disposition(nombre_archivo: str) -> str:
     safe_name = (nombre_archivo or "archivo").replace('"', '')
     return f'inline; filename="{safe_name}"'
 
-_POOL_LOCK = threading.Lock()
-_DB_POOL = None
-
-def _get_pool():
-    global _DB_POOL
-    if _DB_POOL is None:
-        with _POOL_LOCK:
-            if _DB_POOL is None:
-                maxconn = int(os.getenv("DB_POOL_MAX", "10"))
-                print(f"DB pool SGI configurado con maxconn={maxconn}")
-                _DB_POOL = pool.ThreadedConnectionPool(
-                    1,
-                    maxconn,
-                    dsn=DATABASE_PATH,
-                    options='-c timezone=America/Bogota'
-                )
-    return _DB_POOL
-
 class GestionSGI:
     """Gestión del Sistema Integral de Calidad - SGI."""
 
@@ -129,21 +111,24 @@ class GestionSGI:
                 self.cerrar_conexion()
 
             self.connection = None
-            pool_con = _get_pool()
             ultimo_error = None
             for intento in range(5):
                 try:
-                    self.connection = pool_con.getconn()
+                    self.connection = get_db_pool().getconn()
                     break
                 except pool.PoolError as error_pool:
                     ultimo_error = error_pool
                     time.sleep(0.2 * (intento + 1))
             if not self.connection:
                 raise ultimo_error if ultimo_error else psycopg2.OperationalError("No se pudo obtener conexión del pool")
-            self.cursor = None
-            self.connection.autocommit = False
 
-            # Fallback defensivo (por si el options no se respeta en algún entorno)
+            self.cursor = None
+
+            # Limpiar estado residual antes de usar (evita "idle in transaction")
+            if not self.connection.closed:
+                self.connection.rollback()
+
+            # Garantizar timezone Bogotá (fallback defensivo)
             with self.connection.cursor() as c:
                 c.execute("SET TIME ZONE 'America/Bogota';")
             self.connection.commit()
@@ -169,9 +154,9 @@ class GestionSGI:
                     except Exception:
                         pass
                 if connection.closed:
-                    _get_pool().putconn(connection, close=True)
+                    get_db_pool().putconn(connection, close=True)
                 else:
-                    _get_pool().putconn(connection)
+                    get_db_pool().putconn(connection)
             except Exception:
                 pass
             self.connection = None
@@ -714,7 +699,6 @@ class GestionSGI:
     # ============================================================================
     # GESTIÓN DE PROCESOS Y SUBPROCESOS
     # ============================================================================
-
     def obtener_categorias_procesos(self) -> List[Dict]:
         """Obtiene todas las categorías de procesos activas."""
         try:
@@ -926,7 +910,6 @@ class GestionSGI:
             return []
 
     # ==================== GESTIÓN DE PLANES DE ACCIÓN ====================
-
     def crear_plan_accion(self, datos: Dict) -> Dict:
         """Crea un nuevo plan de acción con código automático."""
         inicio = time.time()
@@ -1439,7 +1422,6 @@ class GestionSGI:
             return None
 
     # ==================== GESTIÓN DEL CAMBIO (GC) ====================
-
     def crear_gestion_cambio(self, datos: Dict) -> Dict:
         """Crea una nueva gestión del cambio con actividades."""
         inicio = time.time()
@@ -1795,7 +1777,6 @@ class GestionSGI:
             }
 
     # ==================== MÉTODOS PARA GENERAR CÓDIGOS AUTOMÁTICOS ====================
-
     def generar_codigo_pa(self, proceso: str, subproceso: str) -> str:
         """Genera código automático para Plan de Acción."""
         try:
@@ -1833,7 +1814,6 @@ class GestionSGI:
             return f"RVD-{proceso[:2].upper()}-{subproceso[:2].upper()}-0001"
 
     # ==================== REVISIÓN POR LA DIRECCIÓN (RVD) ====================
-
     def crear_revision_direccion(self, datos: Dict[str, Any], usuario_sesion: str = "system") -> Dict[str, Any]:
         """
         Crea una nueva revisión por la dirección.
@@ -2031,7 +2011,6 @@ class GestionSGI:
     # =====================================================
     # FUNCIONES PARA OBTENER DATOS POR TIPO DE GESTIÓN
     # =====================================================
-
     def obtener_datos_por_tipo_gestion(self, tipo_gestion: str, filtros: Dict = None) -> List[Dict]:
         """Obtiene datos de la tabla correspondiente según el tipo de gestión seleccionado."""
         try:
@@ -2209,7 +2188,7 @@ class GestionSGI:
     def _obtener_gestion_cambio(self, filtros: Dict = None) -> List[Dict]:
         """Obtiene todos los registros de gestión del cambio de la tabla sgi.gestion_cambio."""
         try:
-            print("  🔍 Ejecutando consulta SQL para gestion_cambio...")
+            #print("  🔍 Ejecutando consulta SQL para gestion_cambio...")
             # Consulta SIMPLIFICADA - solo columnas que SEGURO existen
             query = """
                 SELECT
@@ -2550,21 +2529,21 @@ class GestionSGI:
                 todos_los_datos = planes_accion + gestion_cambio + revision_direccion
                 todos_los_datos.sort(key=lambda x: x.get('fecha_creacion', ''), reverse=True)
                 return todos_los_datos
-            print("🔄 Obteniendo todos los datos combinados de PA, GC y RVD...")
-            print(f"🔍 Filtros recibidos: {filtros}")
+            #print("🔄 Obteniendo todos los datos combinados de PA, GC y RVD...")
+            #print(f"🔍 Filtros recibidos: {filtros}")
 
             # Obtener datos de cada tabla
-            print("📊 Consultando planes_accion...")
+            #print("📊 Consultando planes_accion...")
             planes_accion = self._obtener_planes_accion(filtros)
-            print(f"✅ Planes de acción obtenidos: {len(planes_accion)}")
+            #print(f"✅ Planes de acción obtenidos: {len(planes_accion)}")
 
-            print("📊 Consultando gestion_cambio...")
+            #print("📊 Consultando gestion_cambio...")
             gestion_cambio = self._obtener_gestion_cambio(filtros)
-            print(f"✅ Gestión de cambio obtenidos: {len(gestion_cambio)}")
+            #print(f"✅ Gestión de cambio obtenidos: {len(gestion_cambio)}")
 
-            print("📊 Consultando revision_direccion...")
+            #print("📊 Consultando revision_direccion...")
             revision_direccion = self._obtener_revision_direccion(filtros)
-            print(f"✅ Revisión por dirección obtenidos: {len(revision_direccion)}")
+            #print(f"✅ Revisión por dirección obtenidos: {len(revision_direccion)}")
 
             # Agregar campo 'tipo' a cada registro para identificar su origen
             for registro in planes_accion:
@@ -2593,8 +2572,8 @@ class GestionSGI:
             # Ordenar por fecha de creación (más reciente primero)
             todos_los_datos.sort(key=lambda x: x.get('fecha_creacion', ''), reverse=True)
 
-            print(f"✅ Datos combinados obtenidos: {len(planes_accion)} PA + {len(gestion_cambio)} GC + {len(revision_direccion)} RVD = {len(todos_los_datos)} total")
-            print(f"📋 Tipos en el resultado final: {[d.get('tipo') for d in todos_los_datos]}")
+            #print(f"✅ Datos combinados obtenidos: {len(planes_accion)} PA + {len(gestion_cambio)} GC + {len(revision_direccion)} RVD = {len(todos_los_datos)} total")
+            #print(f"📋 Tipos en el resultado final: {[d.get('tipo') for d in todos_los_datos]}")
 
             return todos_los_datos
 

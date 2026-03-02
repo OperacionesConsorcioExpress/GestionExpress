@@ -1,18 +1,14 @@
-import os, re, uuid, json, mimetypes
-import psycopg2
+import os
 from psycopg2.extras import RealDictCursor
+from psycopg2 import extensions as pg_extensions
 from datetime import datetime
-from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
-from typing import Optional, List, Dict, Any, Tuple
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError
+from model.database_manager import _get_pool as get_db_pool
 
-# Cargar variables de entorno
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-CONTAINER_NAME = "eds-adjuntos-gestionexpress"
+CONTAINER_NAME = "xxxxxxxxxx"
 TIMEZONE_BOGOTA = ZoneInfo("America/Bogota")
 
 # Función para obtener la fecha y hora actual en Bogotá
@@ -22,11 +18,10 @@ def now_bogota() -> datetime:
 
 class RegistroSNE:
     def __init__(self):
-        self.conn = psycopg2.connect(
-            DATABASE_PATH,
-            cursor_factory=RealDictCursor,
-            options='-c timezone=America/Bogota'
-        )
+        self.conn = get_db_pool().getconn()
+        if not self.conn.closed:
+            self.conn.rollback()
+        self.conn.cursor_factory = RealDictCursor
         with self.conn.cursor() as c:
             c.execute("SET TIME ZONE 'America/Bogota';")
         self.conn.commit()
@@ -41,7 +36,10 @@ class RegistroSNE:
             else:
                 self.conn.commit()
         finally:
-            self.conn.close()
+            if not self.conn.closed:
+                self.conn.rollback()
+                self.conn.cursor_factory = pg_extensions.cursor
+                get_db_pool().putconn(self.conn)
 
     # ---------------------------
     # Helpers DB
