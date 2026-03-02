@@ -52,9 +52,7 @@ class SGIDataFacade:
         
         if ENTERPRISE_AVAILABLE:
             try:
-                self.enterprise_manager = SGIEnterpriseDataManager(
-                    os.getenv('DATABASE_PATH')
-                )
+                self.enterprise_manager = SGIEnterpriseDataManager()
                 print("🚀 Modo Enterprise activado")
                 self.mode = 'enterprise'
             except Exception as e:
@@ -194,8 +192,9 @@ def install_enterprise_infrastructure():
     load_dotenv()
     
     try:
-        import psycopg2
-        conn = psycopg2.connect(os.getenv('DATABASE_PATH'))
+        from model.database_manager import get_db_connection as _get_conn
+        _ctx = _get_conn()
+        conn = _ctx.__enter__()
         cur = conn.cursor()
         
         # 1. Crear función de notificación
@@ -301,7 +300,7 @@ def install_enterprise_infrastructure():
         # 5. Commit cambios
         conn.commit()
         cur.close()
-        conn.close()
+        _ctx.__exit__(None, None, None)
         
         print("\n🎉 INFRAESTRUCTURA ENTERPRISE INSTALADA EXITOSAMENTE")
         print("\n📋 Componentes instalados:")
