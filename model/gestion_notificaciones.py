@@ -2,50 +2,38 @@
 Modelo de Notificaciones para el Sistema SGI
 Gestiona la creación y consulta de notificaciones de aprobaciones, rechazos y cierres
 """
-
 from typing import List, Dict, Optional
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import os
-from dotenv import load_dotenv
-from pathlib import Path
-
-# Cargar variables de entorno
-_BASE_DIR = Path(__file__).resolve().parents[1]
-load_dotenv(dotenv_path=_BASE_DIR / ".env")
-DATABASE_PATH = os.getenv("DATABASE_PATH")
-
+from psycopg2 import extensions as pg_extensions
+from model.database_manager import _get_pool as get_db_pool
 
 class GestionNotificaciones:
     """Gestiona las notificaciones del sistema SGI"""
 
     def __init__(self):
         """Inicializar conexión a la base de datos"""
-        try:
-            self.connection = psycopg2.connect(
-                dsn=DATABASE_PATH,
-                options='-c timezone=America/Bogota'
-            )
-            self.connection.autocommit = False
-        except psycopg2.OperationalError as e:
-            print(f"Error al conectar a la base de datos en GestionNotificaciones: {e}")
-            raise e
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
 
     def cerrar_conexion(self):
         """Cerrar la conexión a la base de datos"""
-        if self.connection:
-            self.connection.close()
+        if self.connection and not self.connection.closed:
+            self.connection.rollback()
+            self.connection.cursor_factory = pg_extensions.cursor
+            get_db_pool().putconn(self.connection)
 
     def crear_notificacion(self,
-                          usuario: str,
-                          tipo: str,
-                          titulo: str,
-                          mensaje: str,
-                          codigo_referencia: str = None,
-                          tipo_entidad: str = None,
-                          actividad_id: int = None,
-                          metadata: dict = None) -> Dict:
+                            usuario: str,
+                            tipo: str,
+                            titulo: str,
+                            mensaje: str,
+                            codigo_referencia: str = None,
+                            tipo_entidad: str = None,
+                            actividad_id: int = None,
+                            metadata: dict = None) -> Dict:
         """
         Crear una nueva notificación
 
@@ -101,9 +89,9 @@ class GestionNotificaciones:
             }
 
     def obtener_notificaciones_usuario(self,
-                                       usuario: str,
-                                       solo_no_leidas: bool = False,
-                                       limite: int = 50) -> List[Dict]:
+                                        usuario: str,
+                                        solo_no_leidas: bool = False,
+                                        limite: int = 50) -> List[Dict]:
         """
         Obtener notificaciones de un usuario
 

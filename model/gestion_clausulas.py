@@ -1,12 +1,5 @@
-import psycopg2
-import json
-import os
-import re
-import requests
-import msal
+import json, os, re, requests, msal, calendar
 import pandas as pd
-from io import BytesIO
-import calendar
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
@@ -14,13 +7,13 @@ from dateutil.relativedelta import relativedelta
 from azure.storage.blob import BlobServiceClient, ContainerClient
 from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.sharepoint.client_context import ClientContext
-import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+# Importar la función para obtener el pool de conexiones
+from model.database_manager import _get_pool as get_db_pool
 
-# Cargar las variables de entorno desde .env
+# Variables de entorno no-DB (se mantienen aquí)
 load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 CONTAINER_NAME = "5000-juridica-y-riesgos-juridica-clausulas"
 site_url = "https://grupoexpress.sharepoint.com/sites/PlataformaBICEXP"
@@ -36,10 +29,12 @@ smtp_port = 587
 class GestionClausulas:
     def __init__(self):
         try:
-            self.connection = psycopg2.connect(DATABASE_PATH)
-            #print("Conexión a la base de datos establecida.")
-        except psycopg2.OperationalError as e:
-            print(f"Error al conectar a la base de datos: {e}")
+            self.connection = get_db_pool().getconn()
+            # Limpiar estado residual antes de usar (evita "idle in transaction")
+            if not self.connection.closed:
+                self.connection.rollback()
+        except Exception as e:
+            print(f"Error al obtener conexión del pool: {e}")
             raise e
     
     def obtener_clausulas(self):
@@ -283,8 +278,8 @@ class GestionClausulas:
     def obtener_clausula_por_id(self, id_clausula):
         query = """
         SELECT id, control, etapa, clausula, contrato_concesion, tema, subtema, descripcion_clausula, 
-               tipo_clausula, modificacion, norma_relacionada, consecuencia, frecuencia, inicio_cumplimiento, 
-               fin_cumplimiento, observacion, periodo_control, responsable_entrega, ruta_soporte
+                tipo_clausula, modificacion, norma_relacionada, consecuencia, frecuencia, inicio_cumplimiento, 
+                fin_cumplimiento, observacion, periodo_control, responsable_entrega, ruta_soporte
         FROM clausulas
         WHERE id = %s;
         """
@@ -918,6 +913,7 @@ class GestionClausulas:
             raise RuntimeError(f"No se pudo obtener token Graph: {result}")
 
         return result["access_token"]
+    
     # Enviar correo por Microsoft Graph
     def _send_mail_graph(self, sender_upn: str, to_list: list[str], cc_list: list[str], subject: str, html_body: str) -> None:
         """Envía correo por Microsoft Graph desde el buzón sender_upn."""
@@ -948,12 +944,14 @@ class GestionClausulas:
 # Recordatorio de Notificaciones
     def validar_conexion(self):
         """
-        Verifica si la conexión a la base de datos sigue activa y la reestablece si está cerrada.
+        Verifica si la conexión del pool sigue activa y obtiene una nueva si está cerrada.
         """
         try:
-            if self.connection.closed != 0:  # Si la conexión está cerrada (0 indica abierta)
-                print("La conexión a la base de datos estaba cerrada. Reestableciendo conexión...")
-                self.connection = psycopg2.connect(DATABASE_PATH)  # Reestablecer conexión
+            if self.connection is None or self.connection.closed != 0:
+                print("La conexión estaba cerrada. Obteniendo nueva conexión del pool...")
+                self.connection = get_db_pool().getconn()
+                if not self.connection.closed:
+                    self.connection.rollback()
         except Exception as e:
             print(f"Error al validar o reestablecer la conexión: {e}")
             raise
@@ -1529,13 +1527,11 @@ class GestionClausulas:
 
 # Reporte descargable de la gestión de clausulas
     def conectar_db(self):
-        """Asegura que la conexión a la base de datos esté abierta correctamente."""
+        """Asegura que la conexión del pool esté disponible. Si fue devuelta, obtiene una nueva."""
         if self.connection is None or self.connection.closed:
-            database_url = os.getenv("DATABASE_PATH")
-            if not database_url:
-                raise ValueError("DATABASE_PATH no está definido en las variables de entorno")
-            
-            self.connection = psycopg2.connect(database_url)
+            self.connection = get_db_pool().getconn()
+            if not self.connection.closed:
+                self.connection.rollback()
 
     def obtener_filtros_disponibles(self):
         """Obtiene los valores únicos de los filtros para el frontend."""
@@ -1687,4 +1683,11 @@ class GestionClausulas:
         return file_path, content_type, filename
     
     def close(self):
-        self.connection.close()
+        if getattr(self, "connection", None):
+            try:
+                if not self.connection.closed:
+                    self.connection.rollback()
+                get_db_pool().putconn(self.connection)
+            except Exception:
+                pass
+            self.connection = None

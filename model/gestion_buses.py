@@ -1,19 +1,15 @@
-import os, io, csv
-import psycopg2
+import io, csv
 from psycopg2.extras import RealDictCursor
-from psycopg2 import errors
+from psycopg2 import errors, extensions as pg_extensions
 from datetime import datetime
-from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
+from model.database_manager import _get_pool as get_db_pool
 
 try:
     import openpyxl  # Para leer .xlsx
 except Exception:
     openpyxl = None
 
-# Variables de entorno
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
 TZ_BOGOTA = ZoneInfo("America/Bogota")
 
 def ahora_bogota() -> datetime:
@@ -21,8 +17,11 @@ def ahora_bogota() -> datetime:
 
 class GestionBuses:
     def __init__(self):
-        self.connection = psycopg2.connect(DATABASE_PATH, options='-c timezone=America/Bogota')
-        self.cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
+        self.connection.cursor_factory = RealDictCursor
+        self.cursor = self.connection.cursor()
         with self.connection.cursor() as c:
             c.execute("SET TIME ZONE 'America/Bogota';")
         self.connection.commit()
@@ -30,8 +29,10 @@ class GestionBuses:
     def cerrar_conexion(self):
         if getattr(self, "cursor", None):
             self.cursor.close()
-        if getattr(self, "connection", None):
-            self.connection.close()
+        if getattr(self, "connection", None) and not self.connection.closed:
+            self.connection.rollback()
+            self.connection.cursor_factory = pg_extensions.cursor
+            get_db_pool().putconn(self.connection)
 
     # === Helpers para detectar columnas y armar joins dinámicos ===
     def _col_exists(self, schema: str, table: str, column: str) -> bool:
@@ -171,8 +172,8 @@ class GestionBuses:
 
     # ---------- Crear / Actualizar / Estado ----------
     def crear_bus(self, placa:str, combustible:str, id_cop:int, estado:int=1,
-                  no_interno:str=None, tipologia:str=None, modelo:int=None,
-                  marca:str=None, linea:str=None, carroceria:str=None, tecnologia:str=None):
+                    no_interno:str=None, tipologia:str=None, modelo:int=None,
+                    marca:str=None, linea:str=None, carroceria:str=None, tecnologia:str=None):
         placa_u = self._u(placa)
         if not placa_u:
             raise ValueError("La placa es obligatoria")
@@ -185,8 +186,8 @@ class GestionBuses:
                 (placa, no_interno, tipologia, modelo, marca, linea, carroceria, combustible, tecnologia, id_cop, estado)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING id, placa, estado, id_cop,
-                          to_char(created_at,'YYYY-MM-DD HH24:MI') as created_at,
-                          to_char(updated_at,'YYYY-MM-DD HH24:MI') as updated_at
+                        to_char(created_at,'YYYY-MM-DD HH24:MI') as created_at,
+                        to_char(updated_at,'YYYY-MM-DD HH24:MI') as updated_at
             """
             self.cursor.execute(sqlq, (
                 placa_u,
@@ -268,8 +269,8 @@ class GestionBuses:
             SET estado=%s, updated_at=now()
             WHERE id=%s
             RETURNING id, placa, estado,
-                      to_char(created_at,'YYYY-MM-DD HH24:MI') as created_at,
-                      to_char(updated_at,'YYYY-MM-DD HH24:MI') as updated_at
+                    to_char(created_at,'YYYY-MM-DD HH24:MI') as created_at,
+                    to_char(updated_at,'YYYY-MM-DD HH24:MI') as updated_at
         """, (int(estado), int(id)))
         fila = self._fila_o_error(self.cursor)
         self.connection.commit()

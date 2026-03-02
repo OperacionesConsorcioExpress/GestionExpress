@@ -1,14 +1,9 @@
-import os, re
-import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2 import sql, errors
+from psycopg2 import sql, errors, extensions as pg_extensions
 from datetime import datetime
-from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
+from model.database_manager import _get_pool as get_db_pool
 
-# Cargar variables de entorno
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
 TIMEZONE_BOGOTA = ZoneInfo("America/Bogota")
 
 # Función para obtener la fecha y hora actual en Bogotá
@@ -18,8 +13,11 @@ def now_bogota() -> datetime:
 
 class GestionCOP:
     def __init__(self):
-        self.connection = psycopg2.connect(DATABASE_PATH, options='-c timezone=America/Bogota')
-        self.cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
+        self.connection.cursor_factory = RealDictCursor
+        self.cursor = self.connection.cursor()
         with self.connection.cursor() as c:
             c.execute("SET TIME ZONE 'America/Bogota';")
         self.connection.commit()
@@ -27,8 +25,10 @@ class GestionCOP:
     def cerrar_conexion(self):
         if getattr(self, "cursor", None):
             self.cursor.close()
-        if getattr(self, "connection", None):
-            self.connection.close()
+        if getattr(self, "connection", None) and not self.connection.closed:
+            self.connection.rollback()
+            self.connection.cursor_factory = pg_extensions.cursor
+            get_db_pool().putconn(self.connection)
 
     # ---------- utilidades ----------
     def _build_search_filter(self, field_name, q):

@@ -1,16 +1,13 @@
 import os, re
-import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2 import Error as PsycopgError, extensions as pg_extensions
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone, date
-from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict, Any, Tuple
 from azure.storage.blob import BlobServiceClient, BlobSasPermissions, generate_blob_sas
+from model.database_manager import _get_pool as get_db_pool
 
-# Cargar variables de entorno
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 CONTAINER_NAME = "1206-operaciones-centro-de-control-preoperativos"
 TIMEZONE_BOGOTA = ZoneInfo("America/Bogota")
@@ -44,21 +41,14 @@ class GestionPreoperacionalMotos:
     """Gestión de parámetros preoperacionales de motos (mantenimientos y km óptimo)."""
 
     def __init__(self):
-        try:
-            self.connection = psycopg2.connect(
-                DATABASE_PATH,
-                options='-c timezone=America/Bogota'
-            )
-            self.cursor = self.connection.cursor()
-
-            # Fijar TZ por si el parámetro no se respeta
-            with self.connection.cursor() as c:
-                c.execute("SET TIME ZONE 'America/Bogota';")
-            self.connection.commit()
-
-        except psycopg2.OperationalError as e:
-            print(f"Error al conectar a la base de datos: {e}")
-            raise e
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
+        self.cursor = self.connection.cursor()
+        # Fijar TZ por si el parámetro no se respeta
+        with self.connection.cursor() as c:
+            c.execute("SET TIME ZONE 'America/Bogota';")
+        self.connection.commit()
 
         # ---------- Azure Blob ----------
         if not AZURE_STORAGE_CONNECTION_STRING:
@@ -80,8 +70,10 @@ class GestionPreoperacionalMotos:
     def cerrar_conexion(self):
         if getattr(self, "cursor", None):
             self.cursor.close()
-        if getattr(self, "connection", None):
-            self.connection.close()
+        if getattr(self, "connection", None) and not self.connection.closed:
+            self.connection.rollback()
+            self.connection.cursor_factory = pg_extensions.cursor
+            get_db_pool().putconn(self.connection)
 
 # -------- CRUD PARAMETRIZACIÓN KM MANTENIMIENTOS ---------
     def _normalizar_mantenimiento(self, texto: str) -> str:
@@ -131,7 +123,7 @@ class GestionPreoperacionalMotos:
                 fila = cursor.fetchone()
                 self.connection.commit()
                 return {"message": "Parámetro guardado", "data": fila}
-            except psycopg2.Error as e:
+            except PsycopgError as e:
                 self.connection.rollback()
                 return {"error": f"Error al crear/actualizar parámetro: {str(e)}"}
 
@@ -172,7 +164,7 @@ class GestionPreoperacionalMotos:
                 if not fila:
                     return {"error": "No existe el parámetro especificado."}
                 return {"message": "Parámetro actualizado", "data": fila}
-            except psycopg2.Error as e:
+            except PsycopgError as e:
                 self.connection.rollback()
                 # 23505 = unique_violation
                 if getattr(e, "pgcode", None) == "23505":
@@ -199,7 +191,7 @@ class GestionPreoperacionalMotos:
                 if not fila:
                     return {"error": "No existe el parámetro especificado."}
                 return {"message": "Estado actualizado", "data": fila}
-            except psycopg2.Error as e:
+            except PsycopgError as e:
                 self.connection.rollback()
                 return {"error": f"Error al cambiar estado: {str(e)}"}
             
@@ -250,7 +242,7 @@ class GestionPreoperacionalMotos:
                 row = c.fetchone()
                 self.connection.commit()
                 return {"message": "Registro preoperacional creado", "data": row}
-            except psycopg2.Error as e:
+            except PsycopgError as e:
                 self.connection.rollback()
                 return {"error": f"Error al crear registro: {str(e)}"}
 
@@ -297,7 +289,7 @@ class GestionPreoperacionalMotos:
                 row = c.fetchone()
                 self.connection.commit()
                 return {"ok": True, "id_adjunto": row["id_adjunto"]}
-            except psycopg2.Error as e:
+            except PsycopgError as e:
                 self.connection.rollback()
                 return {"ok": False, "error": f"Error al guardar metadatos adjunto: {str(e)}"}
 

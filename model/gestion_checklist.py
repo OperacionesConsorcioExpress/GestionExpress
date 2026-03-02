@@ -1,29 +1,24 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
-from dotenv import load_dotenv
+from psycopg2 import extensions as pg_extensions
 from datetime import datetime, time
 from typing import List, Tuple, Optional
-import os
-
-# Cargar variables de entorno
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
+from model.database_manager import _get_pool as get_db_pool
 
 class GestionChecklist:       
     def __init__(self):
-        try:
-            self.connection = psycopg2.connect(DATABASE_PATH)
-            self.cursor = self.connection.cursor()
-        except psycopg2.OperationalError as e:
-            print(f"Error al conectar a la base de datos: {e}")
-            raise e
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
+        self.cursor = self.connection.cursor()
 
     def cerrar_conexion(self):
         if self.cursor:
             self.cursor.close()
-        if self.connection:
-            self.connection.close()
+        if self.connection and not self.connection.closed:
+            self.connection.rollback()
+            self.connection.cursor_factory = pg_extensions.cursor
+            get_db_pool().putconn(self.connection)
 
     def obtener_procesos_para_select(self):
         """
@@ -496,6 +491,7 @@ class GestionChecklist:
             "marcas": marcas,
             "usuarios": usuarios
         }
+    
     # ---------- Reportes de Checklist ----------    
     def consultar_datos_reporte(
         self,
@@ -768,12 +764,12 @@ class GestionChecklist:
             row = cursor.fetchone()
         return int(row[0]) if row and row[0] is not None else None
 
-# ----------------------------------------------------------------------------------------------
 # ------- Procesos - Subprocesos asignados al usuario para la flota de asistencia técnica -------
 class Proceso_flota_asistencia:
-    def __init__(self, dsn: str):
-        self.dsn = dsn
-        self.connection = psycopg2.connect(dsn)
+    def __init__(self, dsn: str = None):
+        self.connection = get_db_pool().getconn()
+        if not self.connection.closed:
+            self.connection.rollback()
 
     def _cur(self):
         return self.connection.cursor(cursor_factory=RealDictCursor)
@@ -824,6 +820,9 @@ class Proceso_flota_asistencia:
     # ---- cerrar conexión ----
     def close(self):
         try:
-            self.connection.close()
+            if not self.connection.closed:
+                self.connection.rollback()
+                self.connection.cursor_factory = pg_extensions.cursor
+                get_db_pool().putconn(self.connection)
         except:
             pass
