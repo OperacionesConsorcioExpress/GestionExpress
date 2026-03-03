@@ -1,6 +1,4 @@
-import os
-import re
-import json
+import os, re, json
 from datetime import datetime, date
 from typing import List
 from fastapi import APIRouter, Request, Depends, HTTPException, File, UploadFile, Form, Query
@@ -9,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 from model.gestion_clausulas import GestionClausulas
-from model.job import TareasProgramadasJuridico
+from jobs.job_juridico import TareasProgramadasJuridico
 
 # ─────────────────────────────────────────────
 # Configuración

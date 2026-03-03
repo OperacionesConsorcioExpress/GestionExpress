@@ -5,7 +5,6 @@ from fastapi.templating import Jinja2Templates
 from typing import List, Optional
 from azure.storage.blob import BlobServiceClient
 from werkzeug.security import generate_password_hash
-from dotenv import load_dotenv
 # Importar modelos y controladores necesarios
 from lib.cambiar_contrasena import cambiar_contrasena_post
 from lib.pantallas_menu import get_pantallas_menu
@@ -16,16 +15,12 @@ from model.gestion_checklist import Proceso_flota_asistencia
 # ─────────────────────────────────────────────
 # Configuración
 # ─────────────────────────────────────────────
-load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")
-
 router_usuarios = APIRouter(tags=["usuarios"])
 templates = Jinja2Templates(directory="./view")
 
 # Instancias compartidas — igual que en main.py
 db = HandleDB()
 storage_db = Cargue_Roles_Blob_Storage()
-
 # ─────────────────────────────────────────────
 # Helper de sesión — igual que en main.py
 # ─────────────────────────────────────────────
@@ -69,7 +64,7 @@ def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
     roles_powerbi = [(r[0], r[1]) for r in roles_powerbi_raw if r[3] == 1]
 
     # >>> : listar procesos y subprocesos asignados a la flota de asistencia técnica (Checklist y Preoperacionales)
-    gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+    gestor_flota = Proceso_flota_asistencia()
     procesos = gestor_flota.listar_procesos()   # [(id, proceso, subproceso)]
     gestor_flota.close()
 
@@ -90,7 +85,7 @@ async def get_user_data(user_id: int):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
     # >>> : listar procesos y subprocesos asignados a la flota de asistencia técnica (Checklist y Preoperacionales)
-    gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+    gestor_flota = Proceso_flota_asistencia()
     procesos_ids = gestor_flota.obtener_ids_procesos_usuario(user_id)  # 👈
     gestor_flota.close()
     
@@ -134,7 +129,7 @@ def registrarse_post(req: Request, nombres: str = Form(...), apellidos: str = Fo
 
     if result.get("success"):
         # Obtener id de usuario y guardar asignaciones
-        gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+        gestor_flota = Proceso_flota_asistencia()
         user_id = gestor_flota.obtener_id_usuario_por_username(username)
         if user_id:
             gestor_flota.reemplazar_asignaciones(user_id, procesos_asignados or [])
@@ -182,7 +177,7 @@ async def editar_usuario(id: int, request: Request, user_data: dict = Depends(ge
         db.update_user(id, form_data_dict)
         
         # Guardar las asignaciones de procesos para la flota de asistencia técnica
-        gestor_flota = Proceso_flota_asistencia(DATABASE_PATH)
+        gestor_flota = Proceso_flota_asistencia()
         gestor_flota.reemplazar_asignaciones(id, procesos_asignados)
         gestor_flota.close()
         
@@ -202,7 +197,7 @@ async def editar_usuario(id: int, request: Request, user_data: dict = Depends(ge
 async def inactivate_user(id: int, request: Request, user_data: dict = Depends(get_user_session)):
     try:
         db.inactivate_user(id)
-       
+
         # Crear respuesta de redirección con una cookie que contenga el mensaje de éxito
         response = RedirectResponse(url="/registrarse", status_code=303)
         response.set_cookie(key="success_message", value="Usuario inactivado correctamente.", max_age=5)

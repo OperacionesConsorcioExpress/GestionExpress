@@ -1,4 +1,4 @@
-from model.database_manager import get_db_connection
+from database.database_manager import get_db_connection
 from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
