@@ -10,7 +10,7 @@ from office365.sharepoint.client_context import ClientContext
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 # Importar la función para obtener el pool de conexiones
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 # Variables de entorno no-DB (se mantienen aquí)
 load_dotenv()

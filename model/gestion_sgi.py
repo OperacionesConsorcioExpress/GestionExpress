@@ -3,7 +3,7 @@ import os, re, time, uuid
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 from datetime import datetime, timedelta, date, timezone
 from dotenv import load_dotenv
 from pathlib import Path

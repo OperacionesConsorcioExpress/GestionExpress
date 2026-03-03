@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import pytz
 from werkzeug.security import generate_password_hash
-from model.database_manager import get_db_connection
+from database.database_manager import get_db_connection
 
 # Zona horaria de Colombia (se mantiene para compatibilidad)
 colombia_tz = pytz.timezone('America/Bogota')
