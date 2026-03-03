@@ -45,4 +45,4 @@ jobs:
       env:
         DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
       run: |
-        python -c "from model.job import TareasProgramadasJuridico; TareasProgramadasJuridico().calcular_y_actualizar_fechas_dinamicas()"
+        python -c "from jobs.job_juridico import TareasProgramadasJuridico; TareasProgramadasJuridico().calcular_y_actualizar_fechas_dinamicas()"
