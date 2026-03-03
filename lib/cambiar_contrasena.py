@@ -1,7 +1,7 @@
+import re
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from werkzeug.security import generate_password_hash
-import re
 from model.gestion_usuarios import HandleDB
 
 # Validador de contraseña segura
