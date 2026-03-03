@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from model.gestion_usuarios import HandleDB, CargueLicenciasBI
 from model.gestion_roles_powerbi import ModeloRolesPowerBI
 from model.gestion_reportbi import ReportBIGestion
-from model.database_manager import get_db_connection
+from database.database_manager import get_db_connection
 
 # ─────────────────────────────────────────────
 # Configuración
