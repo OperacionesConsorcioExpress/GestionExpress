@@ -7,7 +7,7 @@ from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import extensions as pg_extensions
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 class GestionNotificaciones:
     """Gestiona las notificaciones del sistema SGI"""

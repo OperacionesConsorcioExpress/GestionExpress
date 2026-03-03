@@ -16,7 +16,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 # Importar la función de conexión a la base de datos
-from model.database_manager import get_db_connection
+from database.database_manager import get_db_connection
 
 # Zona horaria Colombia
 colombia_tz = pytz.timezone('America/Bogota')

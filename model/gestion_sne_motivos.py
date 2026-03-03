@@ -1,7 +1,7 @@
 from psycopg2.extras import RealDictCursor
 from psycopg2 import errors, extensions as pg_extensions
 from zoneinfo import ZoneInfo
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 TZ_BOGOTA = ZoneInfo("America/Bogota")
 

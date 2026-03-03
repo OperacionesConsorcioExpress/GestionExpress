@@ -10,7 +10,7 @@ from psycopg2 import Error as PsycopgError, extensions as pg_extensions
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import json
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 class AuditoriaSGI:
     """Clase para gestionar la auditoría completa del sistema SGI."""

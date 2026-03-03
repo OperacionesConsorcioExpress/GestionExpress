@@ -1,7 +1,7 @@
 from psycopg2.extras import RealDictCursor
 from psycopg2 import extensions as pg_extensions
 from typing import List, Dict, Any
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 class ReportBIGestion:
     def __init__(self):

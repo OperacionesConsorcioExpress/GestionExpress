@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone, date
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict, Any, Tuple
 from azure.storage.blob import BlobServiceClient, BlobSasPermissions, generate_blob_sas
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 CONTAINER_NAME = "1206-operaciones-centro-de-control-preoperativos"

@@ -7,7 +7,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError
 # Importar función para obtener el pool de conexiones
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 # Variables de entorno Azure (no son DB — se mantienen aquí)
 load_dotenv()

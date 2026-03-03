@@ -6,7 +6,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
 # Importar la función para obtener el pool de conexiones
-from model.database_manager import _get_pool as get_db_pool
+from database.database_manager import _get_pool as get_db_pool
 
 try:
     import openpyxl
