@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Callable, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from enum import Enum
-from model.database_manager import _get_pool as get_db_pool, get_dedicated_connection
+from database.database_manager import _get_pool as get_db_pool, get_dedicated_connection
 
 # Configurar logging profesional
 logging.basicConfig(

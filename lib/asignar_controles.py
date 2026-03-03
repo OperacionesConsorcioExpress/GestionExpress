@@ -1,6 +1,6 @@
 from datetime import datetime
 from fastapi import HTTPException
-from model.database_manager import get_db_connection
+from database.database_manager import get_db_connection
 
 def fecha_asignacion(fecha_str):
     try:

@@ -8,7 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import psycopg2
 from psycopg2.extras import execute_values
-from model.database_manager import get_db_connection as _get_pg_conn
+from database.database_manager import get_db_connection as _get_pg_conn
 from azure.storage.blob import BlobServiceClient
 # ============================================================
 # 0) CONFIG AZURE BLOB

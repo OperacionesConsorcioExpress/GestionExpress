@@ -192,7 +192,7 @@ def install_enterprise_infrastructure():
     load_dotenv()
     
     try:
-        from model.database_manager import get_db_connection as _get_conn
+        from database.database_manager import get_db_connection as _get_conn
         _ctx = _get_conn()
         conn = _ctx.__enter__()
         cur = conn.cursor()

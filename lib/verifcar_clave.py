@@ -1,5 +1,5 @@
 from werkzeug.security import check_password_hash
-from model.database_manager import get_db_connection
+from database.database_manager import get_db_connection
 
 def check_user(username, passw):
     """
