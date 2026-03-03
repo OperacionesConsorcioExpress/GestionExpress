@@ -32,7 +32,7 @@ from controller.route_sne_motivos import router_sne_motivos
 from controller.route_sne import router_sne
 
 ##################### Importar Modelos Backend ##########################
-from model.database_manager import get_db_connection, get_pool_status, close_pool
+from database.database_manager import get_db_connection, get_pool_status, close_pool
 
 ############################### Carga de Variables de Entorno ###########################
 load_dotenv()
