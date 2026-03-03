@@ -46,4 +46,4 @@ jobs:
         CLIENT_ID: ${{ secrets.CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
       run: |
-        python -c "from model.job import TareasProgramadasJuridico; TareasProgramadasJuridico().tarea_diaria_recordatorio()"
+        python -c "from jobs.job_juridico import TareasProgramadasJuridico; TareasProgramadasJuridico().tarea_diaria_recordatorio()"
