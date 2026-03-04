@@ -2,8 +2,8 @@ name: Proceso ICS SNE (Blob -> PostgreSQL)
 
 on:
   schedule:
-    # 11:30 AM Bogotá (UTC-5) = 16:30 UTC
-    - cron: "30 16 * * *"
+    # 03:00 AM Bogotá (UTC-5) = 08:00 UTC
+    - cron: "0 8 * * *"
 
   workflow_dispatch:
 
