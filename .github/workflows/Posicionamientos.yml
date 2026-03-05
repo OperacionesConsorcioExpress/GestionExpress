@@ -251,6 +251,7 @@ jobs:
         env:
           # Credenciales desde GitHub Secrets
           DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+          DATABASE_PATH_DEDICATED: ${{ secrets.DATABASE_PATH_DEDICATED }}
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           
           # Parámetros configurables
@@ -275,7 +276,7 @@ jobs:
           # Ejecutar como módulo importable
           python -c "
           import os
-          from lib.posicionamientos import ejecutar_job_posicionamientos
+          from jobs.posicionamientos import ejecutar_job_posicionamientos
           
           # Obtener parámetros desde variables de entorno
           limite_dias = int(os.getenv('POS_LIMITE_DIAS', '2'))
