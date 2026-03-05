@@ -1,5 +1,5 @@
 ######################### Importar librerías necesarias #################################
-import os
+import os, logging
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form, Depends
@@ -32,10 +32,11 @@ from controller.route_sne_motivos import router_sne_motivos
 from controller.route_sne import router_sne
 
 ##################### Importar Modelos Backend ##########################
-from database.database_manager import get_db_connection, get_pool_status, close_pool
+from database.database_manager import get_db_connection, get_pool_status, close_pool, reset_circuit_breaker
 
 ############################### Carga de Variables de Entorno ###########################
 load_dotenv()
+logger = logging.getLogger("main")
 DATABASE_PATH = os.getenv("DATABASE_PATH")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 
@@ -67,7 +68,18 @@ app.add_middleware(
 )
 
 ############################### RUTAS INICIALES DEL SISTEMA ###########################
-# Health check — estado de la app + estado del pool DB
+# ─────────────────────────────────────────────────────────────────────────────
+# Health Check — GET /health
+# ─────────────────────────────────────────────────────────────────────────────
+# Monitorea el estado real de la app y la base de datos Azure App Service 
+
+# Campos clave en la respuesta:
+#   circuit_breaker → CLOSED=ok | OPEN=bloqueado | HALF=recuperando
+#   cb_fallas       → fallos consecutivos actuales (se activa a los 10)
+#   db_idle_tx      → transacciones abiertas sin cerrar (debe ser 0 siempre)
+#   db_total        → total conexiones en PostgreSQL (máx 50)
+#   db_tiempo_ms    → latencia del ping a la DB en milisegundos
+
 @app.get("/health")
 def health_check():
     db_status = get_pool_status()
@@ -75,6 +87,22 @@ def health_check():
         "status": "🟢 Gestión Express activo",
         "database": db_status
     }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reset Circuit Breaker — POST /admin/reset-circuit-breaker
+# ─────────────────────────────────────────────────────────────────────────────
+# Resetea el circuit breaker cuando quedó OPEN por fallos de un redeploy pero la DB ya está funcionando (verificar con GET /health primero).
+
+#Flujo recomendado ante circuit_breaker OPEN:
+#   1. GET  /health                  → verificar db_ping = "ok"
+#   2. POST /reset-circuit-breaker   → resetear estado OPEN → CLOSED
+#   3. GET  /health                  → confirmar circuit_breaker = "CLOSED"
+
+@app.get("/reset-circuit-breaker")
+def admin_reset_circuit_breaker():
+    resultado = reset_circuit_breaker()
+    logger.info("🔄 Circuit Breaker reseteado manualmente")
+    return resultado
 
 # Función para verificar si el usuario ha iniciado sesión
 def get_user_session(req: Request):
