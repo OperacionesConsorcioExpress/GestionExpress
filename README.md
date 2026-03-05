@@ -1,255 +1,326 @@
-# GestiónExpress - by Centro de Información
+# GestiónExpress
 
-Proyecto de Gestión Administrativa y Operativa para **Consorcio Express S.A.S**  
-Desarrollado con **FastAPI**, **Jinja2**, **PostgreSQL** y desplegado en **Render**.
+### Sistema de Gestión Administrativa y Operativa — Consorcio Express S.A.S
 
 ---
 
 ## 🔗 Accesos rápidos
 
-- [Panel de Render](https://dashboard.render.com/)
-- [Repositorio Github](https://github.com/OperacionesConsorcioExpress/GestionExpress)
-- [Aplicación en Producción](https://gestionconsorcioexpress.onrender.com/)
+| Recurso                     | URL                                                           |
+| --------------------------- | ------------------------------------------------------------- |
+| 🌐 Aplicación en producción | https://gestionconsorcioexpress.azurewebsites.net             |
+| 📦 Repositorio GitHub       | https://github.com/OperacionesConsorcioExpress/GestionExpress |
+| 🐳 Imagen Docker Hub        | https://hub.docker.com/r/cinf/gestionexpress/tags             |
+| 📊 Azure Portal             | https://portal.azure.com                                      |
 
 ---
 
-## 📊 Tecnologías utilizadas
+## 🛠️ Tecnologías
 
-- Backend: **Python**, **FastAPI**
-- Frontend: **Jinja2**, **HTML**, **CSS**, **JavaScript** (vanilla)
-- Base de datos: **PostgreSQL**
-- Almacenamiento de archivos: **Azure Blob Storage**
-- Despliegue: **Render**
-- Control de versiones: **GitHub**
-
----
-
-## 📁 Estructura del proyecto (Ejemplo)
-
-```text
-GestionExpress/
-├── main.py                 # Archivo principal de FastAPI
-├── controller/             # Lógica de negocio
-├── model/                  # Acceso a base de datos
-├── view/                   # Plantillas HTML con Jinja2
-├── static/                 # JS, CSS, imágenes
-├── cargues/                # Scripts de carga de datos
-├── lib/                    # Librerías auxiliares
-├── requirements.txt        # Dependencias del proyecto
-└── .env                    # Variables de entorno
-```
+| Capa                 | Tecnología                                                |
+| -------------------- | --------------------------------------------------------- |
+| Backend              | Python 3.12, FastAPI, Uvicorn, Gunicorn                   |
+| Frontend             | Jinja2, HTML, CSS, JavaScript vanilla, Bootstrap, Leaflet |
+| Base de datos        | PostgreSQL (Azure Flexible Server — D2ds_v5)              |
+| Almacenamiento       | Azure Blob Storage                                        |
+| Despliegue           | Azure App Service vía Docker Hub                          |
+| CI/CD                | GitHub Actions (workflows automáticos)                    |
+| Control de versiones | GitHub                                                    |
 
 ---
 
-## 🛠️ Instrucciones de instalación local
-
-1. **Abrir terminal** y posicionarse en el proyecto:
+## 📁 Estructura del proyecto
 
 ```
-cd "/c/Users/sergio.hincapie/OneDrive - Grupo Express/Gestión de la Operación/0 - Script Python/GestiónExpress"
+GestiónExpress/
+├── main.py                    # Punto de entrada FastAPI — rutas, middleware, lifespan
+├── Dockerfile                 # Imagen de producción
+├── requirements.txt           # Dependencias Python
+├── .env                       # Variables de entorno (NO subir a Git)
+│
+├── controller/                # Endpoints FastAPI (route_*.py)
+├── model/                     # Lógica de negocio y acceso a datos (gestion_*.py)
+├── database/
+│   └── database_manager.py    # Pool centralizado, circuit breaker, resiliencia
+├── jobs/                      # Scripts de ejecución programada (GitHub Actions)
+├── lib/                       # Librerías auxiliares compartidas
+├── view/                      # Plantillas HTML Jinja2
+├── static/                    # Assets JS, CSS, imágenes
+└── .github/
+    └── workflows/             # GitHub Actions — jobs automáticos
 ```
 
-**2:** Crear un entorno virtual:
+---
 
+## 🔐 Variables de entorno
+
+Definir en `.env` para local y en **Azure App Service → Configuration** para producción.
+
+| Variable                          | Descripción                                                                | Entorno    |
+| --------------------------------- | -------------------------------------------------------------------------- | ---------- |
+| `DATABASE_PATH`                   | URL PostgreSQL — puerto **6432** (PgBouncer, solo Azure interno)           | Producción |
+| `DATABASE_PATH_DEDICATED`         | URL PostgreSQL — puerto **5432** (directo, LISTEN/NOTIFY y GitHub Actions) | Ambos      |
+| `DB_POOL_MIN`                     | Conexiones mínimas del pool por worker (recomendado: `2`)                  | Ambos      |
+| `DB_POOL_MAX`                     | Conexiones máximas del pool por worker (recomendado: `8`)                  | Ambos      |
+| `AZURE_STORAGE_CONNECTION_STRING` | Cadena de conexión a Azure Blob Storage                                    | Ambos      |
+| `SGI_EVIDENCIAS_CONTAINER`        | Contenedor Azure para evidencias SGI                                       | Ambos      |
+| `SGI_EVIDENCIAS_PREFIX`           | Prefijo de ruta para evidencias SGI                                        | Ambos      |
+| `SGI_EVIDENCIAS_SAS_MINUTES`      | Minutos de validez del token SAS                                           | Ambos      |
+| `CLIENT_ID`                       | ID de aplicación Azure AD (OAuth2)                                         | Ambos      |
+| `CLIENT_SECRET`                   | Secreto de aplicación Azure AD                                             | Ambos      |
+| `TENANT_ID`                       | Tenant ID Azure AD                                                         | Ambos      |
+| `SECRET_KEY`                      | Clave secreta para sesiones FastAPI                                        | Ambos      |
+| `USUARIO_JURIDICO`                | Correo para notificaciones módulo jurídico                                 | Ambos      |
+| `CLAVE_JURIDICO`                  | Contraseña del correo jurídico                                             | Ambos      |
+| `DEEPSEEK_API_KEY`                | API Key DeepSeek IA                                                        | Ambos      |
+| `GEMINI_API_KEY`                  | API Key Google Gemini                                                      | Ambos      |
+| `HUGGINGFACE_API_KEY`             | API Key Hugging Face                                                       | Ambos      |
+
+> **Nota local:** En `.env` local usar puerto `5432` en ambas variables `DATABASE_PATH` y `DATABASE_PATH_DEDICATED`.
+> El puerto `6432` (PgBouncer) solo es accesible desde dentro de la red de Azure.
+
+---
+
+## 🖥️ Instalación y ejecución local
+
+**1. Abrir terminal y navegar al proyecto:**
+
+```powershell
+cd "C:\Users\sergio.hincapie\OneDrive - Grupo Express\Gestión de la Operación\0 - Script Python\GestiónExpress"
 ```
+
+**2. Crear entorno virtual:**
+
+```powershell
 "C:\Program Files\Python312\python.exe" -m venv venv
 ```
 
-**3:** Ingresar en el entorno virtual:
+**3. Activar entorno virtual:**
 
+```powershell
+# PowerShell
+.\venv\Scripts\Activate.ps1
+
+# CMD
+venv\Scripts\activate.bat
 ```
-.\venv\Scripts\Activate.ps1 # para PowerShell
-venv\Scripts\activate.bat # Para CMD.exe
 
-```
+**4. Instalar dependencias:**
 
-**4:** Descargar las dependencias del archivo 'requirements.txt' con el comando:
-
-```
+```powershell
 pip install -r requirements.txt
 ```
 
-**5:** Correr el servidor web de uvicorn para visualizar la aplicación:
-uvicorn <archivo>:<instancia> --reload
+**5. Correr el servidor local:**
 
-```
+```powershell
 uvicorn main:app --reload
 ```
 
-**6:** En el navegador ir al localhost:8000.
+**6. Abrir en el navegador:**
 
 ```
-(http://127.0.0.1:8000/)
+http://127.0.0.1:8000
 ```
 
-**7:** Construir Archivo Requirements.txt #####
-Genera la lista de todas las libreris utilizadas con su versión
+**7. Actualizar requirements.txt** (cuando se instalen nuevas librerías):
 
-```
+```powershell
 pip freeze > requirements.txt
 ```
 
 ---
 
-## 🔐 Variables de entorno requeridas
+## 🐳 Publicar actualización en Azure App Service (vía Docker)
 
-Para ejecución local y despliegue, asegúrate de definir las siguientes variables de entorno en un archivo `.env` en la raíz del proyecto:
+> Ejecutar estos pasos cada vez que se quiera desplegar una nueva versión a producción.
 
-| Variable                          | Descripción                                        |
-| --------------------------------- | -------------------------------------------------- |
-| `AZURE_STORAGE_CONNECTION_STRING` | Cadena de conexión a Azure Blob Storage            |
-| `DATABASE_PATH`                   | URL de conexión a la base de datos PostgreSQL      |
-| `CLIENT_ID` / `CLIENT_SECRET`     | Autenticación para Microsoft OAuth2                |
-| `TENANT_ID`                       | Tenant para autenticación Azure                    |
-| `SECRET_KEY`                      | Clave secreta para seguridad interna de la app     |
-| `USUARIO_CORREO_JURIDICO`         | Usuario de correo para módulo jurídico             |
-| `CLAVE_CORREO_JURIDICO`           | Contraseña correspondiente                         |
-| `HUGGINGFACEHUB_API_TOKEN`        | Token para conexión con modelos IA de Hugging Face |
+### 1. Abrir PowerShell y navegar al proyecto
+
+```powershell
+cd "C:\Users\sergio.hincapie\OneDrive - Grupo Express\Gestión de la Operación\0 - Script Python\GestiónExpress"
+```
+
+### 2. Verificar que existe el Dockerfile
+
+```powershell
+ls Dockerfile
+```
+
+### 3. Iniciar sesión en Docker Hub _(una vez por sesión)_
+
+```powershell
+docker login
+# Usuario: cinf
+# Password: Pru3b@*Jun-2024
+# Resultado esperado: Login Succeeded
+```
+
+### 4. (Opcional) Limpiar contenedores locales anteriores
+
+```powershell
+docker ps -a
+docker stop <id>
+docker rm <id>
+```
+
+### 5. Construir la nueva imagen local
+
+```powershell
+docker build -t gestionexpress .
+# Esperar: Successfully tagged gestionexpress:latest
+```
+
+### 6. Probar localmente antes de publicar _(obligatorio)_
+
+```powershell
+docker run -d --rm -p 8080:80 --name ge-test gestionexpress
+# Abrir: http://localhost:8080
+# Verificar que la app funciona correctamente
+
+# Detener al terminar la prueba:
+docker stop ge-test
+```
+
+### 7. Etiquetar la imagen
+
+```powershell
+# Tag versionado (para histórico y rollback)
+$TAG_VER="2026-03-05"
+docker tag gestionexpress cinf/gestionexpress:$TAG_VER
+
+# Tag latest (el que consume Azure App Service)
+docker tag gestionexpress cinf/gestionexpress:latest
+```
+
+### 8. Publicar a Docker Hub
+
+```powershell
+# (Opcional) subir versión histórica
+docker push cinf/gestionexpress:$TAG_VER
+
+# (Obligatorio) subir latest — es el que usa Azure
+docker push cinf/gestionexpress:latest
+```
+
+### 9. Verificar publicación
+
+- Ir a https://hub.docker.com/r/cinf/gestionexpress/tags
+- Confirmar que `latest` muestra **"Last pushed: a few seconds/minutes ago"**
+
+### 10. Azure App Service toma la imagen automáticamente
+
+Azure App Service está configurado para usar `cinf/gestionexpress:latest`.
+Una vez publicado en Docker Hub, reiniciar la instancia desde el portal si el cambio no se refleja inmediatamente:
+
+```
+Azure Portal → App Service → gestionconsorcioexpress → Overview → Restart
+```
+
+---
+
+## ⚙️ GitHub Actions — Jobs automáticos
+
+Los workflows se encuentran en `.github/workflows/` y se ejecutan automáticamente o de forma manual desde GitHub.
+
+| Workflow               | Trigger                        | Descripción                                                   |
+| ---------------------- | ------------------------------ | ------------------------------------------------------------- |
+| `posicionamientos.yml` | Diario 5:00 AM Bogotá / Manual | Procesa archivos Parquet de GPS desde Azure Blob → PostgreSQL |
+
+> Los jobs usan `DATABASE_PATH_DEDICATED` (puerto 5432 directo) porque GitHub Actions corre fuera de la red de Azure y no tiene acceso a PgBouncer (puerto 6432).
+
+**Secrets requeridos en GitHub** (`Settings → Secrets → Actions`):
+
+| Secret                            | Descripción                  |
+| --------------------------------- | ---------------------------- |
+| `DATABASE_PATH_DEDICATED`         | URL PostgreSQL puerto 5432   |
+| `AZURE_STORAGE_CONNECTION_STRING` | Cadena conexión Blob Storage |
 
 ---
 
-## 💡 Módulos funcionales desarrollados
+## 📡 Monitoreo
 
-### 1. Asignaciones de técnicos a controles
+### Estado del sistema
 
-- Asignación visual con filtros
-- Cargue masivo desde plantilla Excel
-- Gestión de técnicos por control y usuario
+```
+GET https://gestionconsorcioexpress.azurewebsites.net/health
+```
 
-### 2. Checklist vehicular
+Respuesta esperada en operación normal:
 
-- Registro diario de estado de documentos y componentes
-- Consolidado de fallas, historial, y ajustes por usuario
-- Visualización modal por ítem con control de solución
-- Generación de reportes CSV, Excel y JSON
+```json
+{
+  "status": "🟢 Gestión Express activo",
+  "database": {
+    "status": "ok",
+    "circuit_breaker": "CLOSED",
+    "cb_fallas": 0,
+    "db_ping": "ok",
+    "db_idle_tx": 0,
+    "db_total": 9,
+    "db_tiempo_ms": 12.4
+  }
+}
+```
 
-### 3. Explorador de Azure Blob Storage
+| Campo             | Valor normal | Alerta                    |
+| ----------------- | ------------ | ------------------------- |
+| `circuit_breaker` | `CLOSED`     | `OPEN` → resetear         |
+| `db_idle_tx`      | `0`          | `> 0` → bug en código     |
+| `db_total`        | `< 30`       | `> 45` → riesgo de límite |
+| `db_tiempo_ms`    | `< 200`      | `> 500` → latencia alta   |
 
-- Navegación por contenedores y archivos
-- Carga, descarga, eliminación de archivos
-- Interfaz moderna con barra de progreso y filtrado
+### Resetear circuit breaker
 
-### 4. Dashboard Power BI embebido
+Si el `circuit_breaker` aparece en `OPEN` después de un redeploy pero la DB está ok:
 
-- Visualización de indicadores operativos
-- Integración segura por iframe
-- Enlaces y actualizaciones dinámicas
+```
+GET https://gestionconsorcioexpress.azurewebsites.net/reset-circuit-breaker
+```
 
-### 5. Gestión de cláusulas jurídicas
+**Flujo recomendado:**
 
-- Registro masivo y seguimiento por procesos/subprocesos
-- Notificaciones automáticas por correo
-- Carga desde archivos Excel o entrada manual
-
-### 6. Gestión de usuarios y roles
-
-- Creación y modificación de usuarios
-- Asignación de roles por módulo
-- Validación de acceso con seguridad por sesión
-
-### 7. Gestión SGI Planes de Acción
-
-Este paquete contiene todo lo necesario para que el administrador
-integre el modulo SGI dentro de GestionExpress actualizado.
-
-Incluye:
-
-- Guia de integracion
-- Plantilla de variables de entorno
-- Dependencias minimas del modulo
-- Checklist de validacion
-
-Resumen tecnico
-
-- El modulo SGI se integra en el backend (router FastAPI) y en el frontend
-  (plantillas y assets en /static).
-- La limpieza recursiva en ADLS Gen2 ya esta implementada en
-  model/gestion_sgi.py y requiere azure-storage-file-datalake.
-
-1. Archivos del modulo (SGI_module)
-   Copiar estos archivos al proyecto actualizado, respetando rutas:
-
-- controller/route_sgi.py
-- model/gestion_sgi.py
-- model/auditoria_sgi.py
-- model/gestion_notificaciones.py
-- model/cache_ultra_sgi.py
-- model/gestionar_db.py
-- view/sgi.html
-- view/components/layout.html
-- view/components/encabezados.html
-- static/js/optimizacion_grilla_ultra.js
-- static/Consorcio.png
-- static/images/ventana.png
-- sgi_enterprise_integration.py (opcional)
-- sgi_enterprise_data_manager.py (opcional)
-
-2. Dependencias Python
-   Instalar en el mismo venv donde corre la app:
-
-- azure-storage-blob==12.28.0
-- azure-storage-file-datalake==12.15.0
-- psycopg2-binary
-- fastapi, starlette, jinja2, pandas, python-dotenv, python-multipart
-
-Se recomienda instalar requirements.txt completo del proyecto.
-
-3. Variables de entorno (ver .env.sgi.template)
-   Obligatorias para SGI:
-
-- DATABASE_PATH
-- DB_POOL_MAX
-- AZURE_STORAGE_CONNECTION_STRING
-- SGI_EVIDENCIAS_CONTAINER
-- SGI_EVIDENCIAS_PREFIX
-- SGI_EVIDENCIAS_SAS_MINUTES
-- SGI_ANALISIS_CAUSAS_CONTAINER
-- SGI_ANALISIS_CAUSAS_PREFIX
-- SGI_CIERRE_ROLES
-
-4. Configuracion de storage en BD
-   En sgi_storage_config deben existir (o coincidir con el .env):
-
-- sgi_evidencias_container
-- sgi_evidencias_prefix
-- sgi_evidencias_container_PA / \_GC / \_RVD (opcional)
-- sgi_evidencias_prefix_PA / \_GC / \_RVD (opcional)
-- sgi_analisis_causas_container
-- sgi_analisis_causas_prefix
-
-5. BD y funciones requeridas (schema sgi)
-   Tablas:
-
-- planes_accion, gestion_cambio, revision_direccion
-- sgi_actividades, sgi_evidencias, sgi_analisis_causas_adjuntos
-- sgi_cierres, sgi_cierres_historial, sgi_notificaciones
-- auditoria_log
-- categorias_procesos, procesos, subprocesos, sgi_storage_config
-
-Funciones/vistas:
-
-- generar_codigo_pa, generar_codigo_gc, generar_codigo_rvd
-- refresh_sgi_ultra_performance()
-- busqueda_sgi_ultra(...)
-- mv_sgi_procesos_ultra
-- sgi.registrar_auditoria(...)
-
-Nota: sgi_actividades debe incluir la columna tipo_actividad.
-
-6. Integracion en main.py
-
-- Incluir el router:
-  from controller.route_sgi import router_sgi
-  app.include_router(router_sgi)
-- Evitar duplicar /sgi
-- Mantener Jinja2Templates(directory="view")
-- Mantener StaticFiles montado en /static
-
-7. Permisos ADLS Gen2
-   La identidad usada por AZURE_STORAGE_CONNECTION_STRING debe tener permisos
-   para listar y borrar archivos y directorios en el contenedor.
-
-8. Checklist rapido
-   Ver CHECKLIST_ADMIN_SGI.txt
+1. `GET /health` → confirmar `db_ping: "ok"`
+2. `GET /reset-circuit-breaker` → resetear
+3. `GET /health` → confirmar `circuit_breaker: "CLOSED"`
 
 ---
+
+## 🗄️ Base de datos — Límite de conexiones
+
+| Servidor                       | Plan    | Conexiones máx |
+| ------------------------------ | ------- | -------------- |
+| `serverdbceinfop` (producción) | D2ds_v5 | 50             |
+
+**Distribución en operación normal:**
+
+| Fuente                                     | Conexiones  |
+| ------------------------------------------ | ----------- |
+| Azure App Service (2 workers × pool_min=2) | 4           |
+| Pico máximo app (2 workers × pool_max=8)   | 16          |
+| Conexión dedicada LISTEN/NOTIFY            | 1           |
+| Overhead Azure interno                     | 3           |
+| Reservadas PostgreSQL superusuarios        | 3           |
+| **Total máximo**                           | **27 / 50** |
+
+> ⚠️ No conectar entornos locales de desarrollo contra la DB de producción simultáneamente con la app corriendo. Usar una DB de desarrollo separada.
+
+---
+
+## 🔄 Sistema de resiliencia de conexiones
+
+`database/database_manager.py` implementa 3 capas de protección:
+
+| Capa                    | Mecanismo                            | Comportamiento                                 |
+| ----------------------- | ------------------------------------ | ---------------------------------------------- |
+| **1 — Colchón**         | Semáforo con 1 slot reservado        | Siempre hay 1 conexión libre para health check |
+| **2 — Cola**            | Timeout de 3 segundos                | Espera antes de responder "intente más tarde"  |
+| **3 — Circuit Breaker** | 10 fallos → OPEN, 15s → recuperación | Bloquea nuevas conexiones si la DB está caída  |
+
+---
+
+## 🏗️ Comando de inicio en Azure App Service
+
+```bash
+gunicorn main:app --workers 2 --worker-class=uvicorn.workers.UvicornWorker --bind=0.0.0.0:80 --timeout 600
+```
