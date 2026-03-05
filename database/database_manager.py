@@ -8,7 +8,7 @@ from fastapi import HTTPException
 # Configuración — valores leídos desde .env o variables de entorno del App Service de Azure.
 # ─────────────────────────────────────────────
 load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")            # Puerto 6432 — PgBouncer (producción Azure)
+DATABASE_PATH = os.getenv("DATABASE_PATH")  # Puerto 6432 — PgBouncer (producción Azure)
 DATABASE_PATH_DEDICATED = os.getenv("DATABASE_PATH_DEDICATED")  # Puerto 5432 — directo (LISTEN/NOTIFY)
 DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "2"))    # Conexiones mínimas por worker
 DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "8"))    # Conexiones máximas por worker
@@ -41,8 +41,8 @@ _pool_semaforo = threading.Semaphore(DB_POOL_DISPONIBLE)
 #   OPEN     → DB con problemas, rechaza conexiones inmediatamente
 #   HALF     → período de prueba, deja pasar 1 conexión para verificar recuperación
 
-CB_FALLAS_MAX    = int(os.getenv("CB_FALLAS_MAX",    "5"))    # Fallos consecutivos para abrir el circuit breaker
-CB_RECOVERY_SEG  = float(os.getenv("CB_RECOVERY_SEG", "30.0")) # Segundos que espera antes de intentar recuperación
+CB_FALLAS_MAX    = int(os.getenv("CB_FALLAS_MAX",    "10"))   # Fallos consecutivos para abrir el circuit breaker 10 tolera reinicios normales de gunicorn sin dispararse
+CB_RECOVERY_SEG  = float(os.getenv("CB_RECOVERY_SEG", "15.0")) # Segundos de espera antes de intentar recuperación 15s suficiente para reinicio normal del App Service
 
 _cb_lock          = threading.Lock()
 _cb_fallas        = 0         # Contador de fallos consecutivos
@@ -250,13 +250,15 @@ def get_db_connection():
         raise
 
     except psycopg2.pool.PoolError as e:
-        _cb_registrar_fallo()
+        # PoolError = pool temporalmente agotado por carga alta.
+        # NO activa el circuit breaker — no indica que la DB esté caída.
+        # El circuit breaker solo debe abrirse por fallos reales de conectividad.
         logger.error(f"❌ Pool de conexiones agotado: {e}")
         raise HTTPException(
             status_code=503,
             detail={
                 "error":   "Sin conexiones disponibles",
-                "mensaje": "El sistema está bajo alta carga. Intente en unos segundos.",
+                "mensaje": "El sistema está procesando muchas solicitudes. Intente en unos segundos.",
                 "codigo":  "POOL_EXHAUSTED"
             }
         )
@@ -444,3 +446,33 @@ def close_pool():
         _DB_POOL = None
         logger.info("🔴 Pool DB cerrado correctamente.")
         print("🔴 [database_manager] Pool DB cerrado.")
+
+# ─────────────────────────────────────────────
+# Reset Circuit Breaker — recuperación manual
+# ─────────────────────────────────────────────
+def reset_circuit_breaker() -> dict:
+    """
+    Resetea el circuit breaker a estado CLOSED.
+
+    ¿Cuándo usarlo?
+    ──────────────────────────────────────────────────────────
+    - Después de un redeploy que generó fallos en cascada Cuando /health confirma db_ping="ok" pero circuit_breaker sigue en OPEN por fallos anteriores ya resueltos Llamado desde POST /admin/reset-circuit-breaker en main.py - Seguro en cualquier momento — solo resetea contadores, no afecta conexiones activas ni el pool.
+    """
+    global _cb_fallas, _cb_ultimo_fallo, _cb_estado
+    with _cb_lock:
+        fallas_previas = _cb_fallas
+        estado_previo  = _cb_estado
+        _cb_fallas       = 0
+        _cb_ultimo_fallo = 0.0
+        _cb_estado       = "CLOSED"
+
+    logger.info(
+        f"🔄 Circuit Breaker reseteado — "
+        f"estado anterior: {estado_previo}, fallos previos: {fallas_previas}"
+    )
+    return {
+        "estado_anterior":  estado_previo,
+        "fallas_anteriores": fallas_previas,
+        "estado_actual":    "CLOSED",
+        "mensaje":          "✅ Circuit Breaker reseteado — sistema operando normalmente"
+    }
