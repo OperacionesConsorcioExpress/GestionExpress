@@ -2,7 +2,6 @@ name: Proceso ICS SNE (Blob -> PostgreSQL)
 
 on:
   schedule:
-    # 03:00 AM Bogotá (UTC-5) = 08:00 UTC
     - cron: "0 8 * * *"
   workflow_dispatch:
 
@@ -35,20 +34,18 @@ jobs:
             exit 1
           fi
 
-      # 🔎 Verifica ruta real (según tu repo: GestionExpress/jobs/)
-      - name: 🔎 Verificar script GestionExpress/jobs/procesa_ics_sne.py
+      - name: 🔎 Verificar script jobs/procesa_ics_sne.py
         run: |
-          if [ ! -f GestionExpress/jobs/procesa_ics_sne.py ]; then
-            echo "❌ No se encontró GestionExpress/jobs/procesa_ics_sne.py"
+          if [ ! -f jobs/procesa_ics_sne.py ]; then
+            echo "❌ No se encontró jobs/procesa_ics_sne.py"
             echo "📁 Contenido del repo:"
             ls -la
-            echo "📁 Contenido de GestionExpress/:"
-            ls -la GestionExpress || true
+            echo "📁 Contenido de jobs/:"
+            ls -la jobs || true
             exit 1
           fi
 
       - name: 🚀 Ejecutar proceso ICS SNE
-        working-directory: GestionExpress
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
