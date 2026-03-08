@@ -9,8 +9,7 @@ from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.sharepoint.client_context import ClientContext
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-# Importar la función para obtener el pool de conexiones
-from database.database_manager import _get_pool as get_db_pool
+from database.database_manager import get_db_connection
 
 # Variables de entorno no-DB (se mantienen aquí)
 load_dotenv()
@@ -27,15 +26,13 @@ smtp_server = "smtp.office365.com"
 smtp_port = 587
 
 class GestionClausulas:
-    def __init__(self):
-        try:
-            self.connection = get_db_pool().getconn()
-            # Limpiar estado residual antes de usar (evita "idle in transaction")
-            if not self.connection.closed:
-                self.connection.rollback()
-        except Exception as e:
-            print(f"Error al obtener conexión del pool: {e}")
-            raise e
+    def __enter__(self):
+        self._ctx = get_db_connection()
+        self.connection = self._ctx.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self._ctx.__exit__(exc_type, exc_val, exc_tb)
     
     def obtener_clausulas(self):
         with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:

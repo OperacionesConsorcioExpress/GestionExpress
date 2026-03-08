@@ -1,7 +1,7 @@
 from psycopg2.extras import RealDictCursor
-from psycopg2 import errors, extensions as pg_extensions
+from psycopg2 import errors
 from zoneinfo import ZoneInfo
-from database.database_manager import _get_pool as get_db_pool
+from database.database_manager import get_db_connection
 
 TZ_BOGOTA = ZoneInfo("America/Bogota")
 
@@ -11,23 +11,20 @@ class GestionSneMotivos:
     Relaciona con sne.responsable_sne para obtener el nombre del responsable.
     """
 
-    def __init__(self):
-        self.connection = get_db_pool().getconn()
-        if not self.connection.closed:
-            self.connection.rollback()
+    def __enter__(self):
+        self._ctx = get_db_connection()
+        self.connection = self._ctx.__enter__()
         self.connection.cursor_factory = RealDictCursor
         self.cursor = self.connection.cursor()
-        with self.connection.cursor() as c:
-            c.execute("SET TIME ZONE 'America/Bogota';")
-        self.connection.commit()
+        return self
 
-    def cerrar_conexion(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         if getattr(self, "cursor", None):
-            self.cursor.close()
-        if getattr(self, "connection", None) and not self.connection.closed:
-            self.connection.rollback()
-            self.connection.cursor_factory = pg_extensions.cursor
-            get_db_pool().putconn(self.connection)
+            try:
+                self.cursor.close()
+            except Exception:
+                pass
+        return self._ctx.__exit__(exc_type, exc_val, exc_tb)
 
     # ── Helpers ──────────────────────────────────────────────────────────────
     def _fila_o_error(self, cur):

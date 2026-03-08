@@ -1,9 +1,9 @@
 import io, csv
 from psycopg2.extras import RealDictCursor
-from psycopg2 import errors, extensions as pg_extensions
+from psycopg2 import errors
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from database.database_manager import _get_pool as get_db_pool
+from database.database_manager import get_db_connection
 
 try:
     import openpyxl  # Para leer .xlsx
@@ -16,33 +16,35 @@ def ahora_bogota() -> datetime:
     return datetime.now(TZ_BOGOTA)
 
 class GestionBuses:
-    def __init__(self):
-        self.connection = get_db_pool().getconn()
-        if not self.connection.closed:
-            self.connection.rollback()
+    def __enter__(self):
+        self._ctx = get_db_connection()
+        self.connection = self._ctx.__enter__()
         self.connection.cursor_factory = RealDictCursor
         self.cursor = self.connection.cursor()
-        with self.connection.cursor() as c:
-            c.execute("SET TIME ZONE 'America/Bogota';")
-        self.connection.commit()
+        # Cache de _col_exists para evitar queries repetidas a information_schema
+        self._col_cache: dict = {}
+        return self
 
-    def cerrar_conexion(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         if getattr(self, "cursor", None):
-            self.cursor.close()
-        if getattr(self, "connection", None) and not self.connection.closed:
-            self.connection.rollback()
-            self.connection.cursor_factory = pg_extensions.cursor
-            get_db_pool().putconn(self.connection)
+            try:
+                self.cursor.close()
+            except Exception:
+                pass
+        return self._ctx.__exit__(exc_type, exc_val, exc_tb)
 
     # === Helpers para detectar columnas y armar joins dinámicos ===
     def _col_exists(self, schema: str, table: str, column: str) -> bool:
-        self.cursor.execute("""
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_schema=%s AND table_name=%s AND column_name=%s
-            LIMIT 1
-        """, (schema, table, column))
-        return self.cursor.fetchone() is not None
+        key = (schema, table, column)
+        if key not in self._col_cache:
+            self.cursor.execute("""
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema=%s AND table_name=%s AND column_name=%s
+                LIMIT 1
+            """, (schema, table, column))
+            self._col_cache[key] = self.cursor.fetchone() is not None
+        return self._col_cache[key]
 
     def _cop_joins_and_exprs(self):
         """
