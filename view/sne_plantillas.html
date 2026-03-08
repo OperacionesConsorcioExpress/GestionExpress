@@ -1,0 +1,842 @@
+{% extends "components/layout.html" %}
+{% block title %}SNE · Plantillas de Notas · Consorcio Express{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    * { font-family: 'Century Gothic', Arial, sans-serif; }
+
+    /* Overlay */
+    .overlay-proceso { position:fixed; inset:0; background:rgba(255,255,255,.72); z-index:3000; display:flex; align-items:center; justify-content:center; }
+    .overlay-proceso[hidden] { display:none !important; }
+    @keyframes spin-pl { to { transform:rotate(360deg); } }
+
+    /* Cabeceras sticky */
+    .th-navy {
+        position:sticky; top:0; z-index:2;
+        background:#0a0f3d !important; color:#fff !important;
+        padding:9px 11px; white-space:nowrap;
+        font-size:11px; font-weight:700; letter-spacing:.3px;
+        border-bottom:1px solid #1a2263;
+    }
+
+    /* Filas tabla */
+    .tabla-plantillas td, .tabla-plantillas th { white-space:nowrap; vertical-align:middle; font-size:11px; padding:2px 8px !important; }
+    .tabla-plantillas td { max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+    .tabla-scroll { max-height:55vh; overflow:auto; }
+
+    /* Paginador — mismo patrón rutas_cexp */
+    .paginador {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:8px 14px; border-top:1px solid #e2e8f0;
+        background:rgb(203,207,231); border-radius:0 0 10px 10px; gap:10px; flex-wrap:wrap;
+    }
+    .paginacion-wrap { overflow-x:auto; max-width:100%; }
+    .pagination { flex-wrap:nowrap; margin:0; }
+
+    /* Token chip */
+    .tok-chip {
+        display:inline-block; border-radius:6px; padding:2px 8px;
+        font-size:10.5px; font-weight:700; font-family:'Courier New',monospace;
+        cursor:pointer; margin:2px; transition:all .13s; user-select:none;
+        background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;
+    }
+    .tok-chip:hover { background:#1d4ed8; color:#fff; transform:translateY(-1px); box-shadow:0 2px 6px rgba(29,78,216,.3); }
+    .tok-chip-sql         { background:#dbeafe; color:#1e3a8a; border-color:#93c5fd; }
+    .tok-chip-sql:hover   { background:#1e3a8a; color:#fff; }
+    .tok-chip-input       { background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe; }
+    .tok-chip-input:hover { background:#6d28d9; color:#fff; }
+
+    /* Vista previa tokens no resueltos */
+    .tok-unresolved { background:#fef3c7; color:#92400e; border-radius:4px; padding:0 4px; font-weight:700; font-family:monospace; }
+
+    /* Historial */
+    .hist-texto { font-size:11px; color:#374151; margin-top:6px; white-space:pre-wrap; word-break:break-word; max-height:80px; overflow:hidden; position:relative; }
+    .hist-texto::after { content:''; position:absolute; bottom:0; left:0; right:0; height:26px; background:linear-gradient(transparent,#fafbfc); }
+    </style>
+    {% endblock %}
+
+    {% block content %}
+    <div style="padding:0.8rem; background:#f8f9fa; min-height:100vh; font-family:'Century Gothic',Arial,sans-serif;">
+
+    <!-- ── ENCABEZADO ─────────────────────────────────────────────────── -->
+    <div style="background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; padding:0.6rem 1rem; border-radius:8px; box-shadow:0 2px 10px rgba(10,15,61,.25); margin-bottom:.9rem; display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:.5rem; font-size:.92rem; font-weight:700;">
+        <i class="fa-solid fa-file-pen"></i> SNE · Plantillas de Notas de Objeción
+        </div>
+        <div style="font-size:.75rem; opacity:.8;">Parametrización de textos automáticos por motivo de eliminación</div>
+        <div style="margin-left:auto;">
+        <a href="/sne_objecion" style="background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); border-radius:6px; padding:.28rem .75rem; font-size:.75rem; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+            <i class="bi bi-arrow-left"></i> Volver a Objeción
+        </a>
+        </div>
+    </div>
+
+    <!-- ── STATS ──────────────────────────────────────────────────────── -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.65rem; margin-bottom:.9rem;">
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:11px 14px; box-shadow:0 1px 4px rgba(10,15,61,.06);">
+        <div style="font-size:19px; margin-bottom:3px;">📋</div>
+        <div id="statMotivos" style="font-size:22px; font-weight:800; color:#0a0f3d; line-height:1;">–</div>
+        <div style="font-size:9.5px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px;">Motivos totales</div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:11px 14px; box-shadow:0 1px 4px rgba(10,15,61,.06);">
+        <div style="font-size:19px; margin-bottom:3px;">✅</div>
+        <div id="statConPlantilla" style="font-size:22px; font-weight:800; color:#065f46; line-height:1;">–</div>
+        <div style="font-size:9.5px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px;">Con plantilla activa</div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:11px 14px; box-shadow:0 1px 4px rgba(10,15,61,.06);">
+        <div style="font-size:19px; margin-bottom:3px;">⚠️</div>
+        <div id="statSinPlantilla" style="font-size:22px; font-weight:800; color:#92400e; line-height:1;">–</div>
+        <div style="font-size:9.5px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px;">Sin plantilla</div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:11px 14px; box-shadow:0 1px 4px rgba(10,15,61,.06);">
+        <div style="font-size:19px; margin-bottom:3px;">🔑</div>
+        <div id="statTokens" style="font-size:22px; font-weight:800; color:#1d4ed8; line-height:1;">–</div>
+        <div style="font-size:9.5px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px;">Tokens activos</div>
+        </div>
+    </div>
+
+    <!-- ── BARRA DE TABS ───────────────────────────────────────────────── -->
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; margin-bottom:.75rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; box-shadow:0 1px 4px rgba(10,15,61,.04);">
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button id="tab-btn-plantillas" onclick="switchTab('plantillas')"
+            style="padding:5px 13px; border-radius:7px; border:1px solid #0a0f3d; background:#0a0f3d; color:#fff; cursor:pointer; font-size:11px; font-weight:600; font-family:inherit; display:inline-flex; align-items:center; gap:5px;">
+            <i class="fa-solid fa-file-lines"></i> Plantillas
+            <span id="cntPlantillas" style="background:rgba(255,255,255,.2); border-radius:20px; padding:1px 7px; font-size:10px; font-weight:700;">0</span>
+        </button>
+        <button id="tab-btn-tokens" onclick="switchTab('tokens')"
+            style="padding:5px 13px; border-radius:7px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; cursor:pointer; font-size:11px; font-weight:600; font-family:inherit; display:inline-flex; align-items:center; gap:5px;">
+            <i class="fa-solid fa-code"></i> Tokens
+            <span id="cntTokens" style="background:#e0e7ff; color:#3730a3; border-radius:20px; padding:1px 7px; font-size:10px; font-weight:700;">0</span>
+        </button>
+        </div>
+        <div id="tabAccionBarra"></div>
+    </div>
+
+    <!-- ══ PANEL PLANTILLAS ══════════════════════════════════════════════ -->
+    <div id="panel-plantillas">
+        <div style="border:1px solid #e2e8f0; background:#fff; border-radius:10px; box-shadow:0 1px 5px rgba(10,15,61,.05); overflow:hidden;">
+        <div class="table-responsive tabla-scroll">
+            <table class="table table-hover align-middle mb-0 tabla-plantillas" style="border-collapse:collapse; width:100%;">
+            <thead>
+                <tr>
+                <th class="th-navy" style="width:36px;">#</th>
+                <th class="th-navy">Motivo de Eliminación</th>
+                <th class="th-navy">Responsable</th>
+                <th class="th-navy">Estado</th>
+                <th class="th-navy">Última versión</th>
+                <th class="th-navy" style="width:130px; text-align:center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyPlantillas">
+                <tr><td colspan="6" style="text-align:center; padding:28px; color:#94a3b8; font-size:11px;">Cargando…</td></tr>
+            </tbody>
+            </table>
+        </div>
+        <!-- PAGINADOR PLANTILLAS -->
+        <div class="paginador">
+            <div id="txtTotalPlantillas" style="font-size:11px; color:#475569; font-weight:600;">0 registros</div>
+            <div class="paginacion-wrap">
+            <ul class="pagination pagination-sm" id="paginacionPlantillas"></ul>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- ══ PANEL TOKENS ══════════════════════════════════════════════════ -->
+    <div id="panel-tokens" style="display:none;">
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:9px 13px; margin-bottom:.65rem; box-shadow:0 1px 4px rgba(10,15,61,.04); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:11.5px; color:#475569;">
+            <i class="fa-solid fa-circle-info me-1" style="color:#0d6efd;"></i>
+            Los tokens <code style="background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:11px;">{marcador}</code> se sustituyen automáticamente con los datos del ICS al generar la nota de objeción.
+        </div>
+        <button onclick="abrirModalToken(null)"
+            style="background:#0a0f3d; color:#fff; border:none; border-radius:7px; padding:.3rem .8rem; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:5px;">
+            <i class="fa-solid fa-plus"></i> Nuevo Token
+        </button>
+        </div>
+        <div style="border:1px solid #e2e8f0; background:#fff; border-radius:10px; box-shadow:0 1px 5px rgba(10,15,61,.05); overflow:hidden;">
+        <div class="table-responsive tabla-scroll">
+            <table class="table table-hover align-middle mb-0 tabla-plantillas" style="border-collapse:collapse; width:100%;">
+            <thead>
+                <tr>
+                <th class="th-navy">Token</th>
+                <th class="th-navy">Descripción</th>
+                <th class="th-navy">Tipo</th>
+                <th class="th-navy">Campo / Query / Label</th>
+                <th class="th-navy" style="text-align:center;">Estado</th>
+                <th class="th-navy" style="text-align:center; width:60px;">Orden</th>
+                <th class="th-navy" style="text-align:center; width:65px;">Editar</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyTokens">
+                <tr><td colspan="7" style="text-align:center; padding:28px; color:#94a3b8; font-size:11px;">Cargando…</td></tr>
+            </tbody>
+            </table>
+        </div>
+        <!-- PAGINADOR TOKENS -->
+        <div class="paginador">
+            <div id="txtTotalTokens" style="font-size:11px; color:#475569; font-weight:600;">0 registros</div>
+            <div class="paginacion-wrap">
+            <ul class="pagination pagination-sm" id="paginacionTokens"></ul>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    </div><!-- /padding wrapper -->
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+        MODAL — EDITOR DE PLANTILLA
+    ════════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalPlantilla" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:12px; border:none; box-shadow:0 12px 40px rgba(0,0,0,.18);">
+        <div class="modal-header" style="background:#0a0f3d; color:#fff; border-radius:12px 12px 0 0; padding:13px 18px;">
+            <h5 class="modal-title" style="font-size:14px; font-weight:700; margin:0;">
+            <i class="fa-solid fa-file-pen me-2"></i><span id="modalPlantillaTitulo">Editar Plantilla</span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:invert(1);"></button>
+        </div>
+        <div class="modal-body" style="padding:16px;">
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+            <div>
+                <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px;">Motivo</div>
+                <div id="modalPlantillaMotivoNombre" style="font-size:13px; font-weight:700; color:#0a0f3d;">–</div>
+            </div>
+            <div style="border-left:1px solid #e2e8f0; padding-left:16px;">
+                <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:3px;">Nombre de esta versión</div>
+                <input type="text" id="modalPlantillaNombre" value="Plantilla estándar"
+                style="border:1px solid #e2e8f0; border-radius:7px; padding:.28rem .55rem; font-size:11.5px; width:240px; font-family:inherit;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
+            <input type="hidden" id="modalPlantillaIdMotivo">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 270px; gap:14px;">
+            <div>
+                <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:5px;">
+                Texto de la plantilla
+                <span style="font-weight:400; color:#94a3b8; text-transform:none; margin-left:6px;">← clic en un token del panel para insertarlo en el cursor</span>
+                </div>
+                <textarea id="plantillaTextarea" rows="11"
+                placeholder="Escribe la plantilla aquí. Usa {ruta}, {tabla}, {viaje}… para insertar datos automáticos."
+                oninput="onPlantillaChange()"
+                style="width:100%; border:1px solid #e2e8f0; border-radius:8px; padding:.4rem .6rem; font-size:11.5px; font-family:inherit; line-height:1.55; resize:vertical;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+                <div style="margin-top:11px;">
+                <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:5px;">
+                    <i class="fa-solid fa-eye me-1" style="color:#0d6efd;"></i> Vista previa con datos de ejemplo
+                </div>
+                <div id="plantillaPreview"
+                    style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:11px 13px; font-size:11.5px; line-height:1.7; color:#1e293b; min-height:72px; white-space:pre-wrap; word-break:break-word;">
+                    La vista previa aparecerá aquí…
+                </div>
+                </div>
+            </div>
+            <div style="border:1px solid #e2e8f0; border-radius:8px; background:#fff; padding:11px; max-height:420px; overflow-y:auto;">
+                <div style="font-size:9.5px; font-weight:700; color:#0a0f3d; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:7px;">
+                <i class="fa-solid fa-code me-1"></i> Tokens disponibles
+                </div>
+                <div style="font-size:10px; color:#64748b; margin-bottom:8px;">Clic para insertar en el cursor</div>
+                <div style="font-size:9px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; margin-top:2px;">📊 Datos directos del ICS</div>
+                <div id="tokensDirectos"></div>
+                <div style="font-size:9px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; margin-top:10px;">🔗 Subconsultas SQL</div>
+                <div id="tokensSql"></div>
+                <div style="font-size:9px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; margin-top:10px;">✏️ Input del revisor</div>
+                <div id="tokensInput"></div>
+            </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding:9px 16px; border-top:1px solid #e2e8f0; justify-content:space-between; align-items:center;">
+            <div style="font-size:10px; color:#64748b; display:flex; align-items:center; gap:5px;">
+            <i class="fa-solid fa-circle-info" style="color:#0d6efd;"></i>
+            Al guardar se crea una nueva versión — la anterior queda en historial.
+            </div>
+            <div style="display:flex; gap:8px;">
+            <button data-bs-dismiss="modal"
+                style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .8rem; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit;">
+                Cancelar
+            </button>
+            <button onclick="guardarPlantilla()"
+                style="background:#198754; color:#fff; border:none; border-radius:7px; padding:.3rem .9rem; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:5px;">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar Plantilla
+            </button>
+            </div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+        MODAL — HISTORIAL DE VERSIONES
+    ════════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalHistorial" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:12px; border:none; box-shadow:0 12px 40px rgba(0,0,0,.18);">
+        <div class="modal-header" style="background:#0a0f3d; color:#fff; border-radius:12px 12px 0 0; padding:13px 18px;">
+            <h5 class="modal-title" style="font-size:14px; font-weight:700; margin:0;">
+            <i class="fa-solid fa-clock-rotate-left me-2"></i>Historial de versiones —
+            <span id="modalHistorialMotivo" style="font-weight:400; opacity:.8;"></span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:invert(1);"></button>
+        </div>
+        <div class="modal-body" style="padding:16px;" id="modalHistorialBody">Cargando…</div>
+        </div>
+    </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+        MODAL — CRUD TOKEN
+    ════════════════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="modalToken" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:12px; border:none; box-shadow:0 12px 40px rgba(0,0,0,.18);">
+        <div class="modal-header" style="background:#0a0f3d; color:#fff; border-radius:12px 12px 0 0; padding:13px 18px;">
+            <h5 class="modal-title" style="font-size:14px; font-weight:700; margin:0;">
+            <i class="fa-solid fa-code me-2"></i><span id="modalTokenTitulo">Nuevo Token</span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:invert(1);"></button>
+        </div>
+        <div class="modal-body" style="padding:16px;">
+            <input type="hidden" id="tokenEditId">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+            <div>
+                <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px;">Token (entre llaves)</div>
+                <input type="text" id="tokenNombre" placeholder="{mi_token}"
+                style="width:100%; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .55rem; font-size:11.5px; font-family:monospace;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                <div style="font-size:9.5px; color:#94a3b8; margin-top:2px;">Formato: {nombre_sin_espacios}</div>
+            </div>
+            <div>
+                <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px;">Descripción</div>
+                <input type="text" id="tokenDesc" placeholder="Qué representa este token"
+                style="width:100%; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .55rem; font-size:11.5px; font-family:inherit;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
+            </div>
+            <div style="margin-bottom:12px;">
+            <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px;">Tipo de fuente</div>
+            <div style="display:flex; gap:18px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11.5px;">
+                <input type="radio" name="tokenTipo" value="campo" checked onchange="onTokenTipoChange()"> Campo directo del ICS
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11.5px;">
+                <input type="radio" name="tokenTipo" value="sql" onchange="onTokenTipoChange()"> Subconsulta SQL
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11.5px;">
+                <input type="radio" name="tokenTipo" value="input" onchange="onTokenTipoChange()"> Input del revisor
+                </label>
+            </div>
+            </div>
+            <div id="seccionCampoIcs" style="margin-bottom:12px;">
+            <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px;">Nombre del campo en el ICS</div>
+            <input type="text" id="tokenCampoIcs" placeholder="ruta_comercial, km_revision, tabla…"
+                style="width:100%; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .55rem; font-size:11.5px; font-family:monospace;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+            <div style="font-size:9.5px; color:#94a3b8; margin-top:3px;">
+                Disponibles: id_ics, ruta_comercial, tabla, id_viaje, km_revision, km_objetado, hora_ini_teorica, servicio, vehiculo_real, sentido, conductor, cop_nombre, componente, zona, fecha
+            </div>
+            </div>
+            <div id="seccionSql" style="display:none; margin-bottom:12px;">
+            <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px;">
+                Query SQL
+                <span style="font-weight:400; color:#94a3b8; text-transform:none; font-size:9.5px; margin-left:4px;">usa <code style="background:#f1f5f9; padding:0 4px; border-radius:3px;">%(id_ics)s</code> como parámetro</span>
+            </div>
+            <textarea id="tokenSqlQuery" rows="4"
+                placeholder="SELECT r.ruta_comercial FROM config.rutas r JOIN sne.ics i ON i.id_linea=r.id_linea WHERE i.id_ics=%(id_ics)s LIMIT 1"
+                style="width:100%; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .55rem; font-size:11px; font-family:monospace; resize:vertical;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                <input type="number" id="tokenSqlIcsPrueba" placeholder="id_ics de prueba"
+                style="width:160px; border:1px solid #e2e8f0; border-radius:7px; padding:.28rem .5rem; font-size:11px; font-family:inherit;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                <button onclick="probarSqlToken()"
+                style="background:#f59e0b; color:#fff; border:none; border-radius:7px; padding:.28rem .7rem; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:4px;">
+                <i class="fa-solid fa-play"></i> Probar
+                </button>
+                <span id="tokenSqlResultado" style="font-size:11px; color:#475569; font-style:italic;"></span>
+            </div>
+            </div>
+            <div id="seccionInput" style="display:none; margin-bottom:12px;">
+            <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px;">Etiqueta para el revisor</div>
+            <input type="text" id="tokenInputLabel" placeholder="Parada / punto inicial"
+                style="width:100%; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .55rem; font-size:11.5px; font-family:inherit;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+            <div style="font-size:9.5px; color:#94a3b8; margin-top:3px;">Aparecerá como etiqueta del campo extra en el modal de objeción cuando se seleccione este motivo.</div>
+            </div>
+            <div style="display:grid; grid-template-columns:120px 1fr; gap:12px; align-items:end;">
+            <div>
+                <div style="font-size:9.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px;">Orden en panel</div>
+                <input type="number" id="tokenOrden" value="99" min="0" max="999"
+                style="width:100%; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .55rem; font-size:11.5px; font-family:inherit;"
+                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+            </div>
+            <div style="padding-bottom:3px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:11.5px;">
+                <input type="checkbox" id="tokenActivo" checked style="width:14px; height:14px;"> Token activo (visible en el panel de inserción)
+                </label>
+            </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding:9px 16px; border-top:1px solid #e2e8f0;">
+            <button data-bs-dismiss="modal"
+            style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:7px; padding:.3rem .8rem; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit;">
+            Cancelar
+            </button>
+            <button onclick="guardarToken()"
+            style="background:#198754; color:#fff; border:none; border-radius:7px; padding:.3rem .9rem; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; margin-left:8px; display:inline-flex; align-items:center; gap:5px;">
+            <i class="fa-solid fa-floppy-disk"></i> Guardar Token
+            </button>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toastPl" style="position:fixed; bottom:22px; right:22px; z-index:9999; background:#0f172a; color:#fff; border-radius:10px; padding:11px 18px; font-size:12px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.25); opacity:0; transform:translateY(10px); transition:all .25s; display:flex; align-items:center; gap:9px; max-width:340px; pointer-events:none;">
+    <i id="toastIcon" class="fa-solid fa-circle-check"></i>
+    <span id="toastMsg"></span>
+    </div>
+
+    <!-- Overlay spinner -->
+    <div class="overlay-proceso" id="overlayPl" hidden>
+    <div style="text-align:center;">
+        <div style="width:38px; height:38px; border:4px solid #e2e8f0; border-top-color:#0a0f3d; border-radius:50%; animation:spin-pl .7s linear infinite; margin:auto;"></div>
+        <div style="font-size:11px; color:#475569; font-weight:600; margin-top:8px;">Procesando…</div>
+    </div>
+    </div>
+
+    <script>
+    'use strict';
+    const API = '/api/sne/plantillas';
+
+    var _motivos = [];
+    var _tokens  = [];
+
+    // Paginación plantillas
+    var _pgP = { pagina:1, tamano:15, data:[] };
+    // Paginación tokens
+    var _pgT = { pagina:1, tamano:15, data:[] };
+
+    // Datos de ejemplo para la vista previa
+    const EJ = {
+    ruta_comercial:'P7', tabla:'7', id_viaje:'5',
+    km_revision:'1,500', km_objetado:'0,900', km_no_objetado:'0,600',
+    hora_ini_teorica:'05:30', servicio:'SV-001', vehiculo_real:'1234',
+    sentido:'A', conductor:'C-5678', cop_nombre:'COP NORTE',
+    componente:'COMP 1', zona:'ZONA 2', fecha:'2025-01-15', id_ics:'103338422',
+    };
+
+    // ── Toast ──────────────────────────────────────────────────────────────────
+    var _tTimer;
+    function toast(msg, tipo) {
+    tipo = tipo || 'success';
+    var el = document.getElementById('toastPl');
+    var ic = document.getElementById('toastIcon');
+    document.getElementById('toastMsg').textContent = msg;
+    ic.className = tipo==='success' ? 'fa-solid fa-circle-check'
+                : tipo==='error'   ? 'fa-solid fa-circle-xmark'
+                :                    'fa-solid fa-circle-info';
+    el.style.borderLeft = tipo==='success' ? '4px solid #22c55e'
+                        : tipo==='error'   ? '4px solid #ef4444'
+                        :                   '4px solid #3b82f6';
+    el.style.opacity='1'; el.style.transform='translateY(0)';
+    clearTimeout(_tTimer);
+    _tTimer = setTimeout(function(){ el.style.opacity='0'; el.style.transform='translateY(10px)'; }, 3400);
+    }
+
+    // ── Overlay ────────────────────────────────────────────────────────────────
+    function showOv() { document.getElementById('overlayPl').removeAttribute('hidden'); }
+    function hideOv() { document.getElementById('overlayPl').setAttribute('hidden',''); }
+
+    // ── Paginador (mismo patrón rutas_cexp) ───────────────────────────────────
+    function dibujarPaginacion(idContenedor, actual, total, onChange) {
+    var ul = document.getElementById(idContenedor); if (!ul) return;
+    var ws=5, start=Math.max(1,actual-Math.floor(ws/2)), end=Math.min(total,start+ws-1), rs=Math.max(1,end-ws+1);
+    function btn(p,label,disabled,active){
+        var d=disabled?' disabled':'', a=active?' active':'';
+        return '<li class="page-item'+d+a+'"><a class="page-link" href="#" data-page="'+p+'">'+(label||p)+'</a></li>';
+    }
+    var html='';
+    html+=btn(1,'«',actual===1);
+    html+=btn(Math.max(1,actual-1),'‹',actual===1);
+    if(rs>1){ html+=btn(1,'1',false,actual===1); if(rs>2) html+='<li class="page-item disabled"><span class="page-link">…</span></li>'; }
+    for(var p=rs;p<=end;p++) html+=btn(p,String(p),false,p===actual);
+    if(end<total){ if(end<total-1) html+='<li class="page-item disabled"><span class="page-link">…</span></li>'; html+=btn(total,String(total),false,actual===total); }
+    html+=btn(Math.min(total,actual+1),'›',actual===total);
+    html+=btn(total,'»',actual===total);
+    ul.innerHTML=html;
+    ul.querySelectorAll('a[data-page]').forEach(function(a){
+        a.onclick=function(e){
+        e.preventDefault();
+        var np=Number(a.dataset.page);
+        if(isFinite(np)&&np>=1&&np<=total&&np!==actual) onChange(np);
+        };
+    });
+    }
+
+    // ── Tabs ───────────────────────────────────────────────────────────────────
+    function switchTab(tab) {
+    var activo = tab==='plantillas';
+    var btnP = document.getElementById('tab-btn-plantillas');
+    var btnT = document.getElementById('tab-btn-tokens');
+    btnP.style.background = activo ? '#0a0f3d' : '#f8fafc';
+    btnP.style.color      = activo ? '#fff'    : '#475569';
+    btnP.style.border     = activo ? '1px solid #0a0f3d' : '1px solid #e2e8f0';
+    btnT.style.background = !activo ? '#0a0f3d' : '#f8fafc';
+    btnT.style.color      = !activo ? '#fff'    : '#475569';
+    btnT.style.border     = !activo ? '1px solid #0a0f3d' : '1px solid #e2e8f0';
+    document.getElementById('panel-plantillas').style.display = activo  ? '' : 'none';
+    document.getElementById('panel-tokens').style.display     = !activo ? '' : 'none';
+    var barra = document.getElementById('tabAccionBarra');
+    if (activo) {
+        barra.innerHTML = '<input type="text" placeholder="Buscar motivo…" oninput="filtrarMotivos(this.value)" style="border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .6rem;font-size:11px;width:210px;font-family:inherit;" onfocus="this.style.borderColor=\'#0d6efd\'" onblur="this.style.borderColor=\'#e2e8f0\'">';
+    } else {
+        barra.innerHTML = '';
+    }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // INICIO
+    // ══════════════════════════════════════════════════════════════════════════
+    async function init() {
+    showOv();
+    try {
+        await Promise.all([cargarMotivos(), cargarTokens()]);
+        document.getElementById('tabAccionBarra').innerHTML =
+        '<input type="text" placeholder="Buscar motivo…" oninput="filtrarMotivos(this.value)" style="border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .6rem;font-size:11px;width:210px;font-family:inherit;" onfocus="this.style.borderColor=\'#0d6efd\'" onblur="this.style.borderColor=\'#e2e8f0\'">';
+    } finally { hideOv(); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // CARGA MOTIVOS
+    // ══════════════════════════════════════════════════════════════════════════
+    async function cargarMotivos() {
+    var r = await fetch(API + '/motivos-estado');
+    var j = await r.json();
+    if (!j.ok) { toast('Error al cargar motivos','error'); return; }
+    _motivos = j.data;
+    var total = _motivos.length;
+    var con   = _motivos.filter(function(m){ return m.plantillas_activas>0; }).length;
+    document.getElementById('statMotivos').textContent      = total;
+    document.getElementById('statConPlantilla').textContent = con;
+    document.getElementById('statSinPlantilla').textContent = total-con;
+    document.getElementById('cntPlantillas').textContent    = con+'/'+total;
+    _pgP.data   = _motivos;
+    _pgP.pagina = 1;
+    renderPaginaPlantillas();
+    }
+
+    function filtrarMotivos(q) {
+    q = (q||'').toLowerCase().trim();
+    _pgP.data   = q ? _motivos.filter(function(m){ return m.motivo_nombre.toLowerCase().includes(q); }) : _motivos;
+    _pgP.pagina = 1;
+    renderPaginaPlantillas();
+    }
+
+    function renderPaginaPlantillas() {
+    var data    = _pgP.data;
+    var total   = data.length;
+    var tamano  = _pgP.tamano;
+    var paginas = Math.max(1, Math.ceil(total/tamano));
+    var inicio  = (_pgP.pagina-1)*tamano;
+    var pagData = data.slice(inicio, inicio+tamano);
+
+    var tbody = document.getElementById('tbodyPlantillas');
+    if (!pagData.length) {
+        tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:#94a3b8;font-size:11px;">Sin resultados</td></tr>';
+    } else {
+        tbody.innerHTML = pagData.map(function(m,i){
+        var idx    = inicio+i+1;
+        var tieneP = m.plantillas_activas>0;
+        var hist   = m.versiones_historicas||0;
+        var upd    = m.ultima_actualizacion ? String(m.ultima_actualizacion).substring(0,16) : '–';
+        var badgeEstado = tieneP
+            ? '<span style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;white-space:nowrap;"><i class="fa-solid fa-check" style="margin-right:3px;"></i>Activa</span>'
+            : '<span style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;white-space:nowrap;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px;"></i>Sin plantilla</span>';
+        var badgeHist = hist>0
+            ? '<span style="background:#fef9c3;color:#713f12;border:1px solid #fde68a;border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;margin-left:4px;">'+hist+' hist.</span>'
+            : '';
+        var btnEditar = '<button title="'+(tieneP?'Editar':'Crear')+'" onclick="abrirEditorPlantilla('+m.id_motivo+',\''+esc(m.motivo_nombre)+'\','+(m.id_plantilla_activa||'null')+')" style="background:'+(tieneP?'#0d6efd':'#198754')+';color:#fff;border:none;border-radius:6px;padding:.24rem .5rem;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><i class="fa-solid '+(tieneP?'fa-pen':'fa-plus')+'"></i> '+(tieneP?'Editar':'Crear')+'</button>';
+        var btnHist = m.id_plantilla_activa
+            ? '<button title="Ver historial" onclick="verHistorial('+m.id_motivo+',\''+esc(m.motivo_nombre)+'\')" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:6px;padding:.24rem .5rem;font-size:11px;cursor:pointer;margin-left:4px;"><i class="fa-solid fa-clock-rotate-left"></i></button>'
+            : '';
+        return '<tr>'
+            +'<td style="color:#94a3b8;font-size:10px;">'+idx+'</td>'
+            +'<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(m.motivo_nombre)+'"><strong style="font-size:12px;">'+esc(m.motivo_nombre)+'</strong></td>'
+            +'<td style="font-size:11px;color:#475569;white-space:nowrap;">'+esc(m.responsable_nombre||'–')+'</td>'
+            +'<td style="white-space:nowrap;">'+badgeEstado+badgeHist+'</td>'
+            +'<td style="font-size:11px;color:#64748b;">'+upd+'</td>'
+            +'<td style="text-align:center;white-space:nowrap;">'+btnEditar+btnHist+'</td>'
+            +'</tr>';
+        }).join('');
+    }
+
+    document.getElementById('txtTotalPlantillas').textContent = total+' motivos · Pág. '+_pgP.pagina+' de '+paginas;
+    dibujarPaginacion('paginacionPlantillas', _pgP.pagina, paginas, function(np){
+        _pgP.pagina=np; renderPaginaPlantillas();
+    });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // CARGA TOKENS
+    // ══════════════════════════════════════════════════════════════════════════
+    async function cargarTokens() {
+    var r = await fetch(API + '/tokens');
+    var j = await r.json();
+    if (!j.ok) { toast('Error al cargar tokens','error'); return; }
+    _tokens = j.data;
+    renderTokensPanel(_tokens);
+    var activos = _tokens.filter(function(t){ return t.activo; }).length;
+    document.getElementById('statTokens').textContent = activos;
+    document.getElementById('cntTokens').textContent  = activos;
+    _pgT.data   = _tokens;
+    _pgT.pagina = 1;
+    renderPaginaTokens();
+    }
+
+    function renderPaginaTokens() {
+    var data    = _pgT.data;
+    var total   = data.length;
+    var tamano  = _pgT.tamano;
+    var paginas = Math.max(1,Math.ceil(total/tamano));
+    var inicio  = (_pgT.pagina-1)*tamano;
+    var pagData = data.slice(inicio, inicio+tamano);
+
+    var tbody = document.getElementById('tbodyTokens');
+    if (!pagData.length) {
+        tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;color:#94a3b8;font-size:11px;">Sin tokens</td></tr>';
+    } else {
+        tbody.innerHTML = pagData.map(function(t){
+        var tipoBadge = t.requiere_input
+            ? '<span style="background:#ede9fe;color:#4c1d95;border:1px solid #ddd6fe;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">Input revisor</span>'
+            : t.sql_query
+            ? '<span style="background:#dbeafe;color:#1e3a8a;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">SQL</span>'
+            : '<span style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">Campo ICS</span>';
+        var fuente = t.requiere_input
+            ? '<em style="color:#6d28d9;font-size:11px;">'+esc(t.input_label||'–')+'</em>'
+            : t.sql_query
+            ? '<code style="font-size:10px;background:#eff6ff;padding:1px 5px;border-radius:4px;">'+esc(t.sql_query.substring(0,55))+(t.sql_query.length>55?'…':'')+'</code>'
+            : '<code style="font-size:10.5px;background:#f1f5f9;padding:1px 5px;border-radius:4px;">'+esc(t.campo_ics||'–')+'</code>';
+        var estadoBadge = t.activo
+            ? '<span style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">Activo</span>'
+            : '<span style="background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">Inactivo</span>';
+        return '<tr>'
+            +'<td><span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:2px 7px;font-size:10.5px;font-weight:700;font-family:monospace;">'+esc(t.token)+'</span></td>'
+            +'<td style="font-size:11px;">'+esc(t.descripcion)+'</td>'
+            +'<td>'+tipoBadge+'</td>'
+            +'<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+fuente+'</td>'
+            +'<td style="text-align:center;">'+estadoBadge+'</td>'
+            +'<td style="text-align:center;color:#64748b;font-size:11px;">'+t.orden+'</td>'
+            +'<td style="text-align:center;"><button onclick="abrirModalToken('+t.id+')" style="background:#0d6efd;color:#fff;border:none;border-radius:6px;padding:.22rem .45rem;font-size:11px;cursor:pointer;"><i class="fa-solid fa-pen"></i></button></td>'
+            +'</tr>';
+        }).join('');
+    }
+
+    document.getElementById('txtTotalTokens').textContent = total+' tokens · Pág. '+_pgT.pagina+' de '+paginas;
+    dibujarPaginacion('paginacionTokens', _pgT.pagina, paginas, function(np){
+        _pgT.pagina=np; renderPaginaTokens();
+    });
+    }
+
+    function renderTokensPanel(tokens) {
+    var directos = tokens.filter(function(t){ return t.activo&&t.campo_ics&&!t.sql_query&&!t.requiere_input; });
+    var sqls     = tokens.filter(function(t){ return t.activo&&t.sql_query; });
+    var inputs   = tokens.filter(function(t){ return t.activo&&t.requiere_input; });
+    var vacio    = '<span style="color:#94a3b8;font-size:10px;">–</span>';
+    function chip(t,extra){ return '<span class="tok-chip '+(extra||'')+'" title="'+esc(t.descripcion)+'" onclick="insertarToken(\''+t.token+'\')">'+esc(t.token)+'</span>'; }
+    document.getElementById('tokensDirectos').innerHTML = directos.length ? directos.map(function(t){ return chip(t,''); }).join('') : vacio;
+    document.getElementById('tokensSql').innerHTML      = sqls.length     ? sqls.map(function(t){ return chip(t,'tok-chip-sql'); }).join('') : vacio;
+    document.getElementById('tokensInput').innerHTML    = inputs.length   ? inputs.map(function(t){ return chip(t,'tok-chip-input'); }).join('') : vacio;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // EDITOR DE PLANTILLA
+    // ══════════════════════════════════════════════════════════════════════════
+    async function abrirEditorPlantilla(idMotivo, nombreMotivo, idPlantillaActiva) {
+    document.getElementById('modalPlantillaIdMotivo').value         = idMotivo;
+    document.getElementById('modalPlantillaMotivoNombre').textContent = nombreMotivo;
+    document.getElementById('modalPlantillaTitulo').textContent     = 'Editar Plantilla · '+nombreMotivo;
+    document.getElementById('modalPlantillaNombre').value           = 'Plantilla estándar';
+    document.getElementById('plantillaTextarea').value              = '';
+    document.getElementById('plantillaPreview').innerHTML           = 'La vista previa aparecerá aquí…';
+    if (idPlantillaActiva) {
+        showOv();
+        try {
+        var r = await fetch(API+'/'+idPlantillaActiva);
+        var j = await r.json();
+        if (j.ok) {
+            document.getElementById('plantillaTextarea').value    = j.data.plantilla;
+            document.getElementById('modalPlantillaNombre').value = j.data.nombre||'Plantilla estándar';
+            onPlantillaChange();
+        }
+        } finally { hideOv(); }
+    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPlantilla')).show();
+    }
+
+    function insertarToken(token) {
+    var ta=document.getElementById('plantillaTextarea'), pos=ta.selectionStart;
+    ta.value=ta.value.substring(0,pos)+token+ta.value.substring(ta.selectionEnd);
+    ta.selectionStart=ta.selectionEnd=pos+token.length; ta.focus(); onPlantillaChange();
+    }
+
+    function onPlantillaChange() {
+    var texto=document.getElementById('plantillaTextarea').value;
+    var html=esc(texto);
+    Object.keys(EJ).forEach(function(k){ html=html.split('{'+k+'}').join('<strong style="color:#0d6efd;">'+esc(EJ[k])+'</strong>'); });
+    html=html.replace(/\{(\w+)\}/g,'<span class="tok-unresolved">{$1}</span>');
+    document.getElementById('plantillaPreview').innerHTML=html||'La vista previa aparecerá aquí…';
+    }
+
+    async function guardarPlantilla() {
+    var idMotivo  = parseInt(document.getElementById('modalPlantillaIdMotivo').value);
+    var plantilla = document.getElementById('plantillaTextarea').value.trim();
+    var nombre    = document.getElementById('modalPlantillaNombre').value.trim()||'Plantilla estándar';
+    if (!plantilla) { toast('La plantilla no puede estar vacía','error'); return; }
+    showOv();
+    try {
+        var r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id_motivo:idMotivo,nombre:nombre,plantilla:plantilla})});
+        var j=await r.json();
+        if (j.ok){ toast('Plantilla guardada correctamente ✅','success'); bootstrap.Modal.getInstance(document.getElementById('modalPlantilla')).hide(); await cargarMotivos(); }
+        else toast(j.detail||'Error al guardar','error');
+    } catch(e){ toast('Error de red','error'); }
+    finally { hideOv(); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HISTORIAL
+    // ══════════════════════════════════════════════════════════════════════════
+    async function verHistorial(idMotivo, nombreMotivo) {
+    document.getElementById('modalHistorialMotivo').textContent = nombreMotivo;
+    var body=document.getElementById('modalHistorialBody');
+    body.innerHTML='<div style="text-align:center;padding:24px;"><div style="width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#0a0f3d;border-radius:50%;animation:spin-pl .7s linear infinite;margin:auto;"></div></div>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHistorial')).show();
+    var r=await fetch(API+'?id_motivo='+idMotivo);
+    var j=await r.json();
+    if (!j.ok||!j.data.length){ body.innerHTML='<div style="text-align:center;color:#94a3b8;padding:24px;font-size:11px;">Sin historial disponible</div>'; return; }
+    body.innerHTML=j.data.map(function(p){
+        var badgeActivo=p.activo
+        ?'<span style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">Activa</span>'
+        :'<span style="background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;">Historial</span>';
+        var btnElim=!p.activo
+        ?'<button onclick="eliminarHistorial('+p.id+')" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:.13rem .38rem;font-size:10px;cursor:pointer;margin-left:6px;"><i class="fa-solid fa-trash"></i></button>'
+        :'';
+        return '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#fafbfc;margin-bottom:8px;">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">'
+        +'<div style="display:flex;align-items:center;"><strong style="font-size:11.5px;">'+esc(p.nombre)+'</strong>'+badgeActivo+btnElim+'</div>'
+        +'<span style="font-size:10px;color:#94a3b8;">'+(p.creador_nombre?esc(p.creador_nombre)+' · ':'')+( p.actualizado_en||p.creado_en||'')+'</span>'
+        +'</div>'
+        +'<div class="hist-texto">'+esc(p.plantilla)+'</div>'
+        +'</div>';
+    }).join('');
+    }
+
+    async function eliminarHistorial(id) {
+    if (!confirm('¿Eliminar esta versión histórica? No se puede deshacer.')) return;
+    var r=await fetch(API+'/'+id,{method:'DELETE'});
+    var j=await r.json();
+    if(j.ok){ toast('Versión eliminada','success'); bootstrap.Modal.getInstance(document.getElementById('modalHistorial')).hide(); }
+    else toast(j.detail||'No se pudo eliminar','error');
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // MODAL TOKEN
+    // ══════════════════════════════════════════════════════════════════════════
+    function abrirModalToken(id) {
+    var esNuevo=!id;
+    document.getElementById('tokenEditId').value   = id||'';
+    document.getElementById('modalTokenTitulo').textContent = esNuevo?'Nuevo Token':'Editar Token';
+    document.getElementById('tokenNombre').value   = '';
+    document.getElementById('tokenNombre').readOnly = false;
+    document.getElementById('tokenDesc').value     = '';
+    document.getElementById('tokenCampoIcs').value = '';
+    document.getElementById('tokenSqlQuery').value = '';
+    document.getElementById('tokenInputLabel').value='';
+    document.getElementById('tokenOrden').value    = '99';
+    document.getElementById('tokenActivo').checked = true;
+    document.getElementById('tokenSqlResultado').textContent='';
+    document.getElementById('tokenSqlIcsPrueba').value='';
+    document.querySelector('input[name="tokenTipo"][value="campo"]').checked=true;
+    onTokenTipoChange();
+    if (!esNuevo) {
+        var t=_tokens.find(function(x){ return x.id===id; });
+        if(t){
+        document.getElementById('tokenNombre').value   = t.token;
+        document.getElementById('tokenNombre').readOnly= true;
+        document.getElementById('tokenDesc').value     = t.descripcion;
+        document.getElementById('tokenOrden').value    = t.orden;
+        document.getElementById('tokenActivo').checked = t.activo;
+        if(t.requiere_input){ document.querySelector('input[name="tokenTipo"][value="input"]').checked=true; document.getElementById('tokenInputLabel').value=t.input_label||''; }
+        else if(t.sql_query){ document.querySelector('input[name="tokenTipo"][value="sql"]').checked=true; document.getElementById('tokenSqlQuery').value=t.sql_query; }
+        else { document.getElementById('tokenCampoIcs').value=t.campo_ics||''; }
+        onTokenTipoChange();
+        }
+    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalToken')).show();
+    }
+
+    function onTokenTipoChange() {
+    var tipo=document.querySelector('input[name="tokenTipo"]:checked').value;
+    document.getElementById('seccionCampoIcs').style.display=tipo==='campo'?'':'none';
+    document.getElementById('seccionSql').style.display     =tipo==='sql'  ?'':'none';
+    document.getElementById('seccionInput').style.display   =tipo==='input'?'':'none';
+    }
+
+    async function probarSqlToken() {
+    var sql=document.getElementById('tokenSqlQuery').value.trim();
+    var idIcs=parseInt(document.getElementById('tokenSqlIcsPrueba').value);
+    var res=document.getElementById('tokenSqlResultado');
+    if(!sql){ res.textContent='⚠ Escribe el SQL primero'; return; }
+    if(!idIcs){ res.textContent='⚠ Ingresa un id_ics de prueba'; return; }
+    res.textContent='Probando…';
+    try {
+        var r=await fetch(API+'/tokens/probar-sql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql_query:sql,id_ics:idIcs})});
+        var j=await r.json();
+        res.textContent=(j.ok&&j.data&&j.data.ok)?'✅ Resultado: '+j.data.valor:'❌ '+((j.data&&j.data.error)||j.detail||'Error');
+    } catch(e){ res.textContent='❌ Error de red'; }
+    }
+
+    async function guardarToken() {
+    var id=parseInt(document.getElementById('tokenEditId').value)||null;
+    var tipo=document.querySelector('input[name="tokenTipo"]:checked').value;
+    var nombre=document.getElementById('tokenNombre').value.trim();
+    if(nombre&&!nombre.startsWith('{')) nombre='{'+nombre;
+    if(nombre&&!nombre.endsWith('}'))   nombre+='}';
+    var desc=document.getElementById('tokenDesc').value.trim();
+    if(!desc)  { toast('La descripción es obligatoria','error'); return; }
+    if(!nombre){ toast('El token es obligatorio','error'); return; }
+    var payload={
+        token:nombre, descripcion:desc,
+        campo_ics:     tipo==='campo'?(document.getElementById('tokenCampoIcs').value.trim()||null):null,
+        sql_query:     tipo==='sql'  ?(document.getElementById('tokenSqlQuery').value.trim()||null):null,
+        requiere_input:tipo==='input',
+        input_label:   tipo==='input'?(document.getElementById('tokenInputLabel').value.trim()||null):null,
+        activo:document.getElementById('tokenActivo').checked,
+        orden:parseInt(document.getElementById('tokenOrden').value)||99,
+    };
+    if(!payload.campo_ics&&!payload.sql_query&&!payload.requiere_input){ toast('Debe especificar campo ICS, SQL o input del revisor','error'); return; }
+    showOv();
+    try {
+        var url=id?API+'/tokens/'+id:API+'/tokens', method=id?'PUT':'POST';
+        var r=await fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        var j=await r.json();
+        if(j.ok){ toast(id?'Token actualizado ✅':'Token creado ✅','success'); bootstrap.Modal.getInstance(document.getElementById('modalToken')).hide(); await cargarTokens(); }
+        else toast(j.detail||'Error al guardar','error');
+    } catch(e){ toast('Error de red','error'); }
+    finally { hideOv(); }
+    }
+
+    // ── Escape HTML ───────────────────────────────────────────────────────────
+    function esc(s){
+    if(s==null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+</script>
+{% endblock %}

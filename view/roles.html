@@ -60,32 +60,43 @@
                     <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff;font-weight: bold;">Roles Existentes</h4>
                 </div>
                 <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh; padding-top: 0;">
-                    <table class="table table-hover table-striped" style="font-size: 14px; table-layout: fixed; width: 100%;">
+                    <table class="table table-hover table-striped tabla-roles" style="font-size: 12px; table-layout: fixed; width: 100%;">
                         <thead class="table-light" style="position: sticky; top: 0; z-index: 1; margin-top: 0; padding: 0;">
                             <tr>
-                                <th style="width: 5px;" >ID</th>
-                                <th style="width: 30px;" >Nombre</th>
-                                <th style="width: 60px;" >Pantallas Asignadas</th>
-                                <th style="width: 30px;" class="text-center">Acciones</th>
+                                <th style="width: 5px;">ID</th>
+                                <th style="width: 30px;">Nombre</th>
+                                <th style="width: 65px;">Pantallas Asignadas</th>
+                                <th style="width: 30px; text-align:center;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for role in roles %}
-                                <tr>
-                                    <td>{{ role[0] }}</td>
-                                    <td>{{ role[1] }}</td>
-                                    <td>{{ role[2] }}</td>
-                                    <td class="text-center">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editRoleModal" data-role-id="{{ role[0] }}">
-                                            <i class="fas fa-edit"></i> Editar
+                            {% set pantallas = role[2] if role[2] else '' %}
+                            {% set lista = pantallas.split(',') if pantallas else [] %}
+                            <tr>
+                                <td>{{ role[0] }}</td>
+                                <td>{{ role[1] }}</td>
+                                <td>
+                                    {% if lista and lista|length > 0 %}
+                                        <span title="{{ pantallas }}">{{ pantallas|truncate(120, True, '...') }}</span>
+                                        <div><small class="text-muted">{{ lista|length }} pantalla(s)</small></div>
+                                    {% else %}
+                                        <em>—</em>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center col-acciones">
+                                    <div class="d-inline-flex align-items-center flex-nowrap">
+                                        <button type="button" class="btn btn-primary btn-sm px-2 py-1"
+                                                data-bs-toggle="modal" data-bs-target="#editRoleModal"
+                                                data-role-id="{{ role[0] }}">
+                                            Editar
                                         </button>
-                                        <form action="/roles/{{ role[0] }}/eliminar" method="post" style="display:inline;">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="fas fa-trash-alt"></i> Eliminar
-                                            </button>
+                                        <form action="/roles/{{ role[0] }}/eliminar" method="post" class="d-inline m-0 p-0">
+                                            <button type="submit" class="btn btn-danger btn-sm px-2 py-1">Eliminar</button>
                                         </form>
-                                    </td>
-                                </tr>
+                                    </div>
+                                </td>
+                            </tr>
                             {% endfor %}
                         </tbody>
                     </table>

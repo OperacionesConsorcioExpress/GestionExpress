@@ -10,32 +10,31 @@
 {% endblock %}
 
 {% block content %}
-
 <!-- Mensaje global de éxito/error en la página principal -->
 <div id="global_message" class="alert" role="alert" style="display: none;"></div>
 
 <!-- Titulo y Botones Iniciales -->
-<div class="container-fluid mt-auto mb-auto"> <!-- margenes de toda la pagina -->
-    <div class="row justify-content-between align-items-center">
-        <h1 class="col-auto" style="font-size: 24px; font-family: 'Century Gothic', sans-serif;">Control de Cláusulas de Contrato y Manual</h1>
-        <h1 class="col-auto" style="font-size: 14px; font-family: 'Century Gothic', sans-serif;">¡Hola, {{ user_session.nombres }} {{ user_session.apellidos }}!</h1>
-        <img src="/static/images/excel.png" alt="Descargar Reporte"
-            style="cursor: pointer; margin-left: 10px; height: 45px; width: 70px;"
-            data-bs-toggle="modal" data-bs-target="#modalReportes">
-        <!-- Botón Limpiar a la derecha de Concesión -->
-        <div class="col-md-1 d-flex align-items-end justify-content-end">
-        <button type="button" id="limpiar"
-                title="Limpiar filtros"
-                style="height:35px; width:35px; border:1px solid #9CA3AF; border-radius:10px; display:flex; align-items:center; justify-content:center; background:#FFFFFF; cursor:pointer;">
-            <img src="/static/images/borrar.png" alt="Borrar" style="height:70%; width:70%;">
-        </button>
-        </div>
-        <img src="/static/Consorcio.png" alt="Consorcio Icon" style="max-width: 120px; height: auto;">
-        <!-- Botón para abrir ventana flotante -->
-        <div class="col-auto">
-            <!--<a href="{{ url_for('descargar_plantilla_juridico') }}" class="btn btn-dark">Plantilla de Cargue</a>-->
-            <!--<button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click();">Cargue Parametros</button>-->
-            <!--<input type="file" id="fileInput" style="display: none;" onchange="cargarArchivo(this.files[0])">-->
+<!-- HERO -->
+    <div style="background:linear-gradient(135deg, #041053 0%, #0d6efd 100%); color:#fff; padding:0.65rem 1rem; border-radius:8px; margin-bottom:12px; box-shadow:0 4px 14px rgba(4,16,83,.22);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h1 style="font-size:14px; font-weight:700; margin:0; display:flex; align-items:center; gap:.5rem; font-family:'Century Gothic',sans-serif;">
+                <i class="fa-solid fa-file-contract"></i>
+                Control de Cláusulas de Contrato y Manual
+            </h1>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span style="font-size:11px; opacity:.9; font-family:'Century Gothic',sans-serif;">
+                    ¡Hola, <strong>{{ user_session.nombres }} {{ user_session.apellidos }}</strong>!
+                </span>
+                <img src="/static/images/excel.png" alt="Descargar Reporte"
+                    style="cursor:pointer; height:30px; width:46px; object-fit:contain; border-radius:4px;"
+                    data-bs-toggle="modal" data-bs-target="#modalReportes"
+                    title="Consultar y Descargar Reportes">
+                <button type="button" id="limpiar"
+                    title="Limpiar filtros"
+                    style="height:30px; width:30px; border:1px solid rgba(255,255,255,.4); border-radius:8px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.15); cursor:pointer;">
+                    <img src="/static/images/borrar.png" alt="Borrar" style="height:16px; width:16px; filter:brightness(0) invert(1);">
+                </button>
+            </div>
         </div>
     </div>
 

@@ -223,21 +223,21 @@
     <li>
       <button class="tab-button active" data-tab="revisar" onclick="switchTab(event, 'revisar')"
         style="color: white; background: #0a2f75; border: none; border-bottom: 2px solid #0a2f75; font-weight: 700; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; border-radius:15px 15px 0 0;">
-        <i class="bi bi-eye"></i> Por Revisar
+        <i class="bi bi-eye"></i> Por Revisar [1.1]
       </button>
     </li>
 
     <li>
       <button class="tab-button" data-tab="revisados" onclick="switchTab(event, 'revisados')"
         style="color: #64748b; background: white; border: none; border-bottom: 2px solid transparent; font-weight: 700; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; border-radius:15px 15px 0 0;">
-        <i class="bi bi-check2-circle"></i> Revisados
+        <i class="bi bi-check2-circle"></i> Revisados [1.1]
       </button>
     </li>
 
     <li>
       <button class="tab-button" data-tab="validar" onclick="switchTab(event, 'validar')"
         style="color: #64748b; background: white; border: none; border-bottom: 2px solid transparent; font-weight: 700; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; border-radius:15px 15px 0 0;">
-        <i class="bi bi-shield-check"></i> Por Validar
+        <i class="bi bi-shield-check"></i> Por Validar [1.3]
       </button>
     </li>
 
@@ -303,7 +303,7 @@
             <i class="bi bi-pencil-square" style="color: #0d6efd; margin-right: 0.3rem;"></i>Gestionar Objeción
           </div>
 
-          <!-- FILA 1: Responsable + Motivo/Observación (dependiente) -->
+          <!-- FILA 1: Responsable + Motivo (dependiente) -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.6rem;">
             <div>
               <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
@@ -319,7 +319,7 @@
               <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
                 <i class="bi bi-chat-square-text" style="color:#0d6efd;"></i> Motivo
               </label>
-              <select id="gestionMotivo"
+              <select id="gestionMotivo" onchange="onGestionMotivoChange()"
                 style="border:1px solid #e2e8f0;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fafbfc;width:100%;color:#0f172a;transition:border-color 0.2s;"
                 onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
                 <option value="">-- Seleccionar responsable primero --</option>
@@ -361,12 +361,14 @@
                 <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
                   Km a Objetar
                 </label>
-                <input type="number" id="kmObjetar" min="0.001" step="0.001" placeholder="0.000"
+                <input type="number" id="kmObjetar" min="0" step="0.001" placeholder="0.000"
                   oninput="calcularKmNoObjetado()"
+                  onkeydown="if(event.key==='-'||event.key==='e'||event.key==='E')event.preventDefault()"
+                  onpaste="setTimeout(function(){var el=document.getElementById('kmObjetar');if(parseFloat(el.value)<0)el.value='';},0)"
                   style="border:1px solid #ffc107;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fffef5;width:100%;color:#0f172a;font-weight:600;"
                   onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#ffc107'">
                 <div id="kmObjetarError" style="display:none;font-size:0.62rem;color:#dc3545;margin-top:0.2rem;font-weight:600;">
-                  <i class="bi bi-exclamation-circle"></i> Debe ser &gt; 0 y ≤ Km Revisión (<span id="kmRevLabel">0</span>)
+                  <i class="bi bi-exclamation-circle"></i> Debe ser ≥ 0 y ≤ Km Revisión (<span id="kmRevLabel">0</span>)
                 </div>
               </div>
               <div>
@@ -379,15 +381,29 @@
             </div>
           </div>
 
-          <!-- FILA 4: Comentarios -->
-          <div style="margin-bottom: 0.6rem;">
-            <label style="font-weight:700;font-size:0.65rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">
-              <i class="bi bi-pencil" style="color:#0d6efd;"></i> Comentarios para el Informe
-            </label>
+          <!-- FILA 4: Nota de Objeción -->
+          <div style="margin-bottom: 0.5rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.25rem;gap:0.4rem;flex-wrap:wrap;">
+              <label style="font-weight:700;font-size:0.65rem;color:#475569;text-transform:uppercase;letter-spacing:0.3px;margin:0;">
+                <i class="bi bi-pencil" style="color:#0d6efd;"></i> Nota de Objeción
+              </label>
+              <button type="button" id="btnGenerarNota" onclick="generarNotaObjecion()"
+                style="background:#0a0f3d;color:#fff;border:none;border-radius:6px;padding:0.22rem 0.6rem;font-size:0.67rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:0.3rem;white-space:nowrap;"
+                onmouseover="this.style.background='#1a2263'" onmouseout="this.style.background='#0a0f3d'"
+                title="Generar nota automática desde la plantilla del motivo seleccionado">
+                <i class="bi bi-stars"></i> Generar Nota
+              </button>
+            </div>
             <textarea id="commentText"
-              style="border:1px solid #e2e8f0;border-radius:8px;padding:0.4rem 0.5rem;width:100%;background:#fafbfc;color:#0f172a;min-height:65px;font-size:0.72rem;resize:vertical;transition:border-color 0.2s;"
-              placeholder="Justificar al Ente Gestor..."
+              style="border:1px solid #e2e8f0;border-radius:8px;padding:0.4rem 0.5rem;width:100%;background:#fafbfc;color:#0f172a;min-height:75px;font-size:0.72rem;resize:vertical;transition:border-color 0.2s;"
+              placeholder="Selecciona un motivo y presiona 'Generar Nota', o escribe manualmente..."
               onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+
+            <!-- Aviso -->
+            <div style="margin-top:0.3rem;display:flex;align-items:center;gap:0.3rem;font-size:0.62rem;color:#92400e;background:#fff7ed;border:1px solid #fed7aa;border-radius:5px;padding:0.28rem 0.5rem;">
+              <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b;flex-shrink:0;"></i>
+              Revisa la Nota de Objeción antes de guardar — puedes editarla directamente.
+            </div>
           </div>
 
           <!-- IDs contenedores legacy (por si algo los referencia) -->
@@ -621,23 +637,23 @@
 <script>
   /* ==================== CONFIGURACION GLOBAL DE COLORES ==================== */
   const COLORS = {
-    primary: '#0d6efd',
-    primaryDark: '#0b5ed7',
-    primaryLight: '#e7f3ff',
-    danger: '#dc3545',
-    success: '#198754',
-    warning: '#ffc107',
-    info: '#0dcaf0',
-    textDark: '#0f172a',
-    textGray: '#64748b',
-    border: '#e2e8f0',
-    background: '#f8f9fa',
-    bgLight: '#fafbfc',
-    white: '#ffffff',
+    primary: '#0d6efd', // Azul principal
+    primaryDark: '#0b5ed7', // Azul oscuro para hover y acentos
+    primaryLight: '#e7f3ff', // Azul claro para fondos y estados
+    danger: '#dc3545', // Rojo para errores y alertas
+    success: '#198754', // Verde para confirmaciones y estados positivos
+    warning: '#ffc107', // Amarillo para advertencias
+    info: '#0dcaf0', // Cyan para información y estados neutrales
+    textDark: '#0f172a', // Texto principal
+    textGray: '#64748b', // Texto secundario
+    border: '#e2e8f0', // Bordes y separadores
+    background: '#f8f9fa', // Fondo general
+    bgLight: '#fafbfc', // Fondo claro para tarjetas y paneles
+    white: '#ffffff', // Blanco puro
     headerBg: '#0d6efd', // Color de fondo para encabezados
-    headerText: '#ffffff',
-    headerBorder: '#e2e8f0',
-    filterBg: 'rgb(207, 212, 221)'
+    headerText: '#ffffff', // Color de texto para encabezados
+    headerBorder: '#e2e8f0', // Color de borde para encabezados
+    filterBg: 'rgb(207, 212, 221)' // Fondo para filtros (gris claro)
   };
 
   /* ==================== API BASE ==================== */
@@ -995,7 +1011,7 @@
               + v +
               '</td>';
           }).join('');
-          return '<tr onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'\'">' + cells + '</tr>';
+          return '<tr onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'\'">' + cells + '</tr>';
         }).join('');
 
     var paginationHtml = '';
@@ -1059,7 +1075,7 @@
   }
 
   /* ==================== RELLENAR DATOS EN EL MODAL PESTAÑA 1.1 ==================== */
-  function populateModal(d) {
+  async function populateModal(d) {
     const basicFields = [
       { label: 'Fecha',     value: d.fecha },
       { label: 'ID ICS',    value: d.id_ics },
@@ -1095,7 +1111,7 @@
       ' &nbsp;|&nbsp; <strong>Responsable:</strong> ' + (d.responsable_nombre||'--');
 
     // Motivos de Eliminación
-    document.getElementById('commentText').value = d.motivo || '';
+    document.getElementById('commentText').value = '';
 
     // Guardar km_revision en variable global para validaciones
     window._modalKmRevision = d.km_revision ? parseFloat(d.km_revision) : 0;
@@ -1117,8 +1133,26 @@
     // y el mapa inicializado (~50ms más) antes de cargar datos
     setTimeout(function() { loadMapData(); }, 100);
 
-    // Cargar selects de gestión con valor por defecto del registro
-    loadGestionSelects(d);
+    // Limpiar estado de nota al abrir nuevo ICS
+    window._notaTextoBaseConPendientes = '';
+    document.getElementById('commentText').value = '';
+    document.getElementById('commentText').placeholder = "Selecciona un motivo y presiona 'Generar Nota', o escribe manualmente...";
+    var _bn = document.getElementById('btnGenerarNota');
+    if (_bn) { _bn.innerHTML = '<i class="bi bi-stars"></i> Generar Nota'; _bn.style.background = '#0a0f3d'; _bn.disabled = false; }
+
+    // Obtener responsable/motivo por defecto desde ics_motivo_resp y cargar selects
+    try {
+      const _rmr = await fetch(API + '/registros/' + d.id_ics + '/motivos-responsables');
+      const _jmr = await _rmr.json();
+      if (_jmr.ok && _jmr.data && _jmr.data.length > 0) {
+        d._id_responsable_default = _jmr.data[0].id_responsable;
+        d._id_motivo_default      = _jmr.data[0].id_motivo;
+      }
+    } catch(e) { /* sin preselección si falla */ }
+
+    // Cargar selects con preselección
+    await loadGestionSelects(d);
+
     // Cargar tabla de motivos/responsables desde ics_motivo_resp
     loadIcsMotivosResponsables(d.id_ics);
   }
@@ -1126,8 +1160,12 @@
   /* ==================== GESTIÓN: SELECTS EN CASCADA ==================== */
 
   async function loadGestionSelects(d) {
-    // 1. Cargar Responsables y preseleccionar el del registro
-    await loadGestionResponsables(null);
+    // 1. Cargar Responsables con preselección del primer responsable del registro
+    await loadGestionResponsables(d._id_responsable_default || null);
+    // 2. Si hay responsable por defecto, cargar sus motivos y preseleccionar
+    if (d._id_responsable_default) {
+      await loadGestionMotivos(d._id_responsable_default, d._id_motivo_default || null);
+    }
     // 3. Cargar Acciones
     await loadGestionAcciones();
     // 4. Restablecer Justificaciones y Km objeción
@@ -1228,6 +1266,80 @@
   async function onGestionResponsableChange() {
     const id_resp = document.getElementById('gestionResponsable').value;
     await loadGestionMotivos(id_resp, null);
+    // Al cambiar responsable se limpia el motivo → limpiar nota también
+    _limpiarNota();
+  }
+
+  async function onGestionMotivoChange() {
+    const idMotivo = parseInt(document.getElementById('gestionMotivo').value) || 0;
+    if (!idMotivo) { _limpiarNota(); return; }
+    // Solo limpia la nota anterior; el usuario debe presionar "Generar Nota"
+    _limpiarNota();
+  }
+
+  function _limpiarNota() {
+    window._notaTextoBaseConPendientes = '';
+    document.getElementById('commentText').value = '';
+    document.getElementById('commentText').placeholder = "Selecciona un motivo y presiona 'Generar Nota', o escribe manualmente...";
+    var _bn = document.getElementById('btnGenerarNota');
+    if (_bn) { _bn.innerHTML = '<i class="bi bi-stars"></i> Generar Nota'; _bn.style.background = '#0a0f3d'; _bn.disabled = false; }
+  }
+
+  /* ========== GENERAR NOTA DESDE PLANTILLA ========== */
+  window._notaTextoBaseConPendientes = '';
+
+  async function generarNotaObjecion() {
+    const idMotivo = parseInt(document.getElementById('gestionMotivo').value) || 0;
+    const idIcs    = _currentIcsData && _currentIcsData.id_ics ? _currentIcsData.id_ics : null;
+
+    if (!idMotivo || !idIcs) return; // silencioso si no hay datos suficientes
+
+    const btn = document.getElementById('btnGenerarNota');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.75rem;height:.75rem;border-width:2px;"></span> Generando…'; }
+
+    try {
+      const r = await fetch('/api/sne/plantillas/resolver/' + idMotivo + '?id_ics=' + idIcs);
+      const j = await r.json();
+
+      if (!j.ok || j.data.sin_plantilla) {
+        if (btn) { btn.innerHTML = '<i class="bi bi-stars"></i> Generar Nota'; btn.style.background = '#0a0f3d'; btn.disabled = false; }
+        document.getElementById('commentText').value = '';
+        document.getElementById('commentText').placeholder = '⚠ No hay plantilla configurada para este motivo. Puedes escribir la nota manualmente.';
+        return;
+      }
+
+      const data = j.data;
+      window._notaTextoBaseConPendientes = data.texto_resuelto;
+      let texto = data.texto_resuelto;
+
+      // Override km con el valor actual en pantalla
+      const kmObjetarInput = parseFloat(document.getElementById('kmObjetar').value) || 0;
+      const kmRevActual    = window._modalKmRevision || 0;
+      if (kmObjetarInput > 0 && kmObjetarInput <= kmRevActual) {
+        const kmObjStr = kmObjetarInput.toFixed(3).replace('.', ',');
+        const kmNoObj  = (kmRevActual - kmObjetarInput).toFixed(3).replace('.', ',');
+        texto = texto.replace(/\{km_objetado\}/g, kmObjStr).replace(/\{km_no_objetado\}/g, kmNoObj);
+        window._notaTextoBaseConPendientes = window._notaTextoBaseConPendientes
+          .replace(/\{km_objetado\}/g, kmObjStr).replace(/\{km_no_objetado\}/g, kmNoObj);
+        data.tokens_pendientes = (data.tokens_pendientes || []).filter(function(p) {
+          return p.token !== '{km_objetado}' && p.token !== '{km_no_objetado}';
+        });
+      }
+
+      document.getElementById('commentText').value = texto;
+      document.getElementById('commentText').placeholder = "Selecciona un motivo y presiona 'Generar Nota', o escribe manualmente...";
+      document.getElementById('commentText').style.borderColor = '#198754';
+      setTimeout(function(){ document.getElementById('commentText').style.borderColor = '#e2e8f0'; }, 1800);
+
+      if (btn) { btn.innerHTML = '<i class="bi bi-check2"></i> Generada'; btn.style.background = '#198754'; }
+      setTimeout(function(){
+        if (btn) { btn.innerHTML = '<i class="bi bi-stars"></i> Generar Nota'; btn.style.background = '#0a0f3d'; btn.disabled = false; }
+      }, 1800);
+
+    } catch(e) {
+      console.error('generarNotaObjecion', e);
+      if (btn) { btn.innerHTML = '<i class="bi bi-stars"></i> Generar Nota'; btn.style.background = '#0a0f3d'; btn.disabled = false; }
+    }
   }
 
   async function onGestionAccionChange() {
@@ -1256,7 +1368,7 @@
     if (parseInt(id_acc) === 2) {
       kmBox.style.display = 'block';
       document.getElementById('kmObjetar').value = '';
-      document.getElementById('kmNoObjetado').value = '';
+      document.getElementById('kmNoObjetado').value = (window._modalKmRevision || 0).toFixed(3);
     } else {
       kmBox.style.display = 'none';
       document.getElementById('kmObjetar').value = '';
@@ -1275,7 +1387,8 @@
     inputObj.max = kmRev;
     if (errLabel) errLabel.textContent = kmRev.toFixed(3);
 
-    let kmObj = parseFloat(inputObj.value) || 0;
+    let kmObj = parseFloat(inputObj.value);
+    if (isNaN(kmObj) || kmObj < 0) { kmObj = 0; inputObj.value = '0'; }
 
     // Recortar si supera el máximo
     if (kmObj > kmRev) {
@@ -1283,7 +1396,7 @@
       inputObj.value = kmRev.toFixed(3);
     }
 
-    if (kmObj <= 0 || kmObj > kmRev) {
+    if (kmObj > kmRev) {
       inputObj.style.borderColor = '#dc3545';
       if (errDiv) errDiv.style.display = 'block';
       inputNoObj.value = '';

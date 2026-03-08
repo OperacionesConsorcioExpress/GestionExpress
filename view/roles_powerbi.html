@@ -3,6 +3,11 @@
 
 {% block head %}
 <style>
+    .card-body-alta {
+        overflow-y: auto;
+        height: 70vh;
+        padding-top: 0;
+    }
     .toolbar-select {
         display: flex;
         gap: .5rem;
@@ -54,7 +59,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid d-flex flex-column" style="min-height: 100vh;">
+<div class="container-fluid d-flex flex-column" style="height: 90vh;">
     <div class="row justify-content-between align-items-center mb-4">
         <h1 class="col-auto" style="font-size: 22px; font-family: 'Century Gothic', sans-serif;">Gestión de Roles de Acceso Power BI - Azure</h1>
         <h1 class="col-auto" style="font-size: 14px; font-family: 'Century Gothic', sans-serif;">¡Hola, {{ user_session.nombres }} {{ user_session.apellidos }}!</h1>
@@ -119,7 +124,7 @@
             <div class="card-header bg-dark text-white" style="margin-bottom: 0;">
             <h4 class="mb-0" style="font-size: 18px; font-family: 'Century Gothic', sans-serif; color: #ffffff; font-weight: bold;">Roles Power BI Existentes</h4>
             </div>
-            <div class="card-body flex-grow-1 d-flex flex-column card-body-alta" style="padding-top: 0;">
+            <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh; padding-top: 0;">
             <table class="table table-hover table-striped tabla-roles" style="font-size: 12px; table-layout: fixed; width: 100%;">
                 <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
                 <tr>
@@ -211,9 +216,7 @@
             </div>
 
             <select multiple class="form-select select-responsivo select-expand" id="idPowerBIEd" name="id_powerbi" required>
-                {% for r in opciones_reportes %}
-                <option value="{{ r.id }}">{{ r.etiqueta }}</option>
-                {% endfor %}
+                <!-- opciones clonadas desde #idPowerBI al cargar la página (ver script) -->
             </select>
             </div>
             <div class="modal-footer">
@@ -226,6 +229,15 @@
 </div>
 
 <script>
+  // ── Clonar options del select crear → select modal editar (evita doble render Jinja2)
+  ;(function () {
+    const src = document.getElementById('idPowerBI');
+    const dst = document.getElementById('idPowerBIEd');
+    if (src && dst) {
+      Array.from(src.options).forEach(opt => dst.appendChild(opt.cloneNode(true)));
+    }
+  })();
+
   // Utilidades de filtrado y contadores
     function filtrarOpciones(inputEl, selectEl) {
         const term = (inputEl.value || '').toLowerCase();

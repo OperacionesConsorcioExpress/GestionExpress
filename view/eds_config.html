@@ -44,14 +44,6 @@
     .paginacion-wrap{ overflow-x:auto; max-width:100%; }
     .pagination{ flex-wrap:nowrap; margin:0; }
 
-    .nav-pills .nav-link{
-        border:1px solid #e5e7eb; background:#fff; color:#111827;
-        padding:.45rem .75rem; border-radius:10px; font-weight:600; font-size:12px;
-    }
-    .nav-pills .nav-link.active{
-        background:#0d6efd; border-color:#0b5ed7; color:#fff;
-        box-shadow:0 10px 24px rgba(13,110,253,.18);
-    }
 </style>
 {% endblock %}
 
@@ -60,18 +52,15 @@
     <div class="container-fluid contenedor-ancho">
 
         <!-- HERO -->
-        <div style="position:relative; border:1px solid #e5e7eb; background:#fff; border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+        <div style="background:linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color:#fff; padding:0.7rem 1rem; border-radius:8px; margin-bottom:14px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
-            <h1 style="margin:0; font-size:18px; font-weight:700; letter-spacing:.2px;">
-                EDS y Surtidores
+            <h1 style="display:flex; align-items:center; gap:.5rem; font-size:.95rem; font-weight:700;">
+                Modulo EDS [Configura Estaciones de Servicio, Surtidores y Ubicaciones (internas/externas)]
             </h1>
-            <div class="text-muted" style="font-size:12px;">
-                Configura Estaciones de Servicio, Surtidores y Ubicaciones (internas/externas)
-            </div>
-            </div>
+        </div>
             <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary" id="btn-refrescar">
+            <button class="btn btn-success btn-sm" id="btn-refrescar">
                 <i class="fa-solid fa-rotate me-1"></i> Refrescar
             </button>
             <button class="btn btn-sm" id="btn-nueva-eds" data-bs-toggle="modal" data-bs-target="#modalEDS"
@@ -84,21 +73,50 @@
         <!-- Tabs -->
         <div class="mt-3">
             <ul class="nav nav-pills gap-2" id="tabs-eds" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-eds" data-bs-toggle="pill" data-bs-target="#pane-eds" type="button" role="tab">
-                <i class="fa-solid fa-gas-pump me-1"></i> EDS
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-surtidores" data-bs-toggle="pill" data-bs-target="#pane-surtidores" type="button" role="tab">
-                <i class="fa-solid fa-faucet-drip me-1"></i> Surtidores
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-ubicaciones" data-bs-toggle="pill" data-bs-target="#pane-ubicaciones" type="button" role="tab">
-                <i class="fa-solid fa-location-dot me-1"></i> Ubicaciones
-                </button>
-            </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active"
+                        id="tab-eds"
+                        data-bs-toggle="pill"
+                        data-bs-target="#pane-eds"
+                        type="button"
+                        role="tab"
+                        style="background:#0d6efd !important; color:#ffffff !important; border:1px solid #0b5ed7 !important; border-radius:10px; padding:.45rem .85rem; font-weight:600; font-size:12px; box-shadow:0 6px 14px rgba(13,110,253,.25);"
+                        onclick="setTabStyle(this)"
+                        onmouseover="if(!this.classList.contains('active')){this.style.background='#f3f4f6'; this.style.color='#000000'; this.style.border='1px solid #cbd5e1';}"
+                        onmouseout="if(!this.classList.contains('active')){this.style.background='#ffffff'; this.style.color='#000000'; this.style.border='1px solid #d1d5db';}">
+                        <i class="fa-solid fa-gas-pump me-1"></i> EDS
+                    </button>
+                </li>
+
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link"
+                        id="tab-surtidores"
+                        data-bs-toggle="pill"
+                        data-bs-target="#pane-surtidores"
+                        type="button"
+                        role="tab"
+                        style="background:#ffffff !important; color:#000000 !important; border:1px solid #d1d5db !important; border-radius:10px; padding:.45rem .85rem; font-weight:600; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,.05);"
+                        onclick="setTabStyle(this)"
+                        onmouseover="if(!this.classList.contains('active')){this.style.background='#f3f4f6'; this.style.color='#000000'; this.style.border='1px solid #cbd5e1';}"
+                        onmouseout="if(!this.classList.contains('active')){this.style.background='#ffffff'; this.style.color='#000000'; this.style.border='1px solid #d1d5db';}">
+                        <i class="fa-solid fa-faucet-drip me-1"></i> Surtidores
+                    </button>
+                </li>
+
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link"
+                        id="tab-ubicaciones"
+                        data-bs-toggle="pill"
+                        data-bs-target="#pane-ubicaciones"
+                        type="button"
+                        role="tab"
+                        style="background:#ffffff !important; color:#000000 !important; border:1px solid #d1d5db !important; border-radius:10px; padding:.45rem .85rem; font-weight:600; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,.05);"
+                        onclick="setTabStyle(this)"
+                        onmouseover="if(!this.classList.contains('active')){this.style.background='#f3f4f6'; this.style.color='#000000'; this.style.border='1px solid #cbd5e1';}"
+                        onmouseout="if(!this.classList.contains('active')){this.style.background='#ffffff'; this.style.color='#000000'; this.style.border='1px solid #d1d5db';}">
+                        <i class="fa-solid fa-location-dot me-1"></i> Ubicaciones
+                    </button>
+                </li>
             </ul>
         </div>
         </div>
@@ -567,6 +585,23 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+    /* ===== Función para manejar estilos de tabs ===== */
+    function setTabStyle(tabActivo) {
+        const tabs = document.querySelectorAll('#tabs-eds .nav-link');
+
+        tabs.forEach(tab => {
+            tab.style.background = '#ffffff';
+            tab.style.color = '#000000';
+            tab.style.border = '1px solid #d1d5db';
+            tab.style.boxShadow = '0 2px 6px rgba(0,0,0,.05)';
+        });
+
+        tabActivo.style.background = '#061224';
+        tabActivo.style.color = '#ffffff';
+        tabActivo.style.border = '1px solid #0b5ed7';
+        tabActivo.style.boxShadow = '0 6px 14px rgba(13,110,253,.25)';
+    }
+
     /* ===== Utilidades modal/backdrop ===== */
     function limpiarBackdrops(){
         document.querySelectorAll('.modal-backdrop').forEach(el=>el.remove());

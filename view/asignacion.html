@@ -8,425 +8,537 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 {% endblock %}
 
 <!-- INICIO DEL BLOQUE DE TODA LA PANTALLA DE ASIGNACIÓN -->
 {% block content %}
-<!-- SECCIÓN PROGRESO DE CARGA Y BLOQUEO DE PANTALLA -->
-    <div id="loading-overlay" style="display: none; justify-content: center;">
-    <div class="loading-content" style="display: flex; align-items: center;">
-        <img id="loading-gif" src="/static/images/cargando.gif" alt="Cargando..." width="70" height="70" />
-        <p style="margin-left: 10px;">Cargando, por favor espere...</p>
+
+<div id="loading-overlay" style="display:none; position:fixed; inset:0; background:rgba(248,249,250,.92); backdrop-filter:blur(4px); z-index:3000; justify-content:center; align-items:center;">
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 18px 50px rgba(15,23,42,.16); padding:28px 32px; width:min(92vw,380px); text-align:center; font-family:'Century Gothic',Arial,sans-serif;">
+        <div style="position:relative; width:56px; height:56px; margin:0 auto 14px;">
+            <div class="asig-spinner asig-spinner-lg"></div>
+            <div class="asig-spinner asig-spinner-sm"></div>
+        </div>
+        <p id="loaderMsg" style="margin:0 0 4px; font-size:13px; font-weight:700; color:#0d6efd; letter-spacing:1.4px;">PROCESANDO...</p>
+        <p id="loaderSub" style="margin:0; font-size:11px; color:#64748b;">Por favor espere mientras se completa la operación</p>
     </div>
 </div>
 
-<!-- Titulo y Botones Iniciales -->
-<div class="container-fluid mt-auto mb-auto"> <!-- margenes de toda la pagina -->
-    <div class="row justify-content-between align-items-center">
-        <h1 class="col-auto" style="font-size: 24px; font-family: 'Century Gothic', sans-serif;">Asignación de Técnicos a Controles - Consorcio Express</h1>
-        <h1 class="col-auto" style="font-size: 14px; font-family: 'Century Gothic', sans-serif;">¡Hola, {{ user_session.nombres }} {{ user_session.apellidos }}!</h1>
-        <div class="col-auto d-flex align-items-center" style="cursor: pointer;"
-            data-bs-toggle="modal" data-bs-target="#modalReportes"
-            onclick="cargarDashboard()">
+<div id="toastContainer" style="position:fixed; right:22px; bottom:18px; z-index:3200; display:flex; flex-direction:column; gap:8px;"></div>
 
-            <span style="font-family: 'Century Gothic', sans-serif; font-size: 14px; margin-right: 6px;">Reporte</span>
-            <img src="/static/images/excel.png" alt="Reporte de Asignaciones"
-                style="height: 40px; width:40px;">
+
+<div class="asig-page">
+    <div class="asig-topbar">
+        <div class="asig-topbar__title-wrap">
+            <div class="asig-topbar__icon"><i class="bi bi-diagram-3-fill"></i></div>
+            <div class="min-w-0">
+                <div class="asig-topbar__title">Asignación de Técnicos a Controles</div>
+                <div class="asig-topbar__subtitle">Panel operativo para distribución, consulta y cargue masivo</div>
+            </div>
         </div>
 
-        <!-- Botón para abrir ventana flotante -->
-        <div class="col-auto">
-            <a href="{{ url_for('descargar_plantilla') }}" class="btn btn-dark">Plantilla de Cargue</a>
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click();">Cargue Planta y Controles</button>
-            <input type="file" id="fileInput" style="display: none;" onchange="cargarArchivo(this.files[0])">
+        <div class="asig-topbar__actions">
+            <span class="asig-user-chip"><i class="bi bi-person-circle"></i> {{ user_session.nombres }} {{ user_session.apellidos }}</span>
+            <a href="{{ url_for('descargar_plantilla') }}" class="btn asig-btn asig-btn-soft-dark asig-btn-compact">
+                <i class="bi bi-file-earmark-arrow-down"></i> Plantilla
+            </a>
+            <button type="button" class="btn asig-btn asig-btn-primary asig-btn-compact" onclick="document.getElementById('fileInput').click();">
+                <i class="bi bi-upload"></i> Cargue Excel
+            </button>
+            <input type="file" id="fileInput" style="display:none;" onchange="cargarArchivo(this.files[0])">
+            <button class="btn asig-btn asig-btn-report asig-btn-compact" data-bs-toggle="modal" data-bs-target="#modalReportes" onclick="cargarDashboard()">
+                <i class="bi bi-bar-chart-line-fill"></i> Reporte
+            </button>
         </div>
     </div>
-    
-<!-- Ventana flotante de previsualización del cargue masivo (Planta + Supervisores + Turnos + Controles) -->
-<div id="ventanaFlotante" class="ventana-flotante" style="display: none;">
-    <div class="card shadow">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Previsualización de Cargue</h5>
-        </div>
-        <div class="card-body">
-            <!-- Aquí se añaden los checkboxes para seleccionar qué hojas cargar -->
-            <div class="container mt-1">
-                <h5>Seleccione qué hojas desea cargar del archivo:</h5>
-                <form id="formSeleccionHojas" class="d-flex flex-wrap justify-content-center mt-2">
-                    <div class="form-check d-inline-block me-3">
-                        <input class="form-check-input" type="checkbox" value="tcz" id="checkTcz">
-                        <label class="form-check-label" for="checkTcz">Cargar Técnicos</label>
-                    </div>
-                    <div class="form-check d-inline-block me-3">
-                        <input class="form-check-input" type="checkbox" value="supervisores" id="checkSupervisores">
-                        <label class="form-check-label" for="checkSupervisores">Cargar Supervisores</label>
-                    </div>
-                    <div class="form-check d-inline-block me-3">
-                        <input class="form-check-input" type="checkbox" value="turnos" id="checkTurnos">
-                        <label class="form-check-label" for="checkTurnos">Cargar Turnos</label>
-                    </div>
-                    <div class="form-check d-inline-block me-3">
-                        <input class="form-check-input" type="checkbox" value="controles" id="checkControles">
-                        <label class="form-check-label" for="checkControles">Cargar Controles</label>
-                    </div>
-                </form>
+
+    <div id="ventanaFlotante" class="asig-modal-surface" style="display:none;">
+        <div class="asig-modal-card">
+            <div class="asig-modal-card__header">
+                <div>
+                    <div class="asig-section-title mb-0"><i class="bi bi-eye-fill"></i> Previsualización de cargue</div>
+                    <small class="text-muted">Revise la información y seleccione las hojas que desea persistir.</small>
+                </div>
+                <button type="button" class="btn-close" onclick="cancelarCargue()" aria-label="Cerrar"></button>
             </div>
-            {% if session and session.error_message %}
+            <div class="asig-modal-card__body">
+                <div class="asig-chip-grid mb-3">
+                    <label class="asig-check-chip">
+                        <input class="form-check-input" type="checkbox" value="tcz" id="checkTcz">
+                        <span><i class="bi bi-people-fill"></i> Cargar Técnicos</span>
+                    </label>
+                    <label class="asig-check-chip">
+                        <input class="form-check-input" type="checkbox" value="supervisores" id="checkSupervisores">
+                        <span><i class="bi bi-person-badge-fill"></i> Cargar Supervisores</span>
+                    </label>
+                    <label class="asig-check-chip">
+                        <input class="form-check-input" type="checkbox" value="turnos" id="checkTurnos">
+                        <span><i class="bi bi-clock-history"></i> Cargar Turnos</span>
+                    </label>
+                    <label class="asig-check-chip">
+                        <input class="form-check-input" type="checkbox" value="controles" id="checkControles">
+                        <span><i class="bi bi-list-task"></i> Cargar Controles</span>
+                    </label>
+                </div>
+
+                {% if session and session.error_message %}
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <strong>Error:</strong> {{ session.error_message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-            {% endif %}
-            <!-- Pestañas para visualizar diferentes datos -->
-            <ul class="nav nav-tabs" id="myTab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="tabPlanta-tab" data-bs-toggle="tab" data-bs-target="#tabPlanta" type="button" role="tab" aria-controls="tabPlanta" aria-selected="true">Técnicos</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tabSupervisores-tab" data-bs-toggle="tab" data-bs-target="#tabSupervisores" type="button" role="tab" aria-controls="tabSupervisores" aria-selected="false">Supervisores</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tabTurnos-tab" data-bs-toggle="tab" data-bs-target="#tabTurnos" type="button" role="tab" aria-controls="tabTurnos" aria-selected="false">Turnos</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tabControles-tab" data-bs-toggle="tab" data-bs-target="#tabControles" type="button" role="tab" aria-controls="tabControles" aria-selected="false">Controles</button>
-                </li>
-            </ul>
-            <!-- Pestaña Tabla de datos de planta -->
-            <div class="tab-content mt-4" id="myTabContent">
-                <div class="tab-pane fade show active" id="tabPlanta" role="tabpanel" aria-labelledby="tabPlanta-tab">
-                    <!-- <h4 class="text-center">Planta Activa de Técnicos Centro de Control</h4> -->
-                    <div class="table-responsive" style="max-height: 40vh; overflow-y: auto;">
-                        <table id="tablaPlantaData" class="table table-bordered table-striped table-sm">
-                            <thead>
-                                <tr>
-                                    <th style="width: 10%;">Cédula</th>
-                                    <th style="width: 80%;">Nombre</th>
-                                </tr>
-                            </thead>
-                            </tbody>
-                        </table>
+                {% endif %}
+
+                <ul class="nav nav-tabs asig-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation"><button class="nav-link active" id="tabPlanta-tab" data-bs-toggle="tab" data-bs-target="#tabPlanta" type="button" role="tab">Técnicos</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" id="tabSupervisores-tab" data-bs-toggle="tab" data-bs-target="#tabSupervisores" type="button" role="tab">Supervisores</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" id="tabTurnos-tab" data-bs-toggle="tab" data-bs-target="#tabTurnos" type="button" role="tab">Turnos</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" id="tabControles-tab" data-bs-toggle="tab" data-bs-target="#tabControles" type="button" role="tab">Controles</button></li>
+                </ul>
+
+                <div class="tab-content mt-3" id="myTabContent">
+                    <div class="tab-pane fade show active" id="tabPlanta" role="tabpanel" aria-labelledby="tabPlanta-tab">
+                        <div class="table-responsive asig-preview-table-wrap">
+                            <table id="tablaPreviewPlantaData" class="table table-bordered table-striped table-sm mb-0">
+                                <thead><tr><th style="width:18%;">Cédula</th><th>Nombre</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabSupervisores" role="tabpanel" aria-labelledby="tabSupervisores-tab">
+                        <div class="table-responsive asig-preview-table-wrap">
+                            <table id="tablaPreviewSupervisoresData" class="table table-bordered table-striped table-sm mb-0">
+                                <thead><tr><th style="width:18%;">Cédula</th><th>Nombre</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabTurnos" role="tabpanel" aria-labelledby="tabTurnos-tab">
+                        <div class="table-responsive asig-preview-table-wrap">
+                            <table id="tablaPreviewTurnosData" class="table table-bordered table-striped table-sm mb-0">
+                                <thead><tr><th>Turno</th><th>Hora Inicio</th><th>Hora Fin</th><th>Detalles</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabControles" role="tabpanel" aria-labelledby="tabControles-tab">
+                        <div class="table-responsive asig-preview-table-wrap">
+                            <table id="tablaPreviewControlesData" class="table table-bordered table-striped table-sm mb-0">
+                                <thead><tr><th>Concesión</th><th>Puestos</th><th>Control</th><th>Ruta</th><th>Línea</th><th>Admin</th><th>COP</th><th>Tablas</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Pestaña Tabla de datos de Supervisores -->
-                <div class="tab-pane fade" id="tabSupervisores" role="tabpanel" aria-labelledby="tabSupervisores-tab">
-                    <!-- <h4 class="text-center">Planta Activa de Superviosres Centro de Control</h4> -->
-                    <div class="table-responsive" style="max-height: 40vh; overflow-y: auto;">
-                        <table id="tablaSupervisoresData" class="table table-bordered table-striped table-sm">
-                            <thead>
-                                <tr>
-                                    <th style="width: 10%;">Cédula</th>
-                                    <th style="width: 80%;">Nombre</th>
-                                </tr>
-                            </thead>
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+                    <button id="btnGuardar" class="btn asig-btn asig-btn-primary" type="button" onclick="guardarCargue()"><i class="bi bi-cloud-arrow-up-fill"></i> Subir cargue</button>
+                    <button type="button" class="btn asig-btn asig-btn-soft" onclick="cancelarCargue()"><i class="bi bi-x-circle"></i> Cancelar</button>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <!-- Pestaña Tabla de datos de Turnos -->
-                <div class="tab-pane fade" id="tabTurnos" role="tabpanel" aria-labelledby="tabTurnos-tab">
-                    <!-- <h4 class="text-center">Turnos Centro de Control</h4> -->
-                    <div class="table-responsive" style="max-height: 40vh; overflow-y: auto;">
-                        <table id="tablaTurnosData" class="table table-bordered table-striped table-sm">
-                            <thead>
-                                <tr>
-                                    <th style="width: auto;">Turnos</th>
-                                    <th style="width: auto;">Hora Inicio</th>
-                                    <th style="width: auto;">Hora Fin</th>
-                                    <th style="width: 40%;">Detalles</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Aquí se insertarán los datos de Turnos -->
-                            </tbody>
-                        </table>
-                    </div>
+    <div class="asig-card asig-card--controls">
+        <div class="asig-card__header asig-card__header--split">
+            <div>
+                <div class="asig-section-title"><i class="bi bi-sliders2"></i> Parametrización inicial</div>
+                <div class="asig-section-subtitle">Configure fecha, puestos, supervisor y filtros antes de construir la grilla.</div>
+            </div>
+            <div class="asig-header-actions asig-header-actions--tight">
+                <button id="btnAyuda" class="btn asig-btn asig-btn-info" type="button" onclick="mostrarAyudaModal()">
+                    <i class="bi bi-search-heart"></i> Consultar asignaciones guardadas
+                </button>
+            </div>
+        </div>
+        <div class="asig-card__body">
+            <div class="row g-3 align-items-end">
+                <div class="col-xl-2 col-lg-3 col-md-6">
+                    <label for="fechaAsignacion" class="asig-label">Fecha</label>
+                    <input type="date" id="fechaAsignacion" class="form-control asig-control filter-select">
                 </div>
-                
-                <!-- Pestaña Tabla de datos de controles -->
-                <div class="tab-pane fade" id="tabControles" role="tabpanel" aria-labelledby="tabControles-tab">
-                    <!-- <h4 class="text-center">Parametrización de Controles</h4> -->
-                    <div class="table-responsive" style="max-height: 40vh; overflow-y: auto;">
-                        <table id="tablaControlesData" class="table table-bordered table-striped table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Concesión</th>
-                                    <th>Puestos</th>
-                                    <th>Control</th>
-                                    <th>Ruta</th>
-                                    <th>Linea</th>
-                                    <th>Admin</th>
-                                    <th>COP</th>
-                                    <th>Tablas</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Aquí se insertarán los datos de Controles -->
-                            </tbody>
-                        </table>
+                <div class="col-xl-2 col-lg-3 col-md-6">
+                    <label class="asig-label d-flex justify-content-between align-items-center" for="puestosSC">
+                        <span>Puestos SC</span>
+                        <span class="form-check form-switch m-0"><input type="checkbox" id="checkSC" class="form-check-input" onclick="togglePuestosSC()"></span>
+                    </label>
+                    <select id="puestosSC" class="form-control asig-control" disabled></select>
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-6">
+                    <label class="asig-label d-flex justify-content-between align-items-center" for="puestosUQ">
+                        <span>Puestos UQ</span>
+                        <span class="form-check form-switch m-0"><input type="checkbox" id="checkUQ" class="form-check-input" onclick="togglePuestosUQ()"></span>
+                    </label>
+                    <select id="puestosUQ" class="form-control asig-control" disabled></select>
+                </div>
+                <div class="col-xl-1 col-lg-3 col-md-6">
+                    <label for="adicionales" class="asig-label">Adicionales</label>
+                    <input type="text" id="adicionales" class="form-control asig-control" placeholder="0" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <label for="supervisor" class="asig-label">Supervisor enlace</label>
+                    <select id="supervisor" class="form-control asig-control"></select>
+                </div>
+                <div class="col-xl-2 col-lg-6 col-md-6">
+                    <label for="searchInput" class="asig-label">Buscar en grilla</label>
+                    <div class="asig-search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="searchInput" class="form-control asig-control" placeholder="Buscar cédula, nombre, turno..." oninput="filterTable()">
                     </div>
                 </div>
             </div>
-            <!-- Botones de acción de la ventana flotante -->
-            <div class="text-center mt-4">
-                <button id="btnGuardar" class="btn btn-primary" type="button" onclick="guardarCargue()">Subir Cargue</button>
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('ventanaFlotante').style.display='none'; location.reload();">Cancelar</button>
+
+        </div>
+    </div>
+
+    <div class="asig-layout-grid">
+        <div class="asig-card asig-side-card">
+            <div class="asig-card__header asig-card__header--compact">
+                <div>
+                    <div class="asig-section-title"><i class="bi bi-people-fill"></i> Planta de técnicos</div>
+                    <div class="asig-section-subtitle">Arrastre o Digite en la tabla de Asignación.</div>
+                </div>
+            </div>
+            <div class="asig-card__body asig-card__body--scroll">
+                <div class="table-responsive asig-table-panel">
+                    <table id="tablaPlantaData" class="table table-bordered table-striped table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:34%;">Cédula</th>
+                                <th>Nombre</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for persona in personal %}
+                            <tr>
+                                <td>{{ persona.cedula }}</td>
+                                <td>{{ persona.nombre }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="asig-card asig-main-card">
+            <div class="asig-card__header asig-card__header--compact">
+                <div>
+                    <div class="asig-section-title"><i class="bi bi-list-check"></i> Asignaciones de técnicos de control</div>
+                    <div class="asig-section-subtitle">Complete la grilla, valide solapamientos y guarde la distribución del turno.</div>
+                </div>
+
+            </div>
+            <div class="asig-card__body asig-card__body--scroll">
+                <div class="table-responsive asig-table-panel asig-table-panel--wide">
+                    <table id="tablaAsignacion" class="table table-bordered table-striped table-sm mb-0">
+                        <style>
+                            #tablaAsignacion {
+                                width: 100%;
+                                border-collapse: collapse;
+                                font-size: 10.5px;
+                                font-family: 'Arial', sans-serif;
+                                table-layout: fixed;
+                            }
+                            #tablaAsignacion th, #tablaAsignacion td {
+                                padding: 5px 6px;
+                                text-align: left;
+                                border: 1px solid #dbe3ef;
+                                vertical-align: middle;
+                                word-wrap: break-word;
+                            }
+                            #tablaAsignacion th {
+                                background: linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%);
+                                color: white;
+                                font-weight: bold;
+                                position: sticky;
+                                top: 0;
+                                z-index: 1;
+                            }
+                            #tablaAsignacion tbody tr { height: 10px; }
+                            #tablaAsignacion tbody tr:nth-child(even) { background-color: #f8fbff; }
+                            #tablaAsignacion tbody tr:hover { background-color: #eaf3ff; }
+                            .form-control { font-size: 10.5px; font-family: 'Arial', sans-serif; }
+                            #tablaAsignacion select.form-control { font-size: 10.5px; font-family: 'Arial', sans-serif; }
+                            .cedula-input, .nombre-input { font-size: 10.5px; height: 28px; padding: 3px 4px; }
+                            select.form-control { font-size: 10.5px; height: 28px; padding: 3px 4px; }
+                            .asig-user-chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid #dbeafe;border-radius:999px;background:#f8fbff;color:#1e3a8a;font-size:11.3px;font-weight:700;white-space:nowrap;}
+                            .asig-user-chip i{font-size:13px;}
+                            .asig-card__header--split{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+                            .asig-header-actions--tight{gap:8px;}
+                            .asig-main-actions-bottom{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:12px 0 2px;}
+                        </style>
+                        <thead>
+                            <tr>
+                                <th style="width: 3%;">ID</th>
+                                <th style="width: 8%;">Cédula</th>
+                                <th style="width: 16%;">Nombre</th>
+                                <th style="width: 6%;">Turno</th>
+                                <th style="width: 6%;">H.Inicio</th>
+                                <th style="width: 6%;">H.Fin</th>
+                                <th style="width: 9%;">Concesión</th>
+                                <th style="width: 9%;">Control</th>
+                                <th style="width: 13%;">Rutas Asociadas</th>
+                                <th style="width: 16%;">Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="asig-main-actions-bottom">
+                    <button id="btnNuevaAsignacion" class="btn asig-btn asig-btn-soft-dark" type="button" onclick="nuevaAsignacion()"><i class="bi bi-arrow-clockwise"></i> Nueva asignación</button>
+                    <button id="btnGuardarAsignacion" class="btn asig-btn asig-btn-primary" type="button" onclick="guardarAsignacion()"><i class="bi bi-save-fill"></i> Guardar asignación</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ############################################################################## -->
-<!-- SECCIÓN DE PARAMETRIZACIÓN DE ASIGNACIÓN DE CONTROLES -->
-<!-- Listas Desplegables de Parametrización Inicial (Fecha, Puestos, Adicionales, Supervisor Enlace, Buscador) -->
-<div class="border mt-2 p-2">
-    <div class="row">
-        <div class="col" style="margin-right: 1px;"> <!-- Ajustar el margen derecho -->
-            <label for="fechaAsignacion">Fecha</label>
-            <input type="date" id="fechaAsignacion" class="form-control filter-select" 
-                    style="height: 30px; padding: 5px; font-size: 12px; font-family: 'Century Gothic', sans-serif;">   
-        </div>
-        <!-- Grupo de checkbox y lista desplegable para SC -->
-        <div class="col checkbox-group">
-            <label for="checkSC">Puestos SC</label>
-            <input type="checkbox" id="checkSC" class="form-check-input" onclick="togglePuestosSC()">
-            <select id="puestosSC" class="form-control" disabled></select>
-        </div>
-        <!-- Grupo de checkbox y lista desplegable para UQ -->
-        <div class="col checkbox-group">
-            <label for="checkUQ">Puestos UQ</label>
-            <input type="checkbox" id="checkUQ" class="form-check-input" onclick="togglePuestosUQ()">
-            <select id="puestosUQ" class="form-control" disabled></select>
-        </div>
-        <!-- Campo para ingresar adicionales -->
-        <div class="col" style="margin-right: 1px;"> <!-- Ajustar el margen derecho -->
-            <label for="adicionales">Adicionales</label>
-            <input type="text" id="adicionales" class="form-control" placeholder="0" oninput="this.value = this.value.replace(/[^0-9]/g, '');" style="width: auto;"  />
-        </div>
-        <!-- Campo para ingresar Supervisor Enlace -->
-        <div class="col" style="margin-right: 1px;"> <!-- Ajustar el margen derecho -->
-            <label for="supervisores">Supervisor Enlace</label>
-            <select id="supervisor" class="form-control" style="width: 210px;"></select>
-        </div>
-        <!-- Caja de texto para buscar en la grilla -->
-        <div class="col">
-            <label for="searchInput">Buscar</label>
-            <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Buscar en Tabla..." oninput="filterTable()" style="display: inline-block; width: auto; margin-left: auto;">
-        </div>
-        <!-- Botón de Consultar Asignaciones -->
-        <div class="col"> 
-            <label for="searchInput">Asignaciones</label>
-            <button id="btnAyuda" class="btn btn-info form-control" type="button" onclick="mostrarAyudaModal()" style="margin-top: 3px; display: flex; gap: 3px; justify-content: center; width: 70%; color: rgb(0, 0, 0); font-weight: bold;">Consultar</button>
-        </div>
-        <!-- Modal para solicitar la fecha y concesión -->
-        <div class="modal fade" id="modalAyuda" tabindex="-1" aria-labelledby="modalAyudaLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalAyudaLabel">Obtener Asignación</h5>
-                        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <label for="fechaAyuda">Seleccione la fecha:</label>
-                        <input type="date" id="fechaAyuda" class="form-control" required>
-
-                        <label for="concesionAyuda" class="mt-3">Seleccione la concesión:</label>
-                        <select id="concesionAyuda" class="form-control" required>
-                            <option value="" disabled selected>Seleccionar Concesión...</option>
-                            <!-- Las concesiones serán cargadas dinámicamente desde la base de datos -->
-                        </select>
-                        <label for="fechaHoraAyuda" class="mt-3">Seleccione la última modificación</label>
-                        <select id="fechaHoraAyuda" class="form-control" required>
-                            <option value="" disabled selected>Seleccionar Fecha y Hora...</option>
-                            <!-- Las fechas y horas serán cargadas dinámicamente desde la base de datos -->
-                        </select>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-primary" onclick="obtenerAsignacionesAyuda()">Obtener Asignaciones</button>
-                    </div>
+<div class="modal fade" id="modalAyuda" tabindex="-1" aria-labelledby="modalAyudaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content asig-bootstrap-modal">
+            <div class="modal-header border-0">
+                <div>
+                    <h5 class="modal-title" id="modalAyudaLabel">Obtener asignación</h5>
+                    <small class="text-muted">Consulte una asignación guardada por fecha, concesión y última modificación.</small>
                 </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-        </div>
+            <div class="modal-body pt-0">
+                <label for="fechaAyuda" class="asig-label">Seleccione la fecha</label>
+                <input type="date" id="fechaAyuda" class="form-control asig-control" required>
 
-<!-- ############################################################################## -->
-<!-- SECCIÓN DE GRILLA DE ASIGNACIÓN DE CONTROLES -->
-<!-- Grilla de asignación -->
-<div class="container-fluid mt-auto mb-2" style="padding-left: 1px; padding-right: 1px;">
-    <div class="row">
-        <!-- Columna izquierda para la tabla de personal -->
-        <div class="col-lg-2 col-md-4 col-sm-12" style="padding-right: 0.5px;">
-            <h5 class="text-center" style="font-size: 16px;">Planta de Técnicos</h5>
-            <div class="table-responsive" style="max-height: 80vh; overflow-y: auto; border: 1px solid #a8a8a8; font-size: 12px;">
-                <table id="tablaPlantaData" class="table table-bordered table-striped table-sm">
-                    <thead>
-                        <tr>
-                            <th style="width: 5%;">Cédula</th>
-                            <th style="width: 50%;">Nombre</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Aquí se insertarán los datos de los técnicos -->
-                          <!-- Aquí se insertarán los datos de personal -->
-                        {% for persona in personal %}
-                        <tr>
-                            <td>{{ persona.cedula }}</td>
-                            <td>{{ persona.nombre }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <label for="concesionAyuda" class="asig-label mt-3">Seleccione la concesión</label>
+                <select id="concesionAyuda" class="form-control asig-control" required>
+                    <option value="" disabled selected>Seleccionar concesión...</option>
+                </select>
+
+                <label for="fechaHoraAyuda" class="asig-label mt-3">Seleccione la última modificación</label>
+                <select id="fechaHoraAyuda" class="form-control asig-control" required>
+                    <option value="" disabled selected>Seleccionar fecha y hora...</option>
+                </select>
             </div>
-        </div>
-
-        <!-- Sección Derecha: Asignación -->
-        <div class="col-lg-10 col-md-8 col-sm-12" style="padding-left: 2px;">
-            <h5 class="text-center" style="font-size: 16px;">Asignaciones de Técnicos de Control</h5>
-            <div class="table-responsive" style="max-height: 80vh; overflow-y: auto; border: 1px solid #a8a8a8; ">
-                <table id="tablaAsignacion" class="table table-bordered table-striped table-sm">
-                    <style>
-                        /* Estilos adicionales para la Grilla de asignación */
-                        #tablaAsignacion {
-                            width: 100%;
-                            border-collapse: collapse;
-                            font-size: 12px; /* tamaño fuente dentro de la grilla */
-                            font-family: 'Arial', sans-serif; /* Fuente para la grilla */
-                            table-layout: fixed; /* Fijar el tamaño de las columnas */
-                        }
-
-                        #tablaAsignacion th, #tablaAsignacion td {
-                            padding: 8px;
-                            text-align: left;
-                            border: 1px solid #d3d3d3;
-                            vertical-align: middle; /* Alinear el texto en el medio verticalmente */
-                            word-wrap: break-word; /* Ajuste automático del texto */
-                        }
-
-                        #tablaAsignacion th { /* Encabezados */
-                            background-color: #041053;
-                            color: white;
-                            font-weight: bold;
-                            position: sticky;
-                            top: 0; /* Mantiene el encabezado fijo en la parte superior */
-                            z-index: 1;
-                        }
-
-                        #tablaAsignacion tbody tr {
-                            height: 10px; /* Ajusta el alto de las filas */
-                        }
-
-                        #tablaAsignacion tbody tr:nth-child(even) {
-                            background-color: #fdfdff;
-                        }
-
-                        #tablaAsignacion tbody tr:hover {
-                            background-color: #d3d8f1;
-                        }
-
-                        /* Estilos adicionales para las listas desplegables */
-                        .form-control {
-                            font-size: 12px; /* tamaño fuente para las listas desplegables */
-                            font-family: 'Arial', sans-serif; /* Fuente para las listas desplegables */
-                        }
-
-                        /* Aplicar estilo específico a select dentro de la tabla */
-                        #tablaAsignacion select.form-control {
-                            font-size: 11px;
-                            font-family: 'Arial', sans-serif;
-                        }
-
-                       
-                        /* Reducir el tamaño del texto dentro de los inputs */
-                        .cedula-input, .nombre-input {
-                            font-size: 11px; /* Ajusta el tamaño de la fuente */
-                            height: 28px; /* Ajuste de la altura para inputs más compactos */
-                            padding: 4px; /* Ajuste del padding interno */
-                        }
-
-                        /* Reducir el tamaño del texto dentro de las listas desplegables */
-                        select.form-control {
-                            font-size: 12px; /* Ajusta el tamaño de la fuente */
-                            height: 28px; /* Ajuste de la altura para selects más compactos */
-                            padding: 4px; /* Ajuste del padding interno */
-                        }
-
-                    </style>
-                    <thead>
-                        <tr>
-                            <th style="width: 2.8%;">ID</th>
-                            <th style="width: 7.5%;">Cédula</th>
-                            <th style="width: 15%;">Nombre</th>
-                            <th style="width: 5%;">Turno</th>
-                            <th style="width: 5.5%;">H.Inicio</th>
-                            <th style="width: 5.3%;">H.Fin</th>
-                            <th style="width: 10%;">Concesión</th>
-                            <th style="width: 10%;">Control</th>
-                            <th style="width: 12%;">Rutas Asociadas</th>
-                            <th style="width: 14%;">Observaciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Aquí se insertarán los datos de asignación -->
-                    </tbody>
-                </table>
-            </div>
-            <!-- Botón para guardar y nueva asignación -->
-            <div class="text-center mt-2">
-                <button id="btnGuardarAsignacion" class="btn btn-primary" type="button" onclick="guardarAsignacion()">Guardar Asignación</button>
-                <button id="btnNuevaAsignacion" class="btn btn-dark" type="button" onclick="nuevaAsignacion()">Nueva Asignación</button>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn asig-btn asig-btn-soft" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnObtenerAsignacionesModal" class="btn asig-btn asig-btn-primary" onclick="obtenerAsignacionesAyuda()">Obtener asignaciones</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal para mostrar dashboard.html -->
 <div class="modal fade" id="modalReportes" tabindex="-1" aria-labelledby="modalReportesLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl" style="max-width: 98%;">
-      <div class="modal-content" style="height: 95vh;">
-        <div class="modal-header">
-          <h5 class="modal-title" id="modalReportesLabel">Reporte de Asignaciones</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    <div class="modal-dialog modal-xl" style="max-width:98%;">
+        <div class="modal-content asig-bootstrap-modal" style="height:95vh;">
+            <div class="modal-header border-0">
+                <div>
+                    <h5 class="modal-title" id="modalReportesLabel">Reporte de asignaciones</h5>
+                    <small class="text-muted">Visualización embebida del dashboard operativo.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0" id="contenidoDashboard" style="height:calc(100% - 56px); overflow-y:auto;">
+                <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted gap-2">
+                    <i class="bi bi-bar-chart-line-fill" style="font-size:2rem;"></i>
+                    <em>Cargando contenido del dashboard...</em>
+                </div>
+            </div>
         </div>
-        <div class="modal-body p-0" id="contenidoDashboard" style="height: calc(100% - 56px); overflow-y: auto;">
-          <!-- Aquí se cargará dashboard.html dinámicamente -->
-          <div class="text-center mt-5"><em>Cargando contenido del Dashboard...</em></div>
-        </div>
-      </div>
     </div>
-  </div>  
+</div>
 
 <!-- Estilos adicionales Ventana Flotante y Colorimetria de Grilla-->
 <style>
-    /* Estilo para encabezado fijo en la tabla */
+    @keyframes spinA { to { transform: rotate(360deg); } }
+    @keyframes slideInToast { from { opacity:0; transform: translateX(22px);} to { opacity:1; transform: translateX(0);} }
+
+    .asig-page {
+        padding: .55rem;
+        background: #f8fafc;
+        min-height: calc(100vh - 16px);
+        font-family: 'Century Gothic', Arial, sans-serif;
+        color: #1e293b;
+    }
+    .asig-topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:.75rem;
+    flex-wrap:wrap;
+    background:#fff;
+    border:1px solid #e2e8f0;
+    border-radius:10px;
+    padding:.65rem .8rem;
+    box-shadow:0 2px 10px rgba(15,23,42,.05);
+    margin-bottom:.45rem;
+}
+.asig-topbar__title-wrap{display:flex; align-items:center; gap:.65rem; min-width:0;}
+.asig-topbar__icon{
+    width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; font-size:1rem; flex-shrink:0;
+    box-shadow:0 6px 14px rgba(13,110,253,.22);
+}
+.asig-topbar__title{font-size:1rem; font-weight:700; color:#0f172a; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.asig-topbar__subtitle{font-size:.72rem; color:#64748b; margin-top:.1rem;}
+.asig-topbar__actions{display:flex; flex-wrap:wrap; gap:.45rem; align-items:center;}
+.asig-mini-strip{
+    display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.55rem;
+}
+.asig-mini-pill{
+    display:inline-flex; align-items:center; gap:.35rem; background:#f8fafc; border:1px solid #e2e8f0;
+    color:#475569; border-radius:999px; padding:.28rem .6rem; font-size:.72rem; font-weight:600;
+}
+    .asig-btn-compact{padding:.48rem .78rem; font-size:.76rem; border-radius:8px;}
+    .asig-badge{
+        display:inline-flex; align-items:center; gap:.4rem; background:rgba(255,255,255,.14);
+        border:1px solid rgba(255,255,255,.22); border-radius:999px; padding:.42rem .75rem; font-size:.76rem; font-weight:600;
+    }
+    .asig-toolbar{display:none;}
+    .asig-btn{
+        border:none; border-radius:8px; padding:.52rem .82rem; font-size:.72rem; font-weight:700;
+        display:inline-flex; align-items:center; gap:.48rem; box-shadow:0 4px 14px rgba(15,23,42,.08);
+    }
+    .asig-btn-primary{background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff;}
+    .asig-btn-primary:hover{color:#fff; transform:translateY(-1px);}
+    .asig-btn-dark{background:#0f172a; color:#fff;}
+    .asig-btn-dark:hover{color:#fff;}
+    .asig-btn-soft{background:#fff; color:#334155; border:1px solid #dbe3ef;}
+    .asig-btn-soft-dark{background:#f8fafc; color:#0f172a; border:1px solid #dbe3ef;}
+    .asig-btn-info{background:#e0f2fe; color:#075985; border:1px solid #bae6fd;}
+    .asig-btn-report{background:#fff; color:#0d6efd; border:1px solid #bfdbfe;}
+    .asig-card{
+        background:#fff; border-radius:10px; border:1px solid #e2e8f0; box-shadow:0 2px 10px rgba(15,23,42,.05);
+        overflow:hidden;
+    }
+    .asig-card__header{padding:.72rem .82rem .58rem .82rem; border-bottom:1px solid #eef2f7; background:#fbfdff;}
+    .asig-card__header--compact{display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem; flex-wrap:wrap;}
+    .asig-card__body{padding:.78rem;}
+    .asig-card__body--scroll{padding:.65rem;}
+    .asig-section-title{font-size:.86rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:.45rem;}
+    .asig-section-title i{color:#0d6efd;}
+    .asig-section-subtitle{font-size:.68rem; color:#64748b; margin-top:.22rem;}
+    .asig-label{font-size:.70rem; font-weight:700; color:#334155; margin-bottom:.35rem; display:block;}
+    .asig-control{
+        min-height:34px; border-radius:8px; border:1px solid #dbe3ef; font-size:.76rem;
+        box-shadow:none !important;
+    }
+    .asig-control:focus{border-color:#93c5fd; box-shadow:0 0 0 .2rem rgba(13,110,253,.10) !important;}
+    .asig-search-box{position:relative;}
+    .asig-search-box i{position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; z-index:2;}
+    .asig-search-box input{padding-left:36px;}
+    .asig-layout-grid{display:grid; grid-template-columns:300px minmax(0,1fr); gap:.55rem; align-items:stretch;}
+    .asig-side-card, .asig-main-card{min-height:calc(100vh - 212px);}
+    .asig-table-panel{border:1px solid #e2e8f0; border-radius:9px; overflow:auto; max-height:calc(100vh - 300px);}
+    .asig-table-panel--wide{max-height:calc(100vh - 274px);}
+    .asig-preview-table-wrap{max-height:52vh; overflow:auto; border:1px solid #e2e8f0; border-radius:9px;}
+    .asig-table-panel::-webkit-scrollbar, .asig-preview-table-wrap::-webkit-scrollbar { width:7px; height:7px; }
+    .asig-table-panel::-webkit-scrollbar-thumb, .asig-preview-table-wrap::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+    .asig-modal-surface{
+        position:fixed; inset:0; z-index:2900; background:rgba(15,23,42,.52); backdrop-filter:blur(4px);
+        padding:1rem; overflow:auto;
+    }
+    .asig-modal-card{
+        width:min(1120px, 96vw); margin:.9rem auto; background:#fff; border-radius:12px; overflow:hidden;
+        box-shadow:0 24px 60px rgba(15,23,42,.20); border:1px solid #e2e8f0;
+    }
+    .asig-modal-card__header{
+        display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;
+        padding:.58rem .7rem; background:linear-gradient(135deg,#f8fbff 0%,#eef6ff 100%); border-bottom:1px solid #e2e8f0;
+    }
+    .asig-modal-card__body{padding:.78rem .9rem .9rem;}
+    .asig-check-chip{
+        display:flex; align-items:center; gap:.55rem; background:#f8fafc; border:1px solid #dbe3ef; border-radius:12px;
+        padding:.52rem .72rem; font-size:.75rem; font-weight:600; color:#334155; cursor:pointer;
+    }
+    .asig-check-chip input{margin-top:0;}
+    .asig-chip-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:.65rem;}
+    .asig-tabs .nav-link{
+        border:none; border-bottom:2px solid transparent; color:#475569; font-weight:700; font-size:.82rem;
+        border-radius:0; padding:.58rem .7rem;
+    }
+    .asig-tabs .nav-link.active{color:#0d6efd; background:transparent; border-bottom-color:#0d6efd;}
+    .asig-header-actions{display:flex; gap:.55rem; flex-wrap:wrap;}
+    .asig-bootstrap-modal{border:none; border-radius:12px; overflow:hidden; box-shadow:0 24px 60px rgba(15,23,42,.20);}
+
     #tablaPlantaData thead th,
-    #tablaSupervisoresData thead th,
-    #tablaTurnosData thead th,
-    #tablaControlesData thead th {
-        background-color: #041053; /* Color de fondo del encabezado */
-        color: white; /* Color de la fuente del encabezado */
-        position: sticky;
-        top: 0;
-        z-index: 1;
+    #tablaPreviewPlantaData thead th,
+    #tablaPreviewSupervisoresData thead th,
+    #tablaPreviewTurnosData thead th,
+    #tablaPreviewControlesData thead th {
+        background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%);
+        color:#fff;
+        position:sticky;
+        top:0;
+        z-index:1;
+    }
+    #tablaPlantaData, #tablaPreviewPlantaData, #tablaPreviewSupervisoresData, #tablaPreviewTurnosData, #tablaPreviewControlesData {
+        margin-bottom:0;
+        font-size:.72rem;
+    }
+    #tablaPlantaData tbody tr:hover,
+    #tablaPreviewPlantaData tbody tr:hover,
+    #tablaPreviewSupervisoresData tbody tr:hover,
+    #tablaPreviewTurnosData tbody tr:hover,
+    #tablaPreviewControlesData tbody tr:hover { background:#f0f7ff; }
+
+    .ausencia { background-color: #f5d7ff !important; }
+    .descanso, .vacaciones { background-color: #ddf7e7 !important; }
+    .otras-tareas { background-color: #dbeafe !important; }
+
+    .asig-spinner{position:absolute; border-radius:50%; animation:spinA .85s linear infinite;}
+    .asig-spinner-lg{inset:0; border:4px solid #dbeafe; border-top-color:#0d6efd;}
+    .asig-spinner-sm{inset:10px; border:3px solid #dbeafe; border-bottom-color:#38bdf8; animation-direction:reverse; animation-duration:1.15s;}
+
+    @media (max-width: 1199px){
+        .asig-layout-grid{grid-template-columns:1fr;}
+        .asig-side-card, .asig-main-card{min-height:auto;}
+        .asig-table-panel, .asig-table-panel--wide{max-height:55vh;}
+    }
+    @media (max-width: 768px){
+        .asig-page{padding:.4rem;}
+        .asig-topbar{padding:.6rem;}
+        .asig-topbar__title{font-size:.92rem; white-space:normal;}
+        .asig-topbar__actions, .asig-header-actions{width:100%;}
+        .asig-btn{justify-content:center; width:100%;}
+        .asig-mini-strip{margin-bottom:.45rem;}
+        .asig-modal-card{width:100%; margin:.35rem auto;}
+    }
+</style>
+
+<script>
+    let currentAbortCtrl = null;
+
+    function showLoading(message = 'PROCESANDO...', subMessage = 'Por favor espere mientras se completa la operación') {
+        const msg = document.getElementById('loaderMsg');
+        const sub = document.getElementById('loaderSub');
+        if (msg) msg.textContent = message;
+        if (sub) sub.textContent = subMessage;
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.style.display = 'flex';
     }
 
-    /* Estilos para colorimetría de filas */
-    .ausencia {
-        background-color: #CAAFE0 !important; /* Rosa */
+    function hideLoading() {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.style.display = 'none';
+        currentAbortCtrl = null;
     }
-    
-    .descanso, .vacaciones {
-        background-color: #b7e9ca !important; /* Naranja claro */
+
+    function showToast(message, type = 'info') {
+        const palette = {
+            success: { color: '#198754', icon: 'bi-check-circle-fill' },
+            error: { color: '#dc3545', icon: 'bi-x-circle-fill' },
+            info: { color: '#0d6efd', icon: 'bi-info-circle-fill' }
+        };
+        const cfg = palette[type] || palette.info;
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid '+cfg.color+';border-radius:10px;padding:10px 13px;min-width:240px;max-width:340px;font-size:12px;color:#334155;box-shadow:0 10px 24px rgba(15,23,42,.12);animation:slideInToast .22s ease;font-family:Century Gothic,Arial,sans-serif;';
+        toast.innerHTML = '<i class="bi '+cfg.icon+'" style="color:'+cfg.color+';font-size:15px;"></i><span>'+message+'</span>';
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4200);
     }
-    
-    .otras-tareas {
-        background-color: #ADD8E6 !important; /* Azul claro */
-    }
-   
-</style>
+</script>
 
 <!-- Estilos necesarios para la grilla de gestión de asignaciones -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.4/dist/xlsx.full.min.js"></script>
@@ -442,6 +554,7 @@
         var formData = new FormData();
         formData.append('file', file);
 
+        showLoading('LEYENDO ARCHIVO...', 'Analizando la estructura del Excel cargado');
         fetch('/cargar_archivo/', {
             method: 'POST',
             body: formData,
@@ -451,14 +564,19 @@
             if (data.session_id) {
                 session_id = data.session_id;
                 mostrarPreliminar(data.preliminar);
-                document.getElementById('ventanaFlotante').style.display = 'block';  // Mostrar la ventana flotante
+                document.getElementById('ventanaFlotante').style.display = 'block';
+                showToast('Archivo procesado correctamente. Revise la previsualización.', 'success');
             } else {
                 mostrarError(data.detail);  // Mostrar detalle de error
             }
         })
         .catch(error => {
             console.error('Error al cargar el archivo:', error);
-            mostrarError('Error al cargar el archivo. Por favor, inténtelo de nuevo más tarde.');  // Manejar errores de red u otros
+            showToast('No fue posible procesar el archivo.', 'error');
+            mostrarError('Error al cargar el archivo. Por favor, inténtelo de nuevo más tarde.');
+        })
+        .finally(() => {
+            hideLoading();
         });
     }
 
@@ -475,7 +593,7 @@
             return a.nombre.localeCompare(b.nombre);
         });
 
-        var tablaPlanta = document.getElementById('tablaPlantaData');
+        var tablaPlanta = document.getElementById('tablaPreviewPlantaData');
         tablaPlanta.innerHTML = '';  // Limpiar tabla antes de insertar nuevos datos
 
         // Insertar encabezados de la tabla
@@ -495,7 +613,7 @@
             return a.nombre.localeCompare(b.nombre);
         });
 
-        var tablaSupervisores = document.getElementById('tablaSupervisoresData');
+        var tablaSupervisores = document.getElementById('tablaPreviewSupervisoresData');
         tablaSupervisores.innerHTML = '';  // Limpiar tabla antes de insertar nuevos datos
 
         // Insertar encabezados de la tabla
@@ -510,7 +628,7 @@
         });
 
         //TURNOS
-        var tablaTurnos = document.getElementById('tablaTurnosData');
+        var tablaTurnos = document.getElementById('tablaPreviewTurnosData');
         tablaTurnos.innerHTML = '';  // Limpiar tabla antes de insertar nuevos datos
 
         // Insertar encabezados de la tabla
@@ -525,7 +643,7 @@
         });       
         
         //CONTROLES
-        var tablaControles = document.getElementById('tablaControlesData');
+        var tablaControles = document.getElementById('tablaPreviewControlesData');
         tablaControles.innerHTML = '';  // Limpiar tabla antes de insertar nuevos datos
 
         // Insertar encabezados de la tabla
@@ -548,6 +666,7 @@
         alertDiv.innerHTML = `<strong>Error:</strong> ${message}
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
         document.body.appendChild(alertDiv);
+        showToast(message, 'error');
     }
 
     function guardarCargue() {
@@ -569,7 +688,7 @@
     
         if (confirm('¿Está seguro de cargar los datos?')) {
             // Mostrar el overlay de cargando antes de iniciar el proceso de carga
-            document.getElementById('loading-overlay').style.display = 'flex';
+            showLoading('CARGANDO DATOS...', 'Estamos guardando el cargue seleccionado');
     
             // Preparar el payload con las hojas seleccionadas
             const hojasSeleccionadas = {
@@ -595,6 +714,7 @@
             })
             .then(data => {
                 alert(data.message);
+                showToast(data.message, 'success');
                 document.getElementById('ventanaFlotante').style.display = 'none';
                 location.reload(); // Recargar la página después de guardar exitosamente
             })
@@ -604,13 +724,14 @@
             })
             .finally(() => {
                 // Ocultar el overlay de cargando después de que termine el proceso (exitoso o con error)
-                document.getElementById('loading-overlay').style.display = 'none';
+                hideLoading();
             });
         }
     }    
 
     function cancelarCargue() {
         document.getElementById('ventanaFlotante').style.display = 'none';
+        showToast('Previsualización cancelada.', 'info');
         location.reload();
     }
 
@@ -618,17 +739,18 @@
 
 <!-- GIF BLOQUEO PARA EL CARGUE MASIVO DE PARAMETRIZACIÓN (Planta + Supervisores + Turnos + Controles) -->
 <script>
-    document.querySelector('#form-cargar-archivo').addEventListener('submit', function(e) {
+    const formCargaArchivo = document.querySelector('#form-cargar-archivo');
+    if (formCargaArchivo) formCargaArchivo.addEventListener('submit', function(e) {
       // Evitar el comportamiento predeterminado del formulario
-      e.preventDefault();
-      
+        e.preventDefault();
+    
       // Mostrar el overlay de cargando
-      document.getElementById('loading-overlay').style.display = 'flex';
-      
+    showLoading('CARGANDO DATOS...', 'Estamos guardando el cargue seleccionado');
+    
       // Simular el envío del formulario para que se complete el proceso
       this.submit();  // Luego de mostrar el gif, el formulario se envía
     });
-  </script> 
+</script> 
 
 <!-- FUNCIONES PARA MANEJAR LA HABILITACIÓN Y DESHABILITACIÓN DE LOS PUESTOS SC Y/O UQ" -->
 <script>
@@ -715,11 +837,16 @@
     }
 
     function recalcularYActualizarFilas() {
+        if (window.isRestoringAsignaciones) {
+            return;
+        }
+
         const puestosSC = parseInt($("#puestosSC").val()) || 0;
         const puestosUQ = parseInt($("#puestosUQ").val()) || 0;
         const totalPuestos = puestosSC + puestosUQ;
     
         actualizarFilasAsignacion(totalPuestos);
+        actualizarNumeracionFilas();
         recalcularRutasAsociadas(); // Recalcular rutas asociadas dinámicamente
     }
 
@@ -729,8 +856,9 @@
 <script>
     // Función para Limpiar grilla y crear nueva asignación -->
     function nuevaAsignacion() {
-        document.getElementById('btnNuevaAsignacion').disabled = true; // Deshabilitar el botón mientras se actualiza la grilla
-        location.reload(); // Recargar la página para reinicializar todo
+        document.getElementById('btnNuevaAsignacion').disabled = true;
+        showLoading('REINICIANDO...', 'Estamos preparando una nueva asignación');
+        location.reload();
     }
 
     // Función para realizar el filtro de busqueda en la grilla -->
@@ -1085,7 +1213,7 @@
 
             if (concesion && puestos && control) {
                 $.get("/api/rutas", { concesion: concesion, puestos: puestos, control: control }, function(data) {
-                    console.log("Rutas obtenidas:", data.rutas); // Añadir este log para verificar las rutas obtenidas
+                    //console.log("Rutas obtenidas:", data.rutas); // Añadir este log para verificar las rutas obtenidas
                     rutasAsociadasCell.text(data.rutas);
                 });
             } else {
@@ -1695,6 +1823,7 @@
         if (valid) {
             // Deshabilitar el botón de guardar para evitar múltiples clics
             document.getElementById('btnGuardarAsignacion').disabled = true;
+            showLoading('GUARDANDO ASIGNACIÓN...', 'Validando y registrando la grilla operativa');
 
             fetch('/api/guardar_asignaciones', {
                 method: 'POST',
@@ -1707,17 +1836,21 @@
             .then(data => {
                 if (data.message) {
                     alert(data.message);
+                    showToast(data.message, 'success');
                 } else if (data.error) {
                     alert(`Error: ${data.error}`);
+                    showToast(data.error, 'error');
                 }
             })
             .catch(error => {
                 alert("Error al guardar las asignaciones. Intente de nuevo.");
+                showToast('Error al guardar las asignaciones.', 'error');
                 console.error("Error al guardar las asignaciones:", error);
             })
             .finally(() => {
                 // Rehabilitar el botón de guardar después de completar la operación
                 document.getElementById('btnGuardarAsignacion').disabled = false;
+                hideLoading();
             });
         }
     }
@@ -1727,333 +1860,373 @@
 <!-- FUNCIONES DE LA VENTANA MODAL AL EJECUTAR EL BOTON "CONSULTAR ASIGNACIONES" -->
 <script>
 
+    let modalConsultaCache = {};
+    window.isRestoringAsignaciones = false;
+
+    function actualizarNumeracionFilas() {
+        $('#tablaAsignacion tbody tr').each(function(index) {
+            $(this).children('td').first().text(index + 1);
+        });
+    }
+
     function mostrarAyudaModal() {
-        $// Restablecer el modal en blanco
+        modalConsultaCache = {};
         document.getElementById('fechaAyuda').value = '';
         document.getElementById('concesionAyuda').innerHTML = '<option value="" disabled selected>Seleccionar Concesión...</option>';
         document.getElementById('fechaHoraAyuda').innerHTML = '<option value="" disabled selected>Seleccionar Fecha y Hora...</option>';
         $('#modalAyuda').modal('show');
     }
 
-    document.getElementById('fechaAyuda').addEventListener('change', function() { 
-        var fecha = this.value;
-        
-        if (fecha) {
-            fetch('/api/obtener_concesiones_por_fecha', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ fecha: fecha })
-            })
-            .then(response => {
-                if (response.status === 404) {
-                    throw new Error('No se encontraron asignaciones para la fecha seleccionada.');
-                }
-                return response.json();
-            })
-            .then(concesiones => {
-                var concesionSelect = document.getElementById('concesionAyuda');
-                concesionSelect.innerHTML = '<option value="" disabled selected>Seleccionar Concesión...</option>';
-        
-                concesiones.forEach(concesion => {
-                    var option = document.createElement('option');
-                    option.value = concesion;
-                    option.textContent = concesion;
-                    concesionSelect.appendChild(option);
-                });
-            })
-            .catch(error => alert(error.message));
-        } else {
-            alert('Por favor seleccione una fecha válida.');
-        }
-    });
-    
-    document.getElementById('concesionAyuda').addEventListener('change', function() { 
-        var fecha = document.getElementById('fechaAyuda').value;
-        var concesion = this.value;
-    
-        if (fecha && concesion) {
-            fetch('/api/obtener_fechas_horas_registro', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ fecha: fecha, concesion: concesion })
-            })
-            .then(response => {
-                if (response.status === 404) {
-                    throw new Error('No se encontraron registros para la fecha y concesión seleccionada.');
-                }
-                return response.json();
-            })
-            .then(data => {
-                var fechaHoraSelect = document.getElementById('fechaHoraAyuda');
-                fechaHoraSelect.innerHTML = '<option value="" disabled selected>Seleccionar Fecha y Hora...</option>';
-                
-                data.fechas_horas.forEach(fechaHora => {
-                    var option = document.createElement('option');
-                    option.value = fechaHora;
-                    option.textContent = fechaHora;
-                    fechaHoraSelect.appendChild(option);
-                });
-            })
-            .catch(error => alert(error.message));
-        } else {
-            alert('Por favor seleccione una concesión válida.');
-        }
-    }); 
-    
-    function obtenerAsignacionesAyuda() { 
-        // Limpiar la tabla de asignación completamente
-        const $tablaAsignacion = $('#tablaAsignacion tbody');
-        
-        if ($tablaAsignacion.children('tr').length > 0) {
-            if (!confirm("Se realizará un cargue de asignación, perderá los registros en la tabla de asignación. ¿Desea continuar?")) {
-                return;  // Si el usuario cancela, no continúa
-            } else {
-                $tablaAsignacion.empty();
-                console.log("Tabla limpiada, cantidad de filas ahora: ", $tablaAsignacion.children('tr').length);
-            }
-        }
-    
-        var fecha = document.getElementById('fechaAyuda').value;
-        var concesion = document.getElementById('concesionAyuda').value;
-        var fechaHoraRegistro = document.getElementById('fechaHoraAyuda').value;
-        
-        if (fecha && concesion && fechaHoraRegistro) {
-            fetch('/api/obtener_asignaciones_ayuda', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ fecha: fecha, concesion: concesion, fecha_hora_registro: fechaHoraRegistro })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    alert(data.message);
-                } else {
-                    console.log('Datos recibidos:', data.asignaciones);
-                    window.asignacionesConsultadas = data.asignaciones;
-                    procesarAsignaciones(data.asignaciones);
-                }
-            })
-            .catch(error => alert('Error al obtener asignaciones: ' + error.message));
-        } else {
-            alert('Por favor seleccione todos los campos para cargar asignaciones.');
-        }
+    function poblarConcesionesModal(data) {
+        modalConsultaCache = data || {};
+        const concesionSelect = document.getElementById('concesionAyuda');
+        const fechaHoraSelect = document.getElementById('fechaHoraAyuda');
+
+        concesionSelect.innerHTML = '<option value="" disabled selected>Seleccionar Concesión...</option>';
+        fechaHoraSelect.innerHTML = '<option value="" disabled selected>Seleccionar Fecha y Hora...</option>';
+
+        Object.keys(modalConsultaCache).forEach(concesion => {
+            const option = document.createElement('option');
+            option.value = concesion;
+            option.textContent = concesion;
+            concesionSelect.appendChild(option);
+        });
     }
-    
-    async function procesarAsignaciones(asignaciones) {
-        const $tablaAsignacion = $("#tablaAsignacion tbody");
-        $tablaAsignacion.empty();
-        console.log("Tabla limpiada, cantidad de filas ahora: ", $tablaAsignacion.children('tr').length);
-    
-        let puestosSC = 0;
-        let puestosUQ = 0;
-    
-        // Verificar que las asignaciones sean un array
-        if (!Array.isArray(asignaciones)) {
-            console.error('Error: asignaciones no es un array');
+
+    function poblarFechasHoraModal(concesion) {
+        const fechaHoraSelect = document.getElementById('fechaHoraAyuda');
+        fechaHoraSelect.innerHTML = '<option value="" disabled selected>Seleccionar Fecha y Hora...</option>';
+
+        const fechas = modalConsultaCache[concesion] || [];
+        fechas.forEach(fechaHora => {
+            const option = document.createElement('option');
+            option.value = fechaHora;
+            option.textContent = fechaHora;
+            fechaHoraSelect.appendChild(option);
+        });
+    }
+
+    document.getElementById('fechaAyuda').addEventListener('change', function() {
+        const fecha = this.value;
+
+        if (!fecha) {
+            alert('Por favor seleccione una fecha válida.');
             return;
         }
-    
-        // Filtrar asignaciones para obtener valores únicos por cédula y campos asociados
-        let asignacionesFiltradas = asignaciones.reduce((acc, asignacion) => {
-            const llaveUnica = asignacion.cedula + asignacion.nombre + asignacion.turno + asignacion.concesion + asignacion.control;
-            if (!acc.has(llaveUnica)) {
-                acc.set(llaveUnica, asignacion);
+
+        showLoading('CONSULTANDO...', 'Buscando concesiones y versiones guardadas');
+        fetch('/api/consulta_modal', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fecha: fecha })
+        })
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || data.detail || 'No se encontraron asignaciones para la fecha seleccionada.');
             }
-            return acc;
-        }, new Map());
-    
-        // Convertir el Map a un Array de asignaciones únicas
-        asignacionesFiltradas = Array.from(asignacionesFiltradas.values());
-    
-        // Procesar asignaciones para obtener los valores de puestosSC o puestosUQ
-        asignaciones.forEach(asignacion => {
-            if (asignacion.concesion === 'SAN CRISTÓBAL' && asignacion.puestosSC) {
-                puestosSC = asignacion.puestosSC;
-            } else if (asignacion.concesion === 'USAQUÉN' && asignacion.puestosUQ) {
-                puestosUQ = asignacion.puestosUQ;
-            }
+            return data;
+        })
+        .then(data => {
+            poblarConcesionesModal(data);
+        })
+        .catch(error => {
+            poblarConcesionesModal({});
+            alert(error.message);
+            showToast(error.message, 'error');
+        })
+        .finally(() => {
+            hideLoading();
         });
-    
-        // Esperar hasta que el select esté habilitado
-        async function esperarSelectListo(selector) {
-            return new Promise(resolve => {
-                const interval = setInterval(() => {
-                    if (!$(selector).prop('disabled') && $(selector).children().length > 1) { // Asegurarse de que haya opciones
-                        clearInterval(interval);
-                        resolve();
-                    }
-                }, 400); // Verificar cada 400ms si el select está habilitado
-            });
-        }
-    
-        // Asignar el valor único en los select correspondientes de manera asíncrona
-        if (puestosSC > 0) {
-            $('#checkSC').prop('checked', true); // Habilitar el checkbox
-            togglePuestosSC(true, puestosSC);  // Cargar la lista dinámicamente y asignar el valor
-            
-            // Esperar hasta que el select de puestosSC esté habilitado
-            await esperarSelectListo('#puestosSC');
-            console.log(`Valor de puestos SC asignado: ${puestosSC}`);
-        }
-        
-        if (puestosUQ > 0) {
-            $('#checkUQ').prop('checked', true); // Habilitar el checkbox
-            togglePuestosUQ(true, puestosUQ);  // Cargar la lista dinámicamente y asignar el valor
-            
-            // Esperar hasta que el select de puestosUQ esté habilitado
-            await esperarSelectListo('#puestosUQ');
-            console.log(`Valor de puestos UQ asignado: ${puestosUQ}`);
-        }
-    
-        // Función para agregar una fila y asignar valores a esa fila de manera asíncrona
-        async function agregarFilaConValores(asignacion, index) {
-            agregarFilaAsignacion(index + 1);  // Crear la fila
-            let nuevaFila = $tablaAsignacion.children('tr').eq(index); // Obtener la fila por índice
-    
-            // Asignar los valores únicos a cada campo de la fila
-            nuevaFila.find('.cedula-input').val(asignacion.cedula); // Insertar cédula
-            nuevaFila.find('.nombre-input').val(asignacion.nombre); // Insertar nombre
-    
-            // Asignar el turno de manera asíncrona
-            await esperarSelectListo(nuevaFila.find('.turno-select'));  // Esperar hasta que el select de turno esté listo
-            // Insertar turno
-            if (asignacion.turno) {
-                nuevaFila.find('.turno-select').val(asignacion.turno);
-            } else {
-                console.error('Turno no disponible para la asignación', asignacion);
-            }
-            
-             // Asignar la concesión de manera asíncrona
-            await esperarSelectListo(nuevaFila.find('.concesion-select')); // Esperar hasta que el select de concesión esté listo
-            // Insertar concesión
-            if (asignacion.concesion) {
-                nuevaFila.find('.concesion-select').val(asignacion.concesion);
-            } else {
-                console.error('Concesión no disponible para la asignación', asignacion);
-            }
-            
-            // Aplicar reglas de negocio si la concesión es "NO APLICA"
-            if (asignacion.concesion === "NO APLICA") {
-                nuevaFila.find('.turno-select').trigger('change'); // Aplicar reglas de negocio
-            }
-    
-            // Asignar el control y recalcular las rutas asociadas de manera asíncrona
-            let concesion = nuevaFila.find('.concesion-select').val();
-            let puestos = (concesion === 'SAN CRISTÓBAL') ? puestosSC : puestosUQ;
-    
-            if (concesion && puestos) {
-                const data = await $.get("/api/control", { concesion: concesion, puestos: puestos });
-                let controlSelect = nuevaFila.find('.control-select');
-                controlSelect.empty();
-                controlSelect.append('<option value="">Seleccionar...</option>'); // Opción predeterminada vacía
-    
-                data.forEach(function(control) {
-                    controlSelect.append(new Option(control, control));
-                });
-    
-                // Asignar el valor de control
-                controlSelect.val(asignacion.control);
-                recalcularRutaAsociada(nuevaFila, asignacion); // Recalcular rutas asociadas
-            }
-            // Asignar las horas exactas desde la base de datos
-            nuevaFila.find('.hora-inicio').text(asignacion.h_inicio); // Insertar hora de inicio
-            nuevaFila.find('.hora-fin').text(asignacion.h_fin); // Insertar hora de fin
-            nuevaFila.find('.observaciones-input').val(asignacion.observaciones); // Insertar observaciones
-    
+    });
+
+    document.getElementById('concesionAyuda').addEventListener('change', function() {
+        const fecha = document.getElementById('fechaAyuda').value;
+        const concesion = this.value;
+
+        if (!fecha || !concesion) {
+            alert('Por favor seleccione una concesión válida.');
+            return;
         }
 
-        // Recalcular las rutas asociadas
-        function recalcularRutaAsociada(fila, asignacion) {
-            let concesion = fila.find('.concesion-select').val();
-            let control = fila.find('.control-select').val();
-            let puestos = (concesion === 'SAN CRISTÓBAL') ? puestosSC : puestosUQ;
-            let rutasAsociadasCell = fila.find('.rutas-asociadas');
+        poblarFechasHoraModal(concesion);
+    });
+
     
-            if (concesion && puestos && control) {
-                $.get("/api/rutas", { concesion: concesion, puestos: puestos, control: control }, function(data) {
-                    rutasAsociadasCell.text(data.rutas); // Actualizar rutas asociadas
-                });
-            } else {
-                rutasAsociadasCell.text('Por asignar');
-            }
-        }
-    
-        // Crear filas para cada asignación y asignar los valores de manera asíncrona
-        for (let index = 0; index < asignacionesFiltradas.length; index++) {
-            await agregarFilaConValores(asignacionesFiltradas[index], index); // Agregar la fila y asignar valores
-        }
-    
-        console.log("Asignaciones procesadas, cantidad de filas ahora: ", $tablaAsignacion.children('tr').length);
-    
-        // Aplicar colorimetría después de actualizar las filas
-        actualizarColorimetriaPlanta();
-    
-        // *** Preguntar si se desea generar el PDF antes de cerrar el modal ***
-        if (confirm("¿Deseas descargar el informe de asignaciones en PDF?")) {
-            generarPDF();  // Llama a generarPDF solo si el usuario selecciona "Sí"
-        }
-    
-        // Cerrar la ventana modal
-        $('#modalAyuda').modal('hide');
+    async function waitForSelectOptions($select, minOptions = 2, timeoutMs = 10000) {
+        const start = Date.now();
+        return new Promise((resolve, reject) => {
+            const timer = setInterval(() => {
+                const ready = $select.length && !$select.prop('disabled') && $select.find('option').length >= minOptions;
+                if (ready) {
+                    clearInterval(timer);
+                    resolve(true);
+                } else if ((Date.now() - start) >= timeoutMs) {
+                    clearInterval(timer);
+                    reject(new Error('Tiempo de espera agotado cargando opciones del selector.'));
+                }
+            }, 120);
+        });
     }
-    
-    function generarPDF() {
-        // Definir las variables para fecha y hora desde el DOM
-        let fechaAsignacion = document.getElementById('fechaAyuda').value;
-        let fechaHoraRegistro = document.getElementById('fechaHoraAyuda').value;
-        // Verificación de la variable 'asignaciones'
-        let asignaciones = window.asignacionesConsultadas;
-    
-        //console.log('Asignaciones para el PDF:', asignaciones);
-        
+
+    async function setRowFromAsignacion($row, asignacion, puestosSC, puestosUQ) {
+        $row.find('.cedula-input').val(asignacion.cedula || '');
+        $row.find('.nombre-input').val((asignacion.nombre || '').toUpperCase());
+        $row.find('.observaciones-input').val(asignacion.observaciones || '');
+
+        const $turno = $row.find('.turno-select');
+        const $concesion = $row.find('.concesion-select');
+        const $control = $row.find('.control-select');
+        const $rutas = $row.find('.rutas-asociadas');
+
+        await waitForSelectOptions($turno, 2).catch(() => {});
+        if (asignacion.turno) {
+            $turno.val(asignacion.turno).trigger('change');
+            await new Promise(resolve => setTimeout(resolve, 220));
+        }
+
+        $row.find('.hora-inicio').text((asignacion.h_inicio || '').toString().substring(0,5) || 'Por asignar');
+        $row.find('.hora-fin').text((asignacion.h_fin || '').toString().substring(0,5) || 'Por asignar');
+
+        const turnosNoAplica = ['AUSENCIA', 'DESCANSO', 'VACACIONES', 'OTRAS TAREAS'];
+        if (turnosNoAplica.includes(asignacion.turno)) {
+            $concesion.val('');
+            $control.html('<option value="">Seleccionar...</option>').val('');
+            $rutas.text(asignacion.ruta || 'NO APLICA');
+            return;
+        }
+
+        await waitForSelectOptions($concesion, 2).catch(() => {});
+        if (asignacion.concesion) {
+            $concesion.val(asignacion.concesion).trigger('change');
+            await new Promise(resolve => setTimeout(resolve, 320));
+        }
+
+        if (asignacion.control) {
+            await waitForSelectOptions($control, 2).catch(() => {});
+            $control.val(asignacion.control).trigger('change');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 280));
+        $rutas.text(asignacion.ruta || 'Por asignar');
+    }
+    async function procesarAsignaciones(asignaciones, meta = {}) {
+        const $tablaAsignacion = $('#tablaAsignacion tbody');
+        $tablaAsignacion.empty();
+
+        if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
+            showToast('No se encontraron asignaciones para procesar.', 'info');
+            return;
+        }
+
+        const mapaAgrupado = new Map();
+        asignaciones.forEach(a => {
+            const key = [
+                a.cedula || '',
+                a.nombre || '',
+                a.turno || '',
+                a.h_inicio || '',
+                a.h_fin || '',
+                a.concesion || '',
+                a.control || '',
+                a.observaciones || ''
+            ].join('|');
+
+            if (!mapaAgrupado.has(key)) {
+                mapaAgrupado.set(key, {
+                    ...a,
+                    _rutasSet: new Set()
+                });
+            }
+
+            const item = mapaAgrupado.get(key);
+            const rutasTexto = (a.ruta || '').toString();
+            rutasTexto.split(',').map(v => v.trim()).filter(Boolean).forEach(r => item._rutasSet.add(r));
+
+            if ((!item.puestosSC || item.puestosSC === '0') && a.puestosSC) item.puestosSC = a.puestosSC;
+            if ((!item.puestosUQ || item.puestosUQ === '0') && a.puestosUQ) item.puestosUQ = a.puestosUQ;
+            if (!item.cedula_enlace && a.cedula_enlace) item.cedula_enlace = a.cedula_enlace;
+            if (!item.nombre_supervisor_enlace && a.nombre_supervisor_enlace) item.nombre_supervisor_enlace = a.nombre_supervisor_enlace;
+        });
+
+        const asignacionesFiltradas = Array.from(mapaAgrupado.values()).map(item => {
+            item.ruta = Array.from(item._rutasSet).join(', ');
+            delete item._rutasSet;
+            return item;
+        });
+
+        let puestosSC = parseInt(meta.puestosSC, 10) || 0;
+        let puestosUQ = parseInt(meta.puestosUQ, 10) || 0;
+
+        if (!puestosSC || !puestosUQ) {
+            asignacionesFiltradas.forEach(asignacion => {
+                if (!puestosSC && asignacion.concesion === 'SAN CRISTÓBAL' && asignacion.puestosSC) {
+                    puestosSC = parseInt(asignacion.puestosSC, 10) || puestosSC;
+                }
+                if (!puestosUQ && asignacion.concesion === 'USAQUÉN' && asignacion.puestosUQ) {
+                    puestosUQ = parseInt(asignacion.puestosUQ, 10) || puestosUQ;
+                }
+            });
+        }
+
+        window.isRestoringAsignaciones = true;
+
+        try {
+            if (puestosSC > 0) {
+                $('#checkSC').prop('checked', true);
+                togglePuestosSC(true, puestosSC);
+                await waitForSelectOptions($('#puestosSC'), 2).catch(() => {});
+                $('#puestosSC').val(String(puestosSC));
+            } else {
+                $('#checkSC').prop('checked', false);
+                $('#puestosSC').prop('disabled', true).html('<option value="">Seleccionar...</option>');
+            }
+
+            if (puestosUQ > 0) {
+                $('#checkUQ').prop('checked', true);
+                togglePuestosUQ(true, puestosUQ);
+                await waitForSelectOptions($('#puestosUQ'), 2).catch(() => {});
+                $('#puestosUQ').val(String(puestosUQ));
+            } else {
+                $('#checkUQ').prop('checked', false);
+                $('#puestosUQ').prop('disabled', true).html('<option value="">Seleccionar...</option>');
+            }
+
+            const supervisorCedula = meta.cedula_enlace || asignacionesFiltradas[0]?.cedula_enlace || '';
+            if (supervisorCedula) {
+                $('#supervisor').val(String(supervisorCedula));
+            }
+
+            $tablaAsignacion.empty();
+
+            for (let index = 0; index < asignacionesFiltradas.length; index++) {
+                agregarFilaAsignacion(index + 1);
+                const $row = $tablaAsignacion.find('tr').last();
+                await setRowFromAsignacion($row, asignacionesFiltradas[index], puestosSC, puestosUQ);
+            }
+
+            actualizarNumeracionFilas();
+            recalcularRutasAsociadas();
+            actualizarColorimetriaPlanta();
+
+            if (confirm('¿Deseas descargar el informe de asignaciones en PDF?')) {
+                generarPDF();
+            }
+
+            $('#modalAyuda').modal('hide');
+            showToast('Asignaciones consultadas correctamente.', 'success');
+        } finally {
+            window.isRestoringAsignaciones = false;
+        }
+    }
+
+    function obtenerAsignacionesAyuda() {
+        const $tablaAsignacion = $('#tablaAsignacion tbody');
+
+        if ($tablaAsignacion.children('tr').length > 0) {
+            if (!confirm('Se realizará un cargue de asignación, perderá los registros en la tabla de asignación. ¿Desea continuar?')) {
+                return;
+            }
+            $tablaAsignacion.empty();
+        }
+
+        const fecha = document.getElementById('fechaAyuda').value;
+        const concesion = document.getElementById('concesionAyuda').value;
+        const fechaHoraRegistro = document.getElementById('fechaHoraAyuda').value;
+        const btnObtener = document.getElementById('btnObtenerAsignacionesModal');
+
+        if (!(fecha && concesion && fechaHoraRegistro)) {
+            alert('Por favor seleccione todos los campos para cargar asignaciones.');
+            return;
+        }
+
+        showLoading('CARGANDO ASIGNACIÓN...', 'Estamos recuperando la asignación guardada');
+        if (btnObtener) btnObtener.disabled = true;
+
+        fetch('/api/obtener_asignaciones_ayuda', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fecha: fecha, concesion: concesion, fecha_hora_registro: fechaHoraRegistro })
+        })
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || data.detail || ('Error HTTP ' + response.status));
+            }
+            return data;
+        })
+        .then(async data => {
+            if (data.message) {
+                throw new Error(data.message);
+            }
+            window.asignacionMeta = data.meta || {};
+            window.asignacionesConsultadas = Array.isArray(data.asignaciones) ? data.asignaciones : [];
+            await procesarAsignaciones(window.asignacionesConsultadas, window.asignacionMeta);
+        })
+        .catch(error => {
+            alert('Error al obtener asignaciones: ' + error.message);
+            showToast('Error al obtener asignaciones: ' + error.message, 'error');
+        })
+        .finally(() => {
+            if (btnObtener) btnObtener.disabled = false;
+            hideLoading();
+        });
+    }
+
+    async function generarPDF() {
+        const fechaAsignacion = document.getElementById('fechaAyuda')?.value || '';
+        const fechaHoraRegistro = document.getElementById('fechaHoraAyuda')?.value || '';
+
+        const asignaciones = window.asignacionesConsultadas || [];
+
         if (!Array.isArray(asignaciones) || asignaciones.length === 0) {
             alert("No hay asignaciones consultadas para generar el PDF.");
             return;
         }
-    
-        // Verifica los datos que se están enviando
-        console.log(JSON.stringify({
-            asignaciones: asignaciones,
-            fecha_asignacion: fechaAsignacion,
-            fecha_hora_registro: fechaHoraRegistro
-        }));
-    
-        // Realizar la petición para generar el PDF
-        fetch('/generar_pdf/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                asignaciones: asignaciones,
-                fecha_asignacion: fechaAsignacion,
-                fecha_hora_registro: fechaHoraRegistro
-            })
-        })
-        .then(response => response.blob())
-        .then(blob => {
-            // Crear un enlace para descargar el archivo PDF generado
-            var link = document.createElement('a');
+
+        try {
+            const response = await fetch('/generar_pdf/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    asignaciones: asignaciones,
+                    fecha_asignacion: fechaAsignacion,
+                    fecha_hora_registro: fechaHoraRegistro
+                })
+            });
+
+            if (!response.ok) {
+                const texto = await response.text();
+                throw new Error(`Error HTTP ${response.status}: ${texto}`);
+            }
+
+            const blob = await response.blob();
+
+            const link = document.createElement('a');
             link.href = window.URL.createObjectURL(blob);
             link.download = `asignaciones_tecnicos_${fechaAsignacion}.pdf`;
+            document.body.appendChild(link);
             link.click();
-        })
-        .catch(error => {
+            document.body.removeChild(link);
+
+        } catch (error) {
             console.error('Error generando el PDF:', error);
-        });
-    }   
+            alert('Ocurrió un error al generar el PDF.');
+        }
+    }
 
 </script> 
 
 <!-- FUNCIONES DE LA VENTANA MODAL DE REPORTE ASIGNACIONES" -->
 <script>
     function cargarDashboard() {
+        showLoading('CARGANDO DASHBOARD...', 'Preparando la visualización del reporte');
         fetch("/dashboard?modal=true")
             .then(response => response.text())
             .then(html => {
@@ -2072,9 +2245,11 @@
                 }
             })
             .catch(error => {
-                document.getElementById("contenidoDashboard").innerHTML = `<div class="alert alert-danger">Error al cargar el dashboard</div>`;
+                document.getElementById("contenidoDashboard").innerHTML = `<div class="alert alert-danger m-3">Error al cargar el dashboard</div>`;
                 console.error("Error al cargar dashboard:", error);
-            });
+                showToast('Error al cargar el dashboard.', 'error');
+            })
+            .finally(() => { hideLoading(); });
     }
     
 </script>    
