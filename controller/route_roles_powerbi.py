@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from typing import List
 # Importaciones de modelos y DB
 from model.gestion_roles_powerbi import ModeloRolesPowerBI
-from model.gestion_reportbi import obtener_opciones_reportes, resolver_nombres_reportes
+from model.gestion_reportbi import obtener_opciones_reportes
 
 router_roles_powerbi = APIRouter()
 templates = Jinja2Templates(directory="./view")
@@ -22,23 +22,25 @@ def vista_roles_powerbi(req: Request, sesion_usuario: dict = Depends(obtener_ses
 
     modelo = ModeloRolesPowerBI()
 
-    # Opciones para el <select> — una query, conexión liberada
+    # Query 1 — opciones del <select> (todos los reportes)
     opciones_reportes = obtener_opciones_reportes()
 
-    # Roles existentes — una query, conexión liberada
+    # Mapa en memoria {id: etiqueta} — evita N queries adicionales
+    mapa_nombres = {r["id"]: r["etiqueta"] for r in opciones_reportes}
+
+    # Query 2 — roles existentes
     filas_roles = modelo.obtener_todos_roles()
 
     roles = []
     for fila in filas_roles:
-        lista_ids       = [int(x) for x in fila[2].split(",") if x.strip().isdigit()]
-        nombres_resueltos = resolver_nombres_reportes(lista_ids)  # una query, liberada
+        lista_ids = [int(x) for x in fila[2].split(",") if x.strip().isdigit()]
         roles.append({
-            "id":              fila[0],
-            "nombre":          fila[1],
-            "ids":             lista_ids,
-            "ids_csv":         fila[2],
-            "estado":          fila[3],
-            "nombres_reportes": nombres_resueltos,
+            "id":               fila[0],
+            "nombre":           fila[1],
+            "ids":              lista_ids,
+            "ids_csv":          fila[2],
+            "estado":           fila[3],
+            "nombres_reportes": [mapa_nombres.get(i, "—") for i in lista_ids],
         })
 
     return templates.TemplateResponse("roles_powerbi.html", {

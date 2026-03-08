@@ -60,42 +60,30 @@ def list_componentes(
     page_size = Depends(paginate_params)
 ):
     page, size = page_size
-    db = GestionCOP()
-    try:
+    with GestionCOP() as db:
         data, total = db.list_componentes(q=q, estado=estado, page=page, size=size)
-        return {"data": data, "total": total, "page": page, "size": size}
-    finally:
-        db.cerrar_conexion()
+    return {"data": data, "total": total, "page": page, "size": size}
 
 @router_cop.post("/api/config/componentes", status_code=201)
 def create_componente(payload: ComponenteIn):
-    db = GestionCOP()
-    try:
-        row = db.create_componente(componente=payload.componente, estado=payload.estado)
-        return row
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionCOP() as db:
+        try:
+            return db.create_componente(componente=payload.componente, estado=payload.estado)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_cop.put("/api/config/componentes/{id}")
 def update_componente(id: int, payload: ComponenteIn):
-    db = GestionCOP()
-    try:
-        row = db.update_componente(id=id, componente=payload.componente, estado=payload.estado)
-        return row
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionCOP() as db:
+        try:
+            return db.update_componente(id=id, componente=payload.componente, estado=payload.estado)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_cop.patch("/api/config/componentes/{id}/estado")
 def toggle_componente(id: int, payload: EstadoIn):
-    db = GestionCOP()
-    try:
+    with GestionCOP() as db:
         return db.toggle_estado(table="componente", id=id, estado=payload.estado)
-    finally:
-        db.cerrar_conexion()
 
 # ---------- Endpoints ZONA ----------
 @router_cop.get("/api/config/zonas")
@@ -105,42 +93,30 @@ def list_zonas(
     page_size = Depends(paginate_params)
 ):
     page, size = page_size
-    db = GestionCOP()
-    try:
+    with GestionCOP() as db:
         data, total = db.list_zonas(q=q, estado=estado, page=page, size=size)
-        return {"data": data, "total": total, "page": page, "size": size}
-    finally:
-        db.cerrar_conexion()
+    return {"data": data, "total": total, "page": page, "size": size}
 
 @router_cop.post("/api/config/zonas", status_code=201)
 def create_zona(payload: ZonaIn):
-    db = GestionCOP()
-    try:
-        row = db.create_zona(zona=payload.zona, estado=payload.estado)
-        return row
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionCOP() as db:
+        try:
+            return db.create_zona(zona=payload.zona, estado=payload.estado)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_cop.put("/api/config/zonas/{id}")
 def update_zona(id: int, payload: ZonaIn):
-    db = GestionCOP()
-    try:
-        row = db.update_zona(id=id, zona=payload.zona, estado=payload.estado)
-        return row
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionCOP() as db:
+        try:
+            return db.update_zona(id=id, zona=payload.zona, estado=payload.estado)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_cop.patch("/api/config/zonas/{id}/estado")
 def toggle_zona(id: int, payload: EstadoIn):
-    db = GestionCOP()
-    try:
+    with GestionCOP() as db:
         return db.toggle_estado(table="zona", id=id, estado=payload.estado)
-    finally:
-        db.cerrar_conexion()
 
 # ---------- Endpoints COP ----------
 @router_cop.get("/api/config/cop")
@@ -152,40 +128,27 @@ def list_cop(
     page_size = Depends(paginate_params)
 ):
     page, size = page_size
-    db = GestionCOP()
-    try:
+    with GestionCOP() as db:
         data, total = db.list_cop(q=q, estado=estado, id_componente=id_componente, id_zona=id_zona, page=page, size=size)
-        return {"data": data, "total": total, "page": page, "size": size}
-    finally:
-        db.cerrar_conexion()
+    return {"data": data, "total": total, "page": page, "size": size}
 
 @router_cop.post("/api/config/cop", status_code=201)
 def create_cop(payload: COPIn):
-    db = GestionCOP()
-    try:
-        row = db.create_cop(cop=payload.cop, id_componente=payload.id_componente, id_zona=payload.id_zona, estado=payload.estado)
-        return row
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionCOP() as db:
+        try:
+            return db.create_cop(cop=payload.cop, id_componente=payload.id_componente, id_zona=payload.id_zona, estado=payload.estado)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_cop.put("/api/config/cop/{id}")
 def update_cop(id: int, payload: COPIn):
-    db = GestionCOP()
-    try:
-        row = db.update_cop(id=id, cop=payload.cop, id_componente=payload.id_componente, id_zona=payload.id_zona, estado=payload.estado)
-        return row
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionCOP() as db:
+        try:
+            return db.update_cop(id=id, cop=payload.cop, id_componente=payload.id_componente, id_zona=payload.id_zona, estado=payload.estado)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_cop.patch("/api/config/cop/{id}/estado")
 def toggle_cop(id: int, payload: EstadoIn):
-    db = GestionCOP()
-    try:
+    with GestionCOP() as db:
         return db.toggle_estado(table="cop", id=id, estado=payload.estado)
-    finally:
-        db.cerrar_conexion()
-        

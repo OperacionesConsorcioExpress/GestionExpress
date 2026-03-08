@@ -43,60 +43,48 @@ def listar_motivos(
     pagina_tamano=Depends(parametros_paginacion),
 ):
     pagina, tamano = pagina_tamano
-    db = GestionSneMotivos()
-    try:
+    with GestionSneMotivos() as db:
         data, total = db.listar_motivos(
             q=q, id_responsable=id_responsable, pagina=pagina, tamano=tamano
         )
-        return {"data": data, "total": total, "page": pagina, "size": tamano}
-    finally:
-        db.cerrar_conexion()
+    return {"data": data, "total": total, "page": pagina, "size": tamano}
 
 @router_sne_motivos.post("/api/sne/motivos", status_code=201)
 def crear_motivo(payload: MotivoIn):
-    db = GestionSneMotivos()
-    try:
-        return db.crear_motivo(
-            motivo=payload.motivo,
-            id_responsable=payload.id_responsable,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionSneMotivos() as db:
+        try:
+            return db.crear_motivo(
+                motivo=payload.motivo,
+                id_responsable=payload.id_responsable,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_sne_motivos.put("/api/sne/motivos/{id}")
 def actualizar_motivo(id: int, payload: MotivoIn):
-    db = GestionSneMotivos()
-    try:
-        return db.actualizar_motivo(
-            id=id,
-            motivo=payload.motivo,
-            id_responsable=payload.id_responsable,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionSneMotivos() as db:
+        try:
+            return db.actualizar_motivo(
+                id=id,
+                motivo=payload.motivo,
+                id_responsable=payload.id_responsable,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_sne_motivos.delete("/api/sne/motivos/{id}")
 def eliminar_motivo(id: int):
-    db = GestionSneMotivos()
-    try:
-        return db.eliminar_motivo(id=id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionSneMotivos() as db:
+        try:
+            return db.eliminar_motivo(id=id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 # ── Datos de apoyo ────────────────────────────────────────────────────────────
 @router_sne_motivos.get("/api/sne/motivos/responsables")
 def listar_responsables():
-    db = GestionSneMotivos()
-    try:
+    with GestionSneMotivos() as db:
         return {"data": db.listar_responsables()}
-    finally:
-        db.cerrar_conexion()
 
 # ── Sincronización desde sne.ics ──────────────────────────────────────────────
 @router_sne_motivos.post("/api/sne/motivos/sincronizar")
@@ -105,11 +93,8 @@ def sincronizar_desde_ics():
     Detecta motivos nuevas en sne.ics que no estén en
     sne.motivos_eliminacion e inserta las faltantes con responsable = NULL.
     """
-    db = GestionSneMotivos()
-    try:
-        resultado = db.sincronizar_desde_ics()
-        return resultado
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionSneMotivos() as db:
+        try:
+            return db.sincronizar_desde_ics()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))

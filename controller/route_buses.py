@@ -68,72 +68,51 @@ def listar_buses_cexp(
     pagina_tamano = Depends(parametros_paginacion)
 ):
     pagina, tamano = pagina_tamano
-    db = GestionBuses()
-    try:
+    with GestionBuses() as db:
         data, total = db.listar_buses(
             q=q, estado=estado, id_cop=id_cop, combustible=combustible,
             tipologia=tipologia, modelo_desde=modelo_desde, modelo_hasta=modelo_hasta,
             pagina=pagina, tamano=tamano
         )
-        return {"data": data, "total": total, "page": pagina, "size": tamano}
-    finally:
-        db.cerrar_conexion()
+    return {"data": data, "total": total, "page": pagina, "size": tamano}
 
 @router_buses.post("/api/config/buses_cexp", status_code=201)
 def crear_bus(payload: BusIn):
-    db = GestionBuses()
-    try:
-        fila = db.crear_bus(**payload.model_dump())
-        return fila
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionBuses() as db:
+        try:
+            return db.crear_bus(**payload.model_dump())
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_buses.put("/api/config/buses_cexp/{id}")
 def actualizar_bus(id: int, payload: BusIn):
-    db = GestionBuses()
-    try:
-        fila = db.actualizar_bus(id=id, **payload.model_dump())
-        return fila
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionBuses() as db:
+        try:
+            return db.actualizar_bus(id=id, **payload.model_dump())
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 @router_buses.patch("/api/config/buses_cexp/{id}/estado")
 def cambiar_estado_bus(id: int, payload: EstadoIn):
-    db = GestionBuses()
-    try:
+    with GestionBuses() as db:
         return db.cambiar_estado(id=id, estado=payload.estado)
-    finally:
-        db.cerrar_conexion()
 
 # ---------- API de apoyo (COP / filtros) ----------
 @router_buses.get("/api/config/buses_cexp/cop")
 def listar_cop(componente: Optional[str] = None, zona: Optional[str] = None, estado: Optional[int] = 1):
-    db = GestionBuses()
-    try:
+    with GestionBuses() as db:
         data = db.listar_cop(componente=componente, zona=zona, estado=estado)
-        return {"data": data}
-    finally:
-        db.cerrar_conexion()
+    return {"data": data}
 
 @router_buses.get("/api/config/buses_cexp/filtros/componentes")
 def filtros_componentes():
-    db = GestionBuses()
-    try:
+    with GestionBuses() as db:
         return {"data": db.listar_componentes()}
-    finally:
-        db.cerrar_conexion()
 
 @router_buses.get("/api/config/buses_cexp/filtros/zonas")
 def filtros_zonas(componente: Optional[str] = None):
-    db = GestionBuses()
-    try:
+    with GestionBuses() as db:
         return {"data": db.listar_zonas(componente=componente)}
-    finally:
-        db.cerrar_conexion()
 
 # ---------- Carga Masiva (CSV o XLSX) ----------
 # IMPORTANTE: el nombre del parámetro DEBE ser 'file' porque el front envía 'file' en el FormData.
@@ -141,35 +120,29 @@ def filtros_zonas(componente: Optional[str] = None):
 async def cargar_buses_masivo(file: UploadFile = File(...)):
     nombre = file.filename.lower()
     contenido = await file.read()
-    db = GestionBuses()
-    try:
-        if nombre.endswith(".csv"):
-            reporte = db.carga_masiva_csv_bytes(contenido)
-        elif nombre.endswith(".xlsx"):
-            reporte = db.carga_masiva_xlsx_bytes(contenido)
-        else:
-            raise HTTPException(status_code=400, detail="Formato inválido. Usa .csv o .xlsx")
-        return reporte
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionBuses() as db:
+        try:
+            if nombre.endswith(".csv"):
+                return db.carga_masiva_csv_bytes(contenido)
+            elif nombre.endswith(".xlsx"):
+                return db.carga_masiva_xlsx_bytes(contenido)
+            else:
+                raise HTTPException(status_code=400, detail="Formato inválido. Usa .csv o .xlsx")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 # ---------- Previsualización (ensayo en seco) ----------
 @router_buses.post("/api/config/buses_cexp/upload/preview")
 async def previsualizar_carga(file: UploadFile = File(...)):
     nombre = file.filename.lower()
     contenido = await file.read()
-    db = GestionBuses()
-    try:
-        if nombre.endswith(".csv"):
-            reporte = db.previsualizar_csv_bytes(contenido)
-        elif nombre.endswith(".xlsx"):
-            reporte = db.previsualizar_xlsx_bytes(contenido)
-        else:
-            raise HTTPException(status_code=400, detail="Formato inválido. Usa .csv o .xlsx")
-        return reporte
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.cerrar_conexion()
+    with GestionBuses() as db:
+        try:
+            if nombre.endswith(".csv"):
+                return db.previsualizar_csv_bytes(contenido)
+            elif nombre.endswith(".xlsx"):
+                return db.previsualizar_xlsx_bytes(contenido)
+            else:
+                raise HTTPException(status_code=400, detail="Formato inválido. Usa .csv o .xlsx")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
