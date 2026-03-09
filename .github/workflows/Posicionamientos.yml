@@ -250,8 +250,7 @@ jobs:
       - name: 🚀 Ejecutar job posicionamientos
         env:
           # Credenciales desde GitHub Secrets
-          DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
-          DATABASE_PATH_DEDICATED: ${{ secrets.DATABASE_PATH_DEDICATED }}
+          DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           
           # Parámetros configurables

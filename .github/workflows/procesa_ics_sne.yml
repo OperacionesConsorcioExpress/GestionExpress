@@ -48,7 +48,7 @@ jobs:
       - name: 🚀 Ejecutar proceso ICS SNE
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-          DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+          DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
           DB_POOL_MIN: ${{ secrets.DB_POOL_MIN }}
           DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
         run: |
