@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 ################## Importar Backend de Herramientas ###########################
 from lib.verifcar_clave import check_user
@@ -68,18 +69,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Respetar X-Forwarded-Proto de Azure App Service (SSL termina en el proxy, no en la app)
+# Evita que url_for() y RedirectResponse generen URLs con http:// en producción
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 ############################### RUTAS INICIALES DEL SISTEMA ###########################
 # ─────────────────────────────────────────────────────────────────────────────
 # Health Check — GET /health
 # ─────────────────────────────────────────────────────────────────────────────
 # Monitorea el estado real de la app y la base de datos Azure App Service 
-
 # Campos clave en la respuesta:
 #   circuit_breaker → CLOSED=ok | OPEN=bloqueado | HALF=recuperando
-#   cb_fallas       → fallos consecutivos actuales (se activa a los 10)
-#   db_idle_tx      → transacciones abiertas sin cerrar (debe ser 0 siempre)
-#   db_total        → total conexiones en PostgreSQL (máx 50)
-#   db_tiempo_ms    → latencia del ping a la DB en milisegundos
 
 @app.get("/health")
 def health_check():
