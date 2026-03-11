@@ -1,371 +1,281 @@
-import os, time, queue, threading, logging, psycopg2
+import os, time, threading, logging, psycopg2
 from psycopg2 import pool, extensions as pg_extensions
 from contextlib import contextmanager
 from dotenv import load_dotenv
 from fastapi import HTTPException
 
 # ─────────────────────────────────────────────
-# Configuración — valores leídos desde .env o variables de entorno del App Service de Azure.
+# Variables de entorno
 # ─────────────────────────────────────────────
 load_dotenv()
-DATABASE_PATH = os.getenv("DATABASE_PATH")  # Puerto 6432 — PgBouncer (producción Azure)
-DATABASE_PATH_DEDICATED = os.getenv("DATABASE_PATH_DEDICATED")  # Puerto 5432 — directo (LISTEN/NOTIFY)
-DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "2"))    # Conexiones mínimas por worker
-DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "8"))    # Conexiones máximas por worker
+DATABASE_PATH           = os.getenv("DATABASE_PATH")           # pgbouncer:6432  (producción)
+DATABASE_PATH_DEDICATED = os.getenv("DATABASE_PATH_DEDICATED") # postgres:5432   (directo)
+
+# ── Por qué DB_POOL_MAX debe ser alto (≥ 50) ──────────────────────────
+# PgBouncer en transaction mode multiplexa N conexiones Python a M conexiones
+# reales en PostgreSQL (M << N). Python puede tener 50 conexiones "virtuales"
+# a PgBouncer; PgBouncer las sirve con solo 15 conexiones reales a Postgres.
+#
+# Regla práctica:
+#   DB_POOL_MAX ≤ PgBouncer MAX_CLIENT_CONN  (100 en docker-compose)
+#   PgBouncer DEFAULT_POOL_SIZE ≤ PostgreSQL max_connections - reservas
+# ─────────────────────────────────────────────
+DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "2"))   # bajo: PgBouncer gestiona la concurrencia real
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "50"))  # alto: conexiones virtuales Python → PgBouncer
 
 # ─────────────────────────────────────────────
-# CAPA 1 — Colchón de conexiones
+# Circuit Breaker
 # ─────────────────────────────────────────────
-# Reserva 1 slot del pool para operaciones críticas (health check, admin).
-# La app normal solo puede usar hasta DB_POOL_MAX - DB_POOL_RESERVADO slots.
+CB_FALLAS_MAX   = int(os.getenv("CB_FALLAS_MAX",    "10"))
+CB_RECOVERY_SEG = float(os.getenv("CB_RECOVERY_SEG", "15.0"))
 
-DB_POOL_RESERVADO = int(os.getenv("DB_POOL_RESERVADO", "1")) # Slots reservados para operaciones críticas
-DB_POOL_DISPONIBLE = DB_POOL_MAX - DB_POOL_RESERVADO # Slots disponibles para requests normales
-
-# ─────────────────────────────────────────────
-# CAPA 2 — Cola de espera con timeout
-# ─────────────────────────────────────────────
-# Cuando el pool de slots normales está lleno, el request espera en cola por DB_POOL_TIMEOUT_SEG segundos antes de responder al usuario. Evita el error inmediato "pool exhausted" en picos de tráfico momentáneos.
-
-DB_POOL_TIMEOUT_SEG = float(os.getenv("DB_POOL_TIMEOUT_SEG", "3.0"))  # Segundos máx de espera en cola
-# Semaforo para controlar el acceso a los slots disponibles del pool.
-_pool_semaforo = threading.Semaphore(DB_POOL_DISPONIBLE)
-
-# ─────────────────────────────────────────────
-# CAPA 3 — Circuit Breaker - Evita caidas en cascada
-# ─────────────────────────────────────────────
-# Si la DB falla repetidamente, el circuit breaker se "abre" y bloquea nuevas conexiones por CB_RECOVERY_SEG segundos para dar tiempo de recuperación.Esto evita que todos los requests sigan golpeando DB 
-
-# Estados:
-#   CLOSED   → funcionando normal, todas las conexiones pasan
-#   OPEN     → DB con problemas, rechaza conexiones inmediatamente
-#   HALF     → período de prueba, deja pasar 1 conexión para verificar recuperación
-
-CB_FALLAS_MAX    = int(os.getenv("CB_FALLAS_MAX",    "10"))   # Fallos consecutivos para abrir el circuit breaker 10 tolera reinicios normales de gunicorn sin dispararse
-CB_RECOVERY_SEG  = float(os.getenv("CB_RECOVERY_SEG", "15.0")) # Segundos de espera antes de intentar recuperación 15s suficiente para reinicio normal del App Service
-
-_cb_lock          = threading.Lock()
-_cb_fallas        = 0         # Contador de fallos consecutivos
-_cb_ultimo_fallo  = 0.0       # Timestamp del último fallo
-_cb_estado        = "CLOSED"  # Estado actual: CLOSED | OPEN | HALF
+_cb_lock         = threading.Lock()
+_cb_fallas       = 0
+_cb_ultimo_fallo = 0.0
+_cb_estado       = "CLOSED"   # CLOSED | OPEN | HALF
 
 logger = logging.getLogger("database_manager")
 
 # ─────────────────────────────────────────────
-# Pool Singleton — UNA sola instancia por proceso cada worker de gunicorn tiene su propio proceso y pool.
+# Pool Singleton
 # ─────────────────────────────────────────────
 _POOL_LOCK = threading.Lock()
 _DB_POOL: pool.ThreadedConnectionPool = None
 
 def _get_pool() -> pool.ThreadedConnectionPool:
     """
-    Retorna el pool de conexiones singleton.
-    Se inicializa una sola vez por proceso (worker de gunicorn).
-    Thread-safe gracias al doble check con Lock.
+    Retorna el pool psycopg2 singleton (uno por proceso/worker Gunicorn).
 
-    options explicadas:
-    ─────────────────────────────────────────────────────────
-    timezone=America/Bogota  → todas las queries devuelven timestamps en hora Colombia
-    statement_timeout=30000  → corta cualquier query que tarde más de 30 segundos.
-                                Evita que una query colgada bloquee una conexión del pool
-                                indefinidamente y agote los slots disponibles.
-    ─────────────────────────────────────────────────────────
-    keepalives → mantiene vivas las conexiones idle a través del firewall de Azure,
-                que cierra conexiones TCP inactivas después de ~4 minutos.
+    Conecta a DATABASE_PATH (PgBouncer :6432).
+    Fallback a DATABASE_PATH_DEDICATED si DATABASE_PATH no está configurado.
+
+    Sin 'options': PgBouncer en transaction mode ignora los parámetros de
+    startup (IGNORE_STARTUP_PARAMETERS). Configurar timezone a nivel de DB.
+
+    application_name: visible en pg_stat_activity para diagnóstico.
+
+    keepalives: mantiene vivas las conexiones cliente→PgBouncer a través
+    del firewall de Azure (cierra TCP idle tras ~4 min sin keepalives).
     """
     global _DB_POOL
 
     if _DB_POOL is None:
         with _POOL_LOCK:
             if _DB_POOL is None:
-                # AJUSTE:
-                # Se mantiene tu fallback actual: primero PgBouncer (:6432),
-                # si no existe entonces conexión directa (:5432).
                 _dsn_pool = DATABASE_PATH or DATABASE_PATH_DEDICATED
                 if not _dsn_pool:
                     raise EnvironmentError(
-                        "❌ Ninguna variable DATABASE_PATH ni DATABASE_PATH_DEDICATED está configurada."
+                        "❌ Ninguna variable DATABASE_PATH ni DATABASE_PATH_DEDICATED configurada."
                     )
 
                 _DB_POOL = pool.ThreadedConnectionPool(
                     DB_POOL_MIN,
                     DB_POOL_MAX,
                     dsn=_dsn_pool,
-                    options="-c timezone=America/Bogota -c statement_timeout=30000",
                     connect_timeout=10,
                     keepalives=1,
                     keepalives_idle=30,
                     keepalives_interval=10,
                     keepalives_count=5,
+                    application_name="gestion_express",
                 )
 
-                _modo = "PgBouncer :6432" if DATABASE_PATH else "Directo :5432 (fallback)"
-
-                logger.info(
-                    f"✅ Pool DB inicializado — min={DB_POOL_MIN}, max={DB_POOL_MAX}, "
-                    f"disponibles={DB_POOL_DISPONIBLE}, reservados={DB_POOL_RESERVADO} — modo={_modo}"
+                _modo = "PgBouncer :6432" if DATABASE_PATH else "Directo :5432 (local fallback)"
+                _msg  = (
+                    f"✅ Pool DB inicializado — min={DB_POOL_MIN}, "
+                    f"max={DB_POOL_MAX} — modo={_modo}"
                 )
-                print(
-                    f"✅ [database_manager] Pool DB inicializado — min={DB_POOL_MIN}, max={DB_POOL_MAX}, "
-                    f"disponibles={DB_POOL_DISPONIBLE}, reservados={DB_POOL_RESERVADO} — modo={_modo}"
-                )
+                logger.info(_msg)
+                print(f"✅ [database_manager] {_msg}")
 
     return _DB_POOL
 
 # ─────────────────────────────────────────────
-# CAPA 3 — Lógica interna del Circuit Breaker
+# Circuit Breaker — lógica interna
 # ─────────────────────────────────────────────
 def _cb_registrar_exito():
-    """Resetea el contador de fallos cuando una conexión es exitosa."""
     global _cb_fallas, _cb_estado
     with _cb_lock:
         if _cb_fallas > 0 or _cb_estado != "CLOSED":
-            logger.info(f"✅ Circuit Breaker: conexión exitosa — estado CLOSED")
+            logger.info("✅ Circuit Breaker: conexión exitosa — estado CLOSED")
         _cb_fallas = 0
         _cb_estado = "CLOSED"
 
 def _cb_registrar_fallo():
-    """Incrementa el contador de fallos y abre el circuit breaker si supera el límite."""
     global _cb_fallas, _cb_ultimo_fallo, _cb_estado
     with _cb_lock:
-        _cb_fallas       += 1
-        _cb_ultimo_fallo  = time.monotonic()
+        _cb_fallas      += 1
+        _cb_ultimo_fallo = time.monotonic()
         if _cb_fallas >= CB_FALLAS_MAX:
             _cb_estado = "OPEN"
             logger.error(
                 f"🔴 Circuit Breaker ABIERTO — {_cb_fallas} fallos consecutivos. "
-                f"Bloqueando conexiones por {CB_RECOVERY_SEG}s"
+                f"Reintento en {CB_RECOVERY_SEG}s o via GET /reset-circuit-breaker"
             )
 
 def _cb_verificar() -> str:
-    """
-    Verifica el estado actual del circuit breaker.
-    Retorna: 'CLOSED' | 'OPEN' | 'HALF'
-    """
     global _cb_estado
     with _cb_lock:
         if _cb_estado == "OPEN":
-            tiempo_desde_fallo = time.monotonic() - _cb_ultimo_fallo
-            if tiempo_desde_fallo >= CB_RECOVERY_SEG:
-                # Pasó el tiempo de recuperación — permitir 1 conexión de prueba
+            if (time.monotonic() - _cb_ultimo_fallo) >= CB_RECOVERY_SEG:
                 _cb_estado = "HALF"
-                logger.info("🟡 Circuit Breaker SEMI-ABIERTO — probando recuperación de DB")
+                logger.info("🟡 Circuit Breaker SEMI-ABIERTO — probando recuperación")
         return _cb_estado
 
 # ─────────────────────────────────────────────
-# Validación interna — detecta conexiones muertas
-# ─────────────────────────────────────────────
-def _conexion_viva(conn) -> bool:
-    """
-    Verifica que la conexión sigue activa antes de usarla.
-
-    Azure PostgreSQL cierra conexiones idle después de un tiempo
-    (firewall, mantenimiento, reinicios del servidor).
-    Sin esta validación, el pool puede entregar una conexión muerta
-    y el request falla con:
-        'SSL connection has been closed unexpectedly'
-    """
-    try:
-        if conn is None:
-            return False
-
-        if conn.closed:
-            return False
-
-        # AJUSTE:
-        # Se mantiene la validación liviana con SELECT 1.
-        # No se cambia tu lógica, solo se deja explícito el caso None/cerrada.
-        with conn.cursor() as c:
-            c.execute("SELECT 1")
-
-        return True
-
-    except Exception:
-        return False
-
-# ─────────────────────────────────────────────
-# Context Manager principal — usar en todo el proyecto
+# Context Manager principal
 # ─────────────────────────────────────────────
 @contextmanager
 def get_db_connection():
     """
-    Entrega una conexión del pool con las 3 capas de resiliencia activas.
+    Entrega una conexión del pool con circuit breaker activo.
 
-    Flujo completo:
+    Flujo:
     ──────────────────────────────────────────────────────────────────
-    CAPA 3 — Circuit Breaker:
-        Si la DB tuvo 5+ fallos consecutivos, rechaza inmediatamente
-        con HTTP 503 en lugar de intentar conectar.
+    1. Circuit Breaker:
+        Si hay 10+ fallos consecutivos → HTTP 503 inmediato (no llega a DB).
+        Se recupera automáticamente tras CB_RECOVERY_SEG seg o con
+        GET /reset-circuit-breaker.
 
-    CAPA 2 — Cola con timeout:
-        Si los DB_POOL_DISPONIBLE slots están ocupados, espera hasta
-        DB_POOL_TIMEOUT_SEG segundos. Si en ese tiempo se libera un slot,
-        continúa. Si no, responde HTTP 503 con mensaje claro al usuario.
+    2. Pool Python → PgBouncer:
+        getconn() toma un slot del pool (Python→PgBouncer).
+        PoolError si todos los DB_POOL_MAX slots están ocupados.
+        ⚠ Si ves POOL_EXHAUSTED frecuente → aumentar DB_POOL_MAX.
 
-    CAPA 1 — Colchón:
-        El semáforo garantiza que siempre quede DB_POOL_RESERVADO slots
-        libres para health check y operaciones críticas de admin.
+    3. Reconexión automática (sin SELECT 1):
+        Si psycopg2 detectó que la conexión está cerrada (conn.closed),
+        la descarta y solicita una nueva. Sin SELECT 1 en el hot path —
+        los keepalives TCP manejan la detección de conexiones muertas.
+        Si la propia consulta falla → OperationalError → circuit breaker.
 
-    IMPORTANTE — Por qué NO se toca conn.autocommit:
-        psycopg2 maneja autocommit=False por defecto.
-        Cambiar autocommit con una transacción abierta genera:
-            'set_session cannot be used inside a transaction'
-        Se hace rollback() PRIMERO para limpiar transacciones pendientes.
+    4. Cleanup en finally:
+        Rollback + putconn. Si la conexión quedó en error (STATUS_INERROR
+        o STATUS_UNKNOWN), se elimina del pool (close=True) en lugar de
+        reciclarse.
+
+    ⚠  Nota de concurrencia:
+        Los endpoints async def que llaman a get_db_connection() bloquean
+        el event loop de uvicorn. Para alta concurrencia, usar:
+            from fastapi.concurrency import run_in_threadpool
+            result = await run_in_threadpool(funcion_sincrona_con_db)
     """
-    # ── CAPA 3: Verificar Circuit Breaker ─────────────────────────
+    # ── 1. Circuit Breaker ─────────────────────────────────────────
     estado_cb = _cb_verificar()
     if estado_cb == "OPEN":
         raise HTTPException(
             status_code=503,
             detail={
                 "error":   "Base de datos temporalmente no disponible",
-                "mensaje": "El sistema detectó problemas con la base de datos. Intente en unos segundos.",
+                "mensaje": "El sistema detectó problemas de conectividad. Intente en unos segundos.",
                 "codigo":  "CIRCUIT_BREAKER_OPEN"
-            }
-        )
-
-    # ── CAPA 2: Cola de espera con timeout ────────────────────────
-    #  Si no hay slot disponible en el tiempo configurado, se responde con POOL_TIMEOUT.
-    slot_adquirido = _pool_semaforo.acquire(timeout=DB_POOL_TIMEOUT_SEG)
-    if not slot_adquirido:
-        logger.warning(
-            f"⚠️ Pool ocupado — request esperó {DB_POOL_TIMEOUT_SEG}s sin obtener conexión"
-        )
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error":   "Servidor ocupado",
-                "mensaje": "El sistema está procesando muchas solicitudes. Intente nuevamente en unos segundos.",
-                "codigo":  "POOL_TIMEOUT"
             }
         )
 
     conn = None
 
     try:
-        # Trazabilidad para identificar si el fallo ocurre al momento de pedir conexión al pool.
-        logger.debug("🟦 Intentando obtener conexión del pool")
+        # ── 2. Obtener conexión del pool ───────────────────────────
         conn = _get_pool().getconn()
-        logger.debug("🟩 Conexión obtenida del pool")
 
-        # Limpiar transacción residual antes de usar la conexión.
+        # ── 3. Limpiar estado previo de la conexión ────────────────
         if not conn.closed:
-            conn.rollback()
-
-        # ── Reconexión automática ──────────────────────────────────
-        # Si Azure cerró la conexión mientras estaba idle en el pool,
-        # se detecta y reemplaza automáticamente.
-        if not _conexion_viva(conn):
-            logger.warning("⚠️ Conexión muerta detectada — cerrando y solicitando nueva")
-
-            try:
-                # close=True elimina la conexión del pool en lugar de reciclarla.
-                # Sin esto, la conexión muerta regresa al pool y vuelve a entregarse.
-                _get_pool().putconn(conn, close=True)
-            except Exception as e:
-                logger.warning(f"⚠️ No se pudo cerrar conexión muerta del pool: {e}")
-
-            conn = None
-
-            logger.debug("🟦 Solicitando nueva conexión tras detectar conexión muerta")
-            conn = _get_pool().getconn()
-            logger.debug("🟩 Nueva conexión obtenida del pool")
-
-            if not conn.closed:
-                conn.rollback()
-
-            # La nueva conexión sale muerta, disparamos error operacional.
-            if not _conexion_viva(conn):
-                raise psycopg2.OperationalError(
-                    "La nueva conexión obtenida del pool también está inactiva."
-                )
-
-        # Conexión exitosa — resetear circuit breaker
-        _cb_registrar_exito()
-
-        yield conn
-
-    except HTTPException:
-        # Re-lanzar HTTPExceptions sin modificar (son respuestas controladas)
-        raise
-
-    except psycopg2.pool.PoolError as e:
-        # AJUSTE:
-        # Este error normalmente aparece cuando el semáforo permitió avanzar,
-        # pero la conexión aún no había sido devuelta físicamente al pool,
-        # o bien el pool real ya estaba sin conexiones disponibles.
-        logger.error(f"❌ Pool de conexiones agotado: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error":   "Sin conexiones disponibles",
-                "mensaje": "El sistema está procesando muchas solicitudes. Intente en unos segundos.",
-                "codigo":  "POOL_EXHAUSTED"
-            }
-        )
-
-    except psycopg2.OperationalError as e:
-        _cb_registrar_fallo()
-        logger.error(f"❌ Error operacional de base de datos: {e}")
-
-        if conn and not conn.closed:
             try:
                 conn.rollback()
             except Exception:
                 pass
 
+        # ── 3b. Reconexión si psycopg2 detectó conexión cerrada ───
+        # (no hacemos SELECT 1 — los keepalives TCP manejan esto)
+        if conn.closed:
+            logger.warning("⚠️ Conexión cerrada detectada en pool — descartando y solicitando nueva")
+            try:
+                _get_pool().putconn(conn, close=True)
+            except Exception as e:
+                logger.warning(f"⚠️ Error al descartar conexión cerrada: {e}")
+            conn = None
+
+            conn = _get_pool().getconn()
+            if not conn.closed:
+                conn.rollback()
+            else:
+                raise psycopg2.OperationalError(
+                    "La conexión de reemplazo obtenida del pool también está cerrada."
+                )
+
+        # Conexión lista — resetear circuit breaker si estaba en HALF
+        _cb_registrar_exito()
+
+        yield conn
+
+    except pool.PoolError as e:
+        # Pool Python agotado: todos los DB_POOL_MAX slots en uso simultáneo.
+        # NO dispara circuit breaker (es carga, no fallo de conectividad).
+        # Solución: aumentar DB_POOL_MAX en variables de entorno del App Service.
+        logger.error(
+            f"❌ Pool psycopg2 agotado — {DB_POOL_MAX} slots en uso simultáneo: {e}"
+        )
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error":   "Sin conexiones disponibles",
+                "mensaje": "El sistema está procesando muchas solicitudes simultáneas. Intente en unos segundos.",
+                "codigo":  "POOL_EXHAUSTED"
+            }
+        )
+
+    except HTTPException:
+        raise
+
+    except psycopg2.OperationalError as e:
+        # Error real de conectividad: DB caída, PgBouncer caído, query_wait_timeout, etc.
+        _cb_registrar_fallo()
+        logger.error(f"❌ Error operacional DB: {e}")
+        if conn and not conn.closed:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         raise HTTPException(
             status_code=503,
             detail={
                 "error":   "Error de conexión a la base de datos",
-                "mensaje": "No se pudo establecer conexión. Intente nuevamente.",
+                "mensaje": "No se pudo establecer conexión con la base de datos. Intente nuevamente.",
                 "codigo":  "DB_OPERATIONAL_ERROR"
             }
         )
 
     except Exception as e:
         _cb_registrar_fallo()
-        logger.error(f"❌ Error inesperado en conexión DB: {e}")
-
+        logger.error(f"❌ Error inesperado en get_db_connection: {e}")
         if conn and not conn.closed:
             try:
                 conn.rollback()
             except Exception:
                 pass
-
         raise
 
     finally:
-        # Devolver la conexión al pool y DESPUÉS liberar el semáforo.
-        # Esto evita la carrera donde otro request toma el slot del semáforo
-        # pero la conexión todavía no ha sido devuelta al pool real.
         if conn:
             try:
-                # Detectar si la conexión quedó en estado de error durante la operación.
-                # Se usa transaction_status de libpq (conn.info.transaction_status) porque
-                # psycopg2.extensions NO expone STATUS_IN_ERROR ni STATUS_INTRANS_INERROR.
-                # Los valores correctos son del namespace TRANSACTION_STATUS_*:
-                #   TRANSACTION_STATUS_INERROR  (3) → error activo en la transacción
-                #   TRANSACTION_STATUS_UNKNOWN  (4) → conexión perdida / estado desconocido
-                # Referencia: https://www.psycopg.org/docs/extensions.html#psycopg2.extensions.connection.info
+                # Detectar si la conexión quedó en estado de error
                 try:
                     _tx_status = conn.info.transaction_status
-                    _en_error = conn.closed or _tx_status in (
-                        pg_extensions.TRANSACTION_STATUS_INERROR,   # 3 — error en tx activa
-                        pg_extensions.TRANSACTION_STATUS_UNKNOWN,   # 4 — conexión perdida
+                    _en_error  = conn.closed or _tx_status in (
+                        pg_extensions.TRANSACTION_STATUS_INERROR,   # 3
+                        pg_extensions.TRANSACTION_STATUS_UNKNOWN,   # 4
                     )
                 except Exception:
-                    # Si conn.info no está disponible (conexión ya cerrada), tratar como error.
                     _en_error = conn.closed
 
+                # Rollback antes de devolver al pool
                 if not conn.closed:
                     conn.rollback()
-                    conn.cursor_factory = pg_extensions.cursor
 
-                logger.debug("🟨 Devolviendo conexión al pool")
-                # close=True cuando está en error: elimina del pool en lugar de reciclar.
+                # close=True → elimina del pool (no recicla una conexión errónea)
                 _get_pool().putconn(conn, close=_en_error)
-                logger.debug(f"🟩 Conexión {'cerrada' if _en_error else 'devuelta'} al pool")
+
+                if _en_error:
+                    logger.debug("🟥 Conexión errónea descartada del pool (no reciclada)")
 
             except Exception as e:
                 logger.warning(f"⚠️ Error al devolver conexión al pool: {e}")
@@ -374,24 +284,14 @@ def get_db_connection():
                 except Exception:
                     pass
 
-        # El release del semáforo queda al final a propósito — no cambiar este orden.
-        if slot_adquirido:
-            _pool_semaforo.release()
-
 # ─────────────────────────────────────────────
 # Conexión dedicada — SOLO para LISTEN/NOTIFY
 # ─────────────────────────────────────────────
 def get_dedicated_connection() -> psycopg2.extensions.connection:
     """
-    Crea una conexión DIRECTA fuera del pool — bypassa PgBouncer.
-
+    Conexión DIRECTA a Postgres fuera del pool — bypassa PgBouncer.
     PgBouncer en transaction mode NO soporta LISTEN/NOTIFY.
-    LISTEN requiere una conexión persistente que mantenga el canal abierto entre operaciones — incompatible con el multiplexeo de PgBouncer.
-
-    Usa DATABASE_PATH_DEDICATED (puerto 5432 directo).Si no está configurado, cae en DATABASE_PATH como fallback
-    (útil en entornos locales donde PgBouncer no aplica).
-
-    IMPORTANTE: El llamador es responsable de cerrar con conn.close().
+    El llamador es responsable de cerrar con conn.close().
     """
     dsn = DATABASE_PATH_DEDICATED or DATABASE_PATH
     if not dsn:
@@ -400,87 +300,96 @@ def get_dedicated_connection() -> psycopg2.extensions.connection:
         )
     conn = psycopg2.connect(
         dsn=dsn,
-        options="-c timezone=America/Bogota",
         connect_timeout=10,
         keepalives=1,
         keepalives_idle=30,
         keepalives_interval=10,
         keepalives_count=5,
+        application_name="gestion_express_listen",
     )
     logger.info("🔌 Conexión dedicada creada (LISTEN/NOTIFY) — puerto 5432 directo")
     return conn
 
 # ─────────────────────────────────────────────
-# Utilidad: estado del pool + métricas de DB Usado por GET /health en main.py
+# Estado del pool + métricas de DB
+# Usado por GET /health en main.py
 # ─────────────────────────────────────────────
 def get_pool_status() -> dict:
     """
-    Retorna el estado completo del sistema de conexiones:
-    ──────────────────────────────────────────────────────────
-    pool_activo            → True si el pool está inicializado
-    min_connections        → DB_POOL_MIN configurado
-    max_connections        → DB_POOL_MAX configurado
-    pool_capacidad_normal  → slots configurados para requests normales (max - reservado)
-    pool_reservado         → slots reservados para operaciones críticas
-    circuit_breaker        → estado: CLOSED | OPEN | HALF
-    cb_fallas              → fallos consecutivos actuales
-    db_ping                → "ok" o descripción del error
-    db_active              → conexiones ejecutando SQL ahora mismo
-    db_idle                → conexiones en espera
-    db_idle_tx             → conexiones idle in transaction
-    db_total               → total conexiones vistas por PostgreSQL
-    db_tiempo_ms           → latencia del ping en milisegundos
+    Estado del sistema de conexiones para diagnóstico.
 
-    IMPORTANTE:
-    ──────────────────────────────────────────────────────────
-    pool_capacidad_normal NO es disponibilidad real en tiempo real.
-    Es la capacidad configurada para tráfico normal:
-        DB_POOL_MAX - DB_POOL_RESERVADO
+    Campos clave:
+    ──────────────────────────────────────────────────────────────────
+    pool_min / pool_max     → configuración del pool Python
+    pool_disponibles        → slots libres en el pool Python en este momento
+    pool_en_uso             → slots actualmente prestados a requests
+    circuit_breaker         → CLOSED=ok | OPEN=bloqueado | HALF=recuperando
+    db_ping                 → "ok" o descripción del error
+    db_active               → conexiones PostgreSQL ejecutando SQL
+    db_idle                 → conexiones PostgreSQL en espera
+    db_idle_tx              → DEBE ser 0 — indica transacciones huérfanas
+    db_total_pg             → total conexiones server-side (≤ PgBouncer DEFAULT_POOL_SIZE)
+    db_tiempo_ms            → latencia del ping a Postgres
 
-    El ping y métricas de DB se toman con conexión dedicada
-    fuera del pool para no competir con requests normales.
+    NOTA — Con PgBouncer:
+    db_total_pg refleja las conexiones server-side de PgBouncer (≤ 15),
+    NO el total de clientes Python. Es normal verlo bajo (2-15) incluso
+    con mucha carga.
+
+    Lectura de pool_en_uso:
+    Si pool_en_uso ≈ pool_max frecuentemente → aumentar DB_POOL_MAX.
     """
     resultado = {
-        "status":                "ok",
-        "min_connections":       DB_POOL_MIN,
-        "max_connections":       DB_POOL_MAX,
-        "pool_capacidad_normal": DB_POOL_DISPONIBLE,
-        "pool_reservado":        DB_POOL_RESERVADO,
-        "pool_activo":           False,
-        "circuit_breaker":       _cb_estado,
-        "cb_fallas":             _cb_fallas,
-        "db_ping":               "sin verificar",
-        "db_active":             None,
-        "db_idle":               None,
-        "db_idle_tx":            None,
-        "db_total":              None,
-        "db_tiempo_ms":          None,
+        "status":            "ok",
+        "pool_min":          DB_POOL_MIN,
+        "pool_max":          DB_POOL_MAX,
+        "pool_activo":       False,
+        "pool_disponibles":  None,
+        "pool_en_uso":       None,
+        "circuit_breaker":   _cb_estado,
+        "cb_fallas":         _cb_fallas,
+        "db_ping":           "sin verificar",
+        "db_active":         None,
+        "db_idle":           None,
+        "db_idle_tx":        None,
+        "db_total_pg":       None,
+        "db_tiempo_ms":      None,
     }
 
-    # ── Estado del pool local ──────────────────────────────
+    # ── Estado del pool Python ─────────────────────────────────────
     try:
         p = _get_pool()
         resultado["pool_activo"] = (p.closed == 0)
+        # Acceso a internos de ThreadedConnectionPool para diagnóstico
+        try:
+            resultado["pool_disponibles"] = len(p._pool)
+            resultado["pool_en_uso"]      = len(p._used)
+        except Exception:
+            pass  # internals pueden cambiar entre versiones de psycopg2
     except Exception as e:
         resultado["status"]  = "error"
         resultado["db_ping"] = f"pool no disponible: {e}"
         return resultado
 
-    # ── Ping + métricas vía conexión dedicada ──────────────
+    # ── Ping + métricas vía conexión directa a Postgres ───────────
+    # Usa DATABASE_PATH_DEDICATED (puerto 5432) para medir la salud
+    # real de Postgres independientemente del estado de PgBouncer.
     try:
-        t_inicio    = time.monotonic()
         _dsn_health = DATABASE_PATH_DEDICATED or DATABASE_PATH
+        t_inicio    = time.monotonic()
 
         conn_health = psycopg2.connect(
             dsn=_dsn_health,
-            options="-c timezone=America/Bogota",
             connect_timeout=5,
+            application_name="gestion_express_health",
         )
 
         try:
             with conn_health.cursor() as c:
                 c.execute("SELECT 1")
-                resultado["db_tiempo_ms"] = round((time.monotonic() - t_inicio) * 1000, 1)
+                resultado["db_tiempo_ms"] = round(
+                    (time.monotonic() - t_inicio) * 1000, 1
+                )
 
                 c.execute("""
                     SELECT
@@ -493,15 +402,17 @@ def get_pool_status() -> dict:
                 """)
                 row = c.fetchone()
 
-                resultado["db_active"]  = row[0]
-                resultado["db_idle"]    = row[1]
-                resultado["db_idle_tx"] = row[2]
-                resultado["db_total"]   = row[3]
-                resultado["db_ping"]    = "ok"
+                resultado["db_active"]   = row[0]
+                resultado["db_idle"]     = row[1]
+                resultado["db_idle_tx"]  = row[2]
+                resultado["db_total_pg"] = row[3]
+                resultado["db_ping"]     = "ok"
 
                 if row[2] and row[2] > 0:
-                    logger.warning(f"⚠️ {row[2]} conexiones 'idle in transaction' detectadas")
-
+                    logger.warning(
+                        f"⚠️ {row[2]} conexiones 'idle in transaction' detectadas — "
+                        "posibles transacciones huérfanas"
+                    )
         finally:
             conn_health.close()
 
@@ -512,49 +423,42 @@ def get_pool_status() -> dict:
     return resultado
 
 # ─────────────────────────────────────────────
-# Utilidad: cerrar el pool (shutdown graceful) Llamado por el lifespan de FastAPI en main.py
+# Shutdown graceful
 # ─────────────────────────────────────────────
 def close_pool():
     """
-    Cierra todas las conexiones del pool limpiamente se ejecuta cuando gunicorn hace shutdown del worker, asegurando que PostgreSQL no quede con conexiones huérfanas.
+    Cierra todas las conexiones del pool limpiamente.
+    Llamado por el lifespan de FastAPI en main.py al detener Gunicorn.
     """
     global _DB_POOL
-
     if _DB_POOL and not _DB_POOL.closed:
         try:
             _DB_POOL.closeall()
             logger.info("🔴 Pool DB cerrado correctamente.")
             print("🔴 [database_manager] Pool DB cerrado.")
         finally:
-            # AJUSTE:
-            # Asegurar que la referencia global quede en None incluso si
-            # closeall() lanza algún comportamiento no esperado.
             _DB_POOL = None
 
 # ─────────────────────────────────────────────
-# Reset Circuit Breaker — recuperación manual
+# Reset de emergencia
 # ─────────────────────────────────────────────
 def reset_circuit_breaker() -> dict:
     """
-    Reset completo del sistema de conexiones:
-        1. Circuit Breaker → CLOSED
-        2. Pool psycopg2   → cierra todas las conexiones y recrea el pool
-        3. Semáforo        → recrea con capacidad original DB_POOL_DISPONIBLE
+    Reset completo: Circuit Breaker + Pool psycopg2.
 
-    ¿Cuándo usarlo?
-    ──────────────────────────────────────────────────────────
-    - DB estaba caída y ya se recuperó pero la app sigue mostrando errores.
-    - Pool agotado (POOL_EXHAUSTED) con DB funcionando — indica slots perdidos.
-    - Después de redeploy con fallos en cascada.
+    Cuándo usarlo:
+        DB o PgBouncer estaban caídos y ya se recuperaron pero la app
+        sigue rechazando requests. El pool puede tener conexiones muertas
+        acumuladas.
 
     Flujo recomendado:
-        1. GET  /health                → verificar db_ping = "ok"
-        2. GET  /reset-circuit-breaker → reset completo
-        3. GET  /health                → confirmar circuit_breaker = "CLOSED"
+        1. GET  /health                 → verificar db_ping = "ok"
+        2. GET  /reset-circuit-breaker  → reset completo
+        3. GET  /health                 → confirmar circuit_breaker = "CLOSED"
     """
-    global _cb_fallas, _cb_ultimo_fallo, _cb_estado, _DB_POOL, _pool_semaforo
+    global _cb_fallas, _cb_ultimo_fallo, _cb_estado, _DB_POOL
 
-    # ── 1. Reset Circuit Breaker ───────────────────────────
+    # ── 1. Reset Circuit Breaker ───────────────────────────────────
     with _cb_lock:
         fallas_previas = _cb_fallas
         estado_previo  = _cb_estado
@@ -562,7 +466,7 @@ def reset_circuit_breaker() -> dict:
         _cb_ultimo_fallo = 0.0
         _cb_estado       = "CLOSED"
 
-    # ── 2. Reset Pool — cierra y recrea ───────────────────
+    # ── 2. Reset Pool ──────────────────────────────────────────────
     pool_reseteado = False
     with _POOL_LOCK:
         if _DB_POOL is not None:
@@ -575,23 +479,15 @@ def reset_circuit_breaker() -> dict:
                 _DB_POOL = None
                 pool_reseteado = True
 
-    # ── 3. Reset Semáforo — recrea con capacidad original ─
-    # threading.Semaphore no permite resetear el contador interno,
-    # se recrea el objeto. Seguro porque el reset implica que no hay
-    # requests activos (el pool acaba de cerrarse).
-    _pool_semaforo = threading.Semaphore(DB_POOL_DISPONIBLE)
-
     logger.info(
         f"🔄 Reset completo — CB: {estado_previo}→CLOSED, "
-        f"fallos previos: {fallas_previas}, pool recreado: {pool_reseteado}, "
-        f"semáforo restaurado a: {DB_POOL_DISPONIBLE}"
+        f"fallos previos: {fallas_previas}, pool recreado: {pool_reseteado}"
     )
 
     return {
-        "estado_anterior":    estado_previo,
-        "fallas_anteriores":  fallas_previas,
-        "estado_actual":      "CLOSED",
-        "pool_reseteado":     pool_reseteado,
-        "semaforo_restaurado": DB_POOL_DISPONIBLE,
-        "mensaje":            "✅ Reset completo — Pool + Circuit Breaker + Semáforo reiniciados"
+        "estado_anterior":   estado_previo,
+        "fallas_anteriores": fallas_previas,
+        "estado_actual":     "CLOSED",
+        "pool_reseteado":    pool_reseteado,
+        "mensaje":           "✅ Reset completo — Pool + Circuit Breaker reiniciados"
     }
