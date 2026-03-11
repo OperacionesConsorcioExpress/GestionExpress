@@ -7,17 +7,17 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 <style>
-  @keyframes spinA        { to{transform:rotate(360deg);} }
-  @keyframes progressAnim { 0%{opacity:.35}50%{opacity:1}100%{opacity:.35} }
-  @keyframes slideInToast { from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)} }
+    @keyframes spinA        { to{transform:rotate(360deg);} }
+    @keyframes progressAnim { 0%{opacity:.35}50%{opacity:1}100%{opacity:.35} }
+    @keyframes slideInToast { from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)} }
 
-  /* ── Scrollbar contenedores y árbol ── */
-  #containerList::-webkit-scrollbar,
-  #fileTree::-webkit-scrollbar { width:5px; }
-  #containerList::-webkit-scrollbar-track,
-  #fileTree::-webkit-scrollbar-track { background:transparent; }
-  #containerList::-webkit-scrollbar-thumb,
-  #fileTree::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+    /* ── Scrollbar contenedores y árbol ── */
+    #containerList::-webkit-scrollbar,
+    #fileTree::-webkit-scrollbar { width:5px; }
+    #containerList::-webkit-scrollbar-track,
+    #fileTree::-webkit-scrollbar-track { background:transparent; }
+    #containerList::-webkit-scrollbar-thumb,
+    #fileTree::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
 </style>
 {% endblock %}
 
@@ -195,9 +195,9 @@
 
             <!-- Cabecera columnas -->
             <div id="fileTreeHeader" style="display:none; padding:4px 10px; border-bottom:1px solid #f1f5f9; background:#fafafa; flex-shrink:0;">
-            <div style="display:grid; grid-template-columns:16px 16px 1fr 80px 110px 90px; gap:6px; align-items:center; font-size:10px; letter-spacing:1.8px; text-transform:uppercase; color:#94a3b8; font-weight:700;">
+            <div style="display:grid; grid-template-columns:16px 16px 1fr 80px 148px 116px; gap:6px; align-items:center; font-size:10px; letter-spacing:1.8px; text-transform:uppercase; color:#94a3b8; font-weight:700;">
                 <div></div><div></div>
-                <div>Nombre</div><div>Tamaño</div><div>Modificado</div><div style="text-align:center;">Acciones</div>
+                <div>Nombre</div><div>Tamaño</div><div>Modificado (COL)</div><div style="text-align:center;">Acciones</div>
             </div>
             </div>
 
@@ -250,6 +250,50 @@
         </div><!-- fin columna der -->
     </div><!-- fin grid -->
     </div><!-- fin página -->
+
+    <!-- ═══════════════════════════════════════
+        MODAL VISOR DE ARCHIVOS
+    ═══════════════════════════════════════ -->
+    <div id="viewerModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2500; justify-content:center; align-items:center;">
+    <div style="background:#fff; border-radius:12px; width:min(92vw,900px); max-height:92vh; box-shadow:0 20px 50px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; font-family:'Century Gothic',Arial,sans-serif;">
+        <div style="background:linear-gradient(135deg,#059669 0%,#047857 100%); color:#fff; padding:0.6rem 1rem; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+        <span style="font-size:0.88rem; font-weight:700;"><i class="bi bi-eye"></i>&nbsp;<span id="viewerTitle">Visor</span></span>
+        <button onclick="cerrarVisor()" style="background:rgba(255,255,255,0.2); border:none; border-radius:6px; color:#fff; width:26px; height:26px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center;">&times;</button>
+        </div>
+        <div id="viewerBody" style="flex:1; overflow:auto; padding:0; min-height:0;"></div>
+    </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+        MODAL EDITOR EXCEL (SheetJS)
+    ═══════════════════════════════════════ -->
+    <div id="editorModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2500; justify-content:center; align-items:center;">
+    <div style="background:#fff; border-radius:12px; width:min(98vw,1200px); max-height:96vh; box-shadow:0 20px 50px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; font-family:'Century Gothic',Arial,sans-serif;">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%); color:#fff; padding:0.6rem 1rem; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+        <span style="font-size:0.88rem; font-weight:700;"><i class="bi bi-file-earmark-excel"></i>&nbsp;<span id="editorTitle">Editor Excel</span></span>
+        <button onclick="cerrarEditor()" style="background:rgba(255,255,255,0.2); border:none; border-radius:6px; color:#fff; width:26px; height:26px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center;">&times;</button>
+        </div>
+        <!-- Tabs de hojas -->
+        <div id="editorSheetTabs" style="display:flex; gap:2px; padding:6px 10px 0; background:#f8f9fa; border-bottom:1px solid #e2e8f0; flex-shrink:0; overflow-x:auto;"></div>
+        <!-- Tabla editable -->
+        <div style="flex:1; overflow:auto; min-height:0; padding:0;">
+        <div id="editorTableWrap" style="min-width:100%; padding:10px;">
+            <div id="editorLoading" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;">
+            <i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando archivo...
+            </div>
+        </div>
+        </div>
+        <!-- Footer -->
+        <div style="padding:8px 14px; background:#f8f9fa; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+        <span id="editorStatus" style="font-size:11px; color:#64748b; font-style:italic;">Listo</span>
+        <div style="display:flex; gap:8px;">
+            <button onclick="cerrarEditor()" style="padding:5px 16px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; color:#64748b; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">Cancelar</button>
+            <button id="editorSaveBtn" disabled style="padding:5px 18px; border:none; border-radius:6px; background:linear-gradient(135deg,#d97706,#b45309); color:#fff; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer; opacity:0.5;" onmouseover="if(!this.disabled)this.style.opacity='0.88'" onmouseout="if(!this.disabled)this.style.opacity='1'"><i class="bi bi-cloud-upload"></i>&nbsp;Guardar en Blob Storage</button>
+        </div>
+        </div>
+    </div>
+    </div>
 
     <!-- ═══════════════════════════════════════
         JAVASCRIPT
@@ -328,11 +372,14 @@
         return(bytes/Math.pow(1024,i)).toFixed(1)+' '+u[i];
     }
 
-    /* ── FORMATO FECHA ── */
+    /* ── FORMATO FECHA + HORA (Colombia UTC-5) ── */
     function fmtDate(d){
         if(!d)return'—';
         try{
-        return new Date(d).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'2-digit'});
+        var dt=new Date(d);
+        var fecha=dt.toLocaleDateString('es-CO',{timeZone:'America/Bogota',day:'2-digit',month:'short',year:'2-digit'});
+        var hora=dt.toLocaleTimeString('es-CO',{timeZone:'America/Bogota',hour:'2-digit',minute:'2-digit',hour12:false});
+        return fecha+' '+hora;
         }catch(e){return'—';}
     }
 
@@ -414,7 +461,7 @@
         var row=document.createElement('div');
         row.className='file-row-item';
         row.dataset.file=fp;
-        row.style.cssText='display:grid;grid-template-columns:16px 15px 1fr 72px 90px 88px;gap:6px;align-items:center;padding:4px 7px;border-radius:6px;border:1px solid transparent;margin-bottom:2px;';
+        row.style.cssText='display:grid;grid-template-columns:16px 15px 1fr 72px 148px 116px;gap:6px;align-items:center;padding:4px 7px;border-radius:6px;border:1px solid transparent;margin-bottom:2px;';
         row.innerHTML=
             '<input type="checkbox" class="file-cb" data-file="'+fp+'" style="cursor:pointer;width:13px;height:13px;accent-color:#0d6efd;">'+
             fileIcon(name)+
@@ -422,6 +469,8 @@
             '<span class="file-size-cell" style="font-size:11px;color:#64748b;font-weight:500;white-space:nowrap;">'+sz+'</span>'+
             '<span class="file-date-cell" style="font-size:10.5px;color:#64748b;white-space:nowrap;">'+dt+'</span>'+
             '<div style="display:flex;gap:3px;justify-content:center;">'+
+            '<button class="btn-view"     data-file="'+fp+'" title="Ver archivo" style="width:24px;height:24px;border:1px solid #d1fae5;border-radius:5px;background:#f0fdf4;color:#059669;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#bbf7d0\'" onmouseout="this.style.background=\'#f0fdf4\'"><i class="bi bi-eye"></i></button>'+
+            (isEditable(name)?'<button class="btn-edit" data-file="'+fp+'" title="Editar archivo" style="width:24px;height:24px;border:1px solid #fef3c7;border-radius:5px;background:#fffbeb;color:#d97706;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fde68a\'" onmouseout="this.style.background=\'#fffbeb\'"><i class="bi bi-pencil"></i></button>':'')+
             '<button class="btn-dl-single" data-file="'+fp+'" title="Descargar" style="width:24px;height:24px;border:1px solid #dbeafe;border-radius:5px;background:#f0f7ff;color:#0d6efd;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#f0f7ff\'"><i class="bi bi-download"></i></button>'+
             '<button class="btn-props"    data-file="'+fp+'" data-meta=\''+JSON.stringify(m)+'\' title="Propiedades" style="width:24px;height:24px;border:1px solid #e2e8f0;border-radius:5px;background:#fafafa;color:#64748b;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fafafa\'"><i class="bi bi-info-circle"></i></button>'+
             '<button class="btn-del"      data-file="'+fp+'" title="Eliminar" style="width:24px;height:24px;border:1px solid #fee2e2;border-radius:5px;background:#fff5f5;color:#dc3545;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'#fff5f5\'"><i class="bi bi-trash"></i></button>'+
@@ -771,7 +820,288 @@
     });
     document.addEventListener('click',function(e){if(!e.target.closest('#contextMenu'))document.getElementById('contextMenu').style.display='none';});
     document.getElementById('propsModal').addEventListener('click',function(e){if(e.target===this)cerrarModal();});
-    document.addEventListener('keydown',function(e){if(e.key==='Escape'){cerrarModal();document.getElementById('contextMenu').style.display='none';}});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'){cerrarModal();cerrarVisor();cerrarEditor();document.getElementById('contextMenu').style.display='none';}});
+
+    /* ── CLICK ÁRBOL: agregar visor y editor ── */
+    document.getElementById('fileTree').addEventListener('click',function(e){
+        var vw=e.target.closest('.btn-view'),ed=e.target.closest('.btn-edit');
+        if(vw){abrirVisor(vw.dataset.file);return;}
+        if(ed){abrirEditor(ed.dataset.file);return;}
+    });
+
+    /* ── HELPERS TIPO ARCHIVO ── */
+    function extOf(name){return(name.split('.').pop()||'').toLowerCase();}
+    function isEditable(name){return['xls','xlsx'].indexOf(extOf(name))>=0;}
+    function isImage(name){return['jpg','jpeg','png','gif','webp','bmp','svg'].indexOf(extOf(name))>=0;}
+    function isPdf(name){return extOf(name)==='pdf';}
+    function isText(name){return['txt','csv','json','xml','js','py','html','htm','sql','md','yaml','yml','ini','cfg','log','ts','css','scss','sh','bat','rs','go','java','c','cpp','h','rb','php'].indexOf(extOf(name))>=0;}
+
+    /* ── CARGA DINÁMICA DE SheetJS (una sola vez) ── */
+    var _xlsxPromise = null;
+    function loadXLSX(){
+        if(window.XLSX) return Promise.resolve(window.XLSX);
+        if(_xlsxPromise) return _xlsxPromise;
+        _xlsxPromise = new Promise(function(resolve, reject){
+            var s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            s.onload  = function(){ resolve(window.XLSX); };
+            s.onerror = function(){ reject(new Error('No se pudo cargar SheetJS')); };
+            document.head.appendChild(s);
+        });
+        return _xlsxPromise;
+    }
+    var viewerModal=document.getElementById('viewerModal');
+    window.cerrarVisor=function(){viewerModal.style.display='none';document.getElementById('viewerBody').innerHTML='';};
+    viewerModal.addEventListener('click',function(e){if(e.target===this)cerrarVisor();});
+
+    function abrirVisor(fp){
+        var name=fp.split('/').pop();
+        document.getElementById('viewerTitle').textContent=name;
+        var body=document.getElementById('viewerBody');
+        body.innerHTML='<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;"><i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando...</div>';
+        viewerModal.style.display='flex';
+
+        var url='/containers/'+currentContainer+'/files/'+encodeURIComponent(fp)+'/download';
+
+        if(isImage(name)){
+            body.innerHTML='<div style="text-align:center;padding:12px;"><img src="'+url+'" style="max-width:100%;max-height:72vh;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>';
+        } else if(isPdf(name)){
+            body.innerHTML='<iframe src="'+url+'" style="width:100%;height:75vh;border:none;border-radius:4px;"></iframe>';
+        } else if(isEditable(name)){
+            /* xls / xlsx — renderizar con SheetJS en modo solo lectura */
+            loadXLSX().then(function(XLSX){
+            fetch(url)
+            .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();})
+            .then(function(ab){
+                var wb=XLSX.read(new Uint8Array(ab),{type:'array',cellText:true,cellDates:true});
+                var sn=wb.SheetNames[0];
+                /* Tabs si hay múltiples hojas */
+                var tabsHtml='';
+                if(wb.SheetNames.length>1){
+                    tabsHtml='<div style="display:flex;gap:2px;padding:6px 10px 0;background:#f8f9fa;border-bottom:1px solid #e2e8f0;overflow-x:auto;">';
+                    wb.SheetNames.forEach(function(s,i){
+                        tabsHtml+='<span class="vwr-tab" data-wb-idx="'+i+'" style="padding:3px 12px;font-size:11px;border-radius:4px 4px 0 0;cursor:pointer;border:1px solid #e2e8f0;border-bottom:'+(i===0?'2px solid #059669':'2px solid transparent')+';background:'+(i===0?'#fff':'#f1f5f9')+';color:'+(i===0?'#059669':'#64748b')+';font-weight:'+(i===0?'700':'600')+';white-space:nowrap;font-family:Century Gothic,Arial,sans-serif;">'+s+'</span>';
+                    });
+                    tabsHtml+='</div>';
+                }
+                function renderSheet(sheetName){
+                    var ws=wb.Sheets[sheetName];
+                    var html=XLSX.utils.sheet_to_html(ws,{editable:false});
+                    html=html.replace('<table','<table style="border-collapse:collapse;font-size:12px;font-family:Consolas,Arial,sans-serif;width:100%;"');
+                    html=html.replace(/<td/g,'<td style="border:1px solid #e2e8f0;padding:3px 7px;white-space:nowrap;"');
+                    html=html.replace(/<th/g,'<th style="border:1px solid #e2e8f0;padding:3px 7px;background:#f1f5f9;font-size:10px;color:#64748b;font-weight:700;white-space:nowrap;"');
+                    document.getElementById('vwr-table-area').innerHTML='<div style="overflow:auto;max-height:68vh;padding:10px;">'+html+'</div>';
+                }
+                body.innerHTML=tabsHtml+'<div id="vwr-table-area"></div>';
+                renderSheet(sn);
+                body.querySelectorAll('.vwr-tab').forEach(function(t){
+                    t.addEventListener('click',function(){
+                        body.querySelectorAll('.vwr-tab').forEach(function(x){x.style.borderBottom='2px solid transparent';x.style.background='#f1f5f9';x.style.color='#64748b';x.style.fontWeight='600';});
+                        t.style.borderBottom='2px solid #059669';t.style.background='#fff';t.style.color='#059669';t.style.fontWeight='700';
+                        renderSheet(wb.SheetNames[parseInt(t.dataset.wbIdx)]);
+                    });
+                });
+            })
+            .catch(function(e){body.innerHTML='<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> Error al cargar: '+e.message+'</div>';});
+            }).catch(function(e){body.innerHTML='<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> '+e.message+'</div>';});
+        } else if(isText(name)){
+            fetch(url)
+            .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+            .then(function(txt){
+                var escaped=txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                body.innerHTML='<pre style="margin:0;padding:14px;font-family:Consolas,monospace;font-size:12px;line-height:1.55;color:#e2e8f0;background:#1e293b;border-radius:6px;overflow:auto;max-height:75vh;white-space:pre-wrap;word-break:break-word;">'+escaped+'</pre>';
+            })
+            .catch(function(e){body.innerHTML='<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> Error al cargar: '+e.message+'</div>';});
+        } else {
+            body.innerHTML='<div style="text-align:center;padding:40px 20px;"><i class="bi bi-file-earmark-x" style="font-size:48px;color:#cbd5e1;display:block;margin-bottom:12px;"></i><p style="font-size:13px;color:#64748b;margin:0 0 14px;">Vista previa no disponible para este tipo de archivo.</p><button onclick="cerrarVisor();descargarArchivo(\''+fp+'\')" style="background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:#fff;border:none;border-radius:6px;padding:7px 18px;font-size:12px;font-family:Century Gothic,Arial,sans-serif;font-weight:700;cursor:pointer;"><i class="bi bi-download"></i>&nbsp;Descargar</button></div>';
+        }
+    }
+
+    /* ══════════════════════════════════════
+    EDITOR EXCEL (SheetJS)
+    ══════════════════════════════════════ */
+    var editorModal  = document.getElementById('editorModal');
+    var editorFile   = '';
+    var editorWB     = null;   // workbook activo
+    var editorSheet  = '';     // hoja activa
+    var editorXLSX   = null;   // referencia a la librería SheetJS
+
+    window.cerrarEditor = function(){
+        editorModal.style.display = 'none';
+        editorFile = ''; editorWB = null; editorSheet = ''; editorXLSX = null;
+        document.getElementById('editorTableWrap').innerHTML =
+            '<div id="editorLoading" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;"><i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando archivo...</div>';
+        document.getElementById('editorSheetTabs').innerHTML = '';
+        document.getElementById('editorSaveBtn').disabled = true;
+        document.getElementById('editorSaveBtn').style.opacity = '0.5';
+    };
+    editorModal.addEventListener('click', function(e){ if(e.target === this) cerrarEditor(); });
+
+    /* Renderiza la hoja activa como tabla editable */
+    function editorRenderSheet(sheetName, XLSX){
+        editorSheet = sheetName;
+        /* Actualizar tabs */
+        document.querySelectorAll('.editor-sheet-tab').forEach(function(t){
+            var active = t.dataset.sheet === sheetName;
+            t.style.background    = active ? '#fff'    : '#f1f5f9';
+            t.style.borderBottom  = active ? '2px solid #d97706' : '2px solid transparent';
+            t.style.fontWeight    = active ? '700'    : '600';
+            t.style.color         = active ? '#d97706' : '#64748b';
+        });
+
+        var ws = editorWB.Sheets[sheetName];
+        var range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+        var rows  = range.e.r - range.s.r + 1;
+        var cols  = range.e.c - range.s.c + 1;
+
+        /* Construir tabla */
+        var colLetters = [];
+        for(var ci = range.s.c; ci <= range.e.c; ci++) colLetters.push(XLSX.utils.encode_col(ci));
+
+        var html = '<table id="editorTable" style="border-collapse:collapse;font-size:12px;font-family:Consolas,Arial,sans-serif;width:100%;">';
+        /* Header con letras de columna */
+        html += '<thead><tr><th style="background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 6px;min-width:36px;text-align:center;font-size:10px;color:#94a3b8;position:sticky;top:0;z-index:1;">#</th>';
+        colLetters.forEach(function(l){
+            html += '<th style="background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 8px;min-width:90px;text-align:center;font-size:10px;color:#64748b;font-weight:700;position:sticky;top:0;z-index:1;">'+l+'</th>';
+        });
+        html += '</tr></thead><tbody>';
+
+        for(var ri = range.s.r; ri <= range.e.r; ri++){
+            var isEven = (ri - range.s.r) % 2 === 1;
+            html += '<tr style="background:'+(isEven?'#fafafa':'#fff')+'">';
+            html += '<td style="background:#f8f9fa;border:1px solid #e2e8f0;padding:2px 5px;text-align:center;font-size:10px;color:#94a3b8;font-weight:700;min-width:36px;">'+(ri+1)+'</td>';
+            for(var cj = range.s.c; cj <= range.e.c; cj++){
+                var addr = XLSX.utils.encode_cell({r:ri, c:cj});
+                var cell = ws[addr];
+                var val  = cell ? (cell.v !== undefined ? cell.v : '') : '';
+                var disp = cell ? (cell.w !== undefined ? cell.w : val) : '';
+                var escaped = String(disp).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                html += '<td contenteditable="true" data-addr="'+addr+'" data-raw="'+String(val).replace(/"/g,'&quot;')+'" '
+                    + 'style="border:1px solid #e2e8f0;padding:2px 6px;min-width:90px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;" '
+                    + 'onfocus="this.style.background=\'#fffbeb\';this.style.outline=\'2px solid #d97706\';this.style.zIndex=\'2\';" '
+                    + 'onblur="editorCellBlur(this);">'
+                    + escaped + '</td>';
+            }
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+
+        var wrap = document.getElementById('editorTableWrap');
+        wrap.innerHTML = html;
+        document.getElementById('editorStatus').textContent =
+            sheetName + ' — ' + rows + ' filas × ' + cols + ' columnas';
+    }
+
+    /* Commit de celda editada al workbook */
+    window.editorCellBlur = function(td){
+        td.style.background = ''; td.style.outline = ''; td.style.zIndex = '';
+        if(!editorWB || !editorSheet) return;
+        var ws   = editorWB.Sheets[editorSheet];
+        var addr = td.dataset.addr;
+        var newVal = td.innerText;
+        var num  = parseFloat(newVal);
+        if(newVal === ''){
+            delete ws[addr];
+        } else if(!isNaN(num) && newVal.trim() !== ''){
+            ws[addr] = { t:'n', v:num, w:newVal };
+        } else {
+            ws[addr] = { t:'s', v:newVal };
+        }
+    };
+
+    function abrirEditor(fp){
+        editorFile = fp;
+        var name   = fp.split('/').pop();
+        document.getElementById('editorTitle').textContent = name;
+        document.getElementById('editorSaveBtn').disabled  = true;
+        document.getElementById('editorSaveBtn').style.opacity = '0.5';
+        document.getElementById('editorStatus').textContent   = 'Cargando librería...';
+        document.getElementById('editorSheetTabs').innerHTML  = '';
+        document.getElementById('editorTableWrap').innerHTML  =
+            '<div id="editorLoading" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;"><i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando archivo...</div>';
+        editorModal.style.display = 'flex';
+
+        loadXLSX().then(function(XLSX){
+        editorXLSX = XLSX;
+        document.getElementById('editorStatus').textContent = 'Descargando archivo...';
+        var url = '/containers/'+currentContainer+'/files/'+encodeURIComponent(fp)+'/download';
+        fetch(url)
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.arrayBuffer(); })
+        .then(function(ab){
+            editorWB = XLSX.read(new Uint8Array(ab), {type:'array', cellText:true, cellDates:true});
+
+            var tabsDiv = document.getElementById('editorSheetTabs');
+            editorWB.SheetNames.forEach(function(sn){
+                var tab = document.createElement('div');
+                tab.className    = 'editor-sheet-tab';
+                tab.dataset.sheet = sn;
+                tab.textContent  = sn;
+                tab.style.cssText = 'padding:4px 14px;font-size:11px;border-radius:4px 4px 0 0;cursor:pointer;border:1px solid #e2e8f0;border-bottom:2px solid transparent;background:#f1f5f9;color:#64748b;font-weight:600;white-space:nowrap;font-family:Century Gothic,Arial,sans-serif;';
+                var sn2 = sn; /* capturar en closure */
+                tab.addEventListener('click', function(){ editorRenderSheet(sn2, XLSX); });
+                tabsDiv.appendChild(tab);
+            });
+
+            editorRenderSheet(editorWB.SheetNames[0], XLSX);
+            document.getElementById('editorSaveBtn').disabled = false;
+            document.getElementById('editorSaveBtn').style.opacity = '1';
+        })
+        .catch(function(e){
+            document.getElementById('editorTableWrap').innerHTML =
+                '<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> Error al cargar: '+e.message+'</div>';
+            document.getElementById('editorStatus').textContent = 'Error';
+        });
+        }).catch(function(e){
+            document.getElementById('editorTableWrap').innerHTML =
+                '<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> '+e.message+'</div>';
+            document.getElementById('editorStatus').textContent = 'Error';
+        });
+    }
+
+    document.getElementById('editorSaveBtn').addEventListener('click', function(){
+        if(!editorFile || !editorWB || !editorXLSX) return;
+        /* Commit de cualquier celda aún activa */
+        var active = document.activeElement;
+        if(active && active.dataset && active.dataset.addr) window.editorCellBlur(active);
+
+        var name    = editorFile.split('/').pop();
+        var folder  = editorFile.includes('/') ? editorFile.substring(0, editorFile.lastIndexOf('/')) : '';
+        var ext     = extOf(name);
+        var bookType= ext === 'xlsx' ? 'xlsx' : 'xls';
+
+        document.getElementById('editorStatus').textContent = 'Generando archivo...';
+        document.getElementById('editorSaveBtn').disabled   = true;
+        document.getElementById('editorSaveBtn').style.opacity = '0.5';
+
+        var wbOut   = editorXLSX.write(editorWB, {bookType: bookType, type:'array'});
+        var blob    = new Blob([wbOut], {type:'application/octet-stream'});
+        var file    = new File([blob], name, {type:'application/octet-stream'});
+        var fd      = new FormData(); fd.append('file', file);
+        var pathParam = folder ? encodeURIComponent(folder+'/') : encodeURIComponent('');
+
+        document.getElementById('editorStatus').textContent = 'Guardando en Blob Storage...';
+        fetch('/containers/'+currentContainer+'/files?path='+pathParam, {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if(d.message){
+                toast('✓ Guardado: '+name, 'success');
+                delete metadataCache[currentContainer];
+                loadFiles(currentContainer);
+                cerrarEditor();
+            } else {
+                document.getElementById('editorStatus').textContent = 'Error al guardar';
+                toast(d.detail||'Error al guardar', 'error');
+                document.getElementById('editorSaveBtn').disabled = false;
+                document.getElementById('editorSaveBtn').style.opacity = '1';
+            }
+        })
+        .catch(function(e){
+            document.getElementById('editorStatus').textContent = 'Error: '+e.message;
+            toast('Error al guardar: '+e.message, 'error');
+            document.getElementById('editorSaveBtn').disabled = false;
+            document.getElementById('editorSaveBtn').style.opacity = '1';
+        });
+    });
 
     })();
     </script>

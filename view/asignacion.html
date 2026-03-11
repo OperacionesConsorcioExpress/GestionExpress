@@ -40,7 +40,7 @@
 
         <div class="asig-topbar__actions">
             <span class="asig-user-chip"><i class="bi bi-person-circle"></i> {{ user_session.nombres }} {{ user_session.apellidos }}</span>
-            <a href="{{ url_for('descargar_plantilla') }}" class="btn asig-btn asig-btn-soft-dark asig-btn-compact">
+            <a href="/plantilla_cargue" class="btn asig-btn asig-btn-soft-dark asig-btn-compact">
                 <i class="bi bi-file-earmark-arrow-down"></i> Plantilla
             </a>
             <button type="button" class="btn asig-btn asig-btn-primary asig-btn-compact" onclick="document.getElementById('fileInput').click();">
