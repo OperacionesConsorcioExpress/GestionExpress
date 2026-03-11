@@ -24,17 +24,17 @@ jobs:
         pip install -r requirements.txt
     - name: Set environment variables
       env:
-        DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+        DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
       run: echo "Environment variables set."
 
     - name: Verificar conexión a la base de datos
       env:
-        DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+        DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
       run: |
         python -c "
         import psycopg2
         try:
-            conn = psycopg2.connect('${{ secrets.DATABASE_PATH }}')
+            conn = psycopg2.connect('${{ secrets.DATABASE_PATH_DEDICATED }}')
             print('Conexión a la base de datos exitosa')
             conn.close()
         except Exception as e:
@@ -43,6 +43,6 @@ jobs:
         "
     - name: Ejecutar cálculo de fechas dinámicas
       env:
-        DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+        DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
       run: |
         python -c "from jobs.job_juridico import TareasProgramadasJuridico; TareasProgramadasJuridico().calcular_y_actualizar_fechas_dinamicas()"
