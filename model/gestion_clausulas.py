@@ -9,7 +9,7 @@ from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.sharepoint.client_context import ClientContext
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from database.database_manager import get_db_connection
+from database.database_manager import get_db_connection, _get_pool, close_pool
 
 # Variables de entorno no-DB (se mantienen aquí)
 load_dotenv()
@@ -946,7 +946,7 @@ class GestionClausulas:
         try:
             if self.connection is None or self.connection.closed != 0:
                 print("La conexión estaba cerrada. Obteniendo nueva conexión del pool...")
-                self.connection = get_db_pool().getconn()
+                self.connection = _get_pool().getconn()
                 if not self.connection.closed:
                     self.connection.rollback()
         except Exception as e:
@@ -1526,7 +1526,7 @@ class GestionClausulas:
     def conectar_db(self):
         """Asegura que la conexión del pool esté disponible. Si fue devuelta, obtiene una nueva."""
         if self.connection is None or self.connection.closed:
-            self.connection = get_db_pool().getconn()
+            self.connection = _get_pool().getconn()
             if not self.connection.closed:
                 self.connection.rollback()
 
@@ -1684,7 +1684,7 @@ class GestionClausulas:
             try:
                 if not self.connection.closed:
                     self.connection.rollback()
-                get_db_pool().putconn(self.connection)
+                close_pool().putconn(self.connection)
             except Exception:
                 pass
             self.connection = None
