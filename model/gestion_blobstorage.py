@@ -213,3 +213,67 @@ class ContainerModel:
             "lease_status":     str(p.lease.status) if p.lease else None,
             "custom_metadata":  p.metadata or {},
         }
+
+    # ─────────────────────────────────────────────
+    # Preview paginado de Excel (visor sin descarga)
+    # ─────────────────────────────────────────────
+    def preview_excel(self, container_name: str, blob_name: str,
+                        sheet: int = 0, page: int = 1, limit: int = 300) -> dict:
+        """
+        Retorna JSON paginado de una hoja Excel usando openpyxl (read_only=True).
+        El browser NUNCA descarga el binario completo para previsualizar.
+        Solo soporta .xlsx / .xlsm (openpyxl no procesa el formato binario .xls).
+        """
+        from openpyxl import load_workbook
+        from io import BytesIO
+
+        ext = blob_name.rsplit('.', 1)[-1].lower() if '.' in blob_name else ''
+        if ext not in ('xlsx', 'xlsm', 'xlam'):
+            return {
+                "error":      f"Vista previa no disponible para archivos .{ext}. Descarga el archivo para abrirlo en Excel.",
+                "sheets":     [],
+                "rows":       [],
+                "total_rows": 0,
+                "total_cols": 0,
+                "page":       page,
+                "limit":      limit,
+                "has_more":   False,
+            }
+
+        blob_client = self.blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
+        )
+        data = blob_client.download_blob().readall()
+
+        wb          = load_workbook(BytesIO(data), read_only=True, data_only=True)
+        sheet_names = wb.sheetnames
+
+        if sheet >= len(sheet_names):
+            sheet = 0
+
+        ws          = wb.worksheets[sheet]
+        total_rows  = ws.max_row    or 0
+        total_cols  = ws.max_column or 0
+
+        offset    = (page - 1) * limit
+        rows_data = []
+
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if i < offset:
+                continue
+            if i >= offset + limit:
+                break
+            rows_data.append(['' if v is None else str(v) for v in row])
+
+        wb.close()
+
+        return {
+            "sheets":     list(sheet_names),
+            "sheet":      sheet,
+            "page":       page,
+            "limit":      limit,
+            "total_rows": total_rows,
+            "total_cols": total_cols,
+            "rows":       rows_data,
+            "has_more":   (offset + limit) < total_rows,
+        }
