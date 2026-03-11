@@ -144,6 +144,26 @@ def delete_file(container_name: str, file_name: str):
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
+@router_blobstorage.get("/containers/{container_name}/blobs/{blob_path:path}/preview")
+def preview_excel(
+    container_name: str,
+    blob_path:      str,
+    sheet: int = 0,
+    page:  int = 1,
+    limit: int = 300,
+):
+    """
+    Preview paginado de un archivo Excel.
+    Retorna JSON con las filas de la página solicitada.
+    El browser NUNCA descarga el binario completo — solo recibe JSON.
+    """
+    try:
+        decoded_path = unquote(blob_path)
+        result = container_model.preview_excel(container_name, decoded_path, sheet, page, limit)
+        return JSONResponse(content=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router_blobstorage.post("/containers/{container_name}/cache/invalidate")
 def invalidate_cache(container_name: str):
     """
