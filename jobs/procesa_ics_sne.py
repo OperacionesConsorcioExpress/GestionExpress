@@ -1340,9 +1340,28 @@ def main() -> None:
             fecha_semilla=fecha_semilla,
         )
         fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
+        
+        MESES_ES = {
+            1: "enero",
+            2: "febrero",
+            3: "marzo",
+            4: "abril",
+            5: "mayo",
+            6: "junio",
+            7: "julio",
+            8: "agosto",
+            9: "septiembre",
+            10: "octubre",
+            11: "noviembre",
+            12: "diciembre",
+}
+    
+        fecha_texto = f"{fecha_to_process.day} de {MESES_ES[fecha_to_process.month]} de {fecha_to_process.year}"
 
+        
         print("\n" + "=" * 80)
         print(f"📅 FECHA AUTOMÁTICA A PROCESAR: {fecha_to_process}")
+        print(f"📝 FECHA EN TEXTO: {fecha_texto}")
         print("=" * 80)
 
         try:
