@@ -1,30 +1,41 @@
-# Pipeline de procesamiento para ICS SNE
 from __future__ import annotations
-# Importa librerias 
-import os, re, csv, time
+
+import os
+import re
+import csv
+import time
 from io import BytesIO
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional, Dict
-# realizamos importaciones pesadas solo en funciones específicas para optimizar memoria y velocidad de arranque
+
 import numpy as np
 import pandas as pd
 from azure.storage.blob import BlobServiceClient
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
-# Importamos nuestro manager de base de datos con pool centralizado
-from database.database_manager import get_db_connection
+
+from database_manager import get_db_connection
+
 
 # =============================================================================
 # CONFIG
 # =============================================================================
-# Semilla: si NO existe log, procesar este día (dd/mm/yyyy)
-FECHA_SEMILLA_STR = "01/02/2026"
-FILTRO_ZONA_TIPO = 3          # 1=ZN, 2=TR, 3=Ambas
+
+# Si no existe un log OK previo, empezar desde esta fecha
+FECHA_SEMILLA_STR = "01/02/2026"   # dd/mm/yyyy
+
+FILTRO_ZONA_TIPO = 3               # 1=ZN, 2=TR, 3=Ambas
+
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
 AZURE_CONTAINER_ACTIVIDAD = "0001-archivos-de-apoyo-descargas-cex-fms"
 
-# Destinos
+# Solo local. En GitHub se espera AZURE_STORAGE_CONNECTION_STRING desde Secrets
+CONNECTION_STRING_LOCAL = ""
+
+# -------------------------------
+# POSTGRES
+# -------------------------------
 PG_SCHEMA_NAME = "sne"
 PG_TABLE_NAME = "ics"
 
@@ -37,8 +48,6 @@ PG_TABLE_MOTIVO_RESP = "ics_motivo_resp"
 PG_SCHEMA_MOTIVOS = "sne"
 PG_TABLE_MOTIVOS = "motivos_eliminacion"
 
-RESPONSABLE_DEFAULT = 0
-
 PG_SCHEMA_REPORTES = "sne"
 PG_TABLE_REPORTES = "reportes_sne"
 
@@ -47,27 +56,31 @@ PG_TABLE_LOG = "procesa_report_sne"
 
 PG_BATCH_SIZE = 5000
 
-DELETE_EXISTING_FOR_DATE = False
+RESPONSABLE_DEFAULT = 0
 GESTION_REVISOR_DEFAULT_INT = 0
+DELETE_EXISTING_FOR_DATE = False
+
 
 # =============================================================================
-# HELPERS - IO ROBUSTO EN MEMORIA
+# HELPERS
 # =============================================================================
+
 class DataIO:
     @staticmethod
     def limpiar_columnas(df: pd.DataFrame) -> pd.DataFrame:
         if df is None or df.empty:
             return df
+
         df = df.copy()
 
         def _clean_col(c: str) -> str:
             s = str(c)
             s = s.replace("\ufeff", "").replace("ï»¿", "").replace('"', "").strip()
             s = re.sub(r"^[\uFEFF\u200B\u200C\u200D\u2060]+", "", s).strip()
-            s = re.sub(r"^(ï»¿)+", "", s).strip()
+            s = re.sub(r"\s+", " ", s).strip()
             return s
 
-        df.columns = [_clean_col(c0) for c0 in df.columns]
+        df.columns = [_clean_col(c) for c in df.columns]
         return df
 
     @staticmethod
@@ -116,13 +129,8 @@ class DataIO:
         df = pd.read_csv(bio, sep=sep, encoding="latin-1", engine="python", dtype=dtype)
         return cls.limpiar_columnas(df)
 
-# =============================================================================
-# TRANSFORM
-# =============================================================================
 
 class TransformUtils:
-    DIVISOR = 10000.0
-
     @staticmethod
     def fecha_key_robusta(serie: pd.Series, prefer_dayfirst: str = "auto") -> pd.Series:
         s = serie.copy()
@@ -175,77 +183,67 @@ class TransformUtils:
         return pd.to_numeric(series, errors="coerce").astype("Int64")
 
     @staticmethod
-    def _parse_num_mixto(s: pd.Series) -> pd.Series:
-        x = s.astype(str).str.strip()
-        x = x.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
-        x = x.str.replace(r"[^\d\.,\-\+]", "", regex=True)
-
-        mask_coma = x.str.contains(",", na=False)
-        if mask_coma.any():
-            xc = x[mask_coma].str.replace(".", "", regex=False)
-            xc = xc.str.replace(",", ".", regex=False)
-            x.loc[mask_coma] = xc
-
-        mask_no_coma = ~mask_coma
-        if mask_no_coma.any():
-            xn = x[mask_no_coma]
-
-            mask_multi_dot = xn.str.count(r"\.") >= 2
-            if mask_multi_dot.any():
-                xn.loc[mask_multi_dot] = xn.loc[mask_multi_dot].str.replace(".", "", regex=False)
-
-            mask_one_dot = xn.str.count(r"\.") == 1
-            if mask_one_dot.any():
-                part = xn.loc[mask_one_dot]
-                suf = part.str.split(".", n=1).str[1].fillna("")
-                mask_miles = suf.str.len() == 3
-                miles_idx = part.index[mask_miles]
-                if len(miles_idx):
-                    xn.loc[miles_idx] = xn.loc[miles_idx].str.replace(".", "", regex=False)
-
-            x.loc[mask_no_coma] = xn
-
-        return pd.to_numeric(x, errors="coerce").astype("float64")
-
-    @classmethod
-    def to_km_smart(cls, series: pd.Series) -> pd.Series:
-        raw = cls._parse_num_mixto(series)
-        out = raw.copy()
-        mask = raw.notna() & (raw > 1000)
-        out.loc[mask] = raw.loc[mask] / cls.DIVISOR
-        return out
+    def to_float(series: pd.Series) -> pd.Series:
+        return pd.to_numeric(series, errors="coerce").astype("float64")
 
     @staticmethod
-    def to_offset_detallado_km(series: pd.Series) -> pd.Series:
-        raw = pd.to_numeric(series, errors="coerce").astype("float64")
-        out = raw / 1000.0
-        out.loc[raw == 0] = 0.0
-        return out
-
-    @staticmethod
-    def to_km_metros(series: pd.Series) -> pd.Series:
+    def metros_a_km(series: pd.Series) -> pd.Series:
         raw = pd.to_numeric(series, errors="coerce").astype("float64")
         return raw / 1000.0
 
-    @staticmethod
-    def fecha_para_nombre_archivo_dd_mm_yyyy(serie_fecha_viaje: pd.Series) -> str:
-        s = serie_fecha_viaje.astype(str).str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
-        dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
 
-        if dt.notna().any():
-            moda = dt.dropna().dt.date.value_counts().idxmax()
-            dt_moda = pd.to_datetime(str(moda))
-            return dt_moda.strftime("%d_%m_%Y")
+def normalize_name(s: str) -> str:
+    s = str(s).strip().lower()
+    s = s.replace("\ufeff", "").replace("ï»¿", "")
+    s = s.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u").replace("ñ", "n")
+    s = s.replace("ã¡", "a").replace("ã©", "e").replace("ã­", "i").replace("ã³", "o").replace("ãº", "u")
+    s = s.replace("lã­nea", "linea").replace("vehã­culo", "vehiculo").replace("descripciã³n", "descripcion")
+    s = s.replace("concesiã³n", "concesion")
+    s = re.sub(r"[^a-z0-9]+", "", s)
+    return s
 
-        return "SIN_FECHA"
+
+def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Optional[str]:
+    cols = {str(c).strip(): c for c in df.columns}
+    normalized = {normalize_name(k): v for k, v in cols.items()}
+
+    for alias in aliases:
+        if alias in cols:
+            return cols[alias]
+
+    for alias in aliases:
+        na = normalize_name(alias)
+        if na in normalized:
+            return normalized[na]
+
+    if required:
+        raise KeyError(f"No se encontró ninguna de estas columnas: {aliases}")
+    return None
+
+
+def clean_motivo(v) -> str:
+    if v is None:
+        return ""
+    s = str(v)
+    s = s.replace("\ufeff", "").replace("ï»¿", "")
+    s = s.strip()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def norm_motivo(v) -> str:
+    return clean_motivo(v).upper()
+
 
 # =============================================================================
 # AZURE
 # =============================================================================
+
 @dataclass(frozen=True)
 class AzureConfig:
     connection_string: str
     container_actividad: str = AZURE_CONTAINER_ACTIVIDAD
+
 
 class AzureBlobReader:
     def __init__(self, cfg: AzureConfig):
@@ -273,10 +271,12 @@ class AzureBlobReader:
                 out.append(b.name)
         return out
 
+
 # =============================================================================
-# BUILD SNE (REGLAS COMPLETAS)
+# BUILDER
 # =============================================================================
-class SNEFromAzureBuilder:
+
+class SNEExportBuilder:
     def __init__(self, azure_reader: AzureBlobReader, filtro_zona_tipo: int):
         self.az = azure_reader
         self.filtro = filtro_zona_tipo
@@ -316,56 +316,61 @@ class SNEFromAzureBuilder:
         anio = fecha.strftime("%Y")
         mes = fecha.strftime("%m")
         fecha_txt = fecha.strftime("%d_%m_%Y")
+
         out: List[Tuple[str, str]] = []
         for zona in ["US", "SC"]:
             nombre = f"Tabla_IntervalosViajeStat_{fecha_txt}_{zona}.csv"
             ruta = f"0001-36-fms-tabla-viajestat/{anio}/{mes}/{nombre}"
             out.append((ruta, nombre))
         return out
-    
+
     def _prefix_viajes_tardios(self) -> str:
         return "0001-40-fms-tabla-viajestardios/"
-    
-    # ---------------------------
-    # Loaders
-    # ---------------------------
+
     def load_ics(self, fecha: datetime) -> pd.DataFrame:
         print("\n" + "=" * 80)
-        print("1) CARGANDO ICS (AZURE)")
+        print("1) CARGANDO ICS")
         print("=" * 80)
 
-        ruta, _ = self._blob_path_ics(fecha)
+        ruta, nombre = self._blob_path_ics(fecha)
         if not self.az.exists(ruta):
-            raise SystemExit(f"❌ No existe ICS en Azure para esa fecha:\n   {ruta}")
+            raise SystemExit(f"❌ No existe ICS en Azure:\n   {ruta}")
 
         df = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+        print(f"✅ ICS cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
 
-        requeridas = [
-            "IdICS", "Fecha Viaje", "Linea SAE", "Servicio", "Coche", "ViajeLinea",
-            "Km Programado", "Km Efectivamente Ejecutado",
-            "Km Eliminado", "DistAutorizada", "DistSupAcc",
-            "IdViaje", "Operador",
-        ]
-        faltan = [c for c in requeridas if c not in df.columns]
-        if faltan:
-            print("❌ ICS: faltan columnas requeridas:", faltan)
-            print("   Columnas disponibles:", list(df.columns))
-            raise SystemExit("❌ Proceso detenido - faltan columnas en ICS")
+        c_fecha = pick_col(df, ["Fecha Viaje"])
+        c_serv = pick_col(df, ["Servicio"])
+        c_linea = pick_col(df, ["Linea SAE", "Línea SAE"])
+        c_coche = pick_col(df, ["Coche"])
+        c_viaje_linea = pick_col(df, ["ViajeLinea", "Viaje Línea"])
+        c_id_viaje = pick_col(df, ["IdViaje", "Id Viaje"])
+        c_idics = pick_col(df, ["IdICS"])
 
-        df = df.copy()
-        df["Fecha_key"] = self.tu.fecha_key_robusta(df["Fecha Viaje"], prefer_dayfirst="auto")
-        df["Servicio_key"] = df["Servicio"].astype(str).str.strip().str.upper()
-        df["Coche_key"] = self.tu.to_int64(df["Coche"])
-        df["Viaje_key"] = self.tu.to_int64(df["ViajeLinea"])
-        df["IdICS"] = self.tu.to_int64(df["IdICS"])
-        df["IdViaje_key"] = self.tu.to_int64(df["IdViaje"])
+        out = df.copy()
+        out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst="auto")
+        out["Servicio_key"] = out[c_serv].astype(str).str.strip().str.upper()
+        out["Linea_key"] = self.tu.to_int64(out[c_linea])
+        out["Tabla_key"] = self.tu.to_int64(out[c_coche])
+        out["ViajeLinea_key"] = self.tu.to_int64(out[c_viaje_linea])
+        out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
+        out["Id_ICS"] = self.tu.to_int64(out[c_idics])
 
-        print(f"✅ ICS cargado: {len(df)} filas")
-        return df
+        out = out[
+            [
+                "Fecha_key", "Servicio_key", "Linea_key", "Tabla_key",
+                "ViajeLinea_key", "IdViaje_key", "Id_ICS"
+            ]
+        ].drop_duplicates(
+            subset=["Fecha_key", "Servicio_key", "Linea_key", "Tabla_key", "ViajeLinea_key", "IdViaje_key"],
+            keep="first"
+        )
+
+        return out
 
     def load_detallado(self, fecha: datetime) -> pd.DataFrame:
         print("\n" + "=" * 80)
-        print("2) CARGANDO DETALLADO (AZURE)")
+        print("2) CARGANDO DETALLADO")
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
@@ -380,57 +385,92 @@ class SNEFromAzureBuilder:
             print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
         if not frames:
-            raise SystemExit("❌ No se encontró ningún Detallado para esa fecha (según ZN/TR y US/SC).")
+            raise SystemExit("❌ No se encontró ningún Detallado para esa fecha.")
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
-        col_viaje_list = [c for c in df.columns if str(c).startswith("Viaje L")]
-        if not col_viaje_list:
-            print("❌ Detallado: no se encontró columna que empiece por 'Viaje L'")
-            print("   Columnas disponibles:", list(df.columns))
-            raise SystemExit("❌ Proceso detenido - no hay 'Viaje Línea' en Detallado")
-        col_viaje_det = col_viaje_list[0]
+        c_fecha = pick_col(df, ["Fecha"])
+        c_concesion = pick_col(df, ["Concesión", "Concesion", "ConcesiÃ³n"])
+        c_planificado = pick_col(df, ["Planificado"], required=False)
+        c_servicio = pick_col(df, ["Servicio"])
+        c_linea = pick_col(df, ["Id Línea", "Id Linea", "Id LÃ­nea"])
+        c_tabla = pick_col(df, ["Tabla"])
+        c_viaje_linea = pick_col(df, ["Viaje Línea", "Viaje Linea", "Viaje LÃ­nea"])
+        c_id_viaje = pick_col(df, ["Id Viaje", "Id Viaje "])
+        c_sentido = pick_col(df, ["Sentido", "Sentido "], required=False)
+        c_veh_real = pick_col(df, ["Vehículo Real", "Vehiculo Real", "VehÃ­culo Real"], required=False)
+        c_hora_teo = pick_col(df, ["Hora Ini Teorica", "Hora Ini Teorica "], required=False)
+        c_hora_ref = pick_col(df, ["Hora Ini Referencia", "Hora Ini Referencia "], required=False)
+        c_conductor = pick_col(df, ["Conductor"], required=False)
+        c_kmprog = pick_col(df, ["KmProgAd"])
+        c_kmelim = pick_col(df, ["KmElimado", "Km Eliminado"])
+        c_distsup = pick_col(df, ["DistSupAcc"])
+        c_distaut = pick_col(df, ["DistAutorizada"])
+        c_distno = pick_col(df, ["DistNoRealizada"])
+        c_kmejec = pick_col(df, ["KmEjecutado"])
+        c_offset_ini = pick_col(df, ["OffsetInicio"])
+        c_offset_fin = pick_col(df, ["OffsetFin"])
+        c_eliminado = pick_col(df, ["Eliminado"], required=False)
+        c_motivo = pick_col(df, ["Descripción Motivo Elim", "Descripcion Motivo Elim", "DescripciÃ³n Motivo Elim"], required=False)
 
-        requeridas = ["Fecha", "Servicio", "Tabla", col_viaje_det]
-        faltan = [c for c in requeridas if c not in df.columns]
-        if faltan:
-            print("❌ Detallado: faltan columnas requeridas:", faltan)
-            print("   Columnas disponibles:", list(df.columns))
-            raise SystemExit("❌ Proceso detenido - faltan columnas en Detallado")
+        out = df.copy()
+        out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst=True)
+        out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
+        out["Linea_key"] = self.tu.to_int64(out[c_linea])
+        out["Tabla_key"] = self.tu.to_int64(out[c_tabla])
+        out["ViajeLinea_key"] = self.tu.to_int64(out[c_viaje_linea])
+        out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
 
-        cols_traer = [
-            "Sentido",
-            "Vehículo Real",
-            "Hora Ini Teorica",
-            "Hora Ini Referencia",
-            "Conductor",
-            "OffsetInicio",
-            "OffsetFin",
-            "Descripción Motivo Elim",
-            "Eliminado",
-        ]
-        cols_presentes = [c for c in cols_traer if c in df.columns]
-        faltan_traer = [c for c in cols_traer if c not in df.columns]
-        if faltan_traer:
-            print("⚠️ Detallado: estas columnas NO están y quedarán en blanco:", faltan_traer)
+        out["Vehiculo_key"] = (
+            out[c_veh_real].astype("string").fillna("").str.strip().str.upper()
+            if c_veh_real else pd.Series([""] * len(out), index=out.index, dtype="string")
+        )
 
-        df = df.copy()
-        df["Fecha_key"] = self.tu.fecha_key_robusta(df["Fecha"], prefer_dayfirst=True)
-        df["Servicio_key"] = df["Servicio"].astype(str).str.strip().str.upper()
-        df["Coche_key"] = self.tu.to_int64(df["Tabla"])
-        df["Viaje_key"] = self.tu.to_int64(df[col_viaje_det])
+        out["Fecha"] = pd.to_datetime(out[c_fecha], errors="coerce", dayfirst=True).dt.date
+        out["Concesion_raw"] = out[c_concesion].astype("string").fillna("").str.strip()
+        out["Planificado_raw"] = out[c_planificado].astype("string").fillna("").str.strip() if c_planificado else ""
+        out["Servicio"] = out[c_servicio].astype("string").fillna("").str.strip()
+        out["Linea"] = self.tu.to_int64(out[c_linea])
+        out["Tabla"] = self.tu.to_int64(out[c_tabla])
+        out["Viaje_Linea"] = self.tu.to_int64(out[c_viaje_linea])
+        out["Id_Viaje"] = self.tu.to_int64(out[c_id_viaje])
+        out["Sentido"] = out[c_sentido].astype("string").fillna("").str.strip() if c_sentido else pd.NA
+        out["Vehiculo_Real"] = out[c_veh_real].astype("string").fillna("").str.strip() if c_veh_real else pd.NA
+        out["Hora_Teo_raw"] = out[c_hora_teo].astype("string").fillna("").str.strip() if c_hora_teo else ""
+        out["Hora_Ref_raw"] = out[c_hora_ref].astype("string").fillna("").str.strip() if c_hora_ref else ""
+        out["Conductor"] = out[c_conductor] if c_conductor else pd.NA
 
-        keep = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"] + cols_presentes
-        df = df[keep].copy()
-        df = df.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], keep="first")
+        out["KmProgAd_km"] = self.tu.metros_a_km(out[c_kmprog])
+        out["KmElimado_km"] = self.tu.metros_a_km(out[c_kmelim])
+        out["DistSupAcc_km"] = self.tu.metros_a_km(out[c_distsup])
+        out["DistAutorizada_km"] = self.tu.metros_a_km(out[c_distaut])
+        out["DistNoRealizada_km"] = self.tu.metros_a_km(out[c_distno])
+        out["KmEjecutado_km"] = self.tu.metros_a_km(out[c_kmejec])
+        out["OffsetInicio_km"] = self.tu.metros_a_km(out[c_offset_ini])
+        out["OffsetFin_km"] = self.tu.metros_a_km(out[c_offset_fin])
 
-        print(f"✅ Detallado cargado: {len(df)} filas (post-dedup por llaves)")
-        return df
+        out["Eliminado_raw"] = out[c_eliminado].astype("string").fillna("").str.strip() if c_eliminado else ""
+        out["Motivo_original"] = out[c_motivo].astype("string").fillna("").str.strip() if c_motivo else ""
+
+        out["Categoria_Ejecucion"] = np.where(
+            out["KmProgAd_km"].notna() & out["KmEjecutado_km"].notna() &
+            np.isclose(out["KmProgAd_km"], out["KmEjecutado_km"], rtol=0, atol=1e-9),
+            "Ejecutado",
+            "No Ejecutado"
+        )
+
+        out = out[out["Categoria_Ejecucion"] == "No Ejecutado"].copy()
+
+        conc_upper = out["Concesion_raw"].astype(str).str.upper().str.strip()
+        out = out[~conc_upper.isin(["SAN CRISTOBAL T3", "USAQUEN T3"])].copy()
+
+        print(f"✅ Detallado listo: {len(out)} filas después de filtrar No Ejecutado y quitar T3")
+        return out
 
     def load_stat(self, fecha: datetime) -> pd.DataFrame:
         print("\n" + "=" * 80)
-        print("2B) CARGANDO VIAJESTAT (AZURE)")
+        print("3) CARGANDO VIAJESTAT")
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
@@ -445,43 +485,56 @@ class SNEFromAzureBuilder:
             print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
         if not frames:
-            print("⚠️ No se encontró Stat. Se omite condición de Regulación Offline.")
+            print("⚠️ No se encontró ViajeStat. Se continuará sin Stat.")
             return pd.DataFrame()
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
-        req = ["APPLY_DATE", "VEH_SERV_ID", "SERV_TRIP_SEQ", "LOC_TYPE_CD"]
-        faltan = [c for c in req if c not in df.columns]
-        if faltan:
-            print(f"⚠️ Stat: faltan columnas {faltan}. Se omite condición de Regulación Offline.")
-            return pd.DataFrame()
+        c_fecha = pick_col(df, ["APPLY_DATE"])
+        c_serv = pick_col(df, ["VEH_SERV_ID"])
+        c_idviaje = pick_col(df, ["SERV_TRIP_SEQ"])
+        c_loc = pick_col(df, ["LOC_TYPE_CD"])
 
-        df = df.copy()
-        df["Fecha_stat_key"] = pd.to_datetime(
-            df["APPLY_DATE"].astype(str).str.strip(),
+        out = df.copy()
+        out["Fecha_key"] = pd.to_datetime(
+            out[c_fecha].astype(str).str.strip(),
             format="%Y%m%d",
             errors="coerce"
-        ).dt.date
-        df["Servicio_stat_key"] = df["VEH_SERV_ID"].astype(str).str.strip().str.upper()
-        df["IdViaje_stat_key"] = pd.to_numeric(df["SERV_TRIP_SEQ"], errors="coerce").astype("Int64")
-        df["LOC_TYPE_CD_num"] = pd.to_numeric(df["LOC_TYPE_CD"], errors="coerce").astype("Int64")
+        ).dt.strftime("%Y-%m-%d")
 
-        dist_col = "ACCUM_TRIP_DIST" if "ACCUM_TRIP_DIST" in df.columns else None
-        if dist_col:
-            dist_raw = pd.to_numeric(df[dist_col], errors="coerce").astype("float64")
-            df["_dist_km"] = np.where(dist_raw > 1000, dist_raw / 1000.0, dist_raw)
-        else:
-            df["_dist_km"] = np.nan
+        out["Servicio_key"] = out[c_serv].astype(str).str.strip().str.upper()
+        out["IdViaje_key"] = self.tu.to_int64(out[c_idviaje])
+        out["LOC_TYPE_CD_num"] = self.tu.to_int64(out[c_loc])
 
-        before = len(df)
-        df = df.dropna(subset=["Fecha_stat_key", "Servicio_stat_key", "IdViaje_stat_key", "LOC_TYPE_CD_num"])
-        print(f"✅ Stat listo: {len(df)}/{before} filas con llaves válidas")
-        return df
+        out = out.dropna(subset=["Fecha_key", "Servicio_key", "IdViaje_key", "LOC_TYPE_CD_num"]).copy()
+        out["LOC_TYPE_CD_num"] = out["LOC_TYPE_CD_num"].astype(int)
+
+        grp = pd.crosstab(
+            index=[
+                out["Fecha_key"],
+                out["Servicio_key"],
+                out["IdViaje_key"]
+            ],
+            columns=out["LOC_TYPE_CD_num"]
+        ).reset_index()
+
+        for estado in [5, 8, 9]:
+            if estado not in grp.columns:
+                grp[estado] = 0
+
+        grp = grp.rename(columns={
+            5: "CNT Estado 5",
+            8: "CNT Estado 8",
+            9: "CNT Estado 9",
+        })
+
+        print(f"✅ ViajeStat listo: {len(grp)} llaves agregadas")
+        return grp
 
     def load_viajes_tardios(self) -> pd.DataFrame:
         print("\n" + "=" * 80)
-        print("2C) CARGANDO VIAJES TARDÍOS (AZURE)")
+        print("4) CARGANDO VIAJES TARDÍOS")
         print("=" * 80)
 
         prefix = self._prefix_viajes_tardios()
@@ -489,7 +542,7 @@ class SNEFromAzureBuilder:
         blob_paths = [p for p in blob_paths if p.lower().endswith(".csv")]
 
         if not blob_paths:
-            print("⚠️ No se encontraron archivos en Viajes Tardíos. Se omite condición.")
+            print("⚠️ No se encontraron archivos de Tardíos. Se continuará sin Tardíos.")
             return pd.DataFrame()
 
         frames: List[pd.DataFrame] = []
@@ -504,296 +557,238 @@ class SNEFromAzureBuilder:
                 print(f"  ⚠️ Error leyendo {nombre}: {e}")
 
         if not frames:
-            print("⚠️ No se pudo leer ningún archivo de Viajes Tardíos. Se omite condición.")
+            print("⚠️ No se pudo leer ningún archivo de Tardíos.")
             return pd.DataFrame()
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
-        req = ["Fecha", "Tabla", "Viaje", "Servicio Viaje", "Estado Localización", "Distancia"]
-        faltan = [c for c in req if c not in df.columns]
-        if faltan:
-            print(f"⚠️ Viajes Tardíos: faltan columnas {faltan}. Se omite condición.")
-            return pd.DataFrame()
+        c_fecha = pick_col(df, ["Fecha"])
+        c_veh = pick_col(df, ["N° Vehículo", "Nº Vehículo", "No Vehiculo", "N Vehiculo", "N° Vehiculo"])
+        c_viaje = pick_col(df, ["Viaje"])
+        c_linea = pick_col(df, ["Id Línea", "Id Linea"])
+        c_tabla = pick_col(df, ["Tabla"])
+        c_estado = pick_col(df, ["Estado Localización", "Estado Localizacion"])
 
-        sv = df["Servicio Viaje"].astype(str).str.strip()
-        servicio = sv.str.split("-", n=2).str[1]
-        df = df.copy()
-        df["Servicio_extr"] = servicio.astype(str).str.strip().str.upper()
+        out = df.copy()
+        out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst="auto")
+        out["Vehiculo_key"] = out[c_veh].astype("string").fillna("").str.strip().str.upper()
+        out["ViajeLinea_key"] = self.tu.to_int64(out[c_viaje])
+        out["Linea_key"] = self.tu.to_int64(out[c_linea])
+        out["Tabla_key"] = self.tu.to_int64(out[c_tabla])
+        out["Estado_txt"] = out[c_estado].astype("string").fillna("").str.strip().str.upper()
 
-        df["Fecha_key"] = self.tu.fecha_key_robusta(df["Fecha"], prefer_dayfirst="auto")
-        df["Coche_key"] = pd.to_numeric(df["Tabla"], errors="coerce").astype("Int64")
-        df["Viaje_key"] = pd.to_numeric(df["Viaje"], errors="coerce").astype("Int64")
-        df["Servicio_key"] = df["Servicio_extr"]
+        mask_estado = out["Estado_txt"].str.contains(r"(^|[^0-9])(5|8|9)([^0-9]|$)", regex=True, na=False)
 
-        df["Estado_loc_num"] = pd.to_numeric(df["Estado Localización"], errors="coerce").astype("Int64")
-        df = df[df["Estado_loc_num"].isin([5, 8, 9])].copy()
+        out = out[mask_estado].copy()
+        out = out.dropna(subset=["Fecha_key", "Vehiculo_key", "ViajeLinea_key", "Linea_key", "Tabla_key"]).copy()
 
-        df["Dist_km"] = self.tu.to_km_metros(df["Distancia"])
+        grp = (
+            out[
+                ["Fecha_key", "Vehiculo_key", "ViajeLinea_key", "Linea_key", "Tabla_key"]
+            ]
+            .drop_duplicates()
+            .assign(Tardio_Flag=1)
+        )
 
-        before = len(df)
-        df = df.dropna(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"])
-        print(f"✅ Viajes Tardíos listo: {len(df)}/{before} filas con llaves válidas y estado 5/8/9")
-        return df
+        print(f"✅ Tardíos listo: {len(grp)} llaves con match de estado 5/8/9")
+        return grp
 
-    # ---------------------------
-    # Build
-    # ---------------------------
-    def build(self, fecha: datetime) -> tuple[pd.DataFrame, str]:
-        df_ics = self.load_ics(fecha)
+    def build(self, fecha: datetime) -> pd.DataFrame:
         df_det = self.load_detallado(fecha)
+        df_ics = self.load_ics(fecha)
         df_stat = self.load_stat(fecha)
-        df_tardios = self.load_viajes_tardios()
+        df_tard = self.load_viajes_tardios()
 
         print("\n" + "=" * 80)
-        print("3) CRUCE ICS ↔ DETALLADO")
+        print("5) CRUCE DETALLADO ↔ ICS")
         print("=" * 80)
 
-        merge_keys = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"]
-        df = df_ics.merge(df_det, on=merge_keys, how="left")
+        df = df_det.merge(
+            df_ics,
+            on=["Fecha_key", "Servicio_key", "Linea_key", "Tabla_key", "ViajeLinea_key", "IdViaje_key"],
+            how="left"
+        )
 
-        fecha_nombre = self.tu.fecha_para_nombre_archivo_dd_mm_yyyy(df_ics["Fecha Viaje"])
+        print("\n" + "=" * 80)
+        print("6) CRUCE CON VIAJESTAT")
+        print("=" * 80)
 
-        km_prog = self.tu.to_km_smart(df["Km Programado"])
-        km_ejec = self.tu.to_km_smart(df["Km Efectivamente Ejecutado"])
-        km_elim = self.tu.to_km_smart(df["Km Eliminado"])
-        dist_aut = self.tu.to_km_smart(df["DistAutorizada"])
-        dist_sup = self.tu.to_km_smart(df["DistSupAcc"])
+        if not df_stat.empty:
+            df = df.merge(
+                df_stat,
+                on=["Fecha_key", "Servicio_key", "IdViaje_key"],
+                how="left"
+            )
+        else:
+            df["CNT Estado 5"] = np.nan
+            df["CNT Estado 8"] = np.nan
+            df["CNT Estado 9"] = np.nan
 
-        km_formula = ((km_prog + dist_aut) - (km_elim + dist_sup))
-        km_revision = (pd.to_numeric(km_formula, errors="coerce") - pd.to_numeric(km_ejec, errors="coerce"))
-        km_revision = km_revision.clip(lower=0)
+        print("\n" + "=" * 80)
+        print("7) CRUCE CON TARDÍOS")
+        print("=" * 80)
 
-        offset_ini = self.tu.to_offset_detallado_km(df["OffsetInicio"]) if "OffsetInicio" in df.columns else pd.Series([pd.NA] * len(df), index=df.index)
-        offset_fin_raw = self.tu.to_offset_detallado_km(df["OffsetFin"]) if "OffsetFin" in df.columns else pd.Series([pd.NA] * len(df), index=df.index)
+        if not df_tard.empty:
+            df = df.merge(
+                df_tard,
+                on=["Fecha_key", "Vehiculo_key", "ViajeLinea_key", "Linea_key", "Tabla_key"],
+                how="left"
+            )
+        else:
+            df["Tardio_Flag"] = np.nan
 
-        km_prog_num = pd.to_numeric(km_prog, errors="coerce")
-        offset_fin_num = pd.to_numeric(offset_fin_raw, errors="coerce")
-        offset_fin_calc = (km_prog_num - offset_fin_num).clip(lower=0)
+        plan_txt = df["Planificado_raw"].astype(str).str.strip().str.lower()
+        elim_txt = df["Eliminado_raw"].astype(str).str.strip().str.lower()
+        mot_txt = df["Motivo_original"].astype("string").fillna("").map(clean_motivo)
 
-        km_elim_num = pd.to_numeric(km_elim, errors="coerce")
-        offset_ini_num = pd.to_numeric(offset_ini, errors="coerce")
-        km_f2 = (offset_ini_num.fillna(0) + offset_fin_calc.fillna(0) - km_elim_num.fillna(0)).clip(lower=0)
+        kmp = pd.to_numeric(df["KmProgAd_km"], errors="coerce")
+        kme = pd.to_numeric(df["KmElimado_km"], errors="coerce")
+        dsa = pd.to_numeric(df["DistSupAcc_km"], errors="coerce")
+        dau = pd.to_numeric(df["DistAutorizada_km"], errors="coerce")
+        dnr = pd.to_numeric(df["DistNoRealizada_km"], errors="coerce")
+        kej = pd.to_numeric(df["KmEjecutado_km"], errors="coerce")
+        off_ini = pd.to_numeric(df["OffsetInicio_km"], errors="coerce")
+        off_fin_original = pd.to_numeric(df["OffsetFin_km"], errors="coerce")
 
-        dist_sup_num = pd.to_numeric(dist_sup, errors="coerce")
-        dist_aut_num = pd.to_numeric(dist_aut, errors="coerce")
-        km_elim_acc = (dist_sup_num.fillna(0) - dist_aut_num.fillna(0)).clip(lower=0)
+        cnt_estado8 = pd.to_numeric(df.get("CNT Estado 8", 0), errors="coerce").fillna(0)
+        cnt_estado9 = pd.to_numeric(df.get("CNT Estado 9", 0), errors="coerce").fillna(0)
+        tard_flag = pd.to_numeric(df.get("Tardio_Flag", 0), errors="coerce").fillna(0)
 
-        km_elim_eic_aprox = (km_elim_num.fillna(0) + dist_sup_num.fillna(0))
+        km_revision_raw = np.where(
+            plan_txt.eq("sustituido"),
+            0,
+            ((kmp.fillna(0) + dau.fillna(0)) - (kme.fillna(0) + dsa.fillna(0))) - kej.fillna(0)
+        )
+        km_revision = pd.Series(km_revision_raw, index=df.index, dtype="float64").clip(lower=0).round(3)
 
-        hora_teo = df["Hora Ini Teorica"] if "Hora Ini Teorica" in df.columns else pd.Series([pd.NA] * len(df), index=df.index)
-        hora_ref = df["Hora Ini Referencia"] if "Hora Ini Referencia" in df.columns else pd.Series([pd.NA] * len(df), index=df.index)
-        hora_teo_s = hora_teo.astype("string").fillna("").str.strip()
-        hora_ref_s = hora_ref.astype("string").fillna("").str.strip()
-        hora_final = hora_teo_s.mask(hora_teo_s.eq(""), hora_ref_s).replace({"": pd.NA})
-
-        fecha_proceso_date = fecha.date()
-
-        out = pd.DataFrame({
-            "Fecha": fecha_proceso_date,
-            "Id_ICS": self.tu.to_int64(df["IdICS"]),
-            "Linea": df["Linea SAE"],
-            "Servicio": df["Servicio"],
-            "Tabla": df["Coche"],
-            "Viaje_Linea": df["ViajeLinea"],
-            "Id_Viaje": df["IdViaje"],
-
-            "Sentido": df["Sentido"] if "Sentido" in df.columns else pd.NA,
-            "Vehiculo_Real": df["Vehículo Real"] if "Vehículo Real" in df.columns else pd.NA,
-            "Hora_Ini_Teorica": hora_final,
-
-            "KmProgAd": km_prog,
-            "Conductor": df["Conductor"] if "Conductor" in df.columns else pd.NA,
-
-            "Km_ElimEIC": (km_prog - km_ejec),
-            "KmEjecutado": km_ejec,
-
-            "OffsetInicio": offset_ini,
-            "OffSet_Fin": offset_fin_raw,
-            "Km_Revision": km_revision,
-            "Concesion": df["Operador"],
-
-            "Motivo": df["Descripción Motivo Elim"] if "Descripción Motivo Elim" in df.columns else "",
-        })
-
-        out["_Eliminado_det"] = df["Eliminado"] if "Eliminado" in df.columns else pd.NA
-        out["_DistAut_km"] = dist_aut
-        out["_DistSup_km"] = dist_sup
-        out["_KmEliminado_ics"] = km_elim
-
-        out["_KmElimAcc"] = km_elim_acc
-        out["_KmF2"] = km_f2
-        out["_KmElimEIC_aprox"] = km_elim_eic_aprox
-
-        kmprog_out = pd.to_numeric(out["KmProgAd"], errors="coerce")
-        kmejec_out = pd.to_numeric(out["KmEjecutado"], errors="coerce")
-        mask_equal = kmprog_out.notna() & kmejec_out.notna() & np.isclose(kmprog_out, kmejec_out, rtol=0, atol=1e-9)
-        out = out[~mask_equal].copy()
-
-        out["Motivo"] = out["Motivo"].astype("string").fillna("").str.strip()
+        km_elim_eic = (kme.fillna(0) + dsa.fillna(0) + dnr.fillna(0)).round(3)
+        km_elim_acc = (dsa.fillna(0) - dau.fillna(0)).clip(lower=0)
+        off_fin_calc = (kmp.fillna(0) - off_fin_original.fillna(0)).clip(lower=0)
+        km_f2 = (off_ini.fillna(0) + off_fin_calc.fillna(0) - kme.fillna(0)).clip(lower=0)
 
         tol_eq = 0.001
         tol_off = 0.06
 
-        motivo_vacio = out["Motivo"].eq("")
+        kmr = km_revision
+        sum89 = cnt_estado8 + cnt_estado9
 
-        kmr = pd.to_numeric(out["Km_Revision"], errors="coerce")
-        kmp = pd.to_numeric(out["KmProgAd"], errors="coerce")
-        kme_ics = pd.to_numeric(out["_KmEliminado_ics"], errors="coerce")
-        km_elimacc_s = pd.to_numeric(out["_KmElimAcc"], errors="coerce")
-        km_f2_s = pd.to_numeric(out["_KmF2"], errors="coerce")
-        km_elim_eic_calc = pd.to_numeric(out["_KmElimEIC_aprox"], errors="coerce")
+        kmr0 = kmr.notna() & (kmr.abs() < tol_eq)
+        kmrNE0 = kmr.notna() & (kmr.abs() >= tol_eq)
 
-        mask_accion = motivo_vacio & km_elimacc_s.notna() & (km_elimacc_s.abs() >= tol_eq)
-        out.loc[mask_accion, "Motivo"] = "Acción de regulación"
-        motivo_vacio = out["Motivo"].eq("")
+        eqProg = kmr.notna() & kmp.notna() & ((kmr - kmp).abs() < tol_eq)
+        accionReg = ((dau.isna()) | (dau.abs() < tol_eq)) & (sum89 > 0)
+        isF2 = kmr.notna() & km_f2.notna() & (km_f2 >= (kmr - tol_off))
+        isOffS = kmr.notna() & km_f2.notna() & (kmr.abs() > 0) & (km_f2.abs() > 0) & ((kmr - km_f2) > tol_off)
 
-        if not df_stat.empty:
-            out_keys = pd.DataFrame({
-                "Fecha_stat_key": pd.to_datetime(out["Fecha"], errors="coerce").dt.date,
-                "Servicio_stat_key": out["Servicio"].astype(str).str.strip().str.upper(),
-                "IdViaje_stat_key": pd.to_numeric(out["Id_Viaje"], errors="coerce").astype("Int64"),
-            }, index=out.index)
+        motivo = mot_txt.copy()
 
-            stat_89 = df_stat[df_stat["LOC_TYPE_CD_num"].isin([8, 9])].copy()
+        blank = motivo.eq("")
+        idx = blank & kmr0 & plan_txt.eq("sustituido")
+        motivo.loc[idx] = "Sustituido"
 
-            if stat_89["_dist_km"].notna().any():
-                km89_any = (
-                    stat_89
-                    .groupby(["Fecha_stat_key", "Servicio_stat_key", "IdViaje_stat_key"], as_index=False)["_dist_km"]
-                    .sum()
-                    .rename(columns={"_dist_km": "km89"})
-                )
-            else:
-                km89_any = (
-                    stat_89
-                    .groupby(["Fecha_stat_key", "Servicio_stat_key", "IdViaje_stat_key"], as_index=False)
-                    .size()
-                    .rename(columns={"size": "km89"})
-                )
+        blank = motivo.eq("")
+        idx = blank & kmr0 & (~plan_txt.eq("sustituido")) & (km_elim_acc.abs() >= tol_eq)
+        motivo.loc[idx] = "Acción de regulación"
 
-            tmp = out_keys.merge(
-                km89_any,
-                on=["Fecha_stat_key", "Servicio_stat_key", "IdViaje_stat_key"],
-                how="left"
-            )
+        blank = motivo.eq("")
+        idx = blank & kmr0
+        motivo.loc[idx] = "Deslocalización"
 
-            dist_aut_full = pd.to_numeric(out["_DistAut_km"], errors="coerce").fillna(0)
-            mask_distaut_0 = dist_aut_full.abs() < tol_eq
+        blank = motivo.eq("")
+        idx = blank & kmrNE0 & accionReg
+        motivo.loc[idx] = "Regulación Offline"
 
-            km89_val = pd.to_numeric(tmp["km89"], errors="coerce").fillna(0)
-            mask_km89 = km89_val.abs() >= tol_eq
+        idx = kmrNE0 & elim_txt.eq("parcial") & kme.notna() & (kmr > kme)
+        motivo.loc[idx] = "Deslocalización con eliminación"
 
-            mask_reg_off = motivo_vacio & mask_distaut_0.values & mask_km89.values
-            out.loc[out.index[mask_reg_off], "Motivo"] = "Regulación Offline"
-            motivo_vacio = out["Motivo"].eq("")
+        blank = motivo.eq("")
+        idx = blank & kmrNE0 & eqProg & (tard_flag > 0)
+        motivo.loc[idx] = "Viaje Tardío"
 
-        elim_flag = out["_Eliminado_det"].astype("string").fillna("").str.strip().str.upper().eq("PARCIAL")
-        mask_desloc_elim = motivo_vacio & elim_flag & kmr.notna() & kme_ics.notna() & (kmr > (kme_ics + tol_eq))
-        out.loc[mask_desloc_elim, "Motivo"] = "Deslocalización con eliminación"
-        motivo_vacio = out["Motivo"].eq("")
+        blank = motivo.eq("")
+        idx = blank & kmrNE0 & eqProg & ~(tard_flag > 0)
+        motivo.loc[idx] = "Viaje no ejecutado no eliminado"
 
-        eq_prog = kmr.notna() & kmp.notna() & ((kmr - kmp).abs() < tol_eq)
-        if not df_tardios.empty:
-            tard_sum = (
-                df_tardios
-                .groupby(["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], as_index=False)["Dist_km"]
-                .sum()
-                .rename(columns={"Dist_km": "km589"})
-            )
+        blank = motivo.eq("")
+        idx = blank & kmrNE0 & isF2
+        motivo.loc[idx] = "F2 Inicio-Fin"
 
-            out_k = pd.DataFrame({
-                "Fecha_key": self.tu.fecha_key_robusta(out["Fecha"].astype(str), prefer_dayfirst="auto"),
-                "Servicio_key": out["Servicio"].astype(str).str.strip().str.upper(),
-                "Coche_key": pd.to_numeric(out["Tabla"], errors="coerce").astype("Int64"),
-                "Viaje_key": pd.to_numeric(out["Viaje_Linea"], errors="coerce").astype("Int64"),
-            }, index=out.index)
-
-            tmp_t = out_k.merge(
-                tard_sum,
-                on=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"],
-                how="left"
-            )
-
-            has_tard_km = pd.to_numeric(tmp_t["km589"], errors="coerce").fillna(0).abs() >= tol_eq
-
-            mask_viaje_tardio = motivo_vacio & eq_prog & has_tard_km.values
-            mask_viaje_no_ej = motivo_vacio & eq_prog & (~has_tard_km.values)
-
-            out.loc[out.index[mask_viaje_tardio], "Motivo"] = "Viaje Tardío"
-            out.loc[out.index[mask_viaje_no_ej], "Motivo"] = "Viaje no ejecutado no eliminado"
-            motivo_vacio = out["Motivo"].eq("")
-        else:
-            mask_vne = motivo_vacio & eq_prog
-            out.loc[mask_vne, "Motivo"] = "Viaje no ejecutado no eliminado"
-            motivo_vacio = out["Motivo"].eq("")
-
-        mask_f2 = motivo_vacio & km_f2_s.notna() & kmr.notna() & (km_f2_s >= (kmr - tol_off))
-        out.loc[mask_f2, "Motivo"] = "F2 Inicio-Fin"
-        motivo_vacio = out["Motivo"].eq("")
-
-        mask_off_lim = (
-            motivo_vacio
-            & km_f2_s.notna()
-            & km_elimacc_s.notna()
-            & km_elim_eic_calc.notna()
-            & ((km_f2_s + km_elimacc_s) >= (km_elim_eic_calc - tol_eq))
+        blank = motivo.eq("")
+        idx = (
+            blank
+            & kmrNE0
+            & km_f2.notna()
+            & km_elim_acc.notna()
+            & km_elim_eic.notna()
+            & ((km_f2 + km_elim_acc) >= (km_elim_eic - tol_eq))
         )
-        out.loc[mask_off_lim, "Motivo"] = "OffSet & Limitación"
-        motivo_vacio = out["Motivo"].eq("")
+        motivo.loc[idx] = "Offset & Limitación"
 
-        mask_offs_desloc = (
-            motivo_vacio
-            & kmr.notna()
-            & km_f2_s.notna()
-            & (kmr.abs() >= tol_eq)
-            & (km_f2_s.abs() >= tol_eq)
-            & ((kmr - km_f2_s) > tol_off)
-        )
-        out.loc[mask_offs_desloc, "Motivo"] = "OffSet Deslocalización"
-        motivo_vacio = out["Motivo"].eq("")
+        blank = motivo.eq("")
+        idx = blank & kmrNE0 & isOffS
+        motivo.loc[idx] = "OffSet Deslocalización"
 
-        out.loc[motivo_vacio, "Motivo"] = "Deslocalización"
+        blank = motivo.eq("")
+        idx = blank & kmrNE0
+        motivo.loc[idx] = "Deslocalización"
 
-        out["Concesion"] = out["Concesion"].astype(str).str.strip()
-        out.loc[out["Concesion"].str.upper() == "CONSORCIO EXPRESS SAN CRISTOBAL", "Concesion"] = "1"
-        out.loc[out["Concesion"].str.upper() == "CONSORCIO EXPRESS USAQUEN", "Concesion"] = "2"
+        motivo = motivo.map(clean_motivo)
 
-        out["Servicio"] = out["Servicio"].astype(str).str.strip()
-        out = out[~out["Servicio"].str.upper().str.startswith(("S", "K"), na=False)].copy()
+        hora_teo = df["Hora_Teo_raw"].astype("string").fillna("").str.strip()
+        hora_ref = df["Hora_Ref_raw"].astype("string").fillna("").str.strip()
+        hora_final = hora_teo.mask(hora_teo.eq(""), hora_ref).replace({"": pd.NA})
 
+        concesion_upper = df["Concesion_raw"].astype(str).str.upper().str.strip()
+        concesion_final = pd.Series(pd.NA, index=df.index, dtype="object")
+        concesion_final.loc[concesion_upper.isin(["USAQUEN ZN", "USAQUEN AL"])] = "2"
+        concesion_final.loc[concesion_upper.isin(["SAN CRISTOBAL ZN", "SAN CRISTOBAL AL"])] = "1"
+
+        veh_real = df["Vehiculo_Real"].astype("string").fillna("").str.strip()
+        veh_real = veh_real.mask(veh_real.eq(""), "Z00-0000")
+
+        out = pd.DataFrame({
+            "Fecha": df["Fecha"],
+            "Id_ICS": df["Id_ICS"],
+            "Linea": df["Linea"],
+            "Servicio": df["Servicio"],
+            "Tabla": df["Tabla"],
+            "Viaje_Linea": df["Viaje_Linea"],
+            "Id_Viaje": df["Id_Viaje"],
+            "Sentido": df["Sentido"],
+            "Vehiculo_Real": veh_real,
+            "Hora_Ini_Teorica": hora_final,
+            "KmProgAd": kmp.round(3),
+            "Conductor": df["Conductor"],
+            "Km_ElimEIC": km_elim_eic,
+            "KmEjecutado": kej.round(3),
+            "OffsetInicio": off_ini.round(3),
+            "OffSet_Fin": off_fin_original.round(3),
+            "Km_Revision": kmr.round(3),
+            "Concesion": concesion_final,
+            "Motivo": motivo,
+        })
+
+        out["Id_ICS"] = pd.to_numeric(out["Id_ICS"], errors="coerce").astype("Int64")
         out["Km_Revision"] = pd.to_numeric(out["Km_Revision"], errors="coerce")
-        out = out[(out["Km_Revision"].notna()) & (out["Km_Revision"] != 0)].copy()
+        out["Motivo"] = out["Motivo"].map(clean_motivo)
 
-        v = out["Vehiculo_Real"].astype("string").fillna("").str.strip()
-        out["Vehiculo_Real"] = v.mask(v.eq(""), "Z00-0000")
+        out = out[out["Id_ICS"].notna()].copy()
+        out = out[out["Km_Revision"] > 0].copy()
 
         out = out.sort_values(by="Km_Revision", ascending=False, na_position="last").reset_index(drop=True)
 
-        for c in ["_Eliminado_det", "_DistAut_km", "_DistSup_km", "_KmEliminado_ics", "_KmElimAcc", "_KmF2", "_KmElimEIC_aprox"]:
-            if c in out.columns:
-                out = out.drop(columns=[c])
-
-        columnas_finales = [
-            "Fecha", "Id_ICS", "Linea", "Servicio", "Tabla", "Viaje_Linea", "Id_Viaje",
-            "Sentido", "Vehiculo_Real", "Hora_Ini_Teorica",
-            "KmProgAd", "Conductor", "Km_ElimEIC", "KmEjecutado",
-            "OffsetInicio", "OffSet_Fin",
-            "Km_Revision", "Concesion", "Motivo",
-        ]
-        out = out[columnas_finales].copy()
-
-        print("\n✅ Tabla SNE construida:")
+        print("\n✅ Tabla final construida")
         print(f"   Filas: {len(out)}")
-        print(f"📌 Nombre lógico: SNE_{fecha_nombre}")
 
-        print("\n📌 Top motivos (antes de cargar):")
-        print(out["Motivo"].astype(str).str.strip().replace("", "VACIO").value_counts().head(30))
+        print("\n📌 Top Motivos:")
+        print(out["Motivo"].astype(str).str.strip().replace("", "VACIO").value_counts(dropna=False).head(20))
 
-        return out, fecha_nombre
+        return out
+
 
 # =============================================================================
-# POSTGRES LOAD sne.ics (UPSERT por id_ics) — usando pool
+# POSTGRES sne.ics
 # =============================================================================
 
 class PostgresLoader:
@@ -841,8 +836,9 @@ class PostgresLoader:
             if pd.isna(v):
                 return None
             return v.to_pydatetime()
-        if isinstance(v, str) and v.strip() == "":
-            return None
+        if isinstance(v, str):
+            s = v.strip()
+            return s if s != "" else None
         return v
 
     @staticmethod
@@ -853,9 +849,11 @@ class PostgresLoader:
             return fecha_val.date()
         if fecha_val is None:
             return None
+
         s = str(fecha_val).strip()
         if s == "":
             return None
+
         dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
         if pd.isna(dt):
             dt = pd.to_datetime(s, errors="coerce")
@@ -882,6 +880,7 @@ class PostgresLoader:
         d = df[list(self.DF_TO_DB.keys())].copy()
         d = d.rename(columns=self.DF_TO_DB)
 
+        d["motivo"] = d["motivo"].map(clean_motivo)
         d["fecha"] = d["fecha"].apply(self._parse_fecha_to_date)
         d["hora_ini_teorica"] = d["hora_ini_teorica"].apply(self._interval_text)
 
@@ -894,6 +893,7 @@ class PostgresLoader:
         for c in ["servicio", "sentido", "vehiculo_real", "motivo"]:
             d[c] = d[c].astype("string")
 
+        d = d[d["id_ics"].notna()].copy()
         return d
 
     def delete_existing_for_date(self, conn, fecha_date) -> int:
@@ -904,7 +904,7 @@ class PostgresLoader:
             )
             return cur.rowcount
 
-    def insert_df(self, conn, df: pd.DataFrame) -> int:
+    def insert_df(self, df: pd.DataFrame, conn) -> int:
         df_db = self._prepare_df_for_db(df)
 
         full_table = f'"{self.schema}"."{self.table}"'
@@ -943,15 +943,25 @@ class PostgresLoader:
             for start in range(0, len(df_db), self.batch_size):
                 chunk = df_db.iloc[start:start + self.batch_size]
                 records = [tuple(self._py(x) for x in row) for row in chunk.itertuples(index=False, name=None)]
-                execute_values(cur, sql, records, template=values_template, page_size=len(records))
+
+                execute_values(
+                    cur,
+                    sql,
+                    records,
+                    template=values_template,
+                    page_size=len(records)
+                )
+
                 total += len(records)
-                print(f"  ✅ Upsert procesado {total}/{len(df_db)}")
+                print(f"  ✅ Upsert sne.ics {total}/{len(df_db)}")
 
         return total
 
+
 # =============================================================================
-# GESTION sne.gestion_sne — usando pool
+# GESTION sne.gestion_sne
 # =============================================================================
+
 class GestionSNELoader:
     def __init__(
         self,
@@ -970,7 +980,7 @@ class GestionSNELoader:
         s = pd.to_numeric(series, errors="coerce").dropna().astype("int64")
         return sorted(set(int(x) for x in s.tolist()))
 
-    def upsert_from_ics_ids(self, conn, df_sne: pd.DataFrame) -> int:
+    def upsert_from_ics_ids(self, df_sne: pd.DataFrame, conn) -> int:
         if df_sne is None or df_sne.empty or "Id_ICS" not in df_sne.columns:
             print("⚠️ gestion_sne: DF vacío o sin Id_ICS. No se hace nada.")
             return 0
@@ -987,20 +997,14 @@ class GestionSNELoader:
             VALUES %s
             ON CONFLICT ("id_ics")
             DO UPDATE SET
-                "revisor" = CASE
-                    WHEN {full_table}."revisor" IS NULL THEN EXCLUDED."revisor"
-                    ELSE {full_table}."revisor"
-                END,
-                "estado_asignacion" = CASE
-                    WHEN {full_table}."estado_asignacion" IS NULL THEN 0
-                    ELSE {full_table}."estado_asignacion"
-                END,
+                "revisor" = EXCLUDED."revisor",
+                "estado_asignacion" = EXCLUDED."estado_asignacion",
                 "estado_objecion" = CASE
-                    WHEN {full_table}."estado_objecion" IS NULL OR {full_table}."estado_objecion" = 0 THEN 0
+                    WHEN {full_table}."estado_objecion" IS NULL THEN EXCLUDED."estado_objecion"
                     ELSE {full_table}."estado_objecion"
                 END,
                 "estado_transmitools" = CASE
-                    WHEN {full_table}."estado_transmitools" IS NULL OR {full_table}."estado_transmitools" = 0 THEN 0
+                    WHEN {full_table}."estado_transmitools" IS NULL THEN EXCLUDED."estado_transmitools"
                     ELSE {full_table}."estado_transmitools"
                 END
         """
@@ -1015,9 +1019,11 @@ class GestionSNELoader:
 
         return total
 
+
 # =============================================================================
-# MOTIVO/RESP — usando pool
+# CARGUE sne.ics_motivo_resp + AUTO-CREAR motivos
 # =============================================================================
+
 class IcsMotivoRespLoader:
     def __init__(
         self,
@@ -1035,18 +1041,8 @@ class IcsMotivoRespLoader:
         self.batch_size = batch_size
         self.responsable_default = int(responsable_default)
 
-    @staticmethod
-    def _norm_series(s: pd.Series) -> pd.Series:
-        return (
-            s.astype(str)
-             .str.replace("\ufeff", "", regex=False)
-             .str.strip()
-             .str.upper()
-             .str.replace(r"\s+", " ", regex=True)
-        )
-
     def _get_catalog(self, conn) -> pd.DataFrame:
-        sql = f'SELECT id, motivo, responsable FROM "{self.schema_motivos}"."{self.table_motivos}"'
+        sql = f'SELECT id, motivo, responsable FROM "{self.schema_motivos}"."{self.table_motivos}" ORDER BY id'
         with conn.cursor() as cur:
             cur.execute(sql)
             rows = cur.fetchall()
@@ -1054,16 +1050,24 @@ class IcsMotivoRespLoader:
         df = pd.DataFrame(rows, columns=["id", "motivo", "responsable"]) if rows else pd.DataFrame(columns=["id", "motivo", "responsable"])
         if "motivo" not in df.columns:
             df["motivo"] = ""
-        df["motivo_norm"] = self._norm_series(df["motivo"])
+        df["motivo_clean"] = df["motivo"].map(clean_motivo)
+        df["motivo_norm"] = df["motivo_clean"].map(norm_motivo)
         return df
+
+    def _get_next_id(self, conn) -> int:
+        sql = f'SELECT COALESCE(MAX(id), 0) + 1 FROM "{self.schema_motivos}"."{self.table_motivos}"'
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            row = cur.fetchone()
+            return int(row[0]) if row and row[0] is not None else 1
 
     def _fix_sequence(self, conn) -> None:
         full_table = f'"{self.schema_motivos}"."{self.table_motivos}"'
         sql = f"""
             SELECT setval(
                 pg_get_serial_sequence('{full_table}', 'id'),
-                COALESCE((SELECT MAX(id) FROM {full_table}), 0) + 1,
-                false
+                COALESCE((SELECT MAX(id) FROM {full_table}), 0),
+                true
             )
         """
         with conn.cursor() as cur:
@@ -1076,22 +1080,29 @@ class IcsMotivoRespLoader:
         if not missing_norm_to_raw:
             return 0
 
+        next_id = self._get_next_id(conn)
         full_table = f'"{self.schema_motivos}"."{self.table_motivos}"'
-        sql_ins = f'INSERT INTO {full_table} ("motivo","responsable") VALUES %s'
+        sql_ins = f'INSERT INTO {full_table} ("id","motivo","responsable") VALUES %s'
 
         items = list(missing_norm_to_raw.items())
+        records = []
+        current_id = next_id
+
+        for _norm, raw in items:
+            records.append((current_id, clean_motivo(raw), int(self.responsable_default)))
+            current_id += 1
+
         total = 0
         with conn.cursor() as cur:
-            for start in range(0, len(items), self.batch_size):
-                chunk = items[start:start + self.batch_size]
-                records = [(raw, int(self.responsable_default)) for (_norm, raw) in chunk]
-                execute_values(cur, sql_ins, records, page_size=len(records))
-                total += len(records)
+            for start in range(0, len(records), self.batch_size):
+                chunk = records[start:start + self.batch_size]
+                execute_values(cur, sql_ins, chunk, page_size=len(chunk))
+                total += len(chunk)
 
         self._fix_sequence(conn)
         return total
 
-    def upsert_from_df(self, conn, df_sne: pd.DataFrame) -> int:
+    def upsert_from_df(self, df_sne: pd.DataFrame, conn) -> int:
         if df_sne is None or df_sne.empty:
             print("⚠️ ics_motivo_resp: DF vacío.")
             return 0
@@ -1104,11 +1115,10 @@ class IcsMotivoRespLoader:
         df["Id_ICS"] = pd.to_numeric(df["Id_ICS"], errors="coerce")
         df = df.dropna(subset=["Id_ICS"]).copy()
 
-        df["Motivo"] = df["Motivo"].astype("string").fillna("").astype(str)
-        df["Motivo"] = df["Motivo"].str.replace("\ufeff", "", regex=False).str.strip().str.replace(r"\s+", " ", regex=True)
-
-        df["motivo_norm"] = self._norm_series(df["Motivo"])
+        df["Motivo"] = df["Motivo"].map(clean_motivo)
+        df["motivo_norm"] = df["Motivo"].map(norm_motivo)
         df = df[df["motivo_norm"].astype(str).str.strip() != ""].copy()
+
         if df.empty:
             print("⚠️ ics_motivo_resp: todos los motivos están vacíos.")
             return 0
@@ -1122,15 +1132,14 @@ class IcsMotivoRespLoader:
         missing_norm_to_raw: Dict[str, str] = {}
         for r in faltantes.itertuples(index=False):
             norm = str(r.motivo_norm)
-            raw = str(r.Motivo).replace("\ufeff", "").strip()
-            raw = re.sub(r"\s+", " ", raw)
+            raw = clean_motivo(r.Motivo)
             if norm and raw:
                 missing_norm_to_raw[norm] = raw
 
         if missing_norm_to_raw:
-            print(f"⚠️ motivos_eliminacion: se crearán {len(missing_norm_to_raw)} motivos nuevos (responsable={self.responsable_default}).")
+            print(f"⚠️ motivos_eliminacion: se crearán {len(missing_norm_to_raw)} motivos nuevos consecutivos.")
             created = self._insert_missing_catalog(conn, missing_norm_to_raw)
-            print(f"✅ motivos_eliminacion: insertados {created} nuevos motivos.")
+            print(f"✅ motivos_eliminacion: insertados {created} motivos nuevos.")
 
         cat2 = self._get_catalog(conn)
 
@@ -1169,9 +1178,11 @@ class IcsMotivoRespLoader:
 
         return total
 
+
 # =============================================================================
-# LOG (pool) + cálculo de fecha automática
+# LOG + FECHA AUTOMATICA
 # =============================================================================
+
 class ReportRunLogger:
     def __init__(
         self,
@@ -1200,16 +1211,12 @@ class ReportRunLogger:
         return int(default_id)
 
     def get_next_fecha_to_process(self, conn, id_reporte: int, fecha_semilla: date) -> date:
-        """
-        Regla:
-        - Si existe al menos un log con estado 'ok' => siguiente día a MAX(fecha)
-        - Si no existe => fecha_semilla
-        """
         full_table = f'"{self.schema_log}"."{self.table_log}"'
         sql = f"""
             SELECT MAX("fecha") AS max_fecha
             FROM {full_table}
-            WHERE "id_reporte" = %s AND LOWER(TRIM("estado")) = 'ok'
+            WHERE "id_reporte" = %s
+              AND LOWER(TRIM(COALESCE("estado", ''))) = 'ok'
         """
         with conn.cursor() as cur:
             cur.execute(sql, (id_reporte,))
@@ -1218,6 +1225,10 @@ class ReportRunLogger:
         max_fecha = row[0] if row else None
         if max_fecha is None:
             return fecha_semilla
+
+        if isinstance(max_fecha, datetime):
+            max_fecha = max_fecha.date()
+
         return max_fecha + timedelta(days=1)
 
     def write_log(
@@ -1239,92 +1250,75 @@ class ReportRunLogger:
 
         full_table = f'"{self.schema_log}"."{self.table_log}"'
 
-        sql_select = f"""
-            SELECT "estado"
-            FROM {full_table}
-            WHERE "id_reporte" = %s AND "fecha" = %s
-            LIMIT 1
-        """
-
-        sql_insert = f"""
+        sql_upsert = f"""
             INSERT INTO {full_table}
-            ("id_reporte","fecha","estado","ultima_ejecucion","duracion_seg",
-             "archivos_total","archivos_ok","archivos_error","registros_proce","fecha_actualizacion")
+            (
+                "id_reporte",
+                "fecha",
+                "estado",
+                "ultima_ejecucion",
+                "duracion_seg",
+                "archivos_total",
+                "archivos_ok",
+                "archivos_error",
+                "registros_proce",
+                "fecha_actualizacion"
+            )
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT ("id_reporte", "fecha")
+            DO UPDATE SET
+                "estado" = EXCLUDED."estado",
+                "ultima_ejecucion" = EXCLUDED."ultima_ejecucion",
+                "duracion_seg" = EXCLUDED."duracion_seg",
+                "archivos_total" = EXCLUDED."archivos_total",
+                "archivos_ok" = EXCLUDED."archivos_ok",
+                "archivos_error" = EXCLUDED."archivos_error",
+                "registros_proce" = EXCLUDED."registros_proce",
+                "fecha_actualizacion" = EXCLUDED."fecha_actualizacion"
         """
 
-        sql_update = f"""
-            UPDATE {full_table}
-            SET
-                "estado" = %s,
-                "ultima_ejecucion" = %s,
-                "duracion_seg" = %s,
-                "archivos_total" = %s,
-                "archivos_ok" = %s,
-                "archivos_error" = %s,
-                "registros_proce" = %s,
-                "fecha_actualizacion" = %s
-            WHERE "id_reporte" = %s AND "fecha" = %s
-        """
-
-        values_insert = (
-            id_reporte,
+        values = (
+            int(id_reporte),
             fecha_reporte_date,
-            estado,
+            str(estado).strip().lower(),
             ultima_ejecucion_ts,
-            duracion_seg,
-            archivos_total,
-            archivos_ok,
-            archivos_error,
-            registros_proce,
+            int(duracion_seg),
+            int(archivos_total),
+            int(archivos_ok),
+            int(archivos_error),
+            int(registros_proce),
             fecha_actualizacion_ts,
         )
 
         with conn.cursor() as cur:
-            cur.execute(sql_select, (id_reporte, fecha_reporte_date))
-            row = cur.fetchone()
+            cur.execute(sql_upsert, values)
 
-            # Si ya hay OK, no tocar
-            if row and str(row[0]).strip().lower() == "ok":
-                return
-
-            if row:
-                cur.execute(
-                    sql_update,
-                    (
-                        estado,
-                        ultima_ejecucion_ts,
-                        duracion_seg,
-                        archivos_total,
-                        archivos_ok,
-                        archivos_error,
-                        registros_proce,
-                        fecha_actualizacion_ts,
-                        id_reporte,
-                        fecha_reporte_date,
-                    ),
-                )
-            else:
-                cur.execute(sql_insert, values_insert)
 
 # =============================================================================
 # MAIN
 # =============================================================================
 
-def _get_azure_connection_string() -> str:
+def _get_connection_string() -> str:
     env_conn = os.environ.get(AZURE_CONN_ENV, "").strip()
-    if not env_conn:
-        raise SystemExit(f"❌ Falta {AZURE_CONN_ENV} en .env / variables de entorno.")
-    return env_conn
+    if env_conn:
+        return env_conn
+    if CONNECTION_STRING_LOCAL:
+        return CONNECTION_STRING_LOCAL
+    raise SystemExit(f"❌ Falta connection string. Usa env {AZURE_CONN_ENV}.")
+
 
 def _parse_semilla() -> date:
-    return datetime.strptime(FECHA_SEMILLA_STR, "%d/%m/%Y").date()
+    try:
+        return datetime.strptime(FECHA_SEMILLA_STR, "%d/%m/%Y").date()
+    except ValueError:
+        raise SystemExit("❌ FECHA_SEMILLA_STR debe estar en formato dd/mm/yyyy.")
+
 
 def main() -> None:
     load_dotenv()
     start_perf = time.perf_counter()
 
-    conn_azure = _get_azure_connection_string()
+    conn_azure = _get_connection_string()
     fecha_semilla = _parse_semilla()
 
     estado = "ok"
@@ -1340,28 +1334,38 @@ def main() -> None:
         logger = ReportRunLogger()
         id_reporte = logger.get_id_reporte(conn, "ICS", default_id=1)
 
-        # fecha automática desde log
-        fecha_to_process = logger.get_next_fecha_to_process(conn, id_reporte=id_reporte, fecha_semilla=fecha_semilla)
+        fecha_to_process = logger.get_next_fecha_to_process(
+            conn=conn,
+            id_reporte=id_reporte,
+            fecha_semilla=fecha_semilla,
+        )
         fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
-        print(f"\n📅 Fecha a procesar (auto): {fecha_to_process} | id_reporte={id_reporte}")
+
+        print("\n" + "=" * 80)
+        print(f"📅 FECHA AUTOMÁTICA A PROCESAR: {fecha_to_process}")
+        print("=" * 80)
 
         try:
             az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
-            builder = SNEFromAzureBuilder(az, filtro_zona_tipo=FILTRO_ZONA_TIPO)
+            builder = SNEExportBuilder(az, filtro_zona_tipo=FILTRO_ZONA_TIPO)
 
-            df_sne, _ = builder.build(fecha_dt)
-            registros_proce = int(len(df_sne))
+            df_final = builder.build(fecha_dt)
+            registros_proce = int(len(df_final))
 
             print("\n" + "=" * 80)
-            print("4) CARGANDO A POSTGRES sne.ics (UPSERT POR id_ics)")
+            print("8) CARGANDO sne.ics")
             print("=" * 80)
 
-            loader = PostgresLoader(schema=PG_SCHEMA_NAME, table=PG_TABLE_NAME, batch_size=PG_BATCH_SIZE)
-            total_ics = loader.insert_df(conn, df_sne)
+            loader = PostgresLoader(
+                schema=PG_SCHEMA_NAME,
+                table=PG_TABLE_NAME,
+                batch_size=PG_BATCH_SIZE
+            )
+            total_ics = loader.insert_df(df_final, conn)
             print(f"✅ sne.ics upsert: {total_ics} filas")
 
             print("\n" + "=" * 80)
-            print("5) ACTUALIZANDO sne.gestion_sne (IDs ICS únicos)")
+            print("9) CARGANDO sne.gestion_sne")
             print("=" * 80)
 
             gestion_loader = GestionSNELoader(
@@ -1370,11 +1374,11 @@ def main() -> None:
                 batch_size=PG_BATCH_SIZE,
                 revisor_default_int=GESTION_REVISOR_DEFAULT_INT,
             )
-            total_gestion = gestion_loader.upsert_from_ics_ids(conn, df_sne)
-            print(f"✅ sne.gestion_sne actualizado para {total_gestion} ids (únicos)")
+            total_gestion = gestion_loader.upsert_from_ics_ids(df_final, conn)
+            print(f"✅ sne.gestion_sne actualizado para {total_gestion} ids")
 
             print("\n" + "=" * 80)
-            print("6) CARGANDO sne.ics_motivo_resp (id_ics único + motivo/responsable)")
+            print("10) CARGANDO sne.ics_motivo_resp y catálogo de motivos")
             print("=" * 80)
 
             motivo_resp_loader = IcsMotivoRespLoader(
@@ -1385,7 +1389,7 @@ def main() -> None:
                 batch_size=PG_BATCH_SIZE,
                 responsable_default=RESPONSABLE_DEFAULT,
             )
-            total_motivo_resp = motivo_resp_loader.upsert_from_df(conn, df_sne)
+            total_motivo_resp = motivo_resp_loader.upsert_from_df(df_final, conn)
             print(f"✅ sne.ics_motivo_resp upsert: {total_motivo_resp} filas")
 
         except Exception as e:
@@ -1398,13 +1402,11 @@ def main() -> None:
         finally:
             end_ts = datetime.now()
             duracion_seg = int(round(time.perf_counter() - start_perf))
+            fecha_log = fecha_dt.date() if fecha_dt else fecha_semilla
 
             print("\n" + "=" * 80)
-            print("7) GUARDANDO LOG EN log.procesa_report_sne")
+            print("11) GUARDANDO LOG")
             print("=" * 80)
-
-            # OJO: fecha_dt siempre debería existir acá, pero lo defendemos:
-            fecha_log = fecha_dt.date() if fecha_dt else fecha_semilla
 
             logger.write_log(
                 conn=conn,
@@ -1428,6 +1430,7 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("✅ PROCESO COMPLETADO")
     print("=" * 80)
+
 
 if __name__ == "__main__":
     main()
