@@ -1,7 +1,6 @@
 ﻿# VERSIÓN: 2.0 - Tabla actividades unificada: sgi_actividades (22-12-2025)
 import os, re, time, uuid
 import psycopg2
-from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from database.database_manager import _get_pool as get_db_pool
 from datetime import datetime, timedelta, date, timezone
@@ -116,8 +115,8 @@ class GestionSGI:
                 try:
                     self.connection = get_db_pool().getconn()
                     break
-                except pool.PoolError as error_pool:
-                    ultimo_error = error_pool
+                except psycopg2.OperationalError as error_operacional:
+                    ultimo_error = error_operacional
                     time.sleep(0.2 * (intento + 1))
             if not self.connection:
                 raise ultimo_error if ultimo_error else psycopg2.OperationalError("No se pudo obtener conexión del pool")

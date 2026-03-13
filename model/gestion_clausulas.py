@@ -9,7 +9,7 @@ from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.sharepoint.client_context import ClientContext
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from database.database_manager import get_db_connection, _get_pool, close_pool
+from database.database_manager import get_db_connection, _get_pool
 
 # Variables de entorno no-DB (se mantienen aquí)
 load_dotenv()
@@ -26,13 +26,24 @@ smtp_server = "smtp.office365.com"
 smtp_port = 587
 
 class GestionClausulas:
+    def __init__(self):
+        self._ctx = None
+        self.connection = None
+
     def __enter__(self):
+        if getattr(self, "connection", None) and not self.connection.closed:
+            return self
         self._ctx = get_db_connection()
         self.connection = self._ctx.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        return self._ctx.__exit__(exc_type, exc_val, exc_tb)
+        try:
+            if self._ctx is not None:
+                return self._ctx.__exit__(exc_type, exc_val, exc_tb)
+        finally:
+            self._ctx = None
+            self.connection = None
     
     def obtener_clausulas(self):
         with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -1684,7 +1695,7 @@ class GestionClausulas:
             try:
                 if not self.connection.closed:
                     self.connection.rollback()
-                close_pool().putconn(self.connection)
+                _get_pool().putconn(self.connection)
             except Exception:
                 pass
             self.connection = None
