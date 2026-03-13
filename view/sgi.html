@@ -3365,7 +3365,7 @@ let filtroVencimientoActivo = null; // Valores posibles: null, 'vencido', 'proxi
 function verificarElementoDOM(id, descripcion = 'elemento') {
     const elemento = document.getElementById(id);
     if (!elemento) {
-        console.warn(`⚠️ ${descripcion} con ID '${id}' no encontrado en el DOM`);
+        //console.warn(`⚠️ ${descripcion} con ID '${id}' no encontrado en el DOM`);
         return null;
     }
     return elemento;
@@ -3374,7 +3374,7 @@ function verificarElementoDOM(id, descripcion = 'elemento') {
 // Función utilitaria para verificar existencia de funciones
 function verificarFuncion(nombreFuncion) {
     if (typeof window[nombreFuncion] !== 'function') {
-        console.warn(`⚠️ Función '${nombreFuncion}' no está definida`);
+        //console.warn(`⚠️ Función '${nombreFuncion}' no está definida`);
         return false;
     }
     return true;
@@ -3387,7 +3387,7 @@ function verificarFuncion(nombreFuncion) {
 // Función para cargar códigos de planes de acción
 async function cargarCodigosPlanesAccion(filtros = {}) {
     try {
-        console.log('🔍 Cargando códigos con filtros:', filtros);
+        //console.log('🔍 Cargando códigos con filtros:', filtros);
 
         const params = new URLSearchParams();
 
@@ -3403,23 +3403,23 @@ async function cargarCodigosPlanesAccion(filtros = {}) {
         }
 
         const url = `/sgi/planes-accion/codigos?${params.toString()}`;
-        console.log('📡 URL de llamada:', url);
+        //console.log('📡 URL de llamada:', url);
 
         const response = await fetch(url);
         const data = await response.json();
 
-        console.log('📥 Respuesta del servidor:', data);
+        //console.log('📥 Respuesta del servidor:', data);
 
         if (data.success) {
             const codigos = Array.isArray(data.datos) ? data.datos : [];
-            console.log('✅ Códigos obtenidos:', codigos.length);
+            //console.log('✅ Códigos obtenidos:', codigos.length);
             actualizarDropdownCodigos(codigos);
             actualizarCacheCodigosPorFiltro(codigos, filtros);
         } else {
-            console.error('❌ Error al cargar códigos:', data.mensaje);
+            //console.error('❌ Error al cargar códigos:', data.mensaje);
         }
     } catch (error) {
-        console.error('💥 Error de conexión:', error);
+        //console.error('💥 Error de conexión:', error);
     }
 }
 
@@ -3452,7 +3452,7 @@ function actualizarDropdownCodigos(codigos) {
     }
 
     guardarCacheCodigos(codigos);
-    console.log(`Dropdown actualizado con ${codigos.length} codigos`);
+    //console.log(`Dropdown actualizado con ${codigos.length} codigos`);
 }
 
 function leerCacheCodigos() {
@@ -3665,11 +3665,11 @@ function configurarFiltrosLeyenda() {
 
 // Función para aplicar filtro de vencimiento
 function aplicarFiltroVencimiento(tipoFiltro) {
-    console.log('🎯 Aplicando filtro de vencimiento:', tipoFiltro);
+    //console.log('🎯 Aplicando filtro de vencimiento:', tipoFiltro);
 
     // Si el filtro ya está activo, desactivarlo
     if (filtroVencimientoActivo === tipoFiltro) {
-        console.log('🔄 Desactivando filtro de vencimiento');
+        //console.log('🔄 Desactivando filtro de vencimiento');
         filtroVencimientoActivo = null;
         actualizarEstadoVisualFiltros();
         // Recargar datos sin filtro de vencimiento
@@ -3706,7 +3706,7 @@ function actualizarEstadoVisualFiltros() {
         // Mostrar botón de limpiar filtro
         if (btnLimpiar) btnLimpiar.style.display = 'block';
 
-        console.log(`✅ Filtro visual activado: ${filtroVencimientoActivo}`);
+        //console.log(`✅ Filtro visual activado: ${filtroVencimientoActivo}`);
     } else {
         // Ocultar botón de limpiar filtro
         if (btnLimpiar) btnLimpiar.style.display = 'none';
@@ -3715,7 +3715,7 @@ function actualizarEstadoVisualFiltros() {
 
 // Función para limpiar el filtro de vencimiento
 function limpiarFiltroVencimiento() {
-    console.log('🗑️ Limpiando filtro de vencimiento');
+    //console.log('🗑️ Limpiando filtro de vencimiento');
     filtroVencimientoActivo = null;
     actualizarEstadoVisualFiltros();
     // Recargar datos sin filtro de vencimiento
@@ -3731,7 +3731,7 @@ async function aplicarTodosLosFiltros() {
         filtros.filtro_vencimiento = filtroVencimientoActivo;
     }
 
-    console.log('🔍 Aplicando todos los filtros (incluyendo vencimiento):', filtros);
+    //console.log('🔍 Aplicando todos los filtros (incluyendo vencimiento):', filtros);
 
     // Actualizar badge de filtros activos
     actualizarBadgeFiltrosActivos('Pendientes', filtros);
@@ -3874,9 +3874,9 @@ function actualizarBadgeFiltrosActivos(tab, filtros) {
 // Función para aplicar todos los filtros y recargar la tabla
 async function aplicarFiltrosYRecargarTabla() {
     const filtros = obtenerTodosFiltrosActuales();
-    console.log('🔍 Aplicando filtros:', filtros);
+    //console.log('🔍 Aplicando filtros:', filtros);
     // Actualizar codigos disponibles ANTES de cargar datos (para que esten listos)
-    console.log('Actualizando codigos disponibles...');
+    //console.log('Actualizando codigos disponibles...');
     actualizarCodigosDesdeCache({
         tipo_gestion: filtros.tipo_gestion,
         proceso: filtros.proceso,
@@ -3889,7 +3889,7 @@ async function aplicarFiltrosYRecargarTabla() {
     });
 
     // Luego cargar datos de la tabla
-    console.log('📊 Cargando datos de la tabla...');
+    //console.log('📊 Cargando datos de la tabla...');
     if (filtros.tipo_gestion) {
         await cargarDatosPorTipoGestion(filtros.tipo_gestion);
     } else {
@@ -4001,7 +4001,7 @@ function configurarFiltrosDinamicos() {
     // TIPO DE GESTIÓN - Recargar códigos y tabla
     if (tipoGestionSelect) {
         tipoGestionSelect.addEventListener('change', function() {
-            console.log('🔄 Cambio en tipo de gestión:', this.value);
+            //console.log('🔄 Cambio en tipo de gestión:', this.value);
             // Limpiar filtro de código ya que van a cambiar los códigos disponibles
             if (codigoSelect) {
                 codigoSelect.value = '';
@@ -4013,7 +4013,7 @@ function configurarFiltrosDinamicos() {
     // CÓDIGO - Solo recargar tabla (no códigos)
     if (codigoSelect) {
         codigoSelect.addEventListener('change', function() {
-            console.log('🔄 Cambio en código:', this.value);
+            //console.log('🔄 Cambio en código:', this.value);
             // Solo aplicar filtros sin recargar códigos
             const filtros = obtenerTodosFiltrosActuales();
             actualizarBadgeFiltrosActivos('Pendientes', filtros); // Forzar actualización del badge
@@ -4024,7 +4024,7 @@ function configurarFiltrosDinamicos() {
     // PROCESO - Recargar códigos y tabla
     if (procesoSelect) {
         procesoSelect.addEventListener('change', function() {
-            console.log('🔄 Cambio en proceso:', this.value);
+            //console.log('🔄 Cambio en proceso:', this.value);
             // Limpiar filtro de código ya que van a cambiar los códigos disponibles
             if (codigoSelect) {
                 codigoSelect.value = '';
@@ -4036,7 +4036,7 @@ function configurarFiltrosDinamicos() {
     // SUBPROCESO - Recargar códigos y tabla
     if (subprocesoSelect) {
         subprocesoSelect.addEventListener('change', function() {
-            console.log('🔄 Cambio en subproceso:', this.value);
+            //console.log('🔄 Cambio en subproceso:', this.value);
             // Limpiar filtro de código ya que van a cambiar los códigos disponibles
             if (codigoSelect) {
                 codigoSelect.value = '';
@@ -4048,7 +4048,7 @@ function configurarFiltrosDinamicos() {
     // ESTADO - Solo recargar tabla
     if (estadoSelect) {
         estadoSelect.addEventListener('change', function() {
-            console.log('🔄 Cambio en estado:', this.value);
+            //console.log('🔄 Cambio en estado:', this.value);
             const filtros = obtenerTodosFiltrosActuales();
             actualizarBadgeFiltrosActivos('Pendientes', filtros); // Forzar actualización del badge
             cargarDatosPorTipoGestion(filtros.tipo_gestion || '');
@@ -4058,7 +4058,7 @@ function configurarFiltrosDinamicos() {
     // FECHA DESDE - Solo recargar tabla
     if (fechaDesdeInput) {
         fechaDesdeInput.addEventListener('change', function() {
-            console.log('🔄 Cambio en fecha desde:', this.value);
+            //console.log('🔄 Cambio en fecha desde:', this.value);
             const filtros = obtenerTodosFiltrosActuales();
             actualizarBadgeFiltrosActivos('Pendientes', filtros); // Forzar actualización del badge
             cargarDatosPorTipoGestion(filtros.tipo_gestion || '');
@@ -4068,7 +4068,7 @@ function configurarFiltrosDinamicos() {
     // FECHA HASTA - Solo recargar tabla
     if (fechaHastaInput) {
         fechaHastaInput.addEventListener('change', function() {
-            console.log('🔄 Cambio en fecha hasta:', this.value);
+            //console.log('🔄 Cambio en fecha hasta:', this.value);
             const filtros = obtenerTodosFiltrosActuales();
             actualizarBadgeFiltrosActivos('Pendientes', filtros); // Forzar actualización del badge
             cargarDatosPorTipoGestion(filtros.tipo_gestion || '');
@@ -4168,7 +4168,7 @@ async function cargarDatosPorTipoGestion(tipoGestion) {
     try {
         // Si tipoGestion es undefined o vacío, obtener todos los datos
         const tipoParaMostrar = tipoGestion || "todos los tipos";
-        console.log(`🔄 Cargando datos para tipo de gestión: ${tipoParaMostrar}`);
+        //console.log(`🔄 Cargando datos para tipo de gestión: ${tipoParaMostrar}`);
 
         // Mostrar loading overlay
         const loadingOverlay = document.getElementById('loadingOverlayPendientes');
@@ -4190,11 +4190,11 @@ async function cargarDatosPorTipoGestion(tipoGestion) {
         const resultado = await response.json();
 
         if (resultado.success) {
-            console.log(`✅ Datos cargados exitosamente. Total: ${resultado.total}`);
-            console.log('📊 DETALLE DE DATOS RECIBIDOS:');
-            console.log('   - Total registros:', resultado.datos.length);
-            console.log('   - Tipos:', resultado.datos.map(r => r.tipo).join(', '));
-            console.log('   - Datos completos:', resultado.datos);
+            //console.log(`✅ Datos cargados exitosamente. Total: ${resultado.total}`);
+            //console.log('📊 DETALLE DE DATOS RECIBIDOS:');
+            //console.log('   - Total registros:', resultado.datos.length);
+            //console.log('   - Tipos:', resultado.datos.map(r => r.tipo).join(', '));
+            //console.log('   - Datos completos:', resultado.datos);
 
             // Cargar datos en la tabla con formato específico según el tipo
             cargarTablaPorTipoGestion(resultado.datos, resultado.tipo_gestion);
@@ -4207,12 +4207,12 @@ async function cargarDatosPorTipoGestion(tipoGestion) {
             // Debug: Análisis detallado de fechas (visible en consola del navegador)
             analizarFechas(resultado.datos);
         } else {
-            console.error('❌ Error al cargar datos:', resultado.mensaje);
+            //console.error('❌ Error al cargar datos:', resultado.mensaje);
             tbody.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-red-600 bg-red-50">Error: ${resultado.mensaje}</td></tr>`;
         }
 
     } catch (error) {
-        console.error('❌ Error de red al cargar datos:', error);
+        //console.error('❌ Error de red al cargar datos:', error);
         const tbody = document.querySelector('#tablaProcesos tbody');
         tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-red-600 bg-red-50">Error de conexión. Intente de nuevo.</td></tr>';
     } finally {
@@ -4265,7 +4265,7 @@ function aplicarFiltroVencimientoADatos(datos) {
                     return true; // No debería llegar aquí, pero por seguridad
             }
         } catch (error) {
-            console.warn('Error al filtrar fecha:', fechaStr, error);
+            //console.warn('Error al filtrar fecha:', fechaStr, error);
             return false; // Excluir registros con fechas problemáticas
         }
     });
@@ -4276,8 +4276,8 @@ function cargarTablaPorTipoGestion(datos, tipoGestion) {
     const tbody = document.querySelector('#tablaProcesos tbody');
     tbody.innerHTML = '';
 
-    console.log('📦 Datos recibidos del backend:', datos);
-    console.log('🔍 Filtro de vencimiento activo:', filtroVencimientoActivo);
+    //console.log('📦 Datos recibidos del backend:', datos);
+    //console.log('🔍 Filtro de vencimiento activo:', filtroVencimientoActivo);
 
     // Referencias
     const bannerFiltro = document.getElementById('bannerFiltroActivo');
@@ -4286,16 +4286,16 @@ function cargarTablaPorTipoGestion(datos, tipoGestion) {
     // Aplicar filtro de vencimiento si está activo
     let datosFiltrados = datos;
     if (filtroVencimientoActivo) {
-        console.log('⚠️ APLICANDO FILTRO DE VENCIMIENTO - Antes:', datos.length, 'registros');
+        //console.log('⚠️ APLICANDO FILTRO DE VENCIMIENTO - Antes:', datos.length, 'registros');
         datosFiltrados = aplicarFiltroVencimientoADatos(datos);
-        console.log(`🎯 Filtro de vencimiento '${filtroVencimientoActivo}' aplicado: ${datos.length} → ${datosFiltrados.length} registros`);
-        console.log('📋 Registros después del filtro:', datosFiltrados);
+        //console.log(`🎯 Filtro de vencimiento '${filtroVencimientoActivo}' aplicado: ${datos.length} → ${datosFiltrados.length} registros`);
+        //console.log('📋 Registros después del filtro:', datosFiltrados);
 
         // ⚠️ ALERTA VISUAL: Mostrar cuántos registros se ocultaron
         const registrosOcultos = datos.length - datosFiltrados.length;
         if (registrosOcultos > 0) {
-            console.warn(`🚨 ATENCIÓN: Se ocultaron ${registrosOcultos} registros por el filtro de vencimiento activo`);
-            console.warn(`   Para ver TODOS los registros, haz clic en el botón "Quitar filtro" o desactiva el filtro`);
+            //console.warn(`🚨 ATENCIÓN: Se ocultaron ${registrosOcultos} registros por el filtro de vencimiento activo`);
+            //console.warn(`   Para ver TODOS los registros, haz clic en el botón "Quitar filtro" o desactiva el filtro`);
 
             // Mostrar banner de advertencia
             if (bannerFiltro && mensajeFiltro) {
@@ -4306,7 +4306,7 @@ function cargarTablaPorTipoGestion(datos, tipoGestion) {
             if (bannerFiltro) bannerFiltro.style.display = 'none';
         }
     } else {
-        console.log('✅ Sin filtro de vencimiento - Mostrando todos los', datos.length, 'registros');
+        //console.log('✅ Sin filtro de vencimiento - Mostrando todos los', datos.length, 'registros');
         if (bannerFiltro) bannerFiltro.style.display = 'none';
     }
 
@@ -5541,7 +5541,7 @@ async function subirEvidenciasActividad() {
             throw new Error(resultado.mensaje || 'No se pudieron subir las evidencias.');
         }
 
-        console.log('🎉 Evidencias subidas exitosamente');
+        //console.log('🎉 Evidencias subidas exitosamente');
         Toast.success('✅ Evidencias cargadas correctamente');
 
         input.value = '';
@@ -5551,7 +5551,7 @@ async function subirEvidenciasActividad() {
             await cargarActividadesModal(detalleRegistroEvidencias.codigo, detalleRegistroEvidencias.tipo);
         }
     } catch (error) {
-        console.error('❌ Error al subir evidencias:', error);
+        //console.error('❌ Error al subir evidencias:', error);
         Toast.error(`Error al subir evidencias: ${error.message}`);
     } finally {
         if (btn) {
@@ -6272,7 +6272,7 @@ async function actualizarCierreRegistro() {
             await refrescarAuditoria();
         }
     } catch (error) {
-        console.error('Error al actualizar cierre:', error);
+        //console.error('Error al actualizar cierre:', error);
         alert('Error al actualizar cierre: ' + error.message);
     } finally {
         if (btn) {
@@ -6356,7 +6356,7 @@ async function confirmarCierreRegistro() {
 
         alert(resultado.mensaje || 'Registro cerrado.');
     } catch (error) {
-        console.error('Error al cerrar registro:', error);
+        //console.error('Error al cerrar registro:', error);
         alert('Error al cerrar registro: ' + error.message);
     } finally {
         if (btn) {
@@ -7060,7 +7060,7 @@ async function eliminarRegistroAdmin() {
             alert('Registro eliminado.');
         }
         if (resultado.advertencias && resultado.advertencias.length) {
-            console.warn('Advertencias al eliminar registro:', resultado.advertencias);
+            //console.warn('Advertencias al eliminar registro:', resultado.advertencias);
         }
         if (adminModalRegistroInstance) {
             adminModalRegistroInstance.hide();
@@ -7468,7 +7468,7 @@ async function eliminarAdjuntoAnalisisAdmin(adjuntoId, nombreArchivo) {
             alert('Adjunto eliminado.');
         }
         if (resultado.advertencias && resultado.advertencias.length) {
-            console.warn('Advertencias al eliminar adjunto:', resultado.advertencias);
+            //console.warn('Advertencias al eliminar adjunto:', resultado.advertencias);
         }
         await cargarAdjuntosAnalisisAdmin();
     } catch (error) {
@@ -7524,7 +7524,7 @@ async function eliminarActividadAdmin(actividadId) {
             alert(resultado.mensaje);
         }
         if (resultado.advertencias && resultado.advertencias.length) {
-            console.warn('Advertencias al eliminar actividad:', resultado.advertencias);
+            //console.warn('Advertencias al eliminar actividad:', resultado.advertencias);
         }
     } catch (error) {
         alert(`Error al eliminar actividad: ${error.message}`);
@@ -7664,7 +7664,7 @@ function renderEvidenciasAdmin(evidencias) {
 }
 
 async function actualizarEstadoEvidenciaAdmin(evidenciaId, estado, motivo) {
-    console.log('🔍 actualizarEstadoEvidenciaAdmin:', { evidenciaId, estado, motivo });
+    //console.log('🔍 actualizarEstadoEvidenciaAdmin:', { evidenciaId, estado, motivo });
 
     try {
         const payload = {
@@ -7675,7 +7675,7 @@ async function actualizarEstadoEvidenciaAdmin(evidenciaId, estado, motivo) {
         }
 
         const url = `/sgi/evidencias/${evidenciaId}/estado`;
-        console.log('📡 URL completa:', url);
+        //console.log('📡 URL completa:', url);
 
         const response = await fetch(url, {
             method: 'PUT',
@@ -7692,7 +7692,7 @@ async function actualizarEstadoEvidenciaAdmin(evidenciaId, estado, motivo) {
         }
 
         // ⚡ ACTUALIZAR NOTIFICACIONES INMEDIATAMENTE
-        console.log('⚡ Actualizando badges de notificaciones inmediatamente...');
+        //console.log('⚡ Actualizando badges de notificaciones inmediatamente...');
         setTimeout(() => {
             actualizarBadgesNotificaciones();
         }, 500); // Esperar 500ms para que el backend termine de crear la notificación
@@ -7750,7 +7750,7 @@ async function eliminarActividadesAdmin() {
             alert('Actividades eliminadas.');
         }
         if (resultado.advertencias && resultado.advertencias.length) {
-            console.warn('Advertencias al eliminar actividades:', resultado.advertencias);
+            //console.warn('Advertencias al eliminar actividades:', resultado.advertencias);
         }
         await cargarActividadesAdmin();
         await cargarEvidenciasAdmin();
@@ -7794,7 +7794,7 @@ async function eliminarEvidenciasAdmin() {
             alert('Evidencias eliminadas.');
         }
         if (resultado.advertencias && resultado.advertencias.length) {
-            console.warn('Advertencias al eliminar evidencias:', resultado.advertencias);
+            //console.warn('Advertencias al eliminar evidencias:', resultado.advertencias);
         }
         await cargarEvidenciasAdmin();
         await cargarActividadesAdmin();
@@ -7835,7 +7835,7 @@ async function eliminarEvidenciaAdmin(evidenciaId, nombreArchivo) {
             alert('Evidencia eliminada.');
         }
         if (resultado.advertencias && resultado.advertencias.length) {
-            console.warn('Advertencias al eliminar evidencia:', resultado.advertencias);
+            //console.warn('Advertencias al eliminar evidencia:', resultado.advertencias);
         }
         await cargarEvidenciasAdmin();
         if (actividadSeleccionadaId) {
@@ -7865,15 +7865,15 @@ function actualizarContadores(datos) {
     let registrosEnPlazo = 0;
     let registrosSinFecha = 0;
 
-    console.log(`🔍 ANÁLISIS DETALLADO DE CONTEO - Fecha de hoy: ${hoy.toISOString().split('T')[0]}`);
-    console.log('════════════════════════════════════════════════════════════════');
+    //console.log(`🔍 ANÁLISIS DETALLADO DE CONTEO - Fecha de hoy: ${hoy.toISOString().split('T')[0]}`);
+    //console.log('════════════════════════════════════════════════════════════════');
 
     // Clasificar cada registro de forma mutuamente excluyente
     datos.forEach((p, index) => {
         const fechaStr = p.fecha_cierre_formato || p.fechaCierre;
 
         if (!fechaStr || fechaStr.trim() === '') {
-            console.log(`📋 Registro ${index + 1}: SIN FECHA - añadido a 'Sin fecha'`);
+            //console.log(`📋 Registro ${index + 1}: SIN FECHA - añadido a 'Sin fecha'`);
             registrosSinFecha++;
             return;
         }
@@ -7895,7 +7895,7 @@ function actualizarContadores(datos) {
             fecha.setHours(0, 0, 0, 0); // Normalizar a medianoche
 
             if (isNaN(fecha.getTime())) {
-                console.log(`⚠️ Registro ${index + 1}: FECHA INVÁLIDA '${fechaStr}' - añadido a 'Sin fecha'`);
+                //console.log(`⚠️ Registro ${index + 1}: FECHA INVÁLIDA '${fechaStr}' - añadido a 'Sin fecha'`);
                 registrosSinFecha++;
                 return;
             }
@@ -7923,10 +7923,10 @@ function actualizarContadores(datos) {
                 simbolo = '🟢';
             }
 
-            console.log(`${simbolo} Registro ${index + 1}: ${fechaStr} (${fecha.toISOString().split('T')[0]}) - Diff: ${diff} días - ${categoria}`);
+            //console.log(`${simbolo} Registro ${index + 1}: ${fechaStr} (${fecha.toISOString().split('T')[0]}) - Diff: ${diff} días - ${categoria}`);
 
         } catch (error) {
-            console.warn(`❌ Error procesando fecha en registro ${index + 1}: '${fechaStr}' - Error: ${error.message}`);
+            //console.warn(`❌ Error procesando fecha en registro ${index + 1}: '${fechaStr}' - Error: ${error.message}`);
             registrosSinFecha++;
         }
     });
@@ -7934,25 +7934,25 @@ function actualizarContadores(datos) {
     // Los registros sin fecha se consideran "en plazo" para efectos del conteo
     registrosEnPlazo += registrosSinFecha;
 
-    console.log('════════════════════════════════════════════════════════════════');
-    console.log(`📊 RESUMEN FINAL DE CONTEO:`);
-    console.log(`🔴 Vencidos (diff < 0): ${registrosVencidos}`);
-    console.log(`🟡 Próximos a vencer (0 ≤ diff ≤ 10): ${registrosProximosVencer}`);
-    console.log(`🟢 En plazo (diff > 10): ${registrosEnPlazo - registrosSinFecha}`);
-    console.log(`Sin fecha (incluidos en plazo): ${registrosSinFecha}`);
-    console.log(`🟢 Total en plazo (incluye sin fecha): ${registrosEnPlazo}`);
-    console.log('────────────────────────────────────────────────────────────────');
+    //console.log('════════════════════════════════════════════════════════════════');
+    //console.log(`📊 RESUMEN FINAL DE CONTEO:`);
+    //console.log(`🔴 Vencidos (diff < 0): ${registrosVencidos}`);
+    //console.log(`🟡 Próximos a vencer (0 ≤ diff ≤ 10): ${registrosProximosVencer}`);
+    //console.log(`🟢 En plazo (diff > 10): ${registrosEnPlazo - registrosSinFecha}`);
+    //console.log(`Sin fecha (incluidos en plazo): ${registrosSinFecha}`);
+    //console.log(`🟢 Total en plazo (incluye sin fecha): ${registrosEnPlazo}`);
+    //console.log('────────────────────────────────────────────────────────────────');
 
     // Debug: Verificar que la suma sea correcta
     const sumaContadores = registrosVencidos + registrosProximosVencer + registrosEnPlazo;
-    console.log(`✅ Verificación: ${registrosVencidos} + ${registrosProximosVencer} + ${registrosEnPlazo} = ${sumaContadores}`);
-    console.log(`📊 Total registros procesados: ${datos.length}`);
+    //console.log(`✅ Verificación: ${registrosVencidos} + ${registrosProximosVencer} + ${registrosEnPlazo} = ${sumaContadores}`);
+    //console.log(`📊 Total registros procesados: ${datos.length}`);
 
     if (sumaContadores !== datos.length) {
-        console.error(`❌ ERROR CRÍTICO: La suma de contadores (${sumaContadores}) no coincide con el total de datos (${datos.length})`);
-        console.error('🚨 Revise la lógica de clasificación de fechas');
+        //console.error(`❌ ERROR CRÍTICO: La suma de contadores (${sumaContadores}) no coincide con el total de datos (${datos.length})`);
+        //console.error('🚨 Revise la lógica de clasificación de fechas');
     } else {
-        console.log(`✅ VERIFICACIÓN EXITOSA: Todos los registros fueron clasificados correctamente`);
+        //console.log(`✅ VERIFICACIÓN EXITOSA: Todos los registros fueron clasificados correctamente`);
     }
 
     // Actualizar contadores en la interfaz
@@ -8028,7 +8028,7 @@ function generarBanderaAlerta(fechaStr, codigoRegistro = null) {
             </div>
         `;
     } catch (error) {
-        console.warn('Error al generar bandera de alerta para fecha:', fechaStr, error);
+        //console.warn('Error al generar bandera de alerta para fecha:', fechaStr, error);
         return '<span class="text-muted">Error en fecha</span>';
     }
 }
@@ -8036,8 +8036,8 @@ function generarBanderaAlerta(fechaStr, codigoRegistro = null) {
 // Función adicional para debug detallado de fechas
 function analizarFechas(datos) {
     const hoy = new Date();
-    console.log(`📊 Análisis de fechas (hoy: ${hoy.toLocaleDateString('es-ES')})`);
-    console.log('═'.repeat(80));
+    //console.log(`📊 Análisis de fechas (hoy: ${hoy.toLocaleDateString('es-ES')})`);
+    //console.log('═'.repeat(80));
 
     datos.forEach(registro => {
         const fechaStr = registro.fecha_cierre_formato || registro.fechaCierre;
@@ -8053,10 +8053,10 @@ function analizarFechas(datos) {
             else if (diff <= 7) categoria = '🟠 PRÓXIMO A VENCER';
             else categoria = '🟢 EN PLAZO';
 
-            console.log(`${categoria} | ${registro.codigo} | ${fechaStr} | ${diff} días`);
+            //console.log(`${categoria} | ${registro.codigo} | ${fechaStr} | ${diff} días`);
         }
     });
-    console.log('═'.repeat(80));
+    //console.log('═'.repeat(80));
 }
 
 
@@ -8074,7 +8074,7 @@ async function limpiarFiltros() {
     // Limpiar filtro de vencimiento
     filtroVencimientoActivo = null;
     actualizarEstadoVisualFiltros();
-    console.log('🧹 Filtro de vencimiento limpiado');
+    //console.log('🧹 Filtro de vencimiento limpiado');
 
     // Ocultar badge de filtros activos
     const badge = document.getElementById('badgeFiltrosActivosPendientes');
@@ -8085,11 +8085,11 @@ async function limpiarFiltros() {
     }
 
     // Cargar todos los códigos disponibles
-    console.log('🧹 Limpiando filtros - Cargando todos los códigos...');
+    //console.log('🧹 Limpiando filtros - Cargando todos los códigos...');
     await cargarCodigosPlanesAccion({});
 
     // Cargar automáticamente todos los datos cuando se limpian los filtros
-    console.log('🧹 Limpiando filtros - Cargando todos los datos...');
+    //console.log('🧹 Limpiando filtros - Cargando todos los datos...');
     await cargarDatosPorTipoGestion('');
 }
 
@@ -8138,12 +8138,12 @@ async function cambiarEstado(codigo, estadoActual) {
 // Función para descargar datos filtrados
 async function descargarDatos(formato = 'xlsx') {
     try {
-        console.log(`🔄 Iniciando descarga en formato ${formato.toUpperCase()}`);
+        //console.log(`🔄 Iniciando descarga en formato ${formato.toUpperCase()}`);
 
         // Obtener todos los filtros actuales
         const filtros = obtenerTodosFiltrosActuales();
 
-        console.log('📋 Filtros aplicados para descarga:', filtros);
+        //console.log('📋 Filtros aplicados para descarga:', filtros);
 
         // Validar que hay datos para descargar
         const tbody = document.querySelector('#tablaProcesos tbody');
@@ -8177,7 +8177,7 @@ async function descargarDatos(formato = 'xlsx') {
             filtros: filtros
         };
 
-        console.log('📤 Enviando solicitud de descarga:', payload);
+        //console.log('📤 Enviando solicitud de descarga:', payload);
 
         // Realizar solicitud al servidor
         const response = await fetch('/sgi/exportar_pendientes', {
@@ -8218,7 +8218,7 @@ async function descargarDatos(formato = 'xlsx') {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
 
-        console.log(`✅ Descarga completada: ${filename}`);
+        //console.log(`✅ Descarga completada: ${filename}`);
 
         // Mostrar notificación de éxito
         const tipoGestion = filtros.tipo_gestion || 'todos los tipos';
@@ -8229,14 +8229,14 @@ async function descargarDatos(formato = 'xlsx') {
 
         // Refrescar Auditoría después de 2 segundos (la descarga se registra en auditoría)
         setTimeout(() => {
-            console.log('🔄 Refrescando Auditoría después de descarga desde Pendientes...');
+            //console.log('🔄 Refrescando Auditoría después de descarga desde Pendientes...');
             if (typeof refrescarAuditoria === 'function') {
                 refrescarAuditoria();
             }
         }, 2000);
 
     } catch (error) {
-        console.error('❌ Error en descarga:', error);
+        //console.error('❌ Error en descarga:', error);
         alert(`❌ Error al descargar: ${error.message}`);
     } finally {
         // Restaurar botón
@@ -8281,7 +8281,7 @@ function mostrarNotificacionDescarga(mensaje, tipo = 'success') {
 
 // Función para cambiar página
 function cambiarPagina(pagina) {
-    console.log(`Cambiar a página: ${pagina}`);
+    //console.log(`Cambiar a página: ${pagina}`);
     // TODO: Implementar paginación real
 }
 
@@ -8728,12 +8728,12 @@ async function crearProcesoPA() {
     // Verificar que todos los elementos existen
     const elementosFaltantes = Object.entries(elementos).filter(([key, elem]) => !elem);
     if (elementosFaltantes.length > 0) {
-        console.error('❌ Elementos del formulario no encontrados:', elementosFaltantes.map(([key]) => key));
+        //console.error('❌ Elementos del formulario no encontrados:', elementosFaltantes.map(([key]) => key));
         alert('Error interno: No se pudieron encontrar todos los campos del formulario. Verifique que el modal esté completamente cargado.');
         return;
     }
 
-    console.log('✅ Todos los elementos del formulario encontrados correctamente');
+    //console.log('✅ Todos los elementos del formulario encontrados correctamente');
 
     // Obtener valores de los campos
     const procesoPaValue = elementos.procesoPa.value.trim();
@@ -8776,7 +8776,7 @@ async function crearProcesoPA() {
         return;
     }
 
-    console.log(`✅ Total de actividades: ${totalActividades} (Correctivas: ${actividadesCorrectivas.length}, PHVA: ${actividadesPHVA.length})`);
+    //console.log(`✅ Total de actividades: ${totalActividades} (Correctivas: ${actividadesCorrectivas.length}, PHVA: ${actividadesPHVA.length})`);
 
     // 🔴 COMBINAR ACTIVIDADES CORRECTIVAS Y PHVA EN UN SOLO ARRAY
     const todasLasActividades = [...actividadesCorrectivas, ...actividadesPHVA];
@@ -8818,14 +8818,14 @@ async function crearProcesoPA() {
     };
 
     // LOG DE DEPURACIÓN
-    console.log('=== DATOS A ENVIAR ===');
-    console.log('Actividades Correctivas:', actividadesCorrectivas.length);
-    console.log('Actividades PHVA:', actividadesPHVA.length);
-    console.log('Total actividades combinadas:', todasLasActividades.length);
-    console.log('Datos completos:', datos);
+    //console.log('=== DATOS A ENVIAR ===');
+    //console.log('Actividades Correctivas:', actividadesCorrectivas.length);
+    //console.log('Actividades PHVA:', actividadesPHVA.length);
+    //console.log('Total actividades combinadas:', todasLasActividades.length);
+    //console.log('Datos completos:', datos);
 
     try {
-        console.log('📤 Enviando solicitud para crear PA...');
+        //console.log('📤 Enviando solicitud para crear PA...');
 
         // Llamar al endpoint específico para planes de acción
         const response = await fetch('/sgi/planes-accion', {
@@ -8836,20 +8836,20 @@ async function crearProcesoPA() {
             body: JSON.stringify(datos)
         });
 
-        console.log(`📡 Respuesta del servidor - Status: ${response.status} ${response.statusText}`);
+        //console.log(`📡 Respuesta del servidor - Status: ${response.status} ${response.statusText}`);
 
         // Verificar si la respuesta es exitosa (status 200-299)
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('❌ Error del servidor:', errorText);
+            //console.error('❌ Error del servidor:', errorText);
             throw new Error(`Error del servidor (${response.status}): ${errorText}`);
         }
 
         const resultado = await response.json();
-        console.log('📥 Resultado parseado:', resultado);
+        //console.log('📥 Resultado parseado:', resultado);
 
         if (resultado.success) {
-            console.log('✅ PA creado exitosamente:', resultado.codigo);
+            //console.log('✅ PA creado exitosamente:', resultado.codigo);
 
             const adjuntosInput = document.getElementById('adjuntosCausas');
             const adjuntosSeleccionados = adjuntosInput ? Array.from(adjuntosInput.files || []) : [];
@@ -8887,12 +8887,12 @@ async function crearProcesoPA() {
             await asegurarRegistroVisible({ codigo: resultado.codigo, tipoGestion: 'PA' });
         } else {
             // El servidor respondió pero con success: false
-            console.error('❌ Error en la respuesta:', resultado);
+            //console.error('❌ Error en la respuesta:', resultado);
             const mensajeError = resultado.mensaje || resultado.error || 'Error desconocido al crear el PA';
             alert('❌ ' + mensajeError);
         }
     } catch (error) {
-        console.error('❌ Error al crear PA:', error);
+        //console.error('❌ Error al crear PA:', error);
         alert('❌ Error al crear PA: ' + error.message);
     }
 }
@@ -8928,13 +8928,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Mostrar sección de actividades correctivas
                     if (seccionCorrectivas) {
                         seccionCorrectivas.style.display = 'block';
-                        console.log('✅ Sección de actividades correctivas mostrada');
+                        //console.log('✅ Sección de actividades correctivas mostrada');
                     }
                 } else {
                     // Ocultar sección de actividades correctivas
                     if (seccionCorrectivas) {
                         seccionCorrectivas.style.display = 'none';
-                        console.log('❌ Sección de actividades correctivas ocultada');
+                        //console.log('❌ Sección de actividades correctivas ocultada');
                     }
                 }
             });
@@ -8988,7 +8988,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });// Cargar datos iniciales cuando se carga la página
 document.addEventListener('DOMContentLoaded', function() {
     // Cargar automáticamente todos los datos al inicializar la página
-    console.log('🚀 Página SGI cargada - Cargando todos los datos automáticamente');
+    //console.log('🚀 Página SGI cargada - Cargando todos los datos automáticamente');
 
     // Cargar todos los datos inicialmente (sin filtro de tipo de gestión)
     setTimeout(() => {
@@ -9012,26 +9012,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const fechaCierreInput = document.getElementById('fechaCierrePa');
 
         if (!tipoAccionSelect || !fechaAperturaInput || !fechaCierreInput) {
-            console.warn('Campos del modal PA no encontrados. Verificando estado del modal...');
+            //console.warn('Campos del modal PA no encontrados. Verificando estado del modal...');
 
             // Verificar si el modal existe
             const modal = document.getElementById('modalCrearPA');
             if (!modal) {
-                console.warn('Modal modalCrearPA no encontrado en el DOM');
+                //console.warn('Modal modalCrearPA no encontrado en el DOM');
                 return false;
             }
 
             // Si el modal existe pero los campos no, puede ser un problema de timing
-            console.warn('Modal existe pero campos no encontrados, reintentando en 100ms...');
+            //console.warn('Modal existe pero campos no encontrados, reintentando en 100ms...');
             setTimeout(aplicarLimitesCalendario, 100);
             return false;
         }
 
-        console.log('Campos encontrados para limitación de calendario');
+        //console.log('Campos encontrados para limitación de calendario');
 
         // Verificar que no se hayan agregado event listeners anteriormente
         if (tipoAccionSelect.hasAttribute('data-calendar-listeners')) {
-            console.log('Event listeners de calendario ya configurados');
+            //console.log('Event listeners de calendario ya configurados');
             return true;
         }
 
@@ -9040,14 +9040,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const tipoAccion = tipoAccionSelect.value;
             const fechaApertura = fechaAperturaInput.value;
 
-            console.log('Actualizando límites - Tipo:', tipoAccion, 'Fecha apertura:', fechaApertura);
+            //console.log('Actualizando límites - Tipo:', tipoAccion, 'Fecha apertura:', fechaApertura);
 
             // Limpiar límites previos
             fechaCierreInput.removeAttribute('min');
             fechaCierreInput.removeAttribute('max');
 
             if (!tipoAccion || !fechaApertura) {
-                console.log('Faltan datos para establecer límites');
+                //console.log('Faltan datos para establecer límites');
                 return;
             }
 
@@ -9065,7 +9065,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fechaMaximaStr = fechaMaxima.toISOString().split('T')[0];
                 fechaCierreInput.setAttribute('max', fechaMaximaStr);
 
-                console.log(`Límites aplicados: min=${fechaApertura}, max=${fechaMaximaStr} (${diasMaximos} días)`);
+                //console.log(`Límites aplicados: min=${fechaApertura}, max=${fechaMaximaStr} (${diasMaximos} días)`);
 
                 // Mostrar información visual del límite
                 mostrarInformacionLimite(fechaCierreInput, tipoAccion, fechaMaximaStr, diasMaximos);
@@ -9171,7 +9171,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Marcar como configurado
             tipoAccionSelect.setAttribute('data-calendar-listeners', 'true');
-            console.log('Event listeners de calendario configurados');
+            //console.log('Event listeners de calendario configurados');
         }
 
         // Aplicar límites inmediatamente si ya hay valores
@@ -9186,7 +9186,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalCrearPACalendar = document.getElementById('modalCrearPA');
     if (modalCrearPACalendar && !modalCrearPACalendar.hasAttribute('data-calendar-configured')) {
         modalCrearPACalendar.addEventListener('shown.bs.modal', function() {
-            console.log('Modal Crear PA abierto, configurando límites...');
+            //console.log('Modal Crear PA abierto, configurando límites...');
             setTimeout(() => {
                 if (typeof aplicarLimitesCalendario === 'function') {
                     aplicarLimitesCalendario();
@@ -9205,7 +9205,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
 
-    console.log('Sistema de limitación de calendario inicializado ✅');
+    //console.log('Sistema de limitación de calendario inicializado ✅');
 
     // ==================== LIMITACIÓN DE FECHAS PARA ACTIVIDADES PHVA ====================
 
@@ -9218,35 +9218,35 @@ document.addEventListener('DOMContentLoaded', function() {
         const fechaEjecucionInputs = [fechaEjecucionInput, fechaEjecucionCorrectivaInput].filter(Boolean);
 
         if (!fechaAperturaInput || !fechaCierreInput || fechaEjecucionInputs.length === 0) {
-            console.warn('Campos de actividades PHVA no encontrados completamente');
+            //console.warn('Campos de actividades PHVA no encontrados completamente');
 
             // Verificar si el modal y las actividades están visibles
             const modal = document.getElementById('modalCrearPA');
             const actividadesSection = document.getElementById('actividadesPHVA');
 
             if (!modal) {
-                console.warn('Modal modalCrearPA no encontrado');
+                //console.warn('Modal modalCrearPA no encontrado');
                 return false;
             }
 
             if (!actividadesSection || actividadesSection.style.display === 'none') {
-                console.log('Sección de actividades PHVA no visible, saltando configuración');
+                //console.log('Sección de actividades PHVA no visible, saltando configuración');
                 return false;
             }
 
-            console.warn('Reintentando configuración de límites de actividades en 100ms...');
+            //console.warn('Reintentando configuración de límites de actividades en 100ms...');
             setTimeout(aplicarLimitesActividadesPHVA, 100);
             return false;
         }
 
-        console.log('Campos de actividades PHVA encontrados');
+        //console.log('Campos de actividades PHVA encontrados');
 
         // Función para actualizar límites de actividades
         function actualizarLimitesActividades() {
             const fechaApertura = fechaAperturaInput.value;
             const fechaCierre = fechaCierreInput.value;
 
-            console.log('Actualizando límites actividades - Apertura:', fechaApertura, 'Cierre:', fechaCierre);
+            //console.log('Actualizando límites actividades - Apertura:', fechaApertura, 'Cierre:', fechaCierre);
 
             // Limpiar límites previos
             fechaEjecucionInputs.forEach(campo => {
@@ -9255,7 +9255,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (!fechaApertura) {
-                console.log('Fecha de apertura no definida, no se pueden establecer límites para actividades');
+                //console.log('Fecha de apertura no definida, no se pueden establecer límites para actividades');
                 return;
             }
 
@@ -9266,12 +9266,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // La fecha máxima es la fecha de cierre objetivo (si está definida)
             if (fechaCierre) {
                 campo.setAttribute('max', fechaCierre);
-                console.log(`Límites actividades aplicados: min=${fechaApertura}, max=${fechaCierre}`);
+                //console.log(`Límites actividades aplicados: min=${fechaApertura}, max=${fechaCierre}`);
 
                 // Mostrar información visual del límite
                 mostrarInformacionLimiteActividad(campo, fechaApertura, fechaCierre);
             } else {
-                console.log(`Solo límite mínimo aplicado: min=${fechaApertura}`);
+                //console.log(`Solo límite mínimo aplicado: min=${fechaApertura}`);
                 mostrarInformacionLimiteActividad(campo, fechaApertura, null);
             }
 
@@ -9351,7 +9351,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Marcar como configurado
             campo.setAttribute('data-activity-listeners', 'true');
-            console.log('Event listeners de actividades configurados');
+            //console.log('Event listeners de actividades configurados');
         });
 
         // Aplicar límites inmediatamente si ya hay valores
@@ -9423,7 +9423,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalCrearPAActividades = document.getElementById('modalCrearPA');
     if (modalCrearPAActividades && !modalCrearPAActividades.hasAttribute('data-activities-configured')) {
         modalCrearPAActividades.addEventListener('shown.bs.modal', function() {
-            console.log('Modal Crear PA abierto, configurando límites de actividades...');
+            //console.log('Modal Crear PA abierto, configurando límites de actividades...');
             setTimeout(() => {
                 if (typeof aplicarLimitesActividadesPHVA === 'function') {
                     aplicarLimitesActividadesPHVA();
@@ -9437,7 +9437,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modalCrearPAActividades.setAttribute('data-activities-configured', 'true');
     }
 
-    console.log('Sistema de limitación de fechas para actividades PHVA inicializado ✅');
+    //console.log('Sistema de limitación de fechas para actividades PHVA inicializado ✅');
 
     // ==================== GESTIÓN DE PROCESOS Y SUBPROCESOS ====================
 
@@ -9450,15 +9450,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 datosProcesos = data.procesos;
                 actualizarMapaProcesos();
-                console.log('Procesos cargados:', datosProcesos.length);
+                //console.log('Procesos cargados:', datosProcesos.length);
 
                 // Llenar los selectores de procesos
                 llenarSelectProcesos();
             } else {
-                console.error('Error al cargar procesos:', data.mensaje);
+                //console.error('Error al cargar procesos:', data.mensaje);
             }
         } catch (error) {
-            console.error('Error al cargar procesos:', error);
+            //console.error('Error al cargar procesos:', error);
         }
     }
 
@@ -9471,12 +9471,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 datosSubprocesos = data.subprocesos;
                 actualizarMapaSubprocesos();
-                console.log('Subprocesos cargados:', datosSubprocesos.length);
+                //console.log('Subprocesos cargados:', datosSubprocesos.length);
             } else {
-                console.error('Error al cargar subprocesos:', data.mensaje);
+                //console.error('Error al cargar subprocesos:', data.mensaje);
             }
         } catch (error) {
-            console.error('Error al cargar subprocesos:', error);
+            //console.error('Error al cargar subprocesos:', error);
         }
     }
 
@@ -9487,15 +9487,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (data.success) {
-                console.log('COPs cargados:', data.cops.length);
+                //console.log('COPs cargados:', data.cops.length);
 
                 // Llenar selector COP del modal crear PA
                 llenarSelectCOPs(data.cops);
             } else {
-                console.error('Error al cargar COPs:', data.mensaje);
+                //console.error('Error al cargar COPs:', data.mensaje);
             }
         } catch (error) {
-            console.error('Error al cargar COPs:', error);
+            //console.error('Error al cargar COPs:', error);
         }
     }
 
@@ -9531,7 +9531,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        console.log('Selectores COP llenados con', cops.length, 'opciones');
+        //console.log('Selectores COP llenados con', cops.length, 'opciones');
     }
 
     // Función para llenar los selectores de procesos
@@ -9628,7 +9628,7 @@ document.addEventListener('DOMContentLoaded', function() {
             select.value = 'N/A';  // ← SELECCIONAR AUTOMÁTICAMENTE
             select.selectedIndex = 0;
             select.disabled = false; // Asegurar que esté habilitado
-            console.log(`⚠️ Proceso ${procesoId} no tiene subprocesos - Campo opcional con valor N/A`);
+            //console.log(`⚠️ Proceso ${procesoId} no tiene subprocesos - Campo opcional con valor N/A`);
         } else {
             // Si hay subprocesos, hacer el campo obligatorio
             select.required = true;
@@ -9658,7 +9658,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        console.log(`Subprocesos cargados para proceso ${procesoId}:`, subprocesosFiltrados.length);
+        //console.log(`Subprocesos cargados para proceso ${procesoId}:`, subprocesosFiltrados.length);
     }
 
     if (!window.llenarSelectSubprocesos) {
@@ -9670,7 +9670,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target && e.target.id === 'procesoPa') {
             const selectedOption = e.target.selectedOptions[0];
             const procesoId = selectedOption ? selectedOption.dataset.procesoId : null;
-            console.log('📌 Proceso PA seleccionado, ID:', procesoId);
+            //console.log('📌 Proceso PA seleccionado, ID:', procesoId);
             llenarSelectSubprocesos(procesoId, 'subprocesoPa');
             actualizarCodigoPA(); // Actualizar código cuando cambie proceso
         }
@@ -9756,7 +9756,7 @@ document.addEventListener('DOMContentLoaded', function() {
         await cargarProcesos();
         await cargarSubprocesos();
         await cargarCOPs();
-        console.log('Sistema de procesos, subprocesos y COPs inicializado ✅');
+        //console.log('Sistema de procesos, subprocesos y COPs inicializado ✅');
     }, 500);
 
 });
@@ -9827,7 +9827,7 @@ function agregarActividadGC() {
     document.getElementById('fechaEjecucionGc').value = '';
     document.getElementById('responsableGc').value = '';
 
-    console.log('Actividad GC agregada:', nuevaActividad);
+    //console.log('Actividad GC agregada:', nuevaActividad);
 }
 
 // Función para actualizar la lista visual de actividades GC
@@ -9964,7 +9964,7 @@ function limpiarFormularioGC() {
         fechaEjecucionGc.removeAttribute('max');
     }
 
-    console.log('Formulario GC limpiado ✅');
+    //console.log('Formulario GC limpiado ✅');
 }
 
 // ==================== FUNCIONES PARA GENERAR CÓDIGOS AUTOMÁTICOS ====================
@@ -9978,11 +9978,11 @@ async function generarCodigoPA(proceso, subproceso) {
         if (result.success) {
             return result.codigo;
         } else {
-            console.error('Error al generar código PA:', result.mensaje);
+            //console.error('Error al generar código PA:', result.mensaje);
             return `PA-${proceso.substring(0, 2).toUpperCase()}-${subproceso.substring(0, 2).toUpperCase()}-0001`;
         }
     } catch (error) {
-        console.error('Error al generar código PA:', error);
+        //console.error('Error al generar código PA:', error);
         return `PA-${proceso.substring(0, 2).toUpperCase()}-${subproceso.substring(0, 2).toUpperCase()}-0001`;
     }
 }
@@ -9996,11 +9996,11 @@ async function generarCodigoGC(proceso, subproceso) {
         if (result.success) {
             return result.codigo;
         } else {
-            console.error('Error al generar código GC:', result.mensaje);
+            //console.error('Error al generar código GC:', result.mensaje);
             return `GC-${proceso.substring(0, 2).toUpperCase()}-${subproceso.substring(0, 2).toUpperCase()}-0001`;
         }
     } catch (error) {
-        console.error('Error al generar código GC:', error);
+        //console.error('Error al generar código GC:', error);
         return `GC-${proceso.substring(0, 2).toUpperCase()}-${subproceso.substring(0, 2).toUpperCase()}-0001`;
     }
 }
@@ -10014,11 +10014,11 @@ async function generarCodigoRVD(proceso, subproceso) {
         if (result.success) {
             return result.codigo;
         } else {
-            console.error('Error al generar código RVD:', result.mensaje);
+            //console.error('Error al generar código RVD:', result.mensaje);
             return `RVD-${proceso.substring(0, 2).toUpperCase()}-${subproceso.substring(0, 2).toUpperCase()}-0001`;
         }
     } catch (error) {
-        console.error('Error al generar código RVD:', error);
+        //console.error('Error al generar código RVD:', error);
         return `RVD-${proceso.substring(0, 2).toUpperCase()}-${subproceso.substring(0, 2).toUpperCase()}-0001`;
     }
 }
@@ -10161,7 +10161,7 @@ async function crearGestionCambio() {
         btnCrear.disabled = true;
 
         // Enviar datos al servidor
-        console.log('Datos GC a enviar:', datos);
+        //console.log('Datos GC a enviar:', datos);
 
         const response = await fetch('/sgi/gestion-cambio', {
             method: 'POST',
@@ -10198,7 +10198,7 @@ async function crearGestionCambio() {
         btnCrear.innerHTML = textoOriginal;
         btnCrear.disabled = false;
     } catch (error) {
-        console.error('Error al crear GC:', error);
+        //console.error('Error al crear GC:', error);
         alert(`Error al crear la Gestión del Cambio: ${error.message}`);
 
         // Restaurar botón en caso de error
@@ -10296,7 +10296,7 @@ async function crearRVD() {
     // Obtener referencia al botón antes del try/catch
     const btnCrear = document.querySelector('button[onclick="crearRVD()"]');
     if (!btnCrear) {
-        console.error('No se encontró el botón crearRVD');
+        //console.error('No se encontró el botón crearRVD');
         return;
     }
     const textoOriginal = btnCrear.innerHTML;
@@ -10307,7 +10307,7 @@ async function crearRVD() {
         btnCrear.disabled = true;
 
         // Enviar datos al servidor
-        console.log('Datos RVD a enviar:', datos);
+        //console.log('Datos RVD a enviar:', datos);
 
         const response = await fetch('/sgi/revision-direccion', {
             method: 'POST',
@@ -10338,7 +10338,7 @@ async function crearRVD() {
         await asegurarRegistroVisible({ codigo: resultado.codigo, tipoGestion: 'RVD' });
 
     } catch (error) {
-        console.error('Error al crear RVD:', error);
+        //console.error('Error al crear RVD:', error);
         alert('Error al crear el RVD. Por favor intente nuevamente.');
     } finally {
         // Restaurar botón siempre
@@ -10365,7 +10365,7 @@ function obtenerFechaLocal() {
 
 // Inicialización global para evitar errores
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Inicializando sistema SGI...');
+    //console.log('🚀 Inicializando sistema SGI...');
 
     try {
         // Configurar filtros dinámicos de códigos
@@ -10376,7 +10376,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar filtros clickeables de la leyenda
         if (typeof configurarFiltrosLeyenda === 'function') {
             configurarFiltrosLeyenda();
-            console.log('✅ Filtros de leyenda configurados');
+            //console.log('✅ Filtros de leyenda configurados');
         }
         if (typeof aplicarCodigosCacheSiVacio === 'function') {
             aplicarCodigosCacheSiVacio();
@@ -10397,7 +10397,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Verificar y configurar modal Crear PA
         const modalCrearPA = verificarElementoDOM('modalCrearPA', 'Modal Crear PA');
         if (modalCrearPA) {
-            console.log('✅ Modal Crear PA encontrado y listo');
+            //console.log('✅ Modal Crear PA encontrado y listo');
         }
 
         if (typeof configurarModalEvidencias === 'function') {
@@ -10412,10 +10412,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
 
-        console.log('✅ Sistema SGI inicializado correctamente');
+        //console.log('✅ Sistema SGI inicializado correctamente');
 
     } catch (error) {
-        console.error('❌ Error durante la inicialización del sistema SGI:', error);
+        //console.error('❌ Error durante la inicialización del sistema SGI:', error);
     }
 });
 
@@ -10435,7 +10435,7 @@ function verificarEstadoSistema() {
         estadoElementos[id] = !!document.getElementById(id);
     });
 
-    console.log('📊 Estado actual del sistema:', estadoElementos);
+    //console.log('📊 Estado actual del sistema:', estadoElementos);
     return estadoElementos;
 }
 
@@ -10505,7 +10505,7 @@ async function buscarAuditoria(pagina = 1) {
         }
 
     } catch (error) {
-        console.error('Error al buscar auditoría:', error);
+        //console.error('Error al buscar auditoría:', error);
         document.getElementById('bodyTablaAuditoria').innerHTML = `
             <tr>
                 <td colspan="9" class="text-center text-danger">
@@ -10659,17 +10659,17 @@ async function refrescarAuditoria() {
     const auditoriaTab = document.getElementById('auditoria');
     const isActive = auditoriaTab && (auditoriaTab.classList.contains('active') || auditoriaTab.classList.contains('show'));
 
-    console.log('🔄 refrescarAuditoria() llamado');
-    console.log('   - Pestaña existe:', !!auditoriaTab);
-    console.log('   - Clases:', auditoriaTab?.className);
-    console.log('   - Está activa:', isActive);
+    //console.log('🔄 refrescarAuditoria() llamado');
+    //console.log('   - Pestaña existe:', !!auditoriaTab);
+    //console.log('   - Clases:', auditoriaTab?.className);
+    //console.log('   - Está activa:', isActive);
 
     if (isActive) {
-        console.log('✅ Refrescando datos de Auditoría...');
+        //console.log('✅ Refrescando datos de Auditoría...');
         await buscarAuditoria(paginaActualAud);
         await cargarEstadisticasAud();
     } else {
-        console.log('⏭️ Auditoría no está activa, skip refresh');
+        //console.log('⏭️ Auditoría no está activa, skip refresh');
     }
 }
 
@@ -10713,13 +10713,13 @@ async function exportarAuditoria(formato) {
             btnExcel.classList.remove('btn-loading');
 
             // Refrescar tabla UNA SOLA VEZ después de exportar
-            console.log('🔄 Refrescando Auditoría después de exportar...');
+            //console.log('🔄 Refrescando Auditoría después de exportar...');
             buscarAuditoria(paginaActualAud);
             cargarEstadisticasAud();
         }, 2500);
 
     } catch (error) {
-        console.error('Error al exportar:', error);
+        //console.error('Error al exportar:', error);
         alert('Error al exportar datos');
     }
 }
@@ -10760,7 +10760,7 @@ async function cargarEstadisticasAud() {
             }
         }
     } catch (error) {
-        console.error('Error al cargar estadísticas:', error);
+        //console.error('Error al cargar estadísticas:', error);
     }
 }
 
@@ -10800,14 +10800,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners para aplicar filtros automáticamente
     if (filtroFechaDesdeAud) {
         filtroFechaDesdeAud.addEventListener('change', function() {
-            console.log('🔄 Cambio en fecha desde (Auditoría):', this.value);
+            //console.log('🔄 Cambio en fecha desde (Auditoría):', this.value);
             buscarAuditoria(1);
         });
     }
 
     if (filtroFechaHastaAud) {
         filtroFechaHastaAud.addEventListener('change', function() {
-            console.log('🔄 Cambio en fecha hasta (Auditoría):', this.value);
+            //console.log('🔄 Cambio en fecha hasta (Auditoría):', this.value);
             buscarAuditoria(1);
         });
     }
@@ -10818,7 +10818,7 @@ document.addEventListener('DOMContentLoaded', function() {
         filtroUsuarioAud.addEventListener('input', function() {
             clearTimeout(timeoutUsuario);
             timeoutUsuario = setTimeout(() => {
-                console.log('🔄 Cambio en usuario (Auditoría):', this.value);
+                //console.log('🔄 Cambio en usuario (Auditoría):', this.value);
                 buscarAuditoria(1);
             }, 500); // Esperar 500ms después de dejar de escribir
         });
@@ -10826,21 +10826,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (filtroAccionAud) {
         filtroAccionAud.addEventListener('change', function() {
-            console.log('🔄 Cambio en acción (Auditoría):', this.value);
+            //console.log('🔄 Cambio en acción (Auditoría):', this.value);
             buscarAuditoria(1);
         });
     }
 
     if (filtroModuloAud) {
         filtroModuloAud.addEventListener('change', function() {
-            console.log('🔄 Cambio en módulo (Auditoría):', this.value);
+            //console.log('🔄 Cambio en módulo (Auditoría):', this.value);
             buscarAuditoria(1);
         });
     }
 
     if (filtroResultadoAud) {
         filtroResultadoAud.addEventListener('change', function() {
-            console.log('🔄 Cambio en resultado (Auditoría):', this.value);
+            //console.log('🔄 Cambio en resultado (Auditoría):', this.value);
             buscarAuditoria(1);
         });
     }
@@ -10851,7 +10851,7 @@ document.addEventListener('DOMContentLoaded', function() {
         filtroCodigoAud.addEventListener('input', function() {
             clearTimeout(timeoutCodigo);
             timeoutCodigo = setTimeout(() => {
-                console.log('🔄 Cambio en código (Auditoría):', this.value);
+                //console.log('🔄 Cambio en código (Auditoría):', this.value);
                 buscarAuditoria(1);
             }, 500); // Esperar 500ms después de dejar de escribir
         });
@@ -10861,16 +10861,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const auditoriaTab = document.getElementById('auditoria-tab');
     if (auditoriaTab) {
         auditoriaTab.addEventListener('shown.bs.tab', function() {
-            console.log('📊 Pestaña de Auditoría mostrada - Recargando datos...');
+            //console.log('📊 Pestaña de Auditoría mostrada - Recargando datos...');
             buscarAuditoria(1);
             cargarEstadisticasAud();
         });
     } else {
-        console.warn('⚠️ No se encontró la pestaña de Auditoría');
+        //console.warn('⚠️ No se encontró la pestaña de Auditoría');
     }
 });
 
-console.log('✅ Sistema de Auditoría SGI cargado correctamente');
+//console.log('✅ Sistema de Auditoría SGI cargado correctamente');
 
 // ========================================================================================
 //                        SISTEMA DE NOTIFICACIONES
@@ -10885,7 +10885,7 @@ let filtroActualNotif = 'todas';
 let codigoReferenciaFiltro = null;
 
 async function abrirModalNotificaciones(event, codigo = null) {
-    console.log('🔔 abrirModalNotificaciones llamada con codigo:', codigo);
+    //console.log('🔔 abrirModalNotificaciones llamada con codigo:', codigo);
 
     if (event) {
         event.stopPropagation();
@@ -10895,22 +10895,22 @@ async function abrirModalNotificaciones(event, codigo = null) {
     try {
         const modalElement = document.getElementById('modalNotificaciones');
         if (!modalElement) {
-            console.error('❌ Modal #modalNotificaciones no encontrado en el DOM');
+            //console.error('❌ Modal #modalNotificaciones no encontrado en el DOM');
             return;
         }
 
         // Guardar el código de referencia para filtrar
         codigoReferenciaFiltro = codigo && codigo.trim() !== '' ? codigo : null;
-        console.log('📌 Filtro por código:', codigoReferenciaFiltro);
+        //console.log('📌 Filtro por código:', codigoReferenciaFiltro);
 
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
-        console.log('✅ Modal abierto correctamente');
+        //console.log('✅ Modal abierto correctamente');
 
         // Cargar notificaciones
         await cargarNotificaciones();
     } catch (error) {
-        console.error('❌ Error al abrir modal de notificaciones:', error);
+        //console.error('❌ Error al abrir modal de notificaciones:', error);
         alert('Error al abrir notificaciones: ' + error.message);
     }
 }
@@ -10934,7 +10934,7 @@ async function cargarNotificaciones() {
             `;
         }
     } catch (error) {
-        console.error('Error al cargar notificaciones:', error);
+        //console.error('Error al cargar notificaciones:', error);
         document.getElementById('listaNotificaciones').innerHTML = `
             <div class="alert alert-danger m-3">
                 <i class="fas fa-exclamation-triangle"></i> Error de conexión al cargar notificaciones
@@ -10953,7 +10953,7 @@ function renderizarNotificaciones() {
     // FILTRO POR CÓDIGO DE REFERENCIA (cuando se abre desde una campanita específica)
     if (codigoReferenciaFiltro) {
         notificacionesFiltradas = notificacionesFiltradas.filter(n => n.codigo_referencia === codigoReferenciaFiltro);
-        console.log(`🔍 Filtrando por código: ${codigoReferenciaFiltro}, encontradas: ${notificacionesFiltradas.length}`);
+        //console.log(`🔍 Filtrando por código: ${codigoReferenciaFiltro}, encontradas: ${notificacionesFiltradas.length}`);
     }
 
     // Aplicar filtros de tipo
@@ -11058,7 +11058,7 @@ async function marcarComoLeida(notifId) {
         });
 
         if (response.ok) {
-            console.log(`✅ Notificación ${notifId} marcada como leída`);
+            //console.log(`✅ Notificación ${notifId} marcada como leída`);
 
             // Actualizar cache local
             const notif = notificacionesCache.find(n => n.id === notifId);
@@ -11074,7 +11074,7 @@ async function marcarComoLeida(notifId) {
             actualizarBadgesNotificaciones();
         }
     } catch (error) {
-        console.error('Error al marcar notificación como leída:', error);
+        //console.error('Error al marcar notificación como leída:', error);
     }
 }
 
@@ -11103,7 +11103,7 @@ async function marcarTodasLeidas() {
             Toast.success('✅ Todas las notificaciones marcadas como leídas');
         }
     } catch (error) {
-        console.error('Error al marcar todas como leídas:', error);
+        //console.error('Error al marcar todas como leídas:', error);
         Toast.error('❌ Error al marcar notificaciones como leídas');
     }
 }
@@ -11135,7 +11135,7 @@ function filtrarNotificaciones(tipo) {
 // Función para actualizar contador global de notificaciones
 function actualizarContadorNotificaciones(total) {
     // Este contador podría usarse en el header si se necesita
-    console.log(`📬 Total de notificaciones no leídas: ${total}`);
+    //console.log(`📬 Total de notificaciones no leídas: ${total}`);
 }
 
 // Función para actualizar badges en las campanas de la tabla
@@ -11144,7 +11144,7 @@ async function actualizarBadgesNotificaciones() {
         const response = await fetch('/sgi/notificaciones?solo_no_leidas=true&limite=100');
 
         if (!response.ok) {
-            console.warn('⚠️ No se pudieron cargar notificaciones para badges (status ' + response.status + ')');
+            //console.warn('⚠️ No se pudieron cargar notificaciones para badges (status ' + response.status + ')');
             return;
         }
 
@@ -11176,7 +11176,7 @@ async function actualizarBadgesNotificaciones() {
         }
     } catch (error) {
         // Error silencioso - no bloquear la UI
-        console.debug('🔕 Badges de notificaciones no disponibles:', error.message);
+        //console.debug('🔕 Badges de notificaciones no disponibles:', error.message);
     }
 }
 
@@ -11188,7 +11188,7 @@ setInterval(actualizarBadgesNotificaciones, 5000); // Cada 5 segundos para respu
 document.addEventListener('DOMContentLoaded', function() {
     // Actualizar badges al cargar
     actualizarBadgesNotificaciones();
-    console.log('✅ Sistema de notificaciones inicializado');
+    //console.log('✅ Sistema de notificaciones inicializado');
 });
 
 
@@ -11296,11 +11296,11 @@ const Toast = {
 // Inicializar al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
     Toast.init();
-    console.log('✅ Sistema de Toast inicializado');
-    console.log('📍 Contenedor Toast:', Toast.container);
+    //console.log('✅ Sistema de Toast inicializado');
+    //console.log('📍 Contenedor Toast:', Toast.container);
 });
 
-console.log('✅ Sistema de Toast cargado correctamente');
+//console.log('✅ Sistema de Toast cargado correctamente');
 
 // ========================================================================================
 //                        DEMO Y TESTING DE TOAST (Temporal - Remover en producción)
@@ -11308,7 +11308,7 @@ console.log('✅ Sistema de Toast cargado correctamente');
 
 // Función para mostrar ejemplos de Toast (llámala desde la consola con: mostrarDemoToast())
 window.mostrarDemoToast = function() {
-    console.log('🎨 Mostrando ejemplos de Toast...');
+    //console.log('🎨 Mostrando ejemplos de Toast...');
 
     // Toast de éxito
     setTimeout(() => {
@@ -11340,7 +11340,7 @@ window.mostrarDemoToast = function() {
         }, 3000);
     }, 4500);
 
-    console.log('✅ Demo completada. Los toasts aparecerán en 8 segundos.');
+    //console.log('✅ Demo completada. Los toasts aparecerán en 8 segundos.');
 };
 
 // Para probar en consola: mostrarDemoToast()

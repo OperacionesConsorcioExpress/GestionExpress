@@ -1,195 +1,498 @@
 <!-- PANELES DE NAVEGACIÓN DE LA APLICACIÓN -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" IE="edge">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{% endblock %} | GestiónExpress</title>
-  <!--<link rel="icon" type="image/x-icon" href="{{ url_for('static', path='ventana.png') }}"> -->
   <link rel="icon" type="image/png" href="/static/images/ventana.png">
 
-
   <!-- Bootstrap CSS + Bootstrap Icons -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" 
-  integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  
-  <!-- Estilos personalizados -->
-  <style>
-    /* Grupo abierto en azul oscuro */
-    .sidebar-menu .accordion-button:not(.collapsed) {
-      background: #030f25 !important;   /* Azul oscuro corporativo */
-      color: #fff !important;
-    }
-    /* Menor alto del grupo */
-    .sidebar-menu .accordion-button {
-      padding-top: 6px !important;
-      padding-bottom: 6px !important;
-      min-height: 32px;
-      font-size: 15px;
-    }
-    /* Hover sobre grupo */
-    .sidebar-menu .accordion-button:hover {
-      background: #2356ad !important; /* Azul un poco más claro */
-      color: #fff !important;
-    }
-    /* Hover sobre módulos (enlaces internos) */
-    .sidebar-menu .accordion-body .nav-link:hover {
-      background: #e6eefc !important;
-      color: #183366 !important;
-      border-radius: 4px;
-      font-weight: 500;
-    }
-    /*  Fondo claro para la sección interna de grupo abierto */
-    .sidebar-menu .accordion-body {
-      background: #171d27 !important;  /* Muy sutil y limpio */
-      border-radius: 0 0 7px 7px;
-      margin-bottom: 4px;
-      padding-left: 8px;
-      padding-right: 6px;
-    }
-    /* Estilos para el panel lateral */
-    .sidebar-menu { 
-      height: 100%; /* El panel lateral ocupa el 100% de la altura de la ventana */
-      width: 0; /* Inicia con un ancho de 0, es decir, oculto */
-      position: fixed; /* Fija el panel en su posición relativa a la ventana */
-      z-index: 1000; /* Asegura que el panel esté por encima de otros elementos */
-      top: 0; /* Fija el panel en la parte superior de la ventana */
-      left: 0; /* Fija el panel en la parte izquierda de la ventana */
-      background-color: #111111; /* Color de fondo oscuro */
-      overflow-x: hidden; /* Oculta el contenido que exceda el ancho */
-      transition: 0.5s; /* Suaviza la transición de apertura y cierre en 0.5 segundos */
-      padding-top: 50px; /* Añade un espacio superior dentro del panel para separar del borde */
-    }
-    /* Estilo para los enlaces dentro del panel lateral */
-    .sidebar-menu a { 
-      padding: 0px 5px; /* Espacio interno de los enlaces, ajusta el tamaño del clic */
-      text-decoration: none; /* Elimina el subrayado de los enlaces */
-      font-size: 15px; /* Tamaño de fuente de los enlaces */
-      color: #818181; /* Color gris para los enlaces */
-      display: block; /* Los enlaces ocupan todo el ancho disponible */
-      transition: 0.3s; /* Suaviza la transición del color al pasar el ratón */
-    }
-    /* Cambia el color del texto de los enlaces cuando se pasa el ratón */
-    .sidebar-menu a:hover { 
-      color: #f1f1f1; /* Color del texto al pasar el ratón sobre un enlace */
-    }
-    /* Estilo para el botón de cerrar el panel lateral */
-    .sidebar-menu .closebtn { 
-      position: absolute; /* Posiciona el botón de cierre de manera absoluta dentro del panel */
-      top: 0; /* Fija el botón en la parte superior */
-      right: 25px; /* Lo aleja 25px del borde derecho del panel */
-      font-size: 36px; /* Tamaño de la "X" del botón de cerrar */
-      margin-left: 50px; /* Añade espacio a la izquierda del botón */
-    }
-    /* Estilo para el contenido principal, ajusta el margen al abrir/cerrar el panel */
-    #main { 
-      transition: margin-left .5s; /* Suaviza la transición del margen izquierdo cuando el panel se abre o cierra */
-      padding: 16px; /* Espacio interno en el contenido principal */
-    }
-    /* Estilo para el botón de abrir el panel lateral ("Menú") */
-    .openbtn { 
-      font-size: 20px; /* Tamaño de fuente del botón */
-      cursor: pointer; /* Cambia el cursor a una mano para indicar clic */
-      background-color: #111; /* Color de fondo oscuro */
-      color: white; /* Color del texto blanco */
-      padding: 5px 15px; /* Espacio interno del botón */
-      border: none; /* Elimina el borde del botón */
-      margin-right: 10px; /* Añade un espacio a la derecha del botón */
-    }
-    /* Cambia el color de fondo del botón cuando se pasa el ratón */
-    .openbtn:hover { 
-      background-color: #444; /* Color de fondo más claro al pasar el ratón */
-    }
-    /* Contenedor de la barra de navegación */
-    .sidebar-menu .navbar-container { 
-      display: flex; /* Usa flexbox para alinear los elementos dentro de la barra */
-      align-items: center; /* Alinea los elementos verticalmente en el centro */
-      justify-content: flex-start; /* Alinea los elementos a la izquierda */
-    }
-    /* Estilo para los títulos de los grupos en el panel lateral */
-    .sidebar-menu .group-title { 
-      color: #f1f1f1; /* Color blanco para los títulos de los grupos */
-      font-size: 16px; /* Tamaño de fuente de los títulos de los grupos */
-      margin-left: 15px; /* Añade espacio a la izquierda del título del grupo */
-      margin-top: 10px; /* Añade espacio arriba de los títulos de los grupos */
-      font-weight: bold; /* Hace que los títulos sean negritas */
-    }
-    /* Estilo para los enlaces de navegación dentro de los grupos del panel lateral */
-    .sidebar-menu .nav-link { 
-      margin-left: 20px; /* Añade espacio a la izquierda de los enlaces de navegación */
-    }
-    /* Letras de los módulos internos (no hover, no seleccionado) más claras */
-    .sidebar-menu .accordion-body .nav-link {
-      color: #b1c0df !important;   /* Cambia el color aquí a tu gusto */
-      font-weight: 400;
-    }
-    .sidebar-menu .accordion-body .nav-link:hover {
-      background: rgb(39, 39, 100) !important; /* Azul muy claro, casi transparente */
-      color: #ffffff !important;
-      border-radius: 4px;
-      font-weight: 500;
-    }
-    /* Hace que el enlace de Inicio sea blanco siempre */
-    .sidebar-menu a[href="/inicio"] {
-      color: #fff !important;
-      font-weight: 500;
-    }
-    .sidebar-menu a[href="/inicio"]:hover {
-      background: #1d2842 !important;
-      color: #fff !important;
-    }
-  </style>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor"
+    crossorigin="anonymous"
+  >
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+    rel="stylesheet"
+  >
+
+<!--  ESTILOS PERSONALIZADOS PARA EL LAYOUT -->
+<style>
+  :root {
+
+    --gx-primary-dark: #1f3a6d;
+    --gx-primary-dark-hover: #274783;
+
+    --gx-primary-soft: #d9e4f5;
+    --gx-primary-soft-hover: #c7d6ef;
+
+    --gx-bg: #f4f7fb;
+    --gx-surface: #ffffff;
+    --gx-surface-hover: #eef3f9;
+
+    --gx-text: #172033;
+    --gx-text-soft: #667085;
+    --gx-text-light: #e8f0fa;
+
+    --gx-border: #e4ebf5;
+
+    --gx-shadow-sm: 0 4px 12px rgba(15,23,42,.05);
+    --gx-shadow-md: 0 10px 24px rgba(15,23,42,.08);
+
+    --gx-radius: 10px;
+    --gx-transition: all .18s ease;
+
+    --gx-sidebar-width: 250px;
+  }
+
+  /* BASE */
+
+  body{
+    margin:0;
+    background:var(--gx-bg);
+    font-family:"Segoe UI","Inter","Century Gothic",Arial,sans-serif;
+  }
+
+  /* TOPBAR */
+
+  .gx-topbar{
+    position:sticky;
+    top:0;
+    z-index:1030;
+    background:#fff;
+    border-bottom:1px solid var(--gx-border);
+  }
+
+  .gx-topbar-inner{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:5px 10px;
+  }
+
+  /* BOTON MENU PRINCIPAL */
+
+  .openbtn{
+    display:flex;
+    align-items:center;
+    gap:6px;
+
+    background:var(--gx-primary-dark);
+    color:#fff;
+
+    border:none;
+    border-radius:20px;
+
+    padding:6px 14px;
+
+    font-size:.95rem;
+    font-weight:600;
+
+    cursor:pointer;
+
+    box-shadow:var(--gx-shadow-sm);
+
+    transition:var(--gx-transition);
+  }
+
+  .openbtn:hover{
+    background:var(--gx-primary-dark-hover);
+  }
+
+  .openbtn i{
+    font-size:.9rem;
+    color:#fff;
+  }
+
+  /* OVERLAY */
+
+  .sidebar-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(15,23,42,.18);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    z-index:1040;
+    transition:var(--gx-transition);
+  }
+
+  .sidebar-overlay.is-visible{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+  }
+
+  /* SIDEBAR */
+
+  .sidebar-menu{
+    position:fixed;
+    top:0;
+    left:0;
+
+    width:var(--gx-sidebar-width);
+    height:100vh;
+
+    background:#fff;
+
+    border-right:1px solid var(--gx-border);
+
+    box-shadow:var(--gx-shadow-md);
+
+    transform:translateX(-100%);
+    transition:transform .22s ease;
+
+    overflow-y:auto;
+
+    padding:8px;
+
+    z-index:1045; /* <-- AGREGA ESTA LINEA */
+  }
+
+  .sidebar-menu.is-open{
+    transform:translateX(0);
+  }
+
+  /* HEADER */
+
+  .sidebar-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    padding-bottom:6px;
+    margin-bottom:6px;
+
+    border-bottom:1px solid var(--gx-border);
+  }
+
+  .sidebar-brand{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .sidebar-brand-icon{
+    width:26px;
+    height:26px;
+
+    background:var(--gx-primary-dark);
+
+    color:#fff;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:7px;
+
+    font-size:.75rem;
+  }
+
+  .sidebar-brand-text strong{
+    font-size:.75rem;
+  }
+
+  .sidebar-brand-text small{
+    font-size:.62rem;
+    color:var(--gx-text-soft);
+  }
+
+  .closebtn{
+    border:none;
+    background:none;
+
+    font-size:1rem;
+    cursor:pointer;
+  }
+
+  /* INICIO */
+
+  .sidebar-home-link{
+    display:flex;
+    align-items:center;
+    gap:6px;
+
+    padding:5px 8px;
+
+    border-radius:8px;
+
+    background:#f7f9fc;
+
+    border:1px solid var(--gx-border);
+
+    font-size:.72rem;
+    font-weight:600;
+
+    margin-bottom:5px;
+
+    color:var(--gx-text);
+  }
+
+  .sidebar-home-link:hover{
+    background:var(--gx-surface-hover);
+  }
+
+  /* AGRUPACION MENU */
+
+  .sidebar-menu .accordion-item{
+    margin-bottom:3px;
+  }
+
+  /* SECCIONES PRINCIPALES */
+
+  .sidebar-menu .accordion-button{
+
+    background:var(--gx-primary-soft) !important;
+
+    color:var(--gx-primary-dark) !important;
+
+    border:1px solid var(--gx-border) !important;
+
+    border-radius:8px !important;
+
+    padding:5px 8px !important;
+
+    font-size:.72rem;
+
+    font-weight:700;
+
+    min-height:30px;
+
+    box-shadow:none !important;
+
+    transition:var(--gx-transition);
+  }
+
+  .sidebar-menu .accordion-button:hover{
+
+    background:var(--gx-primary-soft-hover) !important;
+
+  }
+
+  /* CUANDO ESTA ABIERTO */
+
+  .sidebar-menu .accordion-button:not(.collapsed){
+
+    background:var(--gx-primary-dark) !important;
+
+    color:#fff !important;
+
+    border-color:var(--gx-primary-dark) !important;
+
+  }
+
+  /* BODY */
+
+  .sidebar-menu .accordion-body{
+
+    background:#fafbfd !important;
+
+    border:1px solid var(--gx-border);
+
+    border-top:none;
+
+    border-radius:0 0 8px 8px;
+
+    padding:2px !important;
+
+    margin-bottom:3px;
+  }
+
+  /* SUBMENU */
+
+  .sidebar-menu .nav-link{
+
+    display:flex;
+    align-items:center;
+    gap:6px;
+
+    padding:3px 6px;
+
+    border-radius:7px;
+
+    font-size:.69rem;
+
+    color:var(--gx-text-soft);
+
+    font-weight:600;
+
+    transition:var(--gx-transition);
+  }
+
+  .sidebar-menu .nav-link:hover{
+
+    background:#bdbfc2;
+
+    color:var(--gx-primary-dark);
+
+    transform:translateX(2px);
+  }
+
+  .sidebar-menu .nav-link.active{
+
+    background:#aeb7c4;
+
+    color:var(--gx-primary-dark);
+
+    font-weight:700;
+  }
+
+  .sidebar-menu .nav-link i{
+
+    font-size:.75rem;
+  }
+
+  /* FOOTER */
+
+  .sidebar-footer{
+
+    margin-top:6px;
+
+    border-top:1px solid var(--gx-border);
+
+    padding-top:6px;
+  }
+
+  .sidebar-logout{
+
+    display:flex;
+    align-items:center;
+    gap:6px;
+
+    padding:5px 7px;
+
+    border-radius:8px;
+
+    font-size:.70rem;
+
+    border:1px solid #f1d6d6;
+
+    color:#c62828;
+
+    font-weight:700;
+  }
+
+  .sidebar-logout:hover{
+
+    background:#fbf1f1;
+  }
+
+  /* MAIN */
+
+  #main{
+    padding:10px;
+  }
+</style>
+
 </head>
 
 <body>
   {% if user_session %}
-  
-<div class="navbar-container d-flex align-items-center justify-content-between px-2 py-1" style="background: rgb(239, 239, 245);">
-  <button class="openbtn d-flex align-items-center gap-2 px-3 py-1"
-          onclick="openNav()"
-          style="background: #030f25; border-radius: 22px; box-shadow: 0 2px 8px #b1c0df44; color: #fff; font-weight: 500; border: none;">
-    <i class="bi bi-grid-3x3-gap-fill" style="font-size: 1.3rem;"></i>
-    <span style="font-size: 1.1rem; font-family: 'Century Gothic', sans-serif;">Menú</span>
-  </button>
-  <div>
-    {% block encabezados %}
-      {% include "components/encabezados.html" %}
-    {% endblock %}
-  </div>
-</div>
 
-<!-- Panel lateral acordeón -->
-<div id="mySidebar" class="sidebar sidebar-menu">
-  <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-  <div id="sidebarAccordion" class="accordion accordion-flush"></div>
-</div>
+  <!-- TOPBAR -->
+  <header class="gx-topbar">
+    <div class="gx-topbar-inner">
+      <button
+        id="sidebarToggleBtn"
+        class="openbtn"
+        type="button"
+        aria-label="Abrir menú"
+        aria-controls="mySidebar"
+        aria-expanded="false"
+      >
+        <i class="bi bi-grid-3x3-gap-fill"></i>
+        <span>Menú</span>
+      </button>
+
+      <div class="gx-topbar-actions">
+        {% block encabezados %}
+          {% include "components/encabezados.html" %}
+        {% endblock %}
+      </div>
+    </div>
+  </header>
+
+  <!-- Overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="mySidebar" class="sidebar-menu" aria-hidden="true">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+          <i class="bi bi-window-sidebar"></i>
+        </div>
+        <div class="sidebar-brand-text">
+          <strong>GestiónExpress</strong>
+          <small>Panel Menu</small>
+        </div>
+      </div>
+
+      <button
+        id="sidebarCloseBtn"
+        class="closebtn"
+        type="button"
+        aria-label="Cerrar menú"
+      >
+        &times;
+      </button>
+    </div>
+
+    <div class="sidebar-nav-section">
+      <a href="/inicio" class="sidebar-home-link" id="sidebarHomeLink">
+        <i class="bi bi-house-door"></i>
+        <span>Inicio</span>
+      </a>
+
+      <div id="sidebarAccordion" class="accordion accordion-flush"></div>
+
+      <div class="sidebar-footer">
+        <a href="/logout" class="sidebar-logout">
+          <i class="bi bi-box-arrow-right"></i>
+          <span>Cerrar sesión</span>
+        </a>
+      </div>
+    </div>
+  </aside>
   {% endif %}
 
   <div id="main">
     <main>{% block content %}{% endblock %}</main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.5/dist/umd/popper.min.js" integrity="sha384-Xe+8cL9oJa6tN/veChSP7q+mnSPaj5Bcu9mPX5F5xIGE0DVittaqT5lorf0EI7Vk" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.min.js" integrity="sha384-kjU+l4N0Yf4ZOJErLsIcvOU2qSb74wXpOhqTvwVx3OElZRweTnQ6d31fXEoRD1Jy" crossorigin="anonymous"></script>
-  
-  <script>
-  // Funciones para abrir/cerrar el panel
-  function openNav() { document.getElementById("mySidebar").style.width = "220px"; }
-  function closeNav() { document.getElementById("mySidebar").style.width = "0"; }
-  document.addEventListener('click', function(event) {
-    var sidebar = document.getElementById('mySidebar');
-    var openBtn = document.querySelector('.openbtn');
-    if (!sidebar.contains(event.target) && !openBtn.contains(event.target)) {
-      closeNav();
-    }
-  });
+  <script
+    src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.5/dist/umd/popper.min.js"
+    integrity="sha384-Xe+8cL9oJa6tN/veChSP7q+mnSPaj5Bcu9mPX5F5xIGE0DVittaqT5lorf0EI7Vk"
+    crossorigin="anonymous"
+  ></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.min.js"
+    integrity="sha384-kjU+l4N0Yf4ZOJErLsIcvOU2qSb74wXpOhqTvwVx3OElZRweTnQ6d31fXEoRD1Jy"
+    crossorigin="anonymous"
+  ></script>
 
-  // ====== Generación dinámica tipo acordeón moderno ======
-  document.addEventListener("DOMContentLoaded", function() {
-    // Iconos por grupo y pantalla
-    const iconosGrupo = {
+<script>
+  (() => {
+    "use strict";
+
+    const CONFIG = {
+      sidebarSelector: "#mySidebar",
+      overlaySelector: "#sidebarOverlay",
+      toggleBtnSelector: "#sidebarToggleBtn",
+      closeBtnSelector: "#sidebarCloseBtn",
+      accordionSelector: "#sidebarAccordion",
+      inactivityLimit: 1800000,
+      pantallasPermitidasUrl: "/pantallas_permitidas"
+    };
+
+    const ICONOS_GRUPO = {
       "Abastecimiento": "bi bi-cart-check",
       "Centro de Control": "bi bi-graph-up-arrow",
       "Centro Información": "bi bi-hdd-stack",
@@ -198,7 +501,8 @@
       "Configuración": "bi bi-gear",
       "Usuarios y Roles": "bi bi-fingerprint"
     };
-    const iconosPantalla = {
+
+    const ICONOS_PANTALLA = {
       "Asignaciones": "bi bi-diagram-3",
       "Checklist": "bi bi-clipboard-check",
       "Blob Storage": "bi bi-cloud-arrow-up",
@@ -221,7 +525,7 @@
       "Roles PowerBI": "bi bi-bar-chart"
     };
 
-    const pantallasRutas = {
+    const PANTALLAS_RUTAS = {
       "Asignaciones": "/asignacion",
       "Checklist": "/checklist",
       "Blob Storage": "/containers",
@@ -243,7 +547,8 @@
       "Roles Blob Storage": "/roles_storage",
       "Roles PowerBI": "/roles_powerbi"
     };
-    const gruposPantallas = {
+
+    const GRUPOS_PANTALLAS = {
       "Abastecimiento": ["Registro EDS"],
       "Centro de Control": ["Asignaciones", "Checklist"],
       "Centro Información": ["Blob Storage", "Dashboard Power BI", "SNE Asignación", "SNE Objeción"],
@@ -253,93 +558,237 @@
       "Usuarios y Roles": ["Crear Usuario", "Gestión de Roles", "Roles Blob Storage", "Roles PowerBI"]
     };
 
-    fetch("/pantallas_permitidas")
-      .then(response => response.json())
-      .then(data => {
-        if (data.pantallas) {
-          const pantallas = data.pantallas;
-          const accordion = document.getElementById('sidebarAccordion');
-          accordion.innerHTML = "";
-          let groupIndex = 0;
+    const state = {
+      inactivityTimer: null
+    };
 
-          Object.keys(gruposPantallas).forEach(grupo => {
-            const pantallasGrupo = gruposPantallas[grupo].filter(p => pantallas.includes(p));
-            if (pantallasGrupo.length > 0) {
-              const collapseId = "collapse_" + groupIndex;
+    const dom = {};
 
-              // Estructura acordeón grupo
-              const item = document.createElement("div");
-              item.className = "accordion-item bg-transparent border-0";
-              item.innerHTML = `
-                <h2 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                    data-bs-target="#${collapseId}" aria-expanded="false" aria-controls="${collapseId}"
-                    style="background: none; color: #f1f1f1;">
-                    <i class="${iconosGrupo[grupo] || 'bi bi-folder'}" style="font-size:19px;margin-right:7px"></i>
-                    ${grupo}
-                  </button>
-                </h2>
-                <div id="${collapseId}" class="accordion-collapse collapse" data-bs-parent="#sidebarAccordion">
-                  <div class="accordion-body p-1"></div>
-                </div>
-              `;
-              const accordionBody = item.querySelector('.accordion-body');
-              pantallasGrupo.forEach(pantalla => {
-                const ruta = pantallasRutas[pantalla] || `/${pantalla.toLowerCase().replace(/ /g, "_")}`;
-                const a = document.createElement("a");
-                a.className = "nav-link d-flex align-items-center";
-                a.href = ruta;
-                a.innerHTML = `<i class="${iconosPantalla[pantalla] || 'bi bi-dot'}" style="font-size:16px;margin-right:8px"></i> ${pantalla}`;
-                accordionBody.appendChild(a);
-              });
-              accordion.appendChild(item);
-              groupIndex++;
-            }
-          });
+    function init() {
+      cacheDom();
+      if (!dom.sidebar) return;
 
-          // Opción "Inicio" siempre arriba
-          const inicio = document.createElement("a");
-          inicio.className = "nav-link d-flex align-items-center";
-          inicio.href = "/inicio";
-          inicio.innerHTML = `<i class="bi bi-house-door" style="font-size:17px;margin-right:8px"></i> Inicio`;
-          accordion.insertAdjacentElement('afterbegin', inicio);
+      bindEvents();
+      loadSidebarMenu();
+      setupInactivityTimer();
+      markStaticActiveLinks();
+    }
 
-          // Opción "Cerrar sesión" siempre al final
-          const logout = document.createElement("a");
-          logout.className = "nav-link text-danger d-flex align-items-center mt-2";
-          logout.href = "/logout";
-          logout.innerHTML = `<i class="bi bi-box-arrow-right" style="font-size:17px;margin-right:8px"></i> Cerrar sesión`;
-          accordion.appendChild(logout);
-        }
+    function cacheDom() {
+      dom.sidebar = document.querySelector(CONFIG.sidebarSelector);
+      dom.overlay = document.querySelector(CONFIG.overlaySelector);
+      dom.toggleBtn = document.querySelector(CONFIG.toggleBtnSelector);
+      dom.closeBtn = document.querySelector(CONFIG.closeBtnSelector);
+      dom.accordion = document.querySelector(CONFIG.accordionSelector);
+      dom.homeLink = document.querySelector("#sidebarHomeLink");
+    }
+
+    function bindEvents() {
+      dom.toggleBtn?.addEventListener("click", toggleSidebar);
+      dom.closeBtn?.addEventListener("click", closeSidebar);
+      dom.overlay?.addEventListener("click", closeSidebar);
+
+      document.addEventListener("keydown", handleKeyboardShortcuts);
+
+      ["mousemove", "keypress", "scroll", "click", "touchstart"].forEach(eventName => {
+        document.addEventListener(eventName, resetInactivityTimer, { passive: true });
       });
-  });
+    }
+
+    function openSidebar() {
+      dom.sidebar?.classList.add("is-open");
+      dom.overlay?.classList.add("is-visible");
+      dom.sidebar?.setAttribute("aria-hidden", "false");
+      dom.toggleBtn?.setAttribute("aria-expanded", "true");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeSidebar() {
+      dom.sidebar?.classList.remove("is-open");
+      dom.overlay?.classList.remove("is-visible");
+      dom.sidebar?.setAttribute("aria-hidden", "true");
+      dom.toggleBtn?.setAttribute("aria-expanded", "false");
+      document.body.style.overflow = "";
+    }
+
+    function toggleSidebar() {
+      if (dom.sidebar?.classList.contains("is-open")) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
+    }
+
+    function handleKeyboardShortcuts(event) {
+      if (event.key === "Escape" && dom.sidebar?.classList.contains("is-open")) {
+        closeSidebar();
+      }
+    }
+
+    function getCurrentPath() {
+      return window.location.pathname.replace(/\/+$/, "") || "/";
+    }
+
+    function isActiveRoute(route) {
+      const currentPath = getCurrentPath();
+      const normalizedRoute = (route || "").replace(/\/+$/, "") || "/";
+      return currentPath === normalizedRoute;
+    }
+
+    function markStaticActiveLinks() {
+      if (dom.homeLink && isActiveRoute("/inicio")) {
+        dom.homeLink.classList.add("active");
+      }
+    }
+
+    function createNavLink({ href, icon, label, extraClass = "" }) {
+      const link = document.createElement("a");
+      link.className = `nav-link d-flex align-items-center ${extraClass}`.trim();
+      link.href = href;
+      link.innerHTML = `
+        <i class="${icon || "bi bi-dot"}"></i>
+        <span>${label}</span>
+      `;
+
+      if (isActiveRoute(href)) {
+        link.classList.add("active");
+      }
+
+      link.addEventListener("click", () => {
+        closeSidebar();
+      });
+
+      return link;
+    }
+
+    function createAccordionItem({ groupName, screens, index }) {
+      const collapseId = `collapse_${index}`;
+      const item = document.createElement("div");
+      item.className = "accordion-item bg-transparent border-0";
+
+      item.innerHTML = `
+        <h2 class="accordion-header" id="heading_${index}">
+          <button
+            class="accordion-button collapsed"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#${collapseId}"
+            aria-expanded="false"
+            aria-controls="${collapseId}"
+          >
+            <i class="${ICONOS_GRUPO[groupName] || "bi bi-folder"} me-2"></i>
+            <span>${groupName}</span>
+          </button>
+        </h2>
+        <div
+          id="${collapseId}"
+          class="accordion-collapse collapse"
+          aria-labelledby="heading_${index}"
+          data-bs-parent="#sidebarAccordion"
+        >
+          <div class="accordion-body p-1"></div>
+        </div>
+      `;
+
+      const body = item.querySelector(".accordion-body");
+      let hasActiveChild = false;
+
+      screens.forEach(screen => {
+        const route = PANTALLAS_RUTAS[screen] || `/${screen.toLowerCase().replace(/ /g, "_")}`;
+        const link = createNavLink({
+          href: route,
+          icon: ICONOS_PANTALLA[screen] || "bi bi-dot",
+          label: screen
+        });
+
+        if (isActiveRoute(route)) {
+          hasActiveChild = true;
+        }
+
+        body.appendChild(link);
+      });
+
+      if (hasActiveChild) {
+        const button = item.querySelector(".accordion-button");
+        const collapse = item.querySelector(".accordion-collapse");
+        button.classList.remove("collapsed");
+        button.setAttribute("aria-expanded", "true");
+        collapse.classList.add("show");
+      }
+
+      return item;
+    }
+
+    async function loadSidebarMenu() {
+      if (!dom.accordion) return;
+
+      dom.accordion.innerHTML = "";
+
+      try {
+        const response = await fetch(CONFIG.pantallasPermitidasUrl, {
+          method: "GET",
+          headers: { "Accept": "application/json" }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const pantallasPermitidas = Array.isArray(data?.pantallas) ? data.pantallas : [];
+        let groupIndex = 0;
+
+        Object.keys(GRUPOS_PANTALLAS).forEach(groupName => {
+          const allowedScreens = GRUPOS_PANTALLAS[groupName].filter(screen =>
+            pantallasPermitidas.includes(screen)
+          );
+
+          if (allowedScreens.length > 0) {
+            dom.accordion.appendChild(
+              createAccordionItem({
+                groupName,
+                screens: allowedScreens,
+                index: groupIndex
+              })
+            );
+            groupIndex++;
+          }
+        });
+      } catch (error) {
+        console.error("No fue posible cargar el menú lateral:", error);
+
+        const errorBox = document.createElement("div");
+        errorBox.className = "small px-2 py-2";
+        errorBox.innerHTML = `
+          <div style="background:#fff4f4;border:1px solid #ffd9d9;color:#b42318;padding:10px;border-radius:12px;">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            No fue posible cargar las opciones del menú.
+          </div>
+        `;
+        dom.accordion.appendChild(errorBox);
+      }
+    }
+
+    function setupInactivityTimer() {
+      resetInactivityTimer();
+    }
+
+    function resetInactivityTimer() {
+      clearTimeout(state.inactivityTimer);
+      state.inactivityTimer = setTimeout(handleSessionTimeout, CONFIG.inactivityLimit);
+    }
+
+    function handleSessionTimeout() {
+      alert("Sesión cerrada por inactividad");
+      window.location.href = "/logout";
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+
+    window.openNav = openSidebar;
+    window.closeNav = closeSidebar;
+  })();
 </script>
 
-    <!-- FUNCIÓN PARA CERRAR SESÓN POR TIEMPO DE INACTIVIDAD -->
-  <script>
-    let inactivityTime = function () {
-        let time;
-        let maxInactiveTime = 1800000; // 30 minutos en milisegundos
-
-        // Restablece el temporizador si se detecta actividad
-        window.onload = resetTimer;
-        document.onmousemove = resetTimer;
-        document.onkeypress = resetTimer;
-        document.onscroll = resetTimer;
-        document.onclick = resetTimer;
-
-        function logout() {
-            alert("Sesión cerrada por inactividad");
-            window.location.href = "/logout"; // Redirige al usuario para cerrar la sesión
-        }
-
-        function resetTimer() {
-            clearTimeout(time);
-            time = setTimeout(logout, maxInactiveTime);
-        }
-    };
-    inactivityTime();
-  </script>
-  
 </body>
 </html>
