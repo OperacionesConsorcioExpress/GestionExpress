@@ -11,12 +11,12 @@ jobs:
 
     steps:
     - name: Check out the repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python environment
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: '3.12'
 
     - name: Install dependencies
       run: |
@@ -24,12 +24,13 @@ jobs:
         pip install -r requirements.txt
     - name: Verificar conexión a la base de datos
       env:
-        DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
+        DATABASE_PATH_DEDICATED: ${{ secrets.DATABASE_PATH_DEDICATED }}
       run: |
         python -c "
+        import os
         import psycopg2
         try:
-            conn = psycopg2.connect('${{ secrets.DATABASE_PATH_DEDICATED }}')
+            conn = psycopg2.connect(os.environ['DATABASE_PATH_DEDICATED'])
             print('Conexión a la base de datos exitosa')
             conn.close()
         except Exception as e:
@@ -38,7 +39,7 @@ jobs:
         "
     - name: Sincronizar estados
       env:
-        DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
+        DATABASE_PATH_DEDICATED: ${{ secrets.DATABASE_PATH_DEDICATED }}
         USUARIO_CORREO_JURIDICO: ${{ secrets.USUARIO_CORREO_JURIDICO }}
         CLAVE_CORREO_JURIDICO: ${{ secrets.CLAVE_CORREO_JURIDICO }}
       run: |
