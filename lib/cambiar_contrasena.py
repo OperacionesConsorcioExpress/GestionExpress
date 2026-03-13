@@ -2,7 +2,7 @@ import re
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from werkzeug.security import generate_password_hash
-from model.gestion_usuarios import HandleDB
+from database.database_manager import get_db_connection
 
 # Validador de contraseña segura
 def es_contrasena_segura(password: str) -> bool:
@@ -57,20 +57,11 @@ async def cambiar_contrasena_post(request: Request, user_session: dict):
 def actualizar_contrasena_db(usuario_id, nueva_password_hash):
     try:
         #print("[DB] Intentando actualizar contraseña para id:", usuario_id)
-        db = HandleDB()
         query = "UPDATE usuarios SET password_user = %s WHERE id = %s"
-        connection = db._get_connection()
-        try:
+        with get_db_connection() as connection:
             with connection.cursor() as cur:
                 cur.execute(query, (nueva_password_hash, usuario_id))
                 connection.commit()
-                #print("[DB] Rowcount:", cur.rowcount)
                 return cur.rowcount == 1
-        except Exception:
-            connection.rollback()
-            return False
-        finally:
-            db._return_connection(connection)
-    except Exception as e:
-        #print(f"[Error] actualizar_contrasena_db: {e}")
+    except Exception:
         return False
