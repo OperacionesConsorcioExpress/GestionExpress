@@ -10,6 +10,10 @@ class TareasProgramadasJuridico:
     def __init__(self):
         self.gestion = GestionClausulas()
 
+    def _cerrar_gestion(self):
+        if getattr(self, "gestion", None):
+            self.gestion.close()
+
     def calcular_y_actualizar_fechas_dinamicas(self):
         """
         Job para calcular y actualizar fechas dinámicas de todas las cláusulas.
@@ -78,6 +82,9 @@ class TareasProgramadasJuridico:
         except Exception as e:
             print(f"Error en el cálculo de fechas dinámicas: {e}")
 
+        finally:
+            self._cerrar_gestion()
+
     def sincronizar_estados_filas_gestion(self):
         """
         Job para sincronizar estados dinámicos de las filas en clausulas_gestion.
@@ -107,6 +114,9 @@ class TareasProgramadasJuridico:
         except Exception as e:
             print(f"Error en la sincronización de estados: {e}")
 
+        finally:
+            self._cerrar_gestion()
+
     def tarea_diaria_recordatorio(self):
         """
         Realiza las tareas diarias :
@@ -119,6 +129,9 @@ class TareasProgramadasJuridico:
         except Exception as e:
             print(f"Error en la tarea diaria de recordatorio: {e}")
 
+        finally:
+            self._cerrar_gestion()
+
     def tarea_semanal_incumplimientos(self):
         """
         Realiza la tarea semanal para enviar correos de incumplimiento.
@@ -130,3 +143,5 @@ class TareasProgramadasJuridico:
             print("Correos de incumplimiento enviados exitosamente.")
         except Exception as e:
             print(f"Error en la tarea semanal de incumplimientos: {e}")
+        finally:
+            self._cerrar_gestion()

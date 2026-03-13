@@ -1,9 +1,5 @@
 from __future__ import annotations
-
-import os
-import re
-import csv
-import time
+import os, re, csv, time
 from io import BytesIO
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
@@ -17,11 +13,9 @@ from dotenv import load_dotenv
 
 from database.database_manager import get_db_connection
 
-
 # =============================================================================
 # CONFIG
 # =============================================================================
-
 # Si no existe un log OK previo, empezar desde esta fecha
 FECHA_SEMILLA_STR = "01/02/2026"   # dd/mm/yyyy
 
@@ -1452,5 +1446,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-
     main()
