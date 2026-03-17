@@ -124,6 +124,25 @@ def leer_parquet_seguro(cliente_contenedor, ruta_blob: str) -> pl.DataFrame:
 # ============================================================
 # 3) PIPELINE TRANSFORMACIÓN
 # ============================================================
+def cargar_catalogo_no_interno() -> set[str]:
+    """
+    Lee una sola vez el catálogo maestro de números internos
+    desde config.buses_cexp.no_interno y lo retorna como set.
+    """
+    sql = """
+        SELECT DISTINCT TRIM(no_interno)::text AS no_interno
+        FROM config.buses_cexp
+        WHERE no_interno IS NOT NULL
+            AND TRIM(no_interno) <> '';
+    """
+
+    with _get_pg_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            rows = cur.fetchall()
+
+    return {row[0].strip() for row in rows if row and row[0]}
+
 def limpiar_encabezados(df: pl.DataFrame) -> pl.DataFrame:
     nuevas = []
     for c in df.columns:
@@ -149,25 +168,110 @@ def normalizar_fecha_evento(df: pl.DataFrame) -> pl.DataFrame:
         .drop("fecha_evento_utc")
     )
 
-def ajustar_movil_bus(df: pl.DataFrame) -> pl.DataFrame:
+def ajustar_movil_bus(df: pl.DataFrame, catalogo_no_interno: set[str]) -> pl.DataFrame:
+    """
+    Ajusta la columna 'movil_bus' usando como referencia el catálogo maestro
+    de config.buses_cexp.no_interno.
+
+    Reglas:
+    - Si viene con 6 dígitos: Z##-####
+        Ejemplo: 104126 -> Z10-4126
+
+    - Si viene con 5 dígitos:
+        * 10xxx o 11xxx => familia D
+            valor = raw - 10000
+        * 14xxx         => familia N
+            valor = raw - 14000
+
+    Luego se construyen dos candidatos:
+        - corto: D001 / N036 / D597
+        - largo: D0870 / N0908 / D1018
+
+    Se selecciona el candidato que exista en el catálogo maestro.
+    - Si no se puede resolver, se deja el valor limpio original.
+    """
     if "movil_bus" not in df.columns:
         return df
-    s = pl.col("movil_bus").cast(pl.Utf8).str.replace_all(r"\D", "")
+
+    def resolver_movil(raw_value):
+        if raw_value is None:
+            return None
+
+        raw = re.sub(r"\D", "", str(raw_value))
+        if not raw:
+            return raw_value
+
+        # ----------------------------------------------------
+        # Caso Z: 6 dígitos -> Z##-####
+        # ----------------------------------------------------
+        if len(raw) == 6:
+            return f"Z{raw[:2]}-{raw[2:]}"
+
+        # ----------------------------------------------------
+        # Casos D / N: 5 dígitos
+        # ----------------------------------------------------
+        if len(raw) == 5:
+            try:
+                raw_num = int(raw)
+            except Exception:
+                return raw
+
+            prefijo2 = raw[:2]
+
+            # Familia D
+            if prefijo2 in {"10", "11"}:
+                valor = raw_num - 10000
+                if valor <= 0:
+                    return raw
+
+                candidato_corto = f"D{valor:03d}"
+                candidato_largo = f"D{valor:04d}"
+
+                corto_ok = candidato_corto in catalogo_no_interno
+                largo_ok = candidato_largo in catalogo_no_interno
+
+                if corto_ok and not largo_ok:
+                    return candidato_corto
+                if largo_ok and not corto_ok:
+                    return candidato_largo
+                if corto_ok and largo_ok:
+                    # Por seguridad, si ambos existieran, prioriza el exacto más corto
+                    return candidato_corto
+
+                return raw
+
+            # Familia N
+            if prefijo2 == "14":
+                valor = raw_num - 14000
+                if valor <= 0:
+                    return raw
+
+                candidato_corto = f"N{valor:03d}"
+                candidato_largo = f"N{valor:04d}"
+
+                corto_ok = candidato_corto in catalogo_no_interno
+                largo_ok = candidato_largo in catalogo_no_interno
+
+                if corto_ok and not largo_ok:
+                    return candidato_corto
+                if largo_ok and not corto_ok:
+                    return candidato_largo
+                if corto_ok and largo_ok:
+                    return candidato_corto
+
+                return raw
+
+        # Si no entra en ninguna regla, devolver limpio
+        return raw
+
     return (
         df
-        .with_columns(pl.col("movil_bus").cast(pl.Utf8).alias("movil_bus_original"))
         .with_columns(
-            pl.when(s.str.len_chars() == 6)
-            .then(pl.lit("Z") + s.str.slice(0, 2) + pl.lit("-") + s.str.slice(2, 4))
-            # 10XXXX → DXXXX (reemplaza "10" por "D", conserva los 3 dígitos restantes)
-            .when((s.str.len_chars() == 5) & (s.str.slice(0, 2) == "10"))
-            .then(pl.lit("D") + s.str.slice(2))
-            # 11XXXX → D1XXXX (reemplaza el primer "1" por "D", conserva los 4 restantes)
-            .when((s.str.len_chars() == 5) & (s.str.slice(0, 2) == "11"))
-            .then(pl.lit("D") + s.str.slice(1))
-            .when((s.str.len_chars() == 5) & (s.str.slice(0, 2) == "14"))
-            .then(pl.lit("N") + s.str.slice(2, 3).str.zfill(4))
-            .otherwise(s)
+            pl.col("movil_bus").cast(pl.Utf8).alias("movil_bus_original")
+        )
+        .with_columns(
+            pl.col("movil_bus")
+            .map_elements(resolver_movil, return_dtype=pl.Utf8)
             .alias("movil_bus")
         )
     )
@@ -178,11 +282,11 @@ def agregar_nombre_estado(df: pl.DataFrame) -> pl.DataFrame:
     df2 = df.with_columns(pl.col("estado_localizacion").cast(pl.Int64, strict=False))
     return df2.join(CATALOGO_ESTADOS, on="estado_localizacion", how="left")
 
-def pipeline_transformacion(df_raw: pl.DataFrame) -> pl.DataFrame:
+def pipeline_transformacion(df_raw: pl.DataFrame, catalogo_no_interno: set[str]) -> pl.DataFrame:
     df = limpiar_encabezados(df_raw)
     df = aplicar_mapeo(df)
     df = normalizar_fecha_evento(df)
-    df = ajustar_movil_bus(df)
+    df = ajustar_movil_bus(df, catalogo_no_interno)
     df = agregar_nombre_estado(df)
     return df
 
@@ -283,7 +387,7 @@ def calcular_km_recorrido_bus(posicionamientos: pl.DataFrame) -> pl.DataFrame:
 # ============================================================
 # 5) PROCESO DE UN DÍA (retorna dfs + métricas)
 # ============================================================
-def procesar_dia_completo(dia: date, verbose: bool = False):
+def procesar_dia_completo(dia: date, catalogo_no_interno: set[str], verbose: bool = False):
     cliente_contenedor = obtener_cliente_contenedor()
     carpeta = carpeta_yyyymmdd(dia)
 
@@ -306,7 +410,7 @@ def procesar_dia_completo(dia: date, verbose: bool = False):
         archivo = df_archivos[i, "archivo"]
         try:
             df_raw = leer_parquet_seguro(cliente_contenedor, ruta_blob)
-            df_proc = pipeline_transformacion(df_raw)
+            df_proc = pipeline_transformacion(df_raw, catalogo_no_interno)
             dfs.append(df_proc)
 
             if verbose and (i % 50 == 0):
@@ -575,16 +679,20 @@ def cargar_a_postgresql(posicionamientos: pl.DataFrame, km_recorrido_bus: pl.Dat
 def ejecutar_job_posicionamientos(limite_dias_por_ejecucion: int = 1, verbose: bool = False):
     print(f"📅 Días a procesar: {limite_dias_por_ejecucion}")
     print()
-    
+
     # Obtener cliente de contenedor
     cliente_contenedor = obtener_cliente_contenedor()
-    
+
+    # Cargar catálogo maestro una sola vez
+    catalogo_no_interno = cargar_catalogo_no_interno()
+    print(f"✅ Catálogo no_interno cargado: {len(catalogo_no_interno):,} registros")
+
     # Obtener fechas a procesar desde Blob Storage
     with _get_pg_conn() as conn:
         with conn.cursor() as cur:
             dias = obtener_fechas_a_procesar(cur, cliente_contenedor, limite_dias_por_ejecucion)
             conn.commit()
-    
+
     if not dias:
         print("✅ No hay fechas nuevas a procesar")
         return
@@ -602,7 +710,11 @@ def ejecutar_job_posicionamientos(limite_dias_por_ejecucion: int = 1, verbose: b
             conn.commit()
 
         try:
-            posicionamientos, km_recorrido_bus, meta = procesar_dia_completo(dia, verbose=verbose)
+            posicionamientos, km_recorrido_bus, meta = procesar_dia_completo(
+                dia,
+                catalogo_no_interno=catalogo_no_interno,
+                verbose=verbose
+            )
 
             if meta["estado"] == "sin_archivos":
                 dur = int(time.time() - t0)
