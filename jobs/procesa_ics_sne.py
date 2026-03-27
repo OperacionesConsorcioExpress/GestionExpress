@@ -1,5 +1,9 @@
 from __future__ import annotations
-import os, re, csv, time
+
+import os
+import re
+import csv
+import time
 from io import BytesIO
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
@@ -11,11 +15,13 @@ from azure.storage.blob import BlobServiceClient
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
-from database.database_manager import get_db_connection
+from database_manager import get_db_connection
+
 
 # =============================================================================
 # CONFIG
 # =============================================================================
+
 # Si no existe un log OK previo, empezar desde esta fecha
 FECHA_SEMILLA_STR = "16/03/2026"   # dd/mm/yyyy
 
@@ -196,6 +202,7 @@ def normalize_name(s: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "", s)
     return s
 
+
 def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Optional[str]:
     cols = {str(c).strip(): c for c in df.columns}
     normalized = {normalize_name(k): v for k, v in cols.items()}
@@ -213,6 +220,7 @@ def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Opt
         raise KeyError(f"No se encontró ninguna de estas columnas: {aliases}")
     return None
 
+
 def clean_motivo(v) -> str:
     if v is None:
         return ""
@@ -222,8 +230,10 @@ def clean_motivo(v) -> str:
     s = re.sub(r"\s+", " ", s)
     return s
 
+
 def norm_motivo(v) -> str:
     return clean_motivo(v).upper()
+
 
 # =============================================================================
 # AZURE
@@ -260,6 +270,7 @@ class AzureBlobReader:
             if b.name and not b.name.endswith("/"):
                 out.append(b.name)
         return out
+
 
 # =============================================================================
 # BUILDER
@@ -335,6 +346,8 @@ class SNEExportBuilder:
         c_viaje_linea = pick_col(df, ["ViajeLinea", "Viaje Línea"])
         c_id_viaje = pick_col(df, ["IdViaje", "Id Viaje"])
         c_idics = pick_col(df, ["IdICS"])
+        c_fecha_inicio_dp = pick_col(df, ["F. Inicio DP"], required=False)
+        c_fecha_cierre_dp = pick_col(df, ["F. Cierre DP"], required=False)
 
         out = df.copy()
         out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst="auto")
@@ -345,10 +358,21 @@ class SNEExportBuilder:
         out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
         out["Id_ICS"] = self.tu.to_int64(out[c_idics])
 
+        if c_fecha_inicio_dp:
+            out["Fecha_Inicio_DP"] = pd.to_datetime(out[c_fecha_inicio_dp], errors="coerce")
+        else:
+            out["Fecha_Inicio_DP"] = pd.NaT
+
+        if c_fecha_cierre_dp:
+            out["Fecha_Cierre_DP"] = pd.to_datetime(out[c_fecha_cierre_dp], errors="coerce")
+        else:
+            out["Fecha_Cierre_DP"] = pd.NaT
+
         out = out[
             [
                 "Fecha_key", "Servicio_key", "Linea_key", "Tabla_key",
-                "ViajeLinea_key", "IdViaje_key", "Id_ICS"
+                "ViajeLinea_key", "IdViaje_key", "Id_ICS",
+                "Fecha_Inicio_DP", "Fecha_Cierre_DP"
             ]
         ].drop_duplicates(
             subset=["Fecha_key", "Servicio_key", "Linea_key", "Tabla_key", "ViajeLinea_key", "IdViaje_key"],
@@ -756,11 +780,15 @@ class SNEExportBuilder:
             "Km_Revision": kmr.round(3),
             "Concesion": concesion_final,
             "Motivo": motivo,
+            "Fecha_Inicio_DP": df.get("Fecha_Inicio_DP", pd.NaT),
+            "Fecha_Cierre_DP": df.get("Fecha_Cierre_DP", pd.NaT),
         })
 
         out["Id_ICS"] = pd.to_numeric(out["Id_ICS"], errors="coerce").astype("Int64")
         out["Km_Revision"] = pd.to_numeric(out["Km_Revision"], errors="coerce")
         out["Motivo"] = out["Motivo"].map(clean_motivo)
+        out["Fecha_Inicio_DP"] = pd.to_datetime(out["Fecha_Inicio_DP"], errors="coerce")
+        out["Fecha_Cierre_DP"] = pd.to_datetime(out["Fecha_Cierre_DP"], errors="coerce")
 
         out = out[out["Id_ICS"].notna()].copy()
         out = out[out["Km_Revision"] > 0].copy()
@@ -774,6 +802,7 @@ class SNEExportBuilder:
         print(out["Motivo"].astype(str).str.strip().replace("", "VACIO").value_counts(dropna=False).head(20))
 
         return out
+
 
 # =============================================================================
 # POSTGRES sne.ics
@@ -964,24 +993,54 @@ class GestionSNELoader:
         self.revisor_default_int = int(revisor_default_int)
 
     @staticmethod
-    def _clean_ids(series: pd.Series) -> list[int]:
-        s = pd.to_numeric(series, errors="coerce").dropna().astype("int64")
-        return sorted(set(int(x) for x in s.tolist()))
+    def _to_py_datetime(v):
+        if v is None:
+            return None
+        try:
+            if pd.isna(v):
+                return None
+        except Exception:
+            pass
+        if isinstance(v, pd.Timestamp):
+            return v.to_pydatetime()
+        return v
 
     def upsert_from_ics_ids(self, df_sne: pd.DataFrame, conn) -> int:
         if df_sne is None or df_sne.empty or "Id_ICS" not in df_sne.columns:
             print("⚠️ gestion_sne: DF vacío o sin Id_ICS. No se hace nada.")
             return 0
 
-        ids_unique = self._clean_ids(df_sne["Id_ICS"])
-        if not ids_unique:
+        df = df_sne.copy()
+
+        if "Fecha_Inicio_DP" not in df.columns:
+            df["Fecha_Inicio_DP"] = pd.NaT
+        if "Fecha_Cierre_DP" not in df.columns:
+            df["Fecha_Cierre_DP"] = pd.NaT
+
+        df["Id_ICS"] = pd.to_numeric(df["Id_ICS"], errors="coerce")
+        df["Fecha_Inicio_DP"] = pd.to_datetime(df["Fecha_Inicio_DP"], errors="coerce")
+        df["Fecha_Cierre_DP"] = pd.to_datetime(df["Fecha_Cierre_DP"], errors="coerce")
+
+        df = df.dropna(subset=["Id_ICS"]).copy()
+        if df.empty:
             print("⚠️ gestion_sne: no hay Id_ICS válidos.")
             return 0
+
+        df["Id_ICS"] = df["Id_ICS"].astype("int64")
+        df = df[["Id_ICS", "Fecha_Inicio_DP", "Fecha_Cierre_DP"]].drop_duplicates(subset=["Id_ICS"], keep="last")
 
         full_table = f'"{self.schema}"."{self.table}"'
         sql = f"""
             INSERT INTO {full_table}
-                ("id_ics","revisor","estado_asignacion","estado_objecion","estado_transmitools")
+                (
+                    "id_ics",
+                    "revisor",
+                    "estado_asignacion",
+                    "estado_objecion",
+                    "estado_transmitools",
+                    "fecha_inicio_dp",
+                    "fecha_cierre_dp"
+                )
             VALUES %s
             ON CONFLICT ("id_ics")
             DO UPDATE SET
@@ -994,14 +1053,27 @@ class GestionSNELoader:
                 "estado_transmitools" = CASE
                     WHEN {full_table}."estado_transmitools" IS NULL THEN EXCLUDED."estado_transmitools"
                     ELSE {full_table}."estado_transmitools"
-                END
+                END,
+                "fecha_inicio_dp" = EXCLUDED."fecha_inicio_dp",
+                "fecha_cierre_dp" = EXCLUDED."fecha_cierre_dp"
         """
 
         total = 0
         with conn.cursor() as cur:
-            for start in range(0, len(ids_unique), self.batch_size):
-                chunk = ids_unique[start:start + self.batch_size]
-                records = [(int(x), self.revisor_default_int, 0, 0, 0) for x in chunk]
+            for start in range(0, len(df), self.batch_size):
+                chunk = df.iloc[start:start + self.batch_size]
+                records = [
+                    (
+                        int(r.Id_ICS),
+                        self.revisor_default_int,
+                        0,
+                        0,
+                        0,
+                        self._to_py_datetime(r.Fecha_Inicio_DP),
+                        self._to_py_datetime(r.Fecha_Cierre_DP),
+                    )
+                    for r in chunk.itertuples(index=False)
+                ]
                 execute_values(cur, sql, records, page_size=len(records))
                 total += len(records)
 
@@ -1294,11 +1366,13 @@ def _get_connection_string() -> str:
         return CONNECTION_STRING_LOCAL
     raise SystemExit(f"❌ Falta connection string. Usa env {AZURE_CONN_ENV}.")
 
+
 def _parse_semilla() -> date:
     try:
         return datetime.strptime(FECHA_SEMILLA_STR, "%d/%m/%Y").date()
     except ValueError:
         raise SystemExit("❌ FECHA_SEMILLA_STR debe estar en formato dd/mm/yyyy.")
+
 
 def main() -> None:
     load_dotenv()
@@ -1326,8 +1400,8 @@ def main() -> None:
             fecha_semilla=fecha_semilla,
         )
         fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
-        
-        MESES_ES = {
+
+        meses_es = {
             1: "enero",
             2: "febrero",
             3: "marzo",
@@ -1340,11 +1414,10 @@ def main() -> None:
             10: "octubre",
             11: "noviembre",
             12: "diciembre",
-}
-    
-        fecha_texto = f"{fecha_to_process.day} de {MESES_ES[fecha_to_process.month]} de {fecha_to_process.year}"
+        }
 
-        
+        fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
+
         print("\n" + "=" * 80)
         print(f"📅 FECHA AUTOMÁTICA A PROCESAR: {fecha_to_process}")
         print(f"📝 FECHA EN TEXTO: {fecha_texto}")
@@ -1435,6 +1508,7 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("✅ PROCESO COMPLETADO")
     print("=" * 80)
+
 
 if __name__ == "__main__":
     main()
