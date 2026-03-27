@@ -392,7 +392,16 @@ def get_roles_storage(req: Request, user_session: dict = Depends(get_user_sessio
 
 # Crear nuevo rol de storage
 @router_usuarios.post("/roles_storage", response_class=HTMLResponse)
-async def add_role_storage(req: Request, role_storage_name: str = Form(...), containers: list = Form(...)):
+async def add_role_storage(
+    req: Request,
+    role_storage_name: str = Form(...),
+    containers: list = Form(...),
+    accion_ver: Optional[str] = Form(None),
+    accion_editar: Optional[str] = Form(None),
+    accion_descargar: Optional[str] = Form(None),
+    accion_eliminar: Optional[str] = Form(None),
+    accion_cargar: Optional[str] = Form(None),
+):
     try:
         # Validaciones
         if not role_storage_name.strip():
@@ -404,11 +413,16 @@ async def add_role_storage(req: Request, role_storage_name: str = Form(...), con
         # Inserta el nuevo rol en la base de datos
         storage_db.insert_roles_storage({
             "nombre_rol_storage": role_storage_name,
-            "contenedores_asignados": containers
+            "contenedores_asignados": containers,
+            "accion_ver": accion_ver == "on",
+            "accion_editar": accion_editar == "on",
+            "accion_descargar": accion_descargar == "on",
+            "accion_eliminar": accion_eliminar == "on",
+            "accion_cargar": accion_cargar == "on",
         })
 
         return RedirectResponse(url="/roles_storage?success=1", status_code=303)
-    
+
     except Exception as e:
         return RedirectResponse(url=f"/roles_storage?error=Ocurrió un error: {str(e)}", status_code=303)
 
@@ -425,7 +439,17 @@ async def obtener_datos_role_storage(role_storage_id: int):
 
 # Editar un rol existente
 @router_usuarios.post("/roles_storage/{role_storage_id}/editar", response_class=HTMLResponse)
-async def update_role_storage(req: Request, role_storage_id: int, role_storage_name: str = Form(...), containers: list = Form(...)):
+async def update_role_storage(
+    req: Request,
+    role_storage_id: int,
+    role_storage_name: str = Form(...),
+    containers: list = Form(...),
+    accion_ver: Optional[str] = Form(None),
+    accion_editar: Optional[str] = Form(None),
+    accion_descargar: Optional[str] = Form(None),
+    accion_eliminar: Optional[str] = Form(None),
+    accion_cargar: Optional[str] = Form(None),
+):
     try:
         # Validaciones
         if not role_storage_name.strip():
@@ -435,10 +459,17 @@ async def update_role_storage(req: Request, role_storage_id: int, role_storage_n
             return RedirectResponse(url="/roles_storage?error=Debe seleccionar al menos un contenedor", status_code=303)
 
         # Actualizar el rol en la base de datos
-        storage_db.update_role_storage(role_storage_id, role_storage_name, containers)
+        storage_db.update_role_storage(
+            role_storage_id, role_storage_name, containers,
+            accion_ver=accion_ver == "on",
+            accion_editar=accion_editar == "on",
+            accion_descargar=accion_descargar == "on",
+            accion_eliminar=accion_eliminar == "on",
+            accion_cargar=accion_cargar == "on",
+        )
 
         return RedirectResponse(url="/roles_storage?success=2", status_code=303)
-    
+
     except Exception as e:
         return RedirectResponse(url=f"/roles_storage?error=Ocurrió un error: {str(e)}", status_code=303)
 

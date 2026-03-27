@@ -37,10 +37,12 @@ def get_containers(req: Request, user_session: dict = Depends(get_user_session))
         )
 
     allowed_containers = container_model.get_allowed_containers(user_rol_storage)
+    acciones_permitidas = container_model.get_acciones_permitidas(user_rol_storage)
     context = {
-        "request":      req,
-        "user_session": user_session,
-        "containers":   allowed_containers
+        "request":            req,
+        "user_session":       user_session,
+        "containers":         allowed_containers,
+        "acciones_permitidas": acciones_permitidas,
     }
     return templates.TemplateResponse("containers.html", context)
 
@@ -93,8 +95,14 @@ def get_blob_properties(container_name: str, blob_path: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 @router_blobstorage.post("/containers/{container_name}/files")
-async def upload_file(container_name: str, path: str = "", file: UploadFile = File(...)):
+async def upload_file(req: Request, container_name: str, path: str = "",
+                      file: UploadFile = File(...),
+                      user_session: dict = Depends(get_user_session)):
     """Sube un archivo al contenedor. Invalida el caché automáticamente."""
+    user_rol_storage = (user_session or {}).get("rol_storage")
+    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    if not acciones.get("cargar"):
+        raise HTTPException(status_code=403, detail="No tiene permiso para cargar archivos")
     try:
         full_path = os.path.join(path, file.filename) if path else file.filename
         contents  = await file.read()
@@ -107,7 +115,8 @@ async def upload_file(container_name: str, path: str = "", file: UploadFile = Fi
         raise HTTPException(status_code=400, detail=str(e))
 
 @router_blobstorage.get("/containers/{container_name}/files/{file_path:path}/download")
-def download_file(container_name: str, file_path: str):
+def download_file(req: Request, container_name: str, file_path: str,
+                  user_session: dict = Depends(get_user_session)):
     """
     Descarga con streaming directo Azure -> cliente.
     - stream_file(): max_concurrency=4, nunca carga el archivo en RAM
@@ -115,6 +124,10 @@ def download_file(container_name: str, file_path: str):
     - Access-Control-Expose-Headers: permite que el frontend lea Content-Length
         para mostrar la barra de progreso real
     """
+    user_rol_storage = (user_session or {}).get("rol_storage")
+    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    if not acciones.get("descargar"):
+        raise HTTPException(status_code=403, detail="No tiene permiso para descargar archivos")
     try:
         filename  = os.path.basename(file_path)
         blob_size = container_model.get_blob_size(container_name, file_path)
@@ -135,8 +148,13 @@ def download_file(container_name: str, file_path: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 @router_blobstorage.delete("/containers/{container_name}/files/{file_name:path}")
-def delete_file(container_name: str, file_name: str):
+def delete_file(req: Request, container_name: str, file_name: str,
+                user_session: dict = Depends(get_user_session)):
     """Elimina un archivo del contenedor. Invalida el caché automáticamente."""
+    user_rol_storage = (user_session or {}).get("rol_storage")
+    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    if not acciones.get("eliminar"):
+        raise HTTPException(status_code=403, detail="No tiene permiso para eliminar archivos")
     try:
         decoded_file_name = unquote(file_name)
         container_model.delete_file(container_name, decoded_file_name)
@@ -146,17 +164,23 @@ def delete_file(container_name: str, file_name: str):
 
 @router_blobstorage.get("/containers/{container_name}/blobs/{blob_path:path}/preview")
 def preview_excel(
+    req: Request,
     container_name: str,
     blob_path:      str,
     sheet: int = 0,
     page:  int = 1,
     limit: int = 300,
+    user_session: dict = Depends(get_user_session),
 ):
     """
     Preview paginado de un archivo Excel.
     Retorna JSON con las filas de la página solicitada.
     El browser NUNCA descarga el binario completo — solo recibe JSON.
     """
+    user_rol_storage = (user_session or {}).get("rol_storage")
+    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    if not acciones.get("ver"):
+        raise HTTPException(status_code=403, detail="No tiene permiso para visualizar archivos")
     try:
         decoded_path = unquote(blob_path)
         result = container_model.preview_excel(container_name, decoded_path, sheet, page, limit)

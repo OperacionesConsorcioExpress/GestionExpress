@@ -1,4 +1,5 @@
 import time , uuid
+from datetime import date
 from database.database_manager import get_db_connection
 from fastapi import APIRouter, Request, Form, Depends, File, UploadFile, HTTPException
 from fastapi.responses import (
@@ -42,6 +43,8 @@ reporte_asignaciones = Reporte_Asignaciones()
 # ─────────────────────────────────────────────────────────────────────────────
 _CACHE_CARGUE_TTL = 1800   # segundos
 _cache_cargue: dict = {}
+_CACHE_DASHBOARD_FILTROS_TTL = 300
+_cache_dashboard_filtros: dict = {"data": None, "ts": 0.0}
 
 def _limpiar_cache_cargue():
     """Elimina entradas vencidas del caché de cargue."""
@@ -54,6 +57,37 @@ def _limpiar_cache_cargue():
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependencia de sesión
 # ─────────────────────────────────────────────────────────────────────────────
+def _obtener_dashboard_filtros_cache():
+    data = _cache_dashboard_filtros.get("data")
+    ts = _cache_dashboard_filtros.get("ts", 0.0)
+    if data is not None and (time.time() - ts) <= _CACHE_DASHBOARD_FILTROS_TTL:
+        return data
+    return None
+
+def _guardar_dashboard_filtros_cache(data: dict):
+    _cache_dashboard_filtros["data"] = data
+    _cache_dashboard_filtros["ts"] = time.time()
+
+def _invalidar_dashboard_filtros_cache():
+    _cache_dashboard_filtros["data"] = None
+    _cache_dashboard_filtros["ts"] = 0.0
+
+
+def _validar_rango_dashboard(fecha_inicio: str, fecha_fin: str) -> Optional[str]:
+    try:
+        inicio = date.fromisoformat(fecha_inicio)
+        fin = date.fromisoformat(fecha_fin)
+    except (TypeError, ValueError):
+        return "El rango de fechas no tiene un formato valido."
+
+    if inicio > fin:
+        return "La fecha inicio no puede ser mayor que la fecha fin."
+
+    if (fin - inicio).days > 30:
+        return "El rango de consulta no puede superar 30 dias."
+
+    return None
+
 def get_user_session(req: Request):
     return req.session.get("user")
 # =====================================================================
@@ -337,6 +371,7 @@ async def guardar_asignaciones(
         data           = await request.json()
         processed_data = cargue_asignaciones.procesar_asignaciones(data, user_session)
         cargue_asignaciones.cargar_asignaciones(processed_data)
+        _invalidar_dashboard_filtros_cache()
         return {"message": "Asignaciones guardadas exitosamente."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -352,12 +387,25 @@ async def dashboard(
 ):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
-    # obtener_filtros_unicos() ahora hace 1 query en lugar de 10
-    filtros = reporte_asignaciones.obtener_filtros_unicos()
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": req, "user_session": user_session, "modal": modal, **filtros},
+        {"request": req, "user_session": user_session, "modal": modal},
     )
+
+@router_asigna_ccz.get("/dashboard/filtros", response_class=JSONResponse)
+async def dashboard_filtros(
+    refresh: bool = False,
+    user_session: dict = Depends(get_user_session),
+):
+    if not user_session:
+        return JSONResponse(content={"message": "Sesion no valida."}, status_code=401)
+
+    filtros = None if refresh else _obtener_dashboard_filtros_cache()
+    if filtros is None:
+        filtros = reporte_asignaciones.obtener_filtros_unicos_dashboard()
+        _guardar_dashboard_filtros_cache(filtros)
+
+    return JSONResponse(content=filtros)
 
 @router_asigna_ccz.get("/filtrar_asignaciones", response_class=HTMLResponse)
 async def filtrar_asignaciones(
@@ -373,7 +421,27 @@ async def filtrar_asignaciones(
     cop: Optional[str] = None,
     usuarioRegistra: Optional[str] = None,
     nombreSupervisorEnlace: Optional[str] = None,
+    user_session: dict = Depends(get_user_session),
 ):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+
+    rango_error = _validar_rango_dashboard(fechaInicio, fechaFin)
+    if rango_error:
+        return templates.TemplateResponse(
+            "dashboard.html",
+            {
+                "request": request,
+                "user_session": user_session,
+                "modal": False,
+                "asignaciones": [],
+                "fechaInicio": fechaInicio,
+                "fechaFin": fechaFin,
+                "dashboard_error": rango_error,
+            },
+            status_code=400,
+        )
+
     filtros_kwargs = dict(
         fecha_inicio             = fechaInicio,
         fecha_fin                = fechaFin,
@@ -391,12 +459,42 @@ async def filtrar_asignaciones(
     asignaciones = reporte_asignaciones.obtener_asignaciones(**filtros_kwargs)
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "asignaciones": asignaciones, **filtros_kwargs},
+        {
+            "request": request,
+            "user_session": user_session,
+            "modal": False,
+            "asignaciones": asignaciones,
+            "fechaInicio": fechaInicio,
+            "fechaFin": fechaFin,
+            "cedulaTecnico": cedulaTecnico,
+            "nombreTecnico": nombreTecnico,
+            "turno": turno,
+            "concesion": concesion,
+            "control": control,
+            "ruta": ruta,
+            "linea": linea,
+            "cop": cop,
+            "usuarioRegistra": usuarioRegistra,
+            "nombreSupervisorEnlace": nombreSupervisorEnlace,
+        },
     )
 
 @router_asigna_ccz.post("/buscar_asignaciones")
 async def buscar_asignaciones(request: Request):
     filtros      = await request.json()
+    if not filtros.get("fechaInicio") or not filtros.get("fechaFin"):
+        return JSONResponse(
+            content={"message": "Debe seleccionar fecha inicial y fecha final para consultar."},
+            status_code=400,
+        )
+
+    rango_error = _validar_rango_dashboard(
+        filtros.get("fechaInicio"),
+        filtros.get("fechaFin"),
+    )
+    if rango_error:
+        return JSONResponse(content={"message": rango_error}, status_code=400)
+
     asignaciones = reporte_asignaciones.obtener_asignaciones(
         fecha_inicio             = filtros.get("fechaInicio"),
         fecha_fin                = filtros.get("fechaFin"),
@@ -416,6 +514,12 @@ async def buscar_asignaciones(request: Request):
 @router_asigna_ccz.post("/descargar_xlsx")
 async def descargar_xlsx(request: Request):
     filtros = await request.json()
+    rango_error = _validar_rango_dashboard(
+        filtros.get("fechaInicio"),
+        filtros.get("fechaFin"),
+    )
+    if rango_error:
+        return JSONResponse(content={"message": rango_error}, status_code=400)
     return StreamingResponse(
         reporte_asignaciones.generar_xlsx(filtros),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -425,6 +529,12 @@ async def descargar_xlsx(request: Request):
 @router_asigna_ccz.post("/descargar_csv")
 async def descargar_csv(request: Request):
     filtros = await request.json()
+    rango_error = _validar_rango_dashboard(
+        filtros.get("fechaInicio"),
+        filtros.get("fechaFin"),
+    )
+    if rango_error:
+        return JSONResponse(content={"message": rango_error}, status_code=400)
     return StreamingResponse(
         reporte_asignaciones.generar_csv(filtros),
         media_type="text/csv",
@@ -434,9 +544,16 @@ async def descargar_csv(request: Request):
 @router_asigna_ccz.post("/descargar_json")
 async def descargar_json(request: Request):
     filtros  = await request.json()
+    rango_error = _validar_rango_dashboard(
+        filtros.get("fechaInicio"),
+        filtros.get("fechaFin"),
+    )
+    if rango_error:
+        return JSONResponse(content={"message": rango_error}, status_code=400)
     json_str = reporte_asignaciones.generar_json(filtros)
-    return JSONResponse(
-        content=json_str,
+    return StreamingResponse(
+        BytesIO(json_str.encode("utf-8")),
+        media_type="application/json; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="asignaciones.json"'},
     )
 

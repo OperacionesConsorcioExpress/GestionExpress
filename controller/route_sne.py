@@ -151,9 +151,20 @@ def filtros_rutas(
     return {"ok": True, "data": [dict(r) for r in data]}
 
 @router_sne.get("/api/filtros/responsables")
-def filtros_responsables(user_session: dict = Depends(require_session)):
+def filtros_responsables(
+    tab: str = Query("revisar", regex="^(revisar|revisados|validar)$"),
+    fecha: Optional[str] = None,
+    id_ics: Optional[int] = None,
+    id_linea: Optional[int] = None,
+    id_concesion: Optional[int] = None,
+    id_cop: Optional[int] = None,
+    zona: Optional[str] = None,
+    componente: Optional[str] = None,
+    user_session: dict = Depends(require_session),
+):
     """
-    Retorna lista de responsables desde sne.responsable_sne.
+    Retorna responsables realmente vinculados a los ICS visibles
+    por medio de sne.ics_motivo_resp.
 
     Response:
     {
@@ -164,8 +175,19 @@ def filtros_responsables(user_session: dict = Depends(require_session)):
         ]
     }
     """
+    usuario_id = user_session.get("id")
     with GestionSneObjecion() as db:
-        data = db.listar_responsables()
+        data = db.listar_responsables(
+            usuario_id=usuario_id,
+            fecha=fecha,
+            id_ics=id_ics,
+            id_linea=id_linea,
+            id_concesion=id_concesion,
+            id_cop=id_cop,
+            zona=zona,
+            componente=componente,
+            tab=tab,
+        )
     return {"ok": True, "data": [dict(r) for r in data]}
 
 @router_sne.get("/api/filtros/acciones")
@@ -228,6 +250,8 @@ def estadisticas(
 def mapa_posicionamientos(
     bus: str,
     fecha: Optional[str] = None,
+    fecha_ini: Optional[str] = None,
+    fecha_fin: Optional[str] = None,
     hora_ini: str = "00:00:00",
     hora_fin: str = "23:59:59",
     user_session: dict = Depends(require_session),
@@ -244,11 +268,18 @@ def mapa_posicionamientos(
         return h
     
     with GestionSneObjecion() as db:
-        if not fecha:
-            fecha = db.ultima_fecha_ics()
+        fecha_base = fecha or db.ultima_fecha_ics()
+        fecha_ini = fecha_ini or fecha_base
+        fecha_fin = fecha_fin or fecha_ini
+
+        if fecha_ini and fecha_fin and fecha_ini > fecha_fin:
+            fecha_ini, fecha_fin = fecha_fin, fecha_ini
+
         data = db.listar_posicionamientos(
             movil_bus=bus.strip().upper(),
-            fecha=fecha,
+            fecha=fecha_base,
+            fecha_ini=fecha_ini,
+            fecha_fin=fecha_fin,
             hora_ini=_pad_hora(hora_ini, fin=False),
             hora_fin=_pad_hora(hora_fin, fin=True),
         )
@@ -256,7 +287,9 @@ def mapa_posicionamientos(
     return {
         "ok": True,
         "bus": bus,
-        "fecha": fecha,
+        "fecha": fecha_base,
+        "fecha_ini": fecha_ini,
+        "fecha_fin": fecha_fin,
         "total": len(data),
         "data": [dict(r) for r in data],
     }
@@ -274,6 +307,9 @@ def listar_registros(
     id_cop: Optional[int] = None,
     zona: Optional[str] = None,
     componente: Optional[str] = None,
+    id_responsable: Optional[int] = None,
+    texto_busqueda: Optional[str] = None,
+    orden: Optional[str] = None,
     pagina: int = Query(1, ge=1),
     tamano: int = Query(50, ge=1, le=500),
     user_session: dict = Depends(require_session),
@@ -297,6 +333,9 @@ def listar_registros(
             id_cop=id_cop,
             zona=zona,
             componente=componente,
+            id_responsable=id_responsable,
+            texto_busqueda=texto_busqueda,
+            orden=orden,
             tab=tab,
             pagina=pagina,
             tamano=tamano,
@@ -328,6 +367,44 @@ def detalle_registro(
             detail=f"ICS {id_ics} no encontrado o no asignado a este usuario",
         )
     return {"ok": True, "data": dict(detalle)}
+
+# =====================================================================
+# API: REPORTES DE TABLAS RELACIONADAS A UN ICS
+# =====================================================================
+@router_sne.get("/api/registros/{id_ics}/reportes/conteos")
+def reportes_conteos(
+    id_ics: int,
+    user_session: dict = Depends(require_session),
+):
+    """Conteos de las 8 tablas de reportes para un ICS."""
+    with GestionSneObjecion() as db:
+        conteos = db.obtener_conteo_reportes(id_ics=id_ics)
+    return {"ok": True, "id_ics": id_ics, "data": conteos}
+
+@router_sne.get("/api/registros/{id_ics}/reportes/all")
+def reportes_all(
+    id_ics: int,
+    user_session: dict = Depends(require_session),
+):
+    """Datos completos de todas las tablas de reporte (para nueva ventana)."""
+    with GestionSneObjecion() as db:
+        reportes = db.obtener_todos_reportes(id_ics=id_ics)
+    return {"ok": True, "id_ics": id_ics, "data": reportes}
+
+@router_sne.get("/api/registros/{id_ics}/reportes/{tabla}")
+def reporte_tabla(
+    id_ics: int,
+    tabla: str,
+    user_session: dict = Depends(require_session),
+):
+    """Datos de una tabla de reporte específica para un ICS."""
+    with GestionSneObjecion() as db:
+        if tabla not in db.REPORT_TABLES:
+            raise HTTPException(status_code=400, detail=f"Tabla '{tabla}' no es válida")
+        reporte = db.obtener_reporte(id_ics=id_ics, tabla_key=tabla)
+    if reporte is None:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    return {"ok": True, "id_ics": id_ics, "tabla": tabla, "data": reporte}
 
 # =====================================================================
 # API: ACTUALIZAR GESTION DE UN ICS
