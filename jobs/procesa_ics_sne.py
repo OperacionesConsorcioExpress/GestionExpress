@@ -23,7 +23,7 @@ from database_manager import get_db_connection
 # =============================================================================
 
 # Si no existe un log OK previo, empezar desde esta fecha
-FECHA_SEMILLA_STR = "18/03/2026"   # dd/mm/yyyy
+FECHA_SEMILLA_STR = "16/03/2026"   # dd/mm/yyyy
 
 FILTRO_ZONA_TIPO = 3               # 1=ZN, 2=TR, 3=Ambas
 
@@ -191,6 +191,37 @@ class TransformUtils:
         raw = pd.to_numeric(series, errors="coerce").astype("float64")
         return raw / 1000.0
 
+    @staticmethod
+    def parse_datetime_robusto(series: pd.Series, dayfirst: bool = True) -> pd.Series:
+        s = series.astype("string").fillna("").str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
+        s = s.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
+
+        out = pd.to_datetime(s, errors="coerce", dayfirst=dayfirst)
+
+        mask_na = out.isna() & s.notna()
+        if mask_na.any():
+            s2 = s[mask_na]
+
+            for fmt in (
+                "%d/%m/%Y %H:%M:%S",
+                "%d/%m/%Y %H:%M",
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
+                "%d/%m/%Y",
+                "%Y-%m-%d",
+            ):
+                parsed = pd.to_datetime(s2, format=fmt, errors="coerce")
+                ok = parsed.notna()
+                if ok.any():
+                    out.loc[s2.index[ok]] = parsed.loc[ok]
+
+                mask_still_na = out.loc[s2.index].isna()
+                if not mask_still_na.any():
+                    break
+                s2 = s2.loc[mask_still_na.index[mask_still_na]]
+
+        return out
+
 
 def normalize_name(s: str) -> str:
     s = str(s).strip().lower()
@@ -338,6 +369,7 @@ class SNEExportBuilder:
 
         df = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
         print(f"✅ ICS cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
+        print("DEBUG columnas ICS:", list(df.columns))
 
         c_fecha = pick_col(df, ["Fecha Viaje"])
         c_serv = pick_col(df, ["Servicio"])
@@ -346,8 +378,19 @@ class SNEExportBuilder:
         c_viaje_linea = pick_col(df, ["ViajeLinea", "Viaje Línea"])
         c_id_viaje = pick_col(df, ["IdViaje", "Id Viaje"])
         c_idics = pick_col(df, ["IdICS"])
-        c_fecha_inicio_dp = pick_col(df, ["F. Inicio DP"], required=False)
-        c_fecha_cierre_dp = pick_col(df, ["F. Cierre DP"], required=False)
+        c_fecha_inicio_dp = pick_col(
+            df,
+            ["F. Inicio DP", "F Inicio DP", "Fecha Inicio DP", "Fecha_Inicio_DP"],
+            required=False,
+        )
+        c_fecha_cierre_dp = pick_col(
+            df,
+            ["F. Cierre DP", "F Cierre DP", "Fecha Cierre DP", "Fecha_Cierre_DP"],
+            required=False,
+        )
+
+        print("DEBUG c_fecha_inicio_dp:", c_fecha_inicio_dp)
+        print("DEBUG c_fecha_cierre_dp:", c_fecha_cierre_dp)
 
         out = df.copy()
         out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst="auto")
@@ -359,20 +402,29 @@ class SNEExportBuilder:
         out["Id_ICS"] = self.tu.to_int64(out[c_idics])
 
         if c_fecha_inicio_dp:
-            out["Fecha_Inicio_DP"] = pd.to_datetime(out[c_fecha_inicio_dp], errors="coerce")
+            out["Fecha_Inicio_DP"] = self.tu.parse_datetime_robusto(out[c_fecha_inicio_dp], dayfirst=True)
         else:
             out["Fecha_Inicio_DP"] = pd.NaT
 
         if c_fecha_cierre_dp:
-            out["Fecha_Cierre_DP"] = pd.to_datetime(out[c_fecha_cierre_dp], errors="coerce")
+            out["Fecha_Cierre_DP"] = self.tu.parse_datetime_robusto(out[c_fecha_cierre_dp], dayfirst=True)
         else:
             out["Fecha_Cierre_DP"] = pd.NaT
 
+        print("DEBUG Fecha_Inicio_DP no nulos:", out["Fecha_Inicio_DP"].notna().sum())
+        print("DEBUG Fecha_Cierre_DP no nulos:", out["Fecha_Cierre_DP"].notna().sum())
+
         out = out[
             [
-                "Fecha_key", "Servicio_key", "Linea_key", "Tabla_key",
-                "ViajeLinea_key", "IdViaje_key", "Id_ICS",
-                "Fecha_Inicio_DP", "Fecha_Cierre_DP"
+                "Fecha_key",
+                "Servicio_key",
+                "Linea_key",
+                "Tabla_key",
+                "ViajeLinea_key",
+                "IdViaje_key",
+                "Id_ICS",
+                "Fecha_Inicio_DP",
+                "Fecha_Cierre_DP",
             ]
         ].drop_duplicates(
             subset=["Fecha_key", "Servicio_key", "Linea_key", "Tabla_key", "ViajeLinea_key", "IdViaje_key"],
@@ -780,8 +832,8 @@ class SNEExportBuilder:
             "Km_Revision": kmr.round(3),
             "Concesion": concesion_final,
             "Motivo": motivo,
-            "Fecha_Inicio_DP": df.get("Fecha_Inicio_DP", pd.NaT),
-            "Fecha_Cierre_DP": df.get("Fecha_Cierre_DP", pd.NaT),
+            "Fecha_Inicio_DP": df["Fecha_Inicio_DP"] if "Fecha_Inicio_DP" in df.columns else pd.NaT,
+            "Fecha_Cierre_DP": df["Fecha_Cierre_DP"] if "Fecha_Cierre_DP" in df.columns else pd.NaT,
         })
 
         out["Id_ICS"] = pd.to_numeric(out["Id_ICS"], errors="coerce").astype("Int64")
@@ -800,6 +852,9 @@ class SNEExportBuilder:
 
         print("\n📌 Top Motivos:")
         print(out["Motivo"].astype(str).str.strip().replace("", "VACIO").value_counts(dropna=False).head(20))
+
+        print("DEBUG df_final Fecha_Inicio_DP no nulos:", out["Fecha_Inicio_DP"].notna().sum())
+        print("DEBUG df_final Fecha_Cierre_DP no nulos:", out["Fecha_Cierre_DP"].notna().sum())
 
         return out
 
@@ -1029,6 +1084,9 @@ class GestionSNELoader:
         df["Id_ICS"] = df["Id_ICS"].astype("int64")
         df = df[["Id_ICS", "Fecha_Inicio_DP", "Fecha_Cierre_DP"]].drop_duplicates(subset=["Id_ICS"], keep="last")
 
+        print("DEBUG gestion_sne fechas no nulas inicio:", df["Fecha_Inicio_DP"].notna().sum())
+        print("DEBUG gestion_sne fechas no nulas cierre:", df["Fecha_Cierre_DP"].notna().sum())
+
         full_table = f'"{self.schema}"."{self.table}"'
         sql = f"""
             INSERT INTO {full_table}
@@ -1054,8 +1112,8 @@ class GestionSNELoader:
                     WHEN {full_table}."estado_transmitools" IS NULL THEN EXCLUDED."estado_transmitools"
                     ELSE {full_table}."estado_transmitools"
                 END,
-                "fecha_inicio_dp" = EXCLUDED."fecha_inicio_dp",
-                "fecha_cierre_dp" = EXCLUDED."fecha_cierre_dp"
+                "fecha_inicio_dp" = COALESCE(EXCLUDED."fecha_inicio_dp", {full_table}."fecha_inicio_dp"),
+                "fecha_cierre_dp" = COALESCE(EXCLUDED."fecha_cierre_dp", {full_table}."fecha_cierre_dp")
         """
 
         total = 0
@@ -1401,7 +1459,7 @@ def main() -> None:
         )
         fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
 
-        MESES_ES = {
+        meses_es = {
             1: "enero",
             2: "febrero",
             3: "marzo",
@@ -1416,7 +1474,7 @@ def main() -> None:
             12: "diciembre",
         }
 
-        fecha_texto = f"{fecha_to_process.day} de {MESES_ES[fecha_to_process.month]} de {fecha_to_process.year}"
+        fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
 
         print("\n" + "=" * 80)
         print(f"📅 FECHA AUTOMÁTICA A PROCESAR: {fecha_to_process}")
