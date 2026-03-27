@@ -23,7 +23,7 @@ from database_manager import get_db_connection
 # =============================================================================
 
 # Si no existe un log OK previo, empezar desde esta fecha
-FECHA_SEMILLA_STR = "16/03/2026"   # dd/mm/yyyy
+FECHA_SEMILLA_STR = "18/03/2026"   # dd/mm/yyyy
 
 FILTRO_ZONA_TIPO = 3               # 1=ZN, 2=TR, 3=Ambas
 
@@ -1401,7 +1401,7 @@ def main() -> None:
         )
         fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
 
-        meses_es = {
+        MESES_ES = {
             1: "enero",
             2: "febrero",
             3: "marzo",
@@ -1416,7 +1416,7 @@ def main() -> None:
             12: "diciembre",
         }
 
-        fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
+        fecha_texto = f"{fecha_to_process.day} de {MESES_ES[fecha_to_process.month]} de {fecha_to_process.year}"
 
         print("\n" + "=" * 80)
         print(f"📅 FECHA AUTOMÁTICA A PROCESAR: {fecha_to_process}")
