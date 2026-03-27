@@ -159,6 +159,19 @@ class GestionSneMotivos:
                 (obs, int(id_responsable), int(id)),
             )
             fila = self._fila_o_error(self.cursor)
+
+            # Propagar responsable a ics_motivo_resp donde el motivo coincida
+            # y el responsable aún no haya sido asignado (responsable = 0)
+            self.cursor.execute(
+                """
+                UPDATE sne.ics_motivo_resp
+                SET responsable = %s
+                WHERE motivo = %s
+                  AND responsable = 0
+                """,
+                (int(id_responsable), int(id)),
+            )
+
             self.connection.commit()
             return self._enriquecer(fila)
         except errors.UniqueViolation:

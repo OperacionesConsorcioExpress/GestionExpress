@@ -279,11 +279,17 @@ class Cargue_Roles_Blob_Storage:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO roles_storage (nombre_rol_storage, contenedores_asignados)
-                    VALUES (%s, %s)
+                    INSERT INTO roles_storage (nombre_rol_storage, contenedores_asignados,
+                        accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (
                     role_data["nombre_rol_storage"],
-                    ','.join(role_data["contenedores_asignados"])  # Lista → cadena CSV
+                    ','.join(role_data["contenedores_asignados"]),
+                    role_data.get("accion_ver", True),
+                    role_data.get("accion_editar", False),
+                    role_data.get("accion_descargar", True),
+                    role_data.get("accion_eliminar", False),
+                    role_data.get("accion_cargar", False),
                 ))
             conn.commit()
 
@@ -292,7 +298,8 @@ class Cargue_Roles_Blob_Storage:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id_rol_storage, nombre_rol_storage, contenedores_asignados
+                    SELECT id_rol_storage, nombre_rol_storage, contenedores_asignados,
+                           accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar
                     FROM roles_storage ORDER BY id_rol_storage ASC
                 """)
                 return cur.fetchall()
@@ -302,7 +309,8 @@ class Cargue_Roles_Blob_Storage:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id_rol_storage, nombre_rol_storage, contenedores_asignados
+                    SELECT id_rol_storage, nombre_rol_storage, contenedores_asignados,
+                           accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar
                     FROM roles_storage WHERE id_rol_storage = %s
                 """, (role_storage_id,))
                 role_data = cur.fetchone()
@@ -310,19 +318,30 @@ class Cargue_Roles_Blob_Storage:
                     return {
                         "id_rol_storage": role_data[0],
                         "nombre_rol_storage": role_data[1],
-                        "contenedores_asignados": role_data[2].split(',')  # Cadena CSV → lista
+                        "contenedores_asignados": role_data[2].split(','),
+                        "accion_ver": bool(role_data[3]),
+                        "accion_editar": bool(role_data[4]),
+                        "accion_descargar": bool(role_data[5]),
+                        "accion_eliminar": bool(role_data[6]),
+                        "accion_cargar": bool(role_data[7]),
                     }
                 return None
 
-    def update_role_storage(self, role_storage_id, role_name, contenedores_asignados):
-        """Actualiza nombre y contenedores de un rol de storage."""
+    def update_role_storage(self, role_storage_id, role_name, contenedores_asignados,
+                            accion_ver=True, accion_editar=False,
+                            accion_descargar=True, accion_eliminar=False, accion_cargar=False):
+        """Actualiza nombre, contenedores y acciones de un rol de storage."""
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE roles_storage
-                    SET nombre_rol_storage = %s, contenedores_asignados = %s
+                    SET nombre_rol_storage = %s, contenedores_asignados = %s,
+                        accion_ver = %s, accion_editar = %s,
+                        accion_descargar = %s, accion_eliminar = %s, accion_cargar = %s
                     WHERE id_rol_storage = %s
-                """, (role_name, ','.join(contenedores_asignados), role_storage_id))
+                """, (role_name, ','.join(contenedores_asignados),
+                      accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar,
+                      role_storage_id))
             conn.commit()
 
     def delete_role_storage(self, role_storage_id):
@@ -343,6 +362,26 @@ class Cargue_Roles_Blob_Storage:
                 if result and result[0]:
                     return result[0].split(',')
                 return []
+
+    def get_acciones_por_rol(self, role_storage_id) -> dict:
+        """Retorna dict con booleanos de acciones permitidas para el rol."""
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar
+                    FROM roles_storage WHERE id_rol_storage = %s
+                """, (role_storage_id,))
+                result = cur.fetchone()
+                if result:
+                    return {
+                        "ver": bool(result[0]),
+                        "editar": bool(result[1]),
+                        "descargar": bool(result[2]),
+                        "eliminar": bool(result[3]),
+                        "cargar": bool(result[4]),
+                    }
+        # Default seguro: solo lectura si no hay rol configurado
+        return {"ver": True, "editar": False, "descargar": False, "eliminar": False, "cargar": False}
 
 # =====================================================================
 # CLASE: GestionUsuarios

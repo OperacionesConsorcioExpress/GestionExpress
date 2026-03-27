@@ -57,11 +57,16 @@ def _extraer_codigo_y_nombre(nombre_placemark: str):
 def parsear_kml_bytes(contenido_bytes: bytes) -> list:
     """
     Parsea un KML y retorna lista de dicts con:
-      - nombre_placemark, tipo ('trazado'|'paradero'), num_variante
-      - secuencia, codigo_parada, nombre_parada
-      - coordenadas: lista [[lon,lat],...] para trazados / [lon,lat] para paraderos
-      - total_puntos
-    Las coordenadas se serializan a JSON para almacenar en TEXT/JSONB sin PostGIS.
+        - nombre_placemark, tipo ('trazado'|'paradero')
+        - coordenadas_json: GeoJSON compacto con todos los metadatos embebidos
+        - total_puntos
+
+    Esquema unificado de coordenadas_json:
+        Trazado:  {"type":"LineString","coordinates":[[lon,lat],...],"variante":1}
+        Paradero: {"type":"Point","coordinates":[lon,lat],
+                    "secuencia":1,"codigo":"704A01","nombre":"Altos de Serrezuela","variante":1}
+
+    Sin columnas separadas lat/lon/secuencia/codigo_parada/nombre_parada/num_variante.
     """
     root = ET.fromstring(contenido_bytes)
     ns = {"k": KML_NS}
@@ -83,17 +88,11 @@ def parsear_kml_bytes(contenido_bytes: bytes) -> list:
             registros.append({
                 "nombre_placemark": nombre,
                 "tipo": "trazado",
-                "num_variante": variante,
-                "secuencia": None,
-                "codigo_parada": None,
-                "nombre_parada": None,
-                # GeoJSON LineString serializado como texto — sin PostGIS
                 "coordenadas_json": json.dumps({
                     "type": "LineString",
-                    "coordinates": puntos
-                }),
-                "lat": None,
-                "lon": None,
+                    "coordinates": puntos,
+                    "variante": variante,
+                }, separators=(',', ':')),
                 "total_puntos": len(puntos),
             })
             continue
@@ -121,13 +120,14 @@ def parsear_kml_bytes(contenido_bytes: bytes) -> list:
             registros.append({
                 "nombre_placemark": nombre,
                 "tipo": "paradero",
-                "num_variante": variante,
-                "secuencia": seq_num,
-                "codigo_parada": codigo,
-                "nombre_parada": nombre_parada,
-                "coordenadas_json": None,   # paraderos usan lat/lon directo
-                "lat": lat,
-                "lon": lon,
+                "coordenadas_json": json.dumps({
+                    "type": "Point",
+                    "coordinates": [lon, lat],
+                    "secuencia": seq_num,
+                    "codigo": codigo,
+                    "nombre": nombre_parada,
+                    "variante": variante,
+                }, separators=(',', ':')),
                 "total_puntos": 1,
             })
 
@@ -142,15 +142,7 @@ CREATE TABLE IF NOT EXISTS config.rutas_kml (
     id_linea         BIGINT       NOT NULL,
     nombre_placemark TEXT,
     tipo             VARCHAR(10)  NOT NULL CHECK (tipo IN ('trazado','paradero')),
-    num_variante     SMALLINT     NOT NULL DEFAULT 1,
-    secuencia        INT,
-    codigo_parada    TEXT,
-    nombre_parada    TEXT,
-    -- Trazados: GeoJSON LineString serializado (ej: {"type":"LineString","coordinates":[[lon,lat],...]})
-    coordenadas_json TEXT,
-    -- Paraderos: coordenada individual
-    lat              DOUBLE PRECISION,
-    lon              DOUBLE PRECISION,
+    coordenadas_json TEXT         NOT NULL,
     total_puntos     INT,
     archivo_origen   TEXT,
     cargado_por      TEXT,
@@ -160,7 +152,7 @@ CREATE TABLE IF NOT EXISTS config.rutas_kml (
 CREATE INDEX IF NOT EXISTS idx_rutas_kml_id_linea
     ON config.rutas_kml (id_linea);
 CREATE INDEX IF NOT EXISTS idx_rutas_kml_linea_tipo
-    ON config.rutas_kml (id_linea, tipo, num_variante);
+    ON config.rutas_kml (id_linea, tipo);
 """
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -635,8 +627,10 @@ class GestionRutasKML:
     """
     Gestión de trazados y paraderos KML por ruta (config.rutas_kml).
     No requiere PostGIS ni ninguna extensión — solo PostgreSQL estándar.
-    Las coordenadas de trazados se almacenan como GeoJSON en columna TEXT.
-    Los paraderos se almacenan con columnas lat/lon DOUBLE PRECISION.
+    Esquema unificado: todas las geometrías y metadatos van en coordenadas_json.
+        Trazado:  {"type":"LineString","coordinates":[[lon,lat],...],"variante":N}
+        Paradero: {"type":"Point","coordinates":[lon,lat],"secuencia":N,
+                    "codigo":"XXX","nombre":"Nombre parada","variante":N}
     """
 
     def __init__(self):
@@ -664,10 +658,99 @@ class GestionRutasKML:
                 pass
             self.connection = None
 
-    # ── DDL: crear tabla si no existe ────────────────────────────────────────
+    def _col_existe_kml(self, col: str) -> bool:
+        self.cursor.execute(
+            """
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema='config' AND table_name='rutas_kml'
+                AND column_name=%s LIMIT 1
+            """,
+            (col,),
+        )
+        return self.cursor.fetchone() is not None
+
     def _asegurar_tabla(self):
-        """Crea config.rutas_kml con PostgreSQL estándar. Sin PostGIS."""
+        """
+        Crea config.rutas_kml si no existe.
+
+        Migración desde esquema anterior (columnas lat/lon/secuencia/... separadas):
+        1. Reconstruye coordenadas_json para paraderos que aún lo tengan NULL
+            usando las columnas lat, lon, secuencia, codigo_parada, nombre_parada,
+            num_variante mientras todavía existen.
+        2. Rellena coordenadas_json de trazados que faltasen (raro, pero seguro).
+        3. Aplica NOT NULL en coordenadas_json.
+        4. Elimina las columnas obsoletas.
+        Sin PostGIS — solo PostgreSQL estándar.
+        """
         self.cursor.execute(_DDL_RUTAS_KML)
+        self.connection.commit()
+
+        # ── Paso 1: migrar datos de paraderos si las columnas antiguas existen ──
+        tiene_lat = self._col_existe_kml("lat")
+        tiene_seq = self._col_existe_kml("secuencia")
+
+        if tiene_lat:
+            # Reconstruir coordenadas_json para paraderos con lat/lon válidos
+            # que todavía no tengan JSON (NULL o '{}')
+            self.cursor.execute(
+                """
+                UPDATE config.rutas_kml
+                SET coordenadas_json = json_build_object(
+                    'type',      'Point',
+                    'coordinates', json_build_array(lon, lat),
+                    'secuencia', COALESCE(secuencia, 0),
+                    'codigo',    COALESCE(codigo_parada, ''),
+                    'nombre',    COALESCE(nombre_parada, nombre_placemark, ''),
+                    'variante',  COALESCE(num_variante, 1)
+                )::text
+                WHERE tipo = 'paradero'
+                  AND lat  IS NOT NULL
+                  AND lon  IS NOT NULL
+                  AND (coordenadas_json IS NULL OR coordenadas_json = '{}');
+                """
+            )
+        # ── Paso 2: paraderos sin lat (datos corruptos) → JSON mínimo vacío ────
+        self.cursor.execute(
+            """
+            UPDATE config.rutas_kml
+            SET coordenadas_json = '{"type":"Point","coordinates":[]}'
+            WHERE tipo = 'paradero'
+              AND (coordenadas_json IS NULL OR coordenadas_json = '{}');
+            """
+        )
+        # ── Paso 3: trazados sin JSON (no debería ocurrir, pero por seguridad) ─
+        self.cursor.execute(
+            """
+            UPDATE config.rutas_kml
+            SET coordenadas_json = '{"type":"LineString","coordinates":[]}'
+            WHERE tipo = 'trazado'
+              AND (coordenadas_json IS NULL OR coordenadas_json = '{}');
+            """
+        )
+
+        # ── Paso 4: aplicar NOT NULL ─────────────────────────────────────────
+        self.cursor.execute(
+            """
+            SELECT is_nullable FROM information_schema.columns
+            WHERE table_schema='config' AND table_name='rutas_kml'
+              AND column_name='coordenadas_json' LIMIT 1
+            """
+        )
+        row = self.cursor.fetchone()
+        if row and row["is_nullable"] == "YES":
+            self.cursor.execute(
+                "ALTER TABLE config.rutas_kml "
+                "ALTER COLUMN coordenadas_json SET NOT NULL;"
+            )
+
+        # ── Paso 5: eliminar columnas obsoletas ──────────────────────────────
+        for col in ("num_variante", "secuencia", "codigo_parada",
+                    "nombre_parada", "lat", "lon"):
+            if self._col_existe_kml(col):
+                self.cursor.execute(
+                    f"ALTER TABLE config.rutas_kml DROP COLUMN IF EXISTS {col};"
+                )
+
         self.connection.commit()
 
     # ── Carga de KML ──────────────────────────────────────────────────────────
@@ -692,14 +775,9 @@ class GestionRutasKML:
 
         _INSERT = """
             INSERT INTO config.rutas_kml
-                (id_linea, nombre_placemark, tipo, num_variante, secuencia,
-                 codigo_parada, nombre_parada,
-                 coordenadas_json, lat, lon,
-                 total_puntos, archivo_origen, cargado_por)
-            VALUES
-                (%s, %s, %s, %s, %s, %s, %s,
-                 %s, %s, %s,
-                 %s, %s, %s)
+                (id_linea, nombre_placemark, tipo,
+                 coordenadas_json, total_puntos, archivo_origen, cargado_por)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
         try:
             if reemplazar:
@@ -713,13 +791,7 @@ class GestionRutasKML:
                     id_linea,
                     r["nombre_placemark"],
                     r["tipo"],
-                    r["num_variante"],
-                    r["secuencia"],
-                    r["codigo_parada"],
-                    r["nombre_parada"],
                     r["coordenadas_json"],
-                    r["lat"],
-                    r["lon"],
                     r["total_puntos"],
                     nombre_archivo,
                     usuario,
@@ -776,16 +848,15 @@ class GestionRutasKML:
     def trazados_geojson(self, id_linea: int) -> dict:
         """
         GeoJSON FeatureCollection con los trazados de la ruta.
-        Las coordenadas se recuperan del campo TEXT y se parsean en Python.
+        La variante y coordenadas se leen directamente de coordenadas_json.
         Listo para consumir con L.geoJSON() en Leaflet.
         """
         self.cursor.execute(
             """
-            SELECT id, nombre_placemark, num_variante, total_puntos,
-                    coordenadas_json
+            SELECT id, nombre_placemark, total_puntos, coordenadas_json
             FROM config.rutas_kml
             WHERE id_linea = %s AND tipo = 'trazado'
-            ORDER BY num_variante, id
+            ORDER BY id
             """,
             (id_linea,),
         )
@@ -794,16 +865,18 @@ class GestionRutasKML:
         features = []
         for r in rows:
             try:
-                geometry = json.loads(r["coordenadas_json"])
+                geom = json.loads(r["coordenadas_json"])
             except (TypeError, json.JSONDecodeError):
                 continue
+            variante = geom.pop("variante", 1)  # extraer del JSON, no exponer en geometry
             features.append({
                 "type": "Feature",
-                "geometry": geometry,
+                "geometry": {"type": geom["type"], "coordinates": geom["coordinates"]},
                 "properties": {
                     "id": r["id"],
                     "nombre": r["nombre_placemark"],
-                    "variante": r["num_variante"],
+                    "nombre_placemark": r["nombre_placemark"],
+                    "variante": variante,
                     "total_puntos": r["total_puntos"],
                 },
             })
@@ -812,16 +885,15 @@ class GestionRutasKML:
     def paraderos_geojson(self, id_linea: int) -> dict:
         """
         GeoJSON FeatureCollection con los paraderos de la ruta.
-        Construido en Python desde columnas lat/lon estándar.
+        Coordenadas y metadatos (secuencia, codigo, nombre, variante)
+        se leen de coordenadas_json — no hay columnas lat/lon separadas.
         """
         self.cursor.execute(
             """
-            SELECT id, nombre_placemark, num_variante, secuencia,
-                    codigo_parada, nombre_parada, lat, lon
+            SELECT id, nombre_placemark, coordenadas_json
             FROM config.rutas_kml
             WHERE id_linea = %s AND tipo = 'paradero'
-                AND lat IS NOT NULL AND lon IS NOT NULL
-            ORDER BY num_variante, secuencia, id
+            ORDER BY id
             """,
             (id_linea,),
         )
@@ -829,19 +901,23 @@ class GestionRutasKML:
 
         features = []
         for r in rows:
+            try:
+                geom = json.loads(r["coordenadas_json"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            coords = geom.get("coordinates")
+            if not coords or len(coords) < 2:
+                continue
             features.append({
                 "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [r["lon"], r["lat"]],
-                },
+                "geometry": {"type": "Point", "coordinates": coords},
                 "properties": {
                     "id": r["id"],
-                    "nombre": r["nombre_placemark"],
-                    "variante": r["num_variante"],
-                    "secuencia": r["secuencia"],
-                    "codigo": r["codigo_parada"],
-                    "parada": r["nombre_parada"],
+                    "nombre_placemark": r["nombre_placemark"],
+                    "variante": geom.get("variante", 1),
+                    "secuencia": geom.get("secuencia"),
+                    "codigo": geom.get("codigo"),
+                    "nombre": geom.get("nombre"),
                 },
             })
         return {"type": "FeatureCollection", "features": features}

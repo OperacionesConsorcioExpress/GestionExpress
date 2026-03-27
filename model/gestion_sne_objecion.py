@@ -98,10 +98,70 @@ class GestionSneObjecion:
             )
         return [r["id_ics"] for r in self.cursor.fetchall()]
 
-    def listar_responsables(self):
-        """Lista los responsables de sne.responsable_sne."""
+    def listar_responsables(
+        self,
+        usuario_id: int,
+        fecha: str = None,
+        id_ics: int = None,
+        id_linea: int = None,
+        id_concesion: int = None,
+        id_cop: int = None,
+        zona: str = None,
+        componente: str = None,
+        tab: str = "revisar",
+    ):
+        """
+        Lista responsables realmente asociados a los ICS del usuario
+        por medio de sne.ics_motivo_resp.
+        """
+        joins_cop, comp_expr, zona_expr = self._cop_joins_and_exprs()
+
+        where = " WHERE gs.revisor = %s "
+        params: list = [usuario_id]
+
+        if tab == "revisar":
+            where += " AND gs.revisor > 0 AND (gs.estado_asignacion = 1 OR gs.estado_asignacion IS NULL) "
+        elif tab == "revisados":
+            where += " AND gs.estado_asignacion = 2 "
+        elif tab == "validar":
+            where += " AND gs.estado_objecion = 1 "
+
+        if fecha:
+            where += " AND i.fecha = %s "
+            params.append(fecha)
+        if id_ics:
+            where += " AND i.id_ics = %s "
+            params.append(int(id_ics))
+        if id_linea:
+            where += " AND i.id_linea = %s "
+            params.append(int(id_linea))
+        if id_concesion:
+            where += " AND i.id_concesion = %s "
+            params.append(int(id_concesion))
+        if id_cop:
+            where += " AND r.id_cop = %s "
+            params.append(int(id_cop))
+        if zona:
+            where += f" AND UPPER({zona_expr}) = %s "
+            params.append(zona.strip().upper())
+        if componente:
+            where += f" AND UPPER({comp_expr}) = %s "
+            params.append(componente.strip().upper())
+
         self.cursor.execute(
-            "SELECT id, responsable FROM sne.responsable_sne ORDER BY responsable"
+            f"""
+            SELECT DISTINCT rs.id, rs.responsable
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i              ON i.id_ics = gs.id_ics
+            JOIN sne.ics_motivo_resp imr ON imr.id_ics = i.id_ics
+            JOIN sne.responsable_sne rs ON rs.id = imr.responsable
+            LEFT JOIN config.rutas r    ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c      ON c.id = r.id_cop
+            {joins_cop}
+            {where}
+            ORDER BY rs.responsable
+            """,
+            params,
         )
         return self.cursor.fetchall()
 
@@ -252,7 +312,9 @@ class GestionSneObjecion:
     def listar_posicionamientos(
         self,
         movil_bus: str,
-        fecha: str,
+        fecha: str = None,
+        fecha_ini: str = None,
+        fecha_fin: str = None,
         hora_ini: str = '00:00:00',
         hora_fin: str = '23:59:59',
     ):
@@ -261,6 +323,9 @@ class GestionSneObjecion:
         Usa fecha_evento >= ts_ini AND < ts_fin para aprovechar índice.
         hora_ini / hora_fin en formato HH:MM:SS
         """
+        fecha_ini = fecha_ini or fecha
+        fecha_fin = fecha_fin or fecha_ini
+
         self.cursor.execute(
             """
             SELECT
@@ -280,13 +345,13 @@ class GestionSneObjecion:
             FROM config.posicionamientos p
             WHERE p.movil_bus = %s
                 AND p.fecha_evento >= (%s || ' ' || %s)::timestamptz
-                AND p.fecha_evento <  (%s || ' ' || %s)::timestamptz
+                AND p.fecha_evento <= (%s || ' ' || %s)::timestamptz
                 AND p.latitud  IS NOT NULL
                 AND p.longitud IS NOT NULL
             ORDER BY p.fecha_evento ASC
             LIMIT 10000
             """,
-            (movil_bus, fecha, hora_ini, fecha, hora_fin),
+            (movil_bus, fecha_ini, hora_ini, fecha_fin, hora_fin),
         )
         return self.cursor.fetchall()
 
@@ -301,6 +366,9 @@ class GestionSneObjecion:
         id_cop: int = None,
         zona: str = None,
         componente: str = None,
+        id_responsable: int = None,
+        texto_busqueda: str = None,
+        orden: str = None,
         tab: str = "revisar",
         pagina: int = 1,
         tamano: int = 50,
@@ -348,6 +416,58 @@ class GestionSneObjecion:
         if componente:
             where += f" AND UPPER({comp_expr}) = %s "
             params.append(componente.strip().upper())
+        if id_responsable:
+            where += """
+                AND EXISTS (
+                    SELECT 1
+                    FROM sne.ics_motivo_resp imr
+                    WHERE imr.id_ics = i.id_ics
+                      AND imr.responsable = %s
+                )
+            """
+            params.append(int(id_responsable))
+        if texto_busqueda and texto_busqueda.strip():
+            termino = f"%{texto_busqueda.strip()}%"
+            search_clauses = [
+                "i.fecha::text ILIKE %s",
+                "i.id_ics::text ILIKE %s",
+                "COALESCE(r.ruta_comercial::text, '') ILIKE %s",
+                "COALESCE(i.servicio::text, '') ILIKE %s",
+                "COALESCE(i.tabla::text, '') ILIKE %s",
+                "COALESCE(i.viaje_linea::text, '') ILIKE %s",
+                "COALESCE(i.id_viaje::text, '') ILIKE %s",
+                "COALESCE(i.sentido::text, '') ILIKE %s",
+                "COALESCE(i.vehiculo_real::text, '') ILIKE %s",
+                "COALESCE(i.hora_ini_teorica::text, '') ILIKE %s",
+                "COALESCE(i.km_prog_ad::text, '') ILIKE %s",
+                "COALESCE(i.conductor::text, '') ILIKE %s",
+                "COALESCE(i.km_elim_eic::text, '') ILIKE %s",
+                "COALESCE(i.km_ejecutado::text, '') ILIKE %s",
+                "COALESCE(i.offset_inicio::text, '') ILIKE %s",
+                "COALESCE(i.offset_fin::text, '') ILIKE %s",
+                "COALESCE(i.km_revision::text, '') ILIKE %s",
+                "COALESCE(i.motivo::text, '') ILIKE %s",
+                """
+                EXISTS (
+                    SELECT 1
+                    FROM sne.ics_motivo_resp imr
+                    JOIN sne.motivos_eliminacion me ON me.id = imr.motivo
+                    WHERE imr.id_ics = i.id_ics
+                      AND COALESCE(me.motivo, '') ILIKE %s
+                )
+                """,
+                """
+                EXISTS (
+                    SELECT 1
+                    FROM sne.ics_motivo_resp imr
+                    JOIN sne.responsable_sne rs ON rs.id = imr.responsable
+                    WHERE imr.id_ics = i.id_ics
+                      AND COALESCE(rs.responsable, '') ILIKE %s
+                )
+                """,
+            ]
+            where += " AND (" + " OR ".join(search_clauses) + ") "
+            params.extend([termino] * len(search_clauses))
 
         # COUNT
         sql_count = f"""
@@ -363,6 +483,12 @@ class GestionSneObjecion:
         total = self.cursor.fetchone()["count"]
 
         offset = (pagina - 1) * tamano
+        order_sql = {
+            "km_revision_desc": "i.km_revision DESC NULLS LAST, gs.id_ics ASC",
+            "km_revision_asc": "i.km_revision ASC NULLS LAST, gs.id_ics ASC",
+            "id_ics_desc": "gs.id_ics DESC",
+            "id_ics_asc": "gs.id_ics ASC",
+        }.get(orden, "i.fecha DESC, gs.id_ics ASC")
         sql = f"""
             SELECT
                 gs.id_ics,
@@ -419,7 +545,7 @@ class GestionSneObjecion:
             LEFT JOIN config.cop c   ON c.id = r.id_cop
             {joins_cop}
             {where}
-            ORDER BY i.fecha DESC, gs.id_ics ASC
+            ORDER BY {order_sql}
             LIMIT %s OFFSET %s
         """
         self.cursor.execute(sql, params + [tamano, offset])
@@ -522,6 +648,115 @@ class GestionSneObjecion:
         )
         return self.cursor.fetchone()
 
+    # ── Reportes de tablas relacionadas por id_ics ───────────────────────────────
+    REPORT_TABLES = {
+        "detallado":           {"schema": "sne", "table": "detallado",           "label": "Detallado"},
+        "tabla_acciones":      {"schema": "sne", "table": "tabla_acciones",      "label": "Acciones"},
+        "acciones_regulacion": {"schema": "sne", "table": "acciones_regulacion", "label": "Acciones de Regulación"},
+        "actividad_bus":       {"schema": "sne", "table": "actividad_bus",       "label": "Actividad Bus"},
+        "asignaciones":        {"schema": "sne", "table": "asignaciones",        "label": "Asignaciones"},
+        "desvios":             {"schema": "sne", "table": "desvios",             "label": "Desvíos"},
+        "validaciones":        {"schema": "sne", "table": "validaciones",        "label": "Validaciones"},
+        "viajestat":           {"schema": "sne", "table": "viajestat",           "label": "ViajeStat"},
+    }
+
+    def _tabla_existe(self, schema: str, table: str) -> bool:
+        """Verifica si una tabla existe en el schema dado."""
+        self.cursor.execute(
+            """
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = %s AND table_name = %s
+            LIMIT 1
+            """,
+            (schema, table),
+        )
+        return self.cursor.fetchone() is not None
+
+    def obtener_conteo_reportes(self, id_ics: int) -> dict:
+        """
+        Retorna un dict con conteos de registros para cada tabla de reporte.
+        Si la tabla no existe en la DB indica existe=False.
+        """
+        resultado = {}
+        for key, meta in self.REPORT_TABLES.items():
+            schema, table = meta["schema"], meta["table"]
+            if not self._tabla_existe(schema, table):
+                resultado[key] = {"label": meta["label"], "existe": False, "total": 0}
+                continue
+            self.cursor.execute(
+                f'SELECT COUNT(*) AS total FROM {schema}."{table}" WHERE id_ics = %s',
+                (id_ics,),
+            )
+            row = self.cursor.fetchone()
+            resultado[key] = {
+                "label": meta["label"],
+                "existe": True,
+                "total": int(row["total"]) if row else 0,
+            }
+        return resultado
+
+    def obtener_reporte(self, id_ics: int, tabla_key: str) -> dict | None:
+        """
+        Retorna columnas + datos de una tabla de reporte para un id_ics.
+        Las columnas se obtienen dinámicamente desde information_schema.
+        Retorna None si tabla_key no está en la whitelist.
+        """
+        if tabla_key not in self.REPORT_TABLES:
+            return None
+        meta   = self.REPORT_TABLES[tabla_key]
+        schema, table = meta["schema"], meta["table"]
+
+        if not self._tabla_existe(schema, table):
+            return {
+                "key":     tabla_key,
+                "label":   meta["label"],
+                "existe":  False,
+                "columnas": [],
+                "datos":   [],
+                "total":   0,
+            }
+
+        self.cursor.execute(
+            """
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            ORDER BY ordinal_position
+            """,
+            (schema, table),
+        )
+        columnas = [{"nombre": c["column_name"], "tipo": c["data_type"]} for c in self.cursor.fetchall()]
+
+        self.cursor.execute(
+            f'SELECT * FROM {schema}."{table}" WHERE id_ics = %s ORDER BY 1',
+            (id_ics,),
+        )
+        datos = []
+        for row in self.cursor.fetchall():
+            row_dict = {}
+            for k, v in dict(row).items():
+                row_dict[k] = v.isoformat() if hasattr(v, "isoformat") else v
+            datos.append(row_dict)
+
+        return {
+            "key":      tabla_key,
+            "label":    meta["label"],
+            "existe":   True,
+            "columnas": columnas,
+            "datos":    datos,
+            "total":    len(datos),
+        }
+
+    def obtener_todos_reportes(self, id_ics: int) -> list:
+        """Retorna datos completos de todas las tablas de reporte para un id_ics."""
+        resultado = []
+        for key in self.REPORT_TABLES:
+            data = self.obtener_reporte(id_ics, key)
+            if data is not None:
+                resultado.append(data)
+        return resultado
+
+    # -- Registro y Guardado de la objeción de un ICS desde el modal de gestión --
     def actualizar_gestion(
         self,
         id_ics: int,

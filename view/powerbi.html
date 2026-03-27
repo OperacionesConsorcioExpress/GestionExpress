@@ -3,9 +3,9 @@
 
 {% block content %}
 <style>
-  * { font-family: 'Century Gothic', Arial, sans-serif; box-sizing: border-box; }
+    * { font-family: 'Century Gothic', Arial, sans-serif; box-sizing: border-box; }
 
-  /* ── BOTÓN FLOTANTE "ABRIR MENÚ" ─────────────────────────────────── */
+    /* ── BOTÓN FLOTANTE "ABRIR MENÚ" ─────────────────────────────────── */
     #show-menu {
         position: fixed;
         top: 50%;
@@ -28,7 +28,10 @@
         transition: width .18s ease, box-shadow .18s;
         overflow: hidden;
     }
-    #show-menu:hover { width: 42px; box-shadow: 4px 0 20px rgba(13,110,253,.22), inset -1px 0 0 #0d6efd; }
+    #show-menu:hover {
+        width: 42px;
+        box-shadow: 4px 0 20px rgba(13,110,253,.22), inset -1px 0 0 #0d6efd;
+    }
     #show-menu .sm-label {
         writing-mode: vertical-rl;
         text-orientation: mixed;
@@ -44,7 +47,11 @@
         color: #0a0f3d;
         font-family: Arial, 'Century Gothic', sans-serif;
     }
-    #show-menu .sm-label i { font-size: 13px; color: #0d6efd; pointer-events: none; }
+    #show-menu .sm-label i {
+        font-size: 13px;
+        color: #0d6efd;
+        pointer-events: none;
+    }
 
     /* ── PANEL LATERAL ────────────────────────────────────────────────── */
     #menu {
@@ -64,7 +71,6 @@
     }
     #menu.open { width: 320px; }
 
-    /* Cabecera del panel */
     .menu-header {
         flex-shrink: 0;
         background: linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%);
@@ -79,7 +85,11 @@
         align-items: center;
         gap: 10px;
     }
-    .menu-header-title img { width: 26px; filter: brightness(10); flex-shrink: 0; }
+    .menu-header-title img {
+        width: 26px;
+        filter: brightness(10);
+        flex-shrink: 0;
+    }
     .menu-header-title span {
         font-size: 12.5px;
         font-weight: 700;
@@ -105,7 +115,6 @@
     }
     #hide-menu:hover { background: rgba(255,255,255,.28); }
 
-    /* Buscador en el panel */
     .menu-search-wrap {
         flex-shrink: 0;
         padding: 10px 12px 8px;
@@ -137,7 +146,6 @@
     }
     .menu-search-rel { position: relative; }
 
-    /* Botón inicio (reload) */
     .menu-reload-btn {
         flex-shrink: 0;
         margin: 8px 12px 0;
@@ -156,10 +164,13 @@
         font-family: inherit;
         text-align: left;
     }
-    .menu-reload-btn:hover { background: #eff6ff; color: #0d6efd; border-color: #bfdbfe; }
+    .menu-reload-btn:hover {
+        background: #eff6ff;
+        color: #0d6efd;
+        border-color: #bfdbfe;
+    }
     .menu-reload-btn img { width: 15px; opacity: .7; }
 
-    /* Scroll del menú */
     .menu-scroll {
         flex: 1;
         overflow-y: auto;
@@ -169,9 +180,11 @@
         background: #fff;
     }
     .menu-scroll::-webkit-scrollbar { width: 4px; }
-    .menu-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+    .menu-scroll::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 4px;
+    }
 
-    /* Workspace (grupo) */
     .workspace-container { margin: 4px 10px 2px; }
     .ws-header {
         display: flex;
@@ -186,10 +199,16 @@
         transition: background .15s;
         user-select: none;
     }
-    .ws-header:hover { background: #eff6ff; border-color: #bfdbfe; }
+    .ws-header:hover {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+    }
     .ws-icon {
-        width: 22px; height: 22px;
-        display: flex; align-items: center; justify-content: center;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         flex-shrink: 0;
         background: transparent;
     }
@@ -219,7 +238,6 @@
     }
     .ws-header.open .ws-arrow { transform: rotate(180deg); }
 
-    /* Lista de reportes */
     .reports-list {
         list-style: none;
         margin: 0 0 4px 0;
@@ -228,6 +246,7 @@
     }
     .reports-list.visible { display: block; }
     .report-item { margin: 0; padding: 0; }
+
     .report-link {
         display: flex;
         align-items: center;
@@ -245,13 +264,17 @@
     }
     .report-link::before {
         content: '';
-        width: 4px; height: 4px;
+        width: 4px;
+        height: 4px;
         border-radius: 50%;
         background: #cbd5e1;
         flex-shrink: 0;
         transition: background .12s;
     }
-    .report-link:hover { background: #eff6ff; color: #0d6efd; }
+    .report-link:hover {
+        background: #eff6ff;
+        color: #0d6efd;
+    }
     .report-link:hover::before { background: #0d6efd; }
     .report-link.active {
         background: linear-gradient(90deg,#eff6ff,#f0f7ff);
@@ -262,7 +285,6 @@
     }
     .report-link.active::before { background: #0d6efd; }
 
-    /* Pie del menú */
     .menu-footer {
         flex-shrink: 0;
         padding: 10px 12px;
@@ -285,10 +307,13 @@
         transition: background .15s, color .15s, border-color .15s;
         font-family: inherit;
     }
-    .menu-footer-btn:hover { background: #eff6ff; color: #0d6efd; border-color: #bfdbfe; }
+    .menu-footer-btn:hover {
+        background: #eff6ff;
+        color: #0d6efd;
+        border-color: #bfdbfe;
+    }
     .menu-footer-btn img { width: 16px; }
 
-    /* ── OVERLAY FONDO cuando menú abierto ───────────────────────────── */
     #menu-overlay {
         position: fixed;
         inset: 0;
@@ -299,29 +324,58 @@
         pointer-events: none;
         transition: opacity .22s;
     }
-    #menu-overlay.visible { opacity: 1; pointer-events: all; }
+    #menu-overlay.visible {
+        opacity: 1;
+        pointer-events: all;
+    }
 
     /* ── ÁREA CONTENT ─────────────────────────────────────────────────── */
     #content {
         width: 100%;
         height: 100vh;
         position: relative;
+        overflow: hidden;
+        background: #f8fafc;
     }
-    #default-report-frame,
+
+    #powerbi-wallpaper {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background-image: url('/static/images/escritorio.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        display: block;
+    }
+
+    #report-frame,
+    #loading-message,
+    #error-container,
+    #no-reports-msg {
+        position: absolute;
+        inset: 0;
+    }
+
     #report-frame {
         width: 100%;
         height: 100vh;
         border: none;
         display: none;
+        z-index: 10;
+        background: #fff;
     }
 
-    /* ── PANTALLA DE CARGA PROFESIONAL ───────────────────────────────── */
+    #loading-message,
+    #error-container,
+    #no-reports-msg {
+        z-index: 20;
+    }
+
+    /* ── PANTALLA DE CARGA ────────────────────────────────────────────── */
     #loading-message {
         display: none;
-        position: absolute;
-        inset: 0;
         background: linear-gradient(135deg,#f0f4ff 0%,#e8f0fe 50%,#f5f0ff 100%);
-        z-index: 50;
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -347,35 +401,17 @@
     .ld-card::before {
         content: '';
         position: absolute;
-        top: 0; left: 0; right: 0;
+        top: 0;
+        left: 0;
+        right: 0;
         height: 4px;
         background: linear-gradient(90deg,#0d6efd,#6f42c1,#0dcaf0,#0d6efd);
         background-size: 300% 100%;
         animation: ld-shimmer 2.4s linear infinite;
     }
-    @keyframes ld-shimmer { 0%{background-position:0% 0%} 100%{background-position:300% 0%} }
-
-    .ld-logo-wrap {
-        width: 70px; height: 70px;
-        border-radius: 18px;
-        background: linear-gradient(135deg,#0d6efd,#0b5ed7);
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 8px 20px rgba(13,110,253,.3);
-        margin-bottom: 20px;
-        position: relative;
-    }
-    .ld-logo-wrap img { width: 40px; filter: brightness(10); }
-    .ld-pulse {
-        position: absolute;
-        inset: -6px;
-        border-radius: 22px;
-        border: 2px solid rgba(13,110,253,.3);
-        animation: ld-pulse 1.8s ease-out infinite;
-    }
-    @keyframes ld-pulse {
-        0%   { transform:scale(1);   opacity:.6; }
-        70%  { transform:scale(1.18);opacity:0;  }
-        100% { transform:scale(1.18);opacity:0;  }
+    @keyframes ld-shimmer {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 300% 0%; }
     }
 
     .ld-title {
@@ -398,7 +434,6 @@
         word-break: break-word;
     }
 
-    /* Barra de progreso animada */
     .ld-bar-wrap {
         width: 100%;
         height: 5px;
@@ -415,14 +450,21 @@
         animation: ld-bar 1.6s linear infinite;
         width: 45%;
     }
-    @keyframes ld-bar { 0%{background-position:0% 0%} 100%{background-position:200% 0%} }
+    @keyframes ld-bar {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 200% 0%; }
+    }
 
     .ld-dots {
-        display: flex; gap: 6px; align-items: center; justify-content: center;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: center;
         margin-bottom: 18px;
     }
     .ld-dot {
-        width: 7px; height: 7px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: #0d6efd;
         animation: ld-dot-bounce .9s ease-in-out infinite;
@@ -430,8 +472,8 @@
     .ld-dot:nth-child(2) { animation-delay: .18s; background: #6f42c1; }
     .ld-dot:nth-child(3) { animation-delay: .36s; background: #0dcaf0; }
     @keyframes ld-dot-bounce {
-        0%,80%,100% { transform:translateY(0); opacity:.4; }
-        40%          { transform:translateY(-7px); opacity:1; }
+        0%,80%,100% { transform: translateY(0); opacity: .4; }
+        40% { transform: translateY(-7px); opacity: 1; }
     }
     .ld-hint {
         font-size: 10px;
@@ -439,13 +481,10 @@
         font-style: italic;
     }
 
-    /* ── ERROR CONTAINER ──────────────────────────────────────────────── */
+    /* ── ERROR ────────────────────────────────────────────────────────── */
     #error-container {
         display: none;
-        position: absolute;
-        inset: 0;
         background: #f8f9fa;
-        z-index: 50;
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -454,12 +493,16 @@
         padding: 32px;
     }
     #error-container.visible { display: flex; }
+
     .err-icon {
-        width: 64px; height: 64px;
+        width: 64px;
+        height: 64px;
         border-radius: 50%;
         background: #fff3cd;
         border: 2px solid #fde68a;
-        display: flex; align-items: center; justify-content: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 28px;
     }
     .err-title {
@@ -472,18 +515,19 @@
         color: #64748b;
         max-width: 400px;
     }
-    .err-img { width: 220px; opacity: .85; }
+    .err-img {
+        width: 220px;
+        opacity: .85;
+    }
 
     /* ── SIN REPORTES ─────────────────────────────────────────────────── */
     #no-reports-msg {
-        position: absolute;
-        inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
     }
     .no-rep-card {
-        background: #fff;
+        background: rgba(255,255,255,.95);
         border: 1px solid #e2e8f0;
         border-radius: 16px;
         padding: 36px 40px;
@@ -491,12 +535,24 @@
         width: 90%;
         text-align: center;
         box-shadow: 0 4px 20px rgba(10,15,61,.08);
+        backdrop-filter: blur(4px);
     }
-    .no-rep-card .nr-icon { font-size: 40px; margin-bottom: 14px; }
-    .no-rep-card .nr-title { font-size: 14px; font-weight: 700; color: #0a0f3d; margin-bottom: 8px; }
-    .no-rep-card .nr-text { font-size: 12px; color: #64748b; }
+    .no-rep-card .nr-icon {
+        font-size: 40px;
+        margin-bottom: 14px;
+    }
+    .no-rep-card .nr-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0a0f3d;
+        margin-bottom: 8px;
+    }
+    .no-rep-card .nr-text {
+        font-size: 12px;
+        color: #64748b;
+    }
 
-    /* ── MODAL CREDENCIALES — mejorado ───────────────────────────────── */
+    /* ── MODAL CREDENCIALES ───────────────────────────────────────────── */
     #credencialesModal .modal-content {
         border: none;
         border-radius: 14px;
@@ -509,12 +565,17 @@
         border: none;
         padding: 14px 18px;
     }
-    #credencialesModal .modal-title { font-size: 13px; font-weight: 700; }
+    #credencialesModal .modal-title {
+        font-size: 13px;
+        font-weight: 700;
+    }
     #credencialesModal .btn-close { filter: invert(1); }
     #credencialesModal .modal-body { padding: 20px; }
-    #credencialesModal .modal-footer { border-top: 1px solid #e2e8f0; padding: 10px 18px; }
+    #credencialesModal .modal-footer {
+        border-top: 1px solid #e2e8f0;
+        padding: 10px 18px;
+    }
 
-    /* Número de reportes visible en menú footer */
     .menu-footer-stats {
         display: flex;
         align-items: center;
@@ -522,10 +583,19 @@
         padding: 0 2px;
         margin-bottom: 8px;
     }
-    .mfs-label { font-size: 9.5px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
-    .mfs-val   { font-size: 11px; font-weight: 700; color: #0a0f3d; }
+    .mfs-label {
+        font-size: 9.5px;
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+    }
+    .mfs-val {
+        font-size: 11px;
+        font-weight: 700;
+        color: #0a0f3d;
+    }
 
-    /* Búsqueda sin resultados */
     .no-search-results {
         text-align: center;
         padding: 20px 12px;
@@ -533,13 +603,15 @@
         font-size: 11px;
     }
 
-    @keyframes spin-pbi { to { transform: rotate(360deg); } }
+    @media (max-width: 768px) {
+        #menu.open { width: 290px; }
+        #show-menu { height: 250px; }
+        .ld-card { padding: 28px 24px; }
+    }
 </style>
 
-<!-- ── OVERLAY FONDO ─────────────────────────────────────────────────── -->
 <div id="menu-overlay"></div>
 
-<!-- ── BOTÓN FLOTANTE ABRIR MENÚ ────────────────────────────────────── -->
 <button id="show-menu" title="Abrir menú Power BI">
     <span class="sm-label">
         <i class="fa-solid fa-chart-bar"></i>
@@ -547,188 +619,175 @@
     </span>
 </button>
 
-<!-- ── PANEL LATERAL ─────────────────────────────────────────────────── -->
 <div id="menu">
-
-    <!-- Cabecera -->
     <div class="menu-header">
         <div class="menu-header-title">
-        <span>Áreas de Trabajo · Power BI</span>
+            <span>Áreas de Trabajo · Power BI</span>
         </div>
         <button id="hide-menu">
-        <i class="fa-solid fa-xmark"></i> Cerrar
+            <i class="fa-solid fa-xmark"></i> Cerrar
         </button>
     </div>
 
-    <!-- Buscador -->
     <div class="menu-search-wrap">
         <div class="menu-search-rel">
-        <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="menu-search" placeholder="Buscar informe…" autocomplete="off">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="menu-search" placeholder="Buscar informe…" autocomplete="off">
         </div>
     </div>
 
-    <!-- Botón Inicio -->
     <button class="menu-reload-btn" onclick="location.reload()" style="margin:8px 12px 0;">
         <img src="/static/images/iniciopowerbi.png" alt="Inicio">
         Recargar página
     </button>
 
-    <!-- Áreas de trabajo -->
     <div class="menu-scroll" id="menu-scroll-body">
         {% for workspace, reports in report_data.items() %}
         <div class="workspace-container" data-ws="{{ workspace }}">
-        <div class="ws-header">
-            <div class="ws-icon"><img src="/static/images/power.png" style="width:22px; height:22px; object-fit:contain; border-radius:6px; pointer-events:none;"></div>
-            <span class="ws-name" title="{{ workspace }}">{{ workspace }}</span>
-            <span class="ws-count">{{ reports|length }}</span>
-            <span class="ws-arrow"><i class="fa-solid fa-chevron-down"></i></span>
-        </div>
-        <ul class="reports-list">
-            {% for report in reports %}
-            <li class="report-item">
-            <a href="#" class="report-link"
-                data-report-id="{{ report.report_id }}"
-                data-report-name="{{ report.ItemName }}"
-                title="{{ report.ItemName }}">
-                {{ report.ItemName }}
-            </a>
-            </li>
-            {% endfor %}
-        </ul>
+            <div class="ws-header">
+                <div class="ws-icon">
+                    <img src="/static/images/power.png"
+                         style="width:22px; height:22px; object-fit:contain; border-radius:6px; pointer-events:none;">
+                </div>
+                <span class="ws-name" title="{{ workspace }}">{{ workspace }}</span>
+                <span class="ws-count">{{ reports|length }}</span>
+                <span class="ws-arrow"><i class="fa-solid fa-chevron-down"></i></span>
+            </div>
+            <ul class="reports-list">
+                {% for report in reports %}
+                <li class="report-item">
+                    <a href="#"
+                       class="report-link"
+                       data-report-id="{{ report.report_id }}"
+                       data-report-name="{{ report.ItemName }}"
+                       title="{{ report.ItemName }}">
+                        {{ report.ItemName }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
         </div>
         {% endfor %}
         <div class="no-search-results" id="no-search-msg" style="display:none;">
-        Sin resultados para tu búsqueda
+            Sin resultados para tu búsqueda
         </div>
     </div>
 
-    <!-- Pie del panel -->
     <div class="menu-footer">
         <div class="menu-footer-stats">
-        <span class="mfs-label">Informes disponibles</span>
-        <span class="mfs-val" id="total-reports-count">–</span>
+            <span class="mfs-label">Informes disponibles</span>
+            <span class="mfs-val" id="total-reports-count">–</span>
         </div>
         <button class="menu-footer-btn"
                 data-bs-toggle="modal" data-bs-target="#credencialesModal">
-        <img src="/static/images/candado.png" alt="Licencia">
-        Ver credenciales de licencia
+            <img src="/static/images/candado.png" alt="Licencia">
+            Ver credenciales de licencia
         </button>
     </div>
-
 </div>
 
-<!-- ── MODAL CREDENCIALES ────────────────────────────────────────────── -->
 <div class="modal fade" id="credencialesModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title">
-            <i class="fa-solid fa-key me-2"></i>Credenciales Power BI
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-            {% if error_message %}
-            <div class="alert alert-danger">{{ error_message }}</div>
-            {% else %}
-            <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#1e3a8a;">
-            <strong>Hola, {{ user_session.nombres }} {{ user_session.apellidos }}.</strong><br>
-            Por restricciones de seguridad, abre Power BI en una pestaña <strong>incógnito</strong> y usa las credenciales siguientes.
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-key me-2"></i>Credenciales Power BI
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="mb-3">
-            <label class="form-label" style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.3px;">Licencia (Correo)</label>
-            <div style="display:flex;gap:6px;">
-                <input type="text" class="form-control form-control-sm" id="licencia_bi" value="{{ licencia_bi }}" readonly style="background:#f1f5f9;font-size:12px;font-family:monospace;">
-                <button onclick="copiar('licencia_bi',this)" style="background:#0d6efd;color:#fff;border:none;border-radius:7px;padding:0 10px;font-size:11px;cursor:pointer;white-space:nowrap;font-family:inherit;">
-                <i class="fa-regular fa-copy"></i>
-                </button>
+            <div class="modal-body">
+                {% if error_message %}
+                <div class="alert alert-danger">{{ error_message }}</div>
+                {% else %}
+                <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#1e3a8a;">
+                    <strong>Hola, {{ user_session.nombres }} {{ user_session.apellidos }}.</strong><br>
+                    Por restricciones de seguridad, abre Power BI en una pestaña <strong>incógnito</strong> y usa las credenciales siguientes.
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.3px;">Licencia (Correo)</label>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" class="form-control form-control-sm" id="licencia_bi" value="{{ licencia_bi }}" readonly style="background:#f1f5f9;font-size:12px;font-family:monospace;">
+                        <button onclick="copiar('licencia_bi',this)" style="background:#0d6efd;color:#fff;border:none;border-radius:7px;padding:0 10px;font-size:11px;cursor:pointer;white-space:nowrap;font-family:inherit;">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.3px;">Contraseña</label>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" class="form-control form-control-sm" id="contraseña_licencia" value="{{ contraseña_licencia }}" readonly style="background:#f1f5f9;font-size:12px;font-family:monospace;">
+                        <button onclick="copiar('contraseña_licencia',this)" style="background:#0d6efd;color:#fff;border:none;border-radius:7px;padding:0 10px;font-size:11px;cursor:pointer;white-space:nowrap;font-family:inherit;">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <a href="https://app.powerbi.com/groups/me/apps?experience=power-bi"
+                   target="_blank"
+                   style="display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:#fff;border-radius:9px;padding:9px 14px;text-decoration:none;font-size:12px;font-weight:700;margin-top:4px;">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Power BI en nueva pestaña
+                </a>
+                {% endif %}
             </div>
-            </div>
-            <div class="mb-3">
-            <label class="form-label" style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.3px;">Contraseña</label>
-            <div style="display:flex;gap:6px;">
-                <input type="text" class="form-control form-control-sm" id="contraseña_licencia" value="{{ contraseña_licencia }}" readonly style="background:#f1f5f9;font-size:12px;font-family:monospace;">
-                <button onclick="copiar('contraseña_licencia',this)" style="background:#0d6efd;color:#fff;border:none;border-radius:7px;padding:0 10px;font-size:11px;cursor:pointer;white-space:nowrap;font-family:inherit;">
-                <i class="fa-regular fa-copy"></i>
-                </button>
-            </div>
-            </div>
-            <a href="https://app.powerbi.com/groups/me/apps?experience=power-bi" target="_blank"
-            style="display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:#fff;border-radius:9px;padding:9px 14px;text-decoration:none;font-size:12px;font-weight:700;margin-top:4px;">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Power BI en nueva pestaña
-            </a>
-            {% endif %}
-        </div>
         </div>
     </div>
 </div>
 
-<!-- ── ÁREA DE CONTENIDO ─────────────────────────────────────────────── -->
 <div id="content">
 
-    <!-- Pantalla de carga -->
+    <div id="powerbi-wallpaper"></div>
+
     <div id="loading-message">
         <div class="ld-card">
-        <div class="">
-            <span class="ld-pulse"></span>
-            <img src="/static/images/power.png" style="width:45px; height:45px; object-fit:contain; border-radius:6px; pointer-events:none;" alt="Power BI">
-        </div>
-        <div class="ld-title">Cargando Dashboard</div>
-        <div class="ld-subtitle">Preparando el informe</div>
-        <div id="ld-report-name">–</div>
-        <div class="ld-bar-wrap"><div class="ld-bar-fill"></div></div>
-        <div class="ld-dots">
-            <div class="ld-dot"></div>
-            <div class="ld-dot"></div>
-            <div class="ld-dot"></div>
-        </div>
-        <div class="ld-hint">Esto puede tardar unos segundos…</div>
+            <div>
+                <img src="/static/images/power.png"
+                     style="width:45px; height:45px; object-fit:contain; border-radius:6px; pointer-events:none;"
+                     alt="Power BI">
+            </div>
+            <div class="ld-title">Cargando Dashboard</div>
+            <div class="ld-subtitle">Preparando el informe</div>
+            <div id="ld-report-name">–</div>
+            <div class="ld-bar-wrap"><div class="ld-bar-fill"></div></div>
+            <div class="ld-dots">
+                <div class="ld-dot"></div>
+                <div class="ld-dot"></div>
+                <div class="ld-dot"></div>
+            </div>
+            <div class="ld-hint">Esto puede tardar unos segundos…</div>
         </div>
     </div>
 
-    <!-- Pantalla de error -->
     <div id="error-container">
         <div class="err-icon">⚠️</div>
         <div class="err-title">Informe no disponible</div>
-        <div class="err-sub" id="err-report-sub">El informe seleccionado aún no tiene enlace configurado. Consulta al área encargada.</div>
+        <div class="err-sub" id="err-report-sub">
+            El informe seleccionado aún no tiene enlace configurado. Consulta al área encargada.
+        </div>
         <img class="err-img" src="/static/images/en_construccion.gif" alt="En construcción">
     </div>
 
-    <!-- Sin reportes asignados -->
     {% if not report_data or report_data|length == 0 %}
     <div id="no-reports-msg">
         <div class="no-rep-card">
-        <div class="nr-icon">📊</div>
-        <div class="nr-title">Sin reportes asignados</div>
-        <div class="nr-text">No tienes reportes de Power BI asignados. Solicita a un administrador que te asigne un rol de acceso.</div>
+            <div class="nr-icon">📊</div>
+            <div class="nr-title">Sin reportes asignados</div>
+            <div class="nr-text">
+                No tienes reportes de Power BI asignados. Solicita a un administrador que te asigne un rol de acceso.
+            </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- Iframe por defecto -->
-    <iframe id="default-report-frame"
-            title="Power BI — Reporte inicial"
-            width="100%" height="100%"
-            data-report-id="{{ default_report_id or '' }}"
-            frameborder="0"
-            allowfullscreen="true"
-            style="display:none;">
-    </iframe>
-
-    <!-- Iframe seleccionado -->
     <iframe id="report-frame"
             sandbox="allow-same-origin allow-scripts allow-popups"
-            allowfullscreen
-            style="display:none; width:100%; height:100vh; border:none;">
+            allowfullscreen>
     </iframe>
-
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-
-    // ── Referencias ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
     var menu              = document.getElementById('menu');
     var menuOverlay       = document.getElementById('menu-overlay');
     var showMenuBtn       = document.getElementById('show-menu');
@@ -736,7 +795,7 @@
     var loadingMsg        = document.getElementById('loading-message');
     var ldReportName      = document.getElementById('ld-report-name');
     var reportFrame       = document.getElementById('report-frame');
-    var defaultFrame      = document.getElementById('default-report-frame');
+    var wallpaper         = document.getElementById('powerbi-wallpaper');
     var errorContainer    = document.getElementById('error-container');
     var errReportSub      = document.getElementById('err-report-sub');
     var menuSearch        = document.getElementById('menu-search');
@@ -745,159 +804,203 @@
     var reportLinks       = document.querySelectorAll('#menu .report-link');
     var workspaces        = document.querySelectorAll('.workspace-container');
 
-    // ── Contar reportes totales ──────────────────────────────────────────
-    if (totalReportsCount) totalReportsCount.textContent = reportLinks.length;
+    if (totalReportsCount) {
+        totalReportsCount.textContent = reportLinks.length;
+    }
 
-    // ── Acordeón workspaces ─────────────────────────────────────────────
     workspaces.forEach(function(ws) {
         var header = ws.querySelector('.ws-header');
         var list   = ws.querySelector('.reports-list');
         if (!header || !list) return;
+
         header.addEventListener('click', function () {
-        var open = list.classList.contains('visible');
-        // Cerrar todos
-        workspaces.forEach(function(w) {
-            w.querySelector('.reports-list').classList.remove('visible');
-            w.querySelector('.ws-header').classList.remove('open');
-        });
-        if (!open) {
-            list.classList.add('visible');
-            header.classList.add('open');
-        }
+            var open = list.classList.contains('visible');
+
+            workspaces.forEach(function(w) {
+                var wList = w.querySelector('.reports-list');
+                var wHeader = w.querySelector('.ws-header');
+                if (wList) wList.classList.remove('visible');
+                if (wHeader) wHeader.classList.remove('open');
+            });
+
+            if (!open) {
+                list.classList.add('visible');
+                header.classList.add('open');
+            }
         });
     });
 
-    // ── Buscador ─────────────────────────────────────────────────────────
     if (menuSearch) {
         menuSearch.addEventListener('input', function () {
-        var q = this.value.toLowerCase().trim();
-        var found = 0;
-        workspaces.forEach(function(ws) {
-            var items = ws.querySelectorAll('.report-item');
-            var wsVisible = 0;
-            items.forEach(function(item) {
-            var name = item.querySelector('.report-link').getAttribute('data-report-name').toLowerCase();
-            var show = !q || name.includes(q);
-            item.style.display = show ? '' : 'none';
-            if (show) wsVisible++;
+            var q = this.value.toLowerCase().trim();
+            var found = 0;
+
+            workspaces.forEach(function(ws) {
+                var items = ws.querySelectorAll('.report-item');
+                var wsVisible = 0;
+
+                items.forEach(function(item) {
+                    var link = item.querySelector('.report-link');
+                    var name = (link.getAttribute('data-report-name') || '').toLowerCase();
+                    var show = !q || name.includes(q);
+                    item.style.display = show ? '' : 'none';
+                    if (show) wsVisible++;
+                });
+
+                ws.style.display = wsVisible > 0 ? '' : 'none';
+
+                if (q && wsVisible > 0) {
+                    var list = ws.querySelector('.reports-list');
+                    var header = ws.querySelector('.ws-header');
+                    if (list) list.classList.add('visible');
+                    if (header) header.classList.add('open');
+                }
+                found += wsVisible;
             });
-            ws.style.display = wsVisible > 0 ? '' : 'none';
-            if (q && wsVisible > 0) {
-            ws.querySelector('.reports-list').classList.add('visible');
-            ws.querySelector('.ws-header').classList.add('open');
+
+            if (noSearchMsg) {
+                noSearchMsg.style.display = (q && found === 0) ? 'block' : 'none';
             }
-            found += wsVisible;
-        });
-        if (noSearchMsg) noSearchMsg.style.display = (q && found === 0) ? 'block' : 'none';
         });
     }
 
-    // ── Mostrar / ocultar menú ───────────────────────────────────────────
     function showMenu() {
         menu.classList.add('open');
         menuOverlay.classList.add('visible');
         showMenuBtn.style.display = 'none';
     }
+
     function hideMenu() {
         menu.classList.remove('open');
         menuOverlay.classList.remove('visible');
         showMenuBtn.style.display = '';
-        if (menuSearch) { menuSearch.value = ''; menuSearch.dispatchEvent(new Event('input')); }
+
+        if (menuSearch) {
+            menuSearch.value = '';
+            menuSearch.dispatchEvent(new Event('input'));
+        }
     }
+
     showMenuBtn.addEventListener('click', showMenu);
     hideMenuBtn.addEventListener('click', hideMenu);
     menuOverlay.addEventListener('click', hideMenu);
 
-    // ── Helpers estado ───────────────────────────────────────────────────
+    function showWallpaper() {
+        if (wallpaper) wallpaper.style.display = 'block';
+    }
+
+    function hideWallpaper() {
+        if (wallpaper) wallpaper.style.display = 'none';
+    }
+
     function showLoading(name) {
         loadingMsg.classList.add('visible');
         ldReportName.textContent = name || '–';
         errorContainer.classList.remove('visible');
         reportFrame.style.display = 'none';
-        defaultFrame.style.display = 'none';
     }
-    function hideLoading() { loadingMsg.classList.remove('visible'); }
+
+    function hideLoading() {
+        loadingMsg.classList.remove('visible');
+    }
+
     function showError(name) {
         hideLoading();
         reportFrame.style.display = 'none';
-        defaultFrame.style.display = 'none';
-        if (errReportSub) errReportSub.textContent = '"' + (name||'') + '" aún no tiene enlace configurado. Consulta al área encargada.';
+        if (errReportSub) {
+            errReportSub.textContent = '"' + (name || '') + '" aún no tiene enlace configurado. Consulta al área encargada.';
+        }
         errorContainer.classList.add('visible');
     }
-    function hideError() { errorContainer.classList.remove('visible'); }
 
-    // ── Fetch URL del reporte ────────────────────────────────────────────
-    async function fetchReportUrl(reportId) {
-        try {
-        var response = await fetch('/api/get_report_url?report_id=' + encodeURIComponent(reportId));
-        var data     = await response.json();
-        if (response.ok && data.url && data.url.trim() !== '' && data.url !== 'NaN') return data.url;
-        if (response.status === 401) { alert('Tu sesión ha expirado o no estás autenticado.'); return null; }
-        if (response.status === 403) { alert('No tienes permiso para ver este informe.');       return null; }
-        return null;
-        } catch (e) { console.error('Error al obtener URL:', e); return null; }
+    function hideError() {
+        errorContainer.classList.remove('visible');
     }
 
-    // ── Cargar reporte ───────────────────────────────────────────────────
+    async function fetchReportUrl(reportId) {
+        try {
+            var response = await fetch('/api/get_report_url?report_id=' + encodeURIComponent(reportId));
+            var data = await response.json();
+
+            if (response.ok && data.url && data.url.trim() !== '' && data.url !== 'NaN') {
+                return data.url;
+            }
+
+            if (response.status === 401) {
+                alert('Tu sesión ha expirado o no estás autenticado.');
+                return null;
+            }
+
+            if (response.status === 403) {
+                alert('No tienes permiso para ver este informe.');
+                return null;
+            }
+
+            return null;
+        } catch (e) {
+            console.error('Error al obtener URL:', e);
+            return null;
+        }
+    }
+
     async function loadReport(link) {
         var reportId   = link.getAttribute('data-report-id');
         var reportName = link.getAttribute('data-report-name') || 'Informe desconocido';
-        if (!reportId) { showError(reportName); return; }
+
+        if (!reportId) {
+            showError(reportName);
+            return;
+        }
+
         showLoading(reportName);
+
         var url = await fetchReportUrl(reportId);
-        if (!url) { showError(reportName); return; }
+        if (!url) {
+            showError(reportName);
+            return;
+        }
+
         hideError();
-        reportLinks.forEach(function(l) { l.classList.remove('active'); });
+        hideWallpaper();
+
+        reportLinks.forEach(function(l) {
+            l.classList.remove('active');
+        });
         link.classList.add('active');
+
         reportFrame.style.display = 'none';
         reportFrame.src = url;
-        reportFrame.onload = function () { hideLoading(); reportFrame.style.display = 'block'; };
+        reportFrame.onload = function () {
+            hideLoading();
+            reportFrame.style.display = 'block';
+        };
     }
 
-    // ── Eventos de los links ─────────────────────────────────────────────
     reportLinks.forEach(function(link) {
         link.addEventListener('click', function (e) {
-        e.preventDefault();
-        loadReport(this);
-        hideMenu();
+            e.preventDefault();
+            loadReport(this);
+            hideMenu();
         });
     });
 
-    // ── Inicializar: ocultar menú ────────────────────────────────────────
     hideMenu();
+    showWallpaper();
+    hideLoading();
+    hideError();
+});
 
-    // ── Cargar reporte por defecto ───────────────────────────────────────
-    (async function () {
-        var reportId = defaultFrame ? defaultFrame.getAttribute('data-report-id') : null;
-        if (reportId) {
-        showLoading('Dashboard principal');
-        try {
-            var url = await fetchReportUrl(reportId);
-            if (url) {
-            defaultFrame.src = url;
-            defaultFrame.onload = function () { hideLoading(); defaultFrame.style.display = 'block'; };
-            } else {
-            loadingMsg.classList.remove('visible');
-            }
-        } catch (e) {
-            console.error('Error al cargar reporte por defecto:', e);
-            loadingMsg.classList.remove('visible');
-        }
-        }
-    })();
-
-    });
-
-    // ── Copiar al portapapeles ───────────────────────────────────────────────
-    function copiar(inputId, btn) {
+function copiar(inputId, btn) {
     var val = document.getElementById(inputId).value;
     navigator.clipboard.writeText(val).then(function() {
         var orig = btn.innerHTML;
         btn.innerHTML = '<i class="fa-solid fa-check"></i>';
         btn.style.background = '#198754';
-        setTimeout(function(){ btn.innerHTML = orig; btn.style.background = ''; }, 1600);
+        setTimeout(function() {
+            btn.innerHTML = orig;
+            btn.style.background = '';
+        }, 1600);
     });
-    }
+}
 </script>
-
 {% endblock %}

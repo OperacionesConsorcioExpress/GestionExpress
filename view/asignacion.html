@@ -47,7 +47,7 @@
                 <i class="bi bi-upload"></i> Cargue Excel
             </button>
             <input type="file" id="fileInput" style="display:none;" onchange="cargarArchivo(this.files[0])">
-            <button class="btn asig-btn asig-btn-report asig-btn-compact" data-bs-toggle="modal" data-bs-target="#modalReportes" onclick="cargarDashboard()">
+            <button id="btnAbrirReporte" class="btn asig-btn asig-btn-report asig-btn-compact" data-bs-toggle="modal" data-bs-target="#modalReportes" onclick="cargarDashboard()">
                 <i class="bi bi-bar-chart-line-fill"></i> Reporte
             </button>
         </div>
@@ -332,14 +332,14 @@
             <div class="modal-header border-0">
                 <div>
                     <h5 class="modal-title" id="modalReportesLabel">Reporte de asignaciones</h5>
-                    <small class="text-muted">Visualización embebida del dashboard operativo.</small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body p-0" id="contenidoDashboard" style="height:calc(100% - 56px); overflow-y:auto;">
-                <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted gap-2">
-                    <i class="bi bi-bar-chart-line-fill" style="font-size:2rem;"></i>
-                    <em>Cargando contenido del dashboard...</em>
+                <div class="dashboard-status dashboard-status--idle">
+                    <i class="bi bi-bar-chart-line-fill dashboard-status__icon"></i>
+                    <strong>Reporte listo para cargar</strong>
+                    <span>Abra el panel para consultar filtros y registros del dashboard.</span>
                 </div>
             </div>
         </div>
@@ -405,6 +405,32 @@
     .asig-btn-soft-dark{background:#f8fafc; color:#0f172a; border:1px solid #dbe3ef;}
     .asig-btn-info{background:#e0f2fe; color:#075985; border:1px solid #bae6fd;}
     .asig-btn-report{background:#fff; color:#0d6efd; border:1px solid #bfdbfe;}
+    .dashboard-status{
+        height:100%;
+        min-height:260px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:.65rem;
+        padding:2rem 1.5rem;
+        text-align:center;
+        color:#475569;
+        background:linear-gradient(180deg,#f8fbff 0%,#eef4fb 100%);
+    }
+    .dashboard-status strong{font-size:1rem; color:#0f172a;}
+    .dashboard-status span{max-width:420px; font-size:.86rem; line-height:1.45;}
+    .dashboard-status__icon{font-size:2rem; color:#0d6efd;}
+    .dashboard-status__spinner{
+        width:2.35rem;
+        height:2.35rem;
+        border:.28rem solid rgba(13,110,253,.16);
+        border-top-color:#0d6efd;
+        border-radius:50%;
+        animation:dashboardSpin .75s linear infinite;
+    }
+    .dashboard-status--error .dashboard-status__icon{color:#dc3545;}
+    .dashboard-status--error strong{color:#991b1b;}
     .asig-card{
         background:#fff; border-radius:10px; border:1px solid #e2e8f0; box-shadow:0 2px 10px rgba(15,23,42,.05);
         overflow:hidden;
@@ -488,6 +514,10 @@
     .asig-spinner-lg{inset:0; border:4px solid #dbeafe; border-top-color:#0d6efd;}
     .asig-spinner-sm{inset:10px; border:3px solid #dbeafe; border-bottom-color:#38bdf8; animation-direction:reverse; animation-duration:1.15s;}
 
+    @keyframes dashboardSpin {
+        to { transform: rotate(360deg); }
+    }
+
     @media (max-width: 1199px){
         .asig-layout-grid{grid-template-columns:1fr;}
         .asig-side-card, .asig-main-card{min-height:auto;}
@@ -506,6 +536,9 @@
 
 <script>
     let currentAbortCtrl = null;
+    let dashboardAbortCtrl = null;
+    let dashboardLoadInProgress = false;
+    let dashboardShellLoaded = false;
 
     function showLoading(message = 'PROCESANDO...', subMessage = 'Por favor espere mientras se completa la operación') {
         const msg = document.getElementById('loaderMsg');
@@ -538,6 +571,68 @@
         container.appendChild(toast);
         setTimeout(() => toast.remove(), 4200);
     }
+
+    function renderDashboardState(title, detail, tone = 'loading') {
+        const container = document.getElementById('contenidoDashboard');
+        if (!container) return;
+
+        const iconMarkup = tone === 'loading'
+            ? '<div class="dashboard-status__spinner" aria-hidden="true"></div>'
+            : tone === 'error'
+                ? '<i class="bi bi-exclamation-triangle-fill dashboard-status__icon" aria-hidden="true"></i>'
+                : '<i class="bi bi-bar-chart-line-fill dashboard-status__icon" aria-hidden="true"></i>';
+
+        container.innerHTML = `
+            <div class="dashboard-status ${tone === 'error' ? 'dashboard-status--error' : ''}">
+                ${iconMarkup}
+                <strong>${title}</strong>
+                <span>${detail}</span>
+            </div>
+        `;
+    }
+
+    function setDashboardButtonLoading(isLoading) {
+        const button = document.getElementById('btnAbrirReporte');
+        if (!button) return;
+
+        if (!button.dataset.defaultLabel) {
+            button.dataset.defaultLabel = button.innerHTML;
+        }
+
+        button.disabled = isLoading;
+        button.innerHTML = isLoading
+            ? '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cargando...'
+            : button.dataset.defaultLabel;
+    }
+
+    function ejecutarScriptsDashboard(container) {
+        const scripts = container.querySelectorAll('script');
+        scripts.forEach((script) => {
+            const newScript = document.createElement('script');
+            Array.from(script.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value));
+            newScript.textContent = script.textContent;
+            script.parentNode.replaceChild(newScript, script);
+        });
+    }
+
+    function cancelarCargaDashboard() {
+        if (dashboardAbortCtrl) {
+            dashboardAbortCtrl.abort();
+            dashboardAbortCtrl = null;
+        }
+
+        dashboardLoadInProgress = false;
+        setDashboardButtonLoading(false);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const modalReportes = document.getElementById('modalReportes');
+        if (!modalReportes) return;
+
+        modalReportes.addEventListener('hidden.bs.modal', () => {
+            cancelarCargaDashboard();
+        });
+    });
 </script>
 
 <!-- Estilos necesarios para la grilla de gestión de asignaciones -->
@@ -2226,32 +2321,55 @@
 <!-- FUNCIONES DE LA VENTANA MODAL DE REPORTE ASIGNACIONES" -->
 <script>
     function cargarDashboard() {
-        showLoading('CARGANDO DASHBOARD...', 'Preparando la visualización del reporte');
-        fetch("/dashboard?modal=true")
-            .then(response => response.text())
-            .then(html => {
-                document.getElementById("contenidoDashboard").innerHTML = html;
-    
-                // Forzar ejecución de scripts incluidos en el HTML insertado
-                let scripts = document.getElementById("contenidoDashboard").getElementsByTagName("script");
-                for (let script of scripts) {
-                    let newScript = document.createElement("script");
-                    if (script.src) {
-                        newScript.src = script.src;
-                    } else {
-                        newScript.textContent = script.textContent;
-                    }
-                    document.body.appendChild(newScript);
+        if (dashboardShellLoaded || dashboardLoadInProgress) {
+            return;
+        }
+
+        dashboardLoadInProgress = true;
+        dashboardAbortCtrl = new AbortController();
+        setDashboardButtonLoading(true);
+        renderDashboardState(
+            'Abriendo dashboard...',
+            'Estamos preparando la interfaz del reporte. Las consultas se ejecutaran solo cuando usted las solicite.',
+            'loading'
+        );
+
+        fetch('/dashboard?modal=true', { signal: dashboardAbortCtrl.signal })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`No fue posible cargar el dashboard (${response.status})`);
                 }
+
+                return response.text();
+            })
+            .then(html => {
+                const container = document.getElementById('contenidoDashboard');
+                container.innerHTML = html;
+                ejecutarScriptsDashboard(container);
+                dashboardShellLoaded = true;
             })
             .catch(error => {
-                document.getElementById("contenidoDashboard").innerHTML = `<div class="alert alert-danger m-3">Error al cargar el dashboard</div>`;
-                console.error("Error al cargar dashboard:", error);
+                if (error.name === 'AbortError') {
+                    return;
+                }
+
+                renderDashboardState(
+                    'No fue posible abrir el reporte',
+                    'La interfaz del dashboard no pudo cargarse. Cierre y abra de nuevo el panel para reintentar.',
+                    'error'
+                );
+                console.error('Error al cargar dashboard:', error);
                 showToast('Error al cargar el dashboard.', 'error');
             })
-            .finally(() => { hideLoading(); });
+            .finally(() => {
+                dashboardAbortCtrl = null;
+                dashboardLoadInProgress = false;
+                setDashboardButtonLoading(false);
+            });
     }
-    
-</script>    
+</script>
 
 {% endblock %}
+
+
+

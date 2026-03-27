@@ -182,11 +182,13 @@
                 onmouseout="if(!this.disabled){this.style.borderColor='#e2e8f0';this.style.color='#64748b';}">
                 <i class="bi bi-arrow-clockwise"></i>&nbsp;Refrescar
             </button>
+            {% if acciones_permitidas.descargar %}
             <button id="downloadSelectedBtn" disabled
                 style="display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:6px;border:none;background:#198754;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:700;cursor:pointer;color:#fff;opacity:0.45;"
                 onmouseover="if(!this.disabled)this.style.background='#157347'" onmouseout="if(!this.disabled)this.style.background='#198754'">
                 <i class="bi bi-download"></i>&nbsp;Descargar (<span id="dlCount">0</span>)
             </button>
+            {% endif %}
             </div>
         </div>
 
@@ -212,6 +214,7 @@
         </div>
 
         <!-- Zona de carga -->
+        {% if acciones_permitidas.cargar %}
         <div style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; padding:0.55rem 0.75rem; flex-shrink:0;">
 
             <!-- Ruta actual -->
@@ -246,6 +249,7 @@
             <div style="height:100%; background:linear-gradient(90deg,#0d6efd,#0dcaf0); animation:progressAnim 1.4s ease-in-out infinite;"></div>
             </div>
         </div>
+        {% endif %}{# fin zona de carga #}
 
         </div><!-- fin columna der -->
     </div><!-- fin grid -->
@@ -299,6 +303,16 @@
         JAVASCRIPT
     ═══════════════════════════════════════ -->
     <script>
+    /* ── ACCIONES PERMITIDAS POR ROL (inyectadas desde el backend) ── */
+    var ACCIONES = {
+        ver:       {{ acciones_permitidas.ver | lower }},
+        editar:    {{ acciones_permitidas.editar | lower }},
+        descargar: {{ acciones_permitidas.descargar | lower }},
+        eliminar:  {{ acciones_permitidas.eliminar | lower }},
+        cargar:    {{ acciones_permitidas.cargar | lower }}
+    };
+    </script>
+    <script>
     (function () {
 
     /* ── ESTADO ── */
@@ -345,13 +359,15 @@
 
     function updateDlBtn() {
         var btn=document.getElementById('downloadSelectedBtn'), n=selectedFiles.length;
-        document.getElementById('dlCount').textContent=n;
+        var dlCount=document.getElementById('dlCount');
+        if(dlCount) dlCount.textContent=n;
         document.getElementById('statSelected').textContent=n;
-        btn.disabled=(n===0); btn.style.opacity=n>0?'1':'0.45';
+        if(btn){btn.disabled=(n===0);btn.style.opacity=n>0?'1':'0.45';}
     }
+    var _uploadPathDisplay=document.getElementById('currentUploadPathDisplay');
     window.limpiarRutaCarga=function(){
         currentUploadPath='';
-        document.getElementById('currentUploadPathDisplay').textContent='/ (raíz)';
+        if(_uploadPathDisplay) _uploadPathDisplay.textContent='/ (raíz)';
         document.querySelectorAll('.upload-target-row').forEach(function(r){r.style.background='';r.classList.remove('upload-target-row');});
     };
     window.cerrarModal=function(){document.getElementById('propsModal').style.display='none';};
@@ -437,7 +453,7 @@
             document.querySelectorAll('.upload-target-row').forEach(function(r){r.style.background='';r.classList.remove('upload-target-row');});
             row.style.background='#fff7ed';row.classList.add('upload-target-row');
             currentUploadPath=fp;
-            document.getElementById('currentUploadPathDisplay').textContent=currentContainer+'/'+fp;
+            if(_uploadPathDisplay) _uploadPathDisplay.textContent=currentContainer+'/'+fp;
             toast('Ruta de carga: '+fp,'info');
         });
         /* ctx menu */
@@ -469,11 +485,11 @@
             '<span class="file-size-cell" style="font-size:11px;color:#64748b;font-weight:500;white-space:nowrap;">'+sz+'</span>'+
             '<span class="file-date-cell" style="font-size:10.5px;color:#64748b;white-space:nowrap;">'+dt+'</span>'+
             '<div style="display:flex;gap:3px;justify-content:center;">'+
-            '<button class="btn-view"     data-file="'+fp+'" title="Ver archivo" style="width:24px;height:24px;border:1px solid #d1fae5;border-radius:5px;background:#f0fdf4;color:#059669;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#bbf7d0\'" onmouseout="this.style.background=\'#f0fdf4\'"><i class="bi bi-eye"></i></button>'+
-            (isEditable(name)?'<button class="btn-edit" data-file="'+fp+'" title="Editar archivo" style="width:24px;height:24px;border:1px solid #fef3c7;border-radius:5px;background:#fffbeb;color:#d97706;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fde68a\'" onmouseout="this.style.background=\'#fffbeb\'"><i class="bi bi-pencil"></i></button>':'')+
-            '<button class="btn-dl-single" data-file="'+fp+'" title="Descargar" style="width:24px;height:24px;border:1px solid #dbeafe;border-radius:5px;background:#f0f7ff;color:#0d6efd;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#f0f7ff\'"><i class="bi bi-download"></i></button>'+
+            (ACCIONES.ver?'<button class="btn-view"     data-file="'+fp+'" title="Ver archivo" style="width:24px;height:24px;border:1px solid #d1fae5;border-radius:5px;background:#f0fdf4;color:#059669;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#bbf7d0\'" onmouseout="this.style.background=\'#f0fdf4\'"><i class="bi bi-eye"></i></button>':'')+
+            (ACCIONES.editar&&isEditable(name)?'<button class="btn-edit" data-file="'+fp+'" title="Editar archivo" style="width:24px;height:24px;border:1px solid #fef3c7;border-radius:5px;background:#fffbeb;color:#d97706;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fde68a\'" onmouseout="this.style.background=\'#fffbeb\'"><i class="bi bi-pencil"></i></button>':'')+
+            (ACCIONES.descargar?'<button class="btn-dl-single" data-file="'+fp+'" title="Descargar" style="width:24px;height:24px;border:1px solid #dbeafe;border-radius:5px;background:#f0f7ff;color:#0d6efd;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#f0f7ff\'"><i class="bi bi-download"></i></button>':'')+
             '<button class="btn-props"    data-file="'+fp+'" data-meta=\''+JSON.stringify(m)+'\' title="Propiedades" style="width:24px;height:24px;border:1px solid #e2e8f0;border-radius:5px;background:#fafafa;color:#64748b;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fafafa\'"><i class="bi bi-info-circle"></i></button>'+
-            '<button class="btn-del"      data-file="'+fp+'" title="Eliminar" style="width:24px;height:24px;border:1px solid #fee2e2;border-radius:5px;background:#fff5f5;color:#dc3545;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'#fff5f5\'"><i class="bi bi-trash"></i></button>'+
+            (ACCIONES.eliminar?'<button class="btn-del"      data-file="'+fp+'" title="Eliminar" style="width:24px;height:24px;border:1px solid #fee2e2;border-radius:5px;background:#fff5f5;color:#dc3545;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'#fff5f5\'"><i class="bi bi-trash"></i></button>':'')+
             '</div>';
         row.addEventListener('mouseover',function(){if(!row.classList.contains('selected-file'))row.style.background='#f8fafc';});
         row.addEventListener('mouseout', function(){if(!row.classList.contains('selected-file'))row.style.background='';});
@@ -667,7 +683,8 @@
     });
 
     /* ── DESCARGAR SELECCIONADOS (secuencial con progreso) ── */
-    document.getElementById('downloadSelectedBtn').addEventListener('click',function(){
+    var _dlSelBtn=document.getElementById('downloadSelectedBtn');
+    if(_dlSelBtn) _dlSelBtn.addEventListener('click',function(){
         if(!currentContainer||selectedFiles.length===0)return;
         var cola=selectedFiles.slice();
         var idx=0;
@@ -752,31 +769,36 @@
         pr('Modificado',fmtDate(m.last_modified))+
         (m.content_type?pr('Content-Type',m.content_type):'')+
         (m.etag?pr('ETag',(m.etag||'').replace(/"/g,'')):'')+
-        '<div style="padding-top:10px;text-align:center;"><button onclick="descargarDesdeModal(\''+fp+'\')" style="background:linear-gradient(135deg,#198754,#157347);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-family:Century Gothic,Arial,sans-serif;font-weight:700;cursor:pointer;"><i class="bi bi-download"></i>&nbsp;Descargar</button></div>';
+        (ACCIONES.descargar?'<div style="padding-top:10px;text-align:center;"><button onclick="descargarDesdeModal(\''+fp+'\')" style="background:linear-gradient(135deg,#198754,#157347);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-family:Century Gothic,Arial,sans-serif;font-weight:700;cursor:pointer;"><i class="bi bi-download"></i>&nbsp;Descargar</button></div>':'');
         document.getElementById('propsModal').style.display='flex';
     }
     window.descargarDesdeModal=function(fp){cerrarModal();descargarArchivo(fp);};
 
-    /* ── CARGA DE ARCHIVOS ── */
-    document.getElementById('selectFilesBtn').addEventListener('click',function(){document.getElementById('fileUpload').click();});
-    document.getElementById('fileUpload').addEventListener('change',function(e){subirArchivos(e.target.files);});
+    /* ── CARGA DE ARCHIVOS (solo si el rol tiene permiso de editar) ── */
+    var _selBtn=document.getElementById('selectFilesBtn');
+    var _fileUp=document.getElementById('fileUpload');
     var dz=document.getElementById('dropZone');
-    dz.addEventListener('dragover', function(e){e.preventDefault();dz.style.borderColor='#0d6efd';dz.style.background='#eff6ff';});
-    dz.addEventListener('dragleave',function(){dz.style.borderColor='#bfdbfe';dz.style.background='#f8faff';});
-    dz.addEventListener('drop',     function(e){e.preventDefault();dz.style.borderColor='#bfdbfe';dz.style.background='#f8faff';subirArchivos(e.dataTransfer.files);});
+    if(_selBtn) _selBtn.addEventListener('click',function(){if(_fileUp)_fileUp.click();});
+    if(_fileUp) _fileUp.addEventListener('change',function(e){subirArchivos(e.target.files);});
+    if(dz){
+        dz.addEventListener('dragover', function(e){e.preventDefault();dz.style.borderColor='#0d6efd';dz.style.background='#eff6ff';});
+        dz.addEventListener('dragleave',function(){dz.style.borderColor='#bfdbfe';dz.style.background='#f8faff';});
+        dz.addEventListener('drop',     function(e){e.preventDefault();dz.style.borderColor='#bfdbfe';dz.style.background='#f8faff';subirArchivos(e.dataTransfer.files);});
+    }
 
     function subirArchivos(files){
         if(!currentContainer){toast('Selecciona un contenedor primero','error');return;}
         if(!files||files.length===0)return;
         var path=currentUploadPath?(currentUploadPath+'/'):'';
-        document.getElementById('uploadProgress').style.display='block';
+        var _upProg=document.getElementById('uploadProgress');
+        if(_upProg) _upProg.style.display='block';
         /* Subir secuencialmente para mostrar progreso */
         var arr=Array.from(files), idx=0;
         function subir(){
         if(idx>=arr.length){
             hideLoading();
-            document.getElementById('uploadProgress').style.display='none';
-            document.getElementById('fileUpload').value='';
+            if(_upProg) _upProg.style.display='none';
+            if(_fileUp) _fileUp.value='';
             delete metadataCache[currentContainer];
             loadFiles(currentContainer);
             return;
@@ -799,7 +821,7 @@
         var row=document.querySelector('.folder-row-item[data-path="'+selectedFolderPath+'"]');
         if(row){row.style.background='#fff7ed';row.classList.add('upload-target-row');}
         currentUploadPath=selectedFolderPath;
-        document.getElementById('currentUploadPathDisplay').textContent=currentContainer+'/'+selectedFolderPath;
+        if(_uploadPathDisplay) _uploadPathDisplay.textContent=currentContainer+'/'+selectedFolderPath;
         toast('Ruta de carga: '+selectedFolderPath,'info');
         }
         document.getElementById('contextMenu').style.display='none';

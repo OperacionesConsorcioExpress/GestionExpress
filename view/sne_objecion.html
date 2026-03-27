@@ -23,9 +23,43 @@
 
   /* MAPA PARA OBJECIONES */
   .map-fullscreen { position: fixed; top: 0; left: 0; width: 100% !important; height: 100% !important; z-index: 9999; border-radius: 0; }
+  .map-card-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+  .map-card-fullscreen #mapModal {
+    flex: 1 !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
   /* Mapa - animación entrada panel filtros */
   .map-filter-panel { transition: all 0.25s ease; }
   .map-filter-panel.collapsed { display: none !important; }
+  .map-layer-subpanel {
+    margin: 0.35rem 0 0.15rem 1.55rem;
+    padding-left: 0.2rem;
+    border-left: 2px solid #e2e8f0;
+  }
+  .map-layer-select {
+    width: 100%;
+    border: 1px solid #dbe2ea;
+    border-radius: 6px;
+    padding: 0.28rem 0.45rem;
+    font-size: 0.68rem;
+    color: #0f172a;
+    background: #fff;
+  }
+  .map-layer-select:disabled {
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
   /* Botón popout */
   #mapPopoutBtn { cursor:pointer; }
   /* Leyenda mapa */
@@ -115,23 +149,50 @@
   </div>
 
   <!-- FILTROS COMPACTO -->
-  <div style="background: rgb(219, 222, 226); padding: 0.8rem; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); margin-bottom: 1rem;">
+  <div style="background: rgb(219, 222, 226); padding: 0.55rem 0.65rem; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); margin-bottom: 0.8rem;">
 
     <!-- ENCABEZADOS -->
-    <div style="display:flex; align-items:center; justify-content:space-between; margin: 0 0 0.8rem 0;">
-      <h6 style="font-size: 0.85rem; font-weight: 700; margin: 0; color: #0f172a;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.55rem; flex-wrap:wrap; margin: 0 0 0.45rem 0;">
+      <h6 style="font-size: 0.78rem; font-weight: 700; margin: 0; color: #0f172a;">
         <i class="bi bi-funnel"></i> Filtros
       </h6>
 
-      <div style="display:flex; gap:0.4rem;">
+      <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap; margin-left:auto;">
+        <div style="position:relative; min-width:210px; max-width:280px; flex:1 1 210px;">
+          <i class="bi bi-search" style="position:absolute; left:0.65rem; top:50%; transform:translateY(-50%); color:#64748b; font-size:0.74rem;"></i>
+          <input type="text" id="tableSearch"
+            placeholder="Buscar coincidencias en la tabla"
+            oninput="onTableSearchInput()"
+            onkeydown="onTableSearchKeydown(event)"
+            style="width:100%; border:1px solid #cbd5e1; border-radius:999px; padding:0.32rem 0.75rem 0.32rem 1.85rem; font-size:0.7rem; background:white; color:#0f172a;">
+        </div>
+
+        <div class="dropdown">
+          <button type="button"
+            class="dropdown-toggle"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            style="background:white; color:#0f172a; border:1px solid #cbd5e1; border-radius:999px; font-weight:600; cursor:pointer; font-size:0.7rem; min-height:30px; padding:0.3rem 0.75rem; white-space:nowrap;">
+            <i class="bi bi-sort-down"></i> <span id="sortPresetLabel">Ordenar</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" style="font-size:0.74rem;">
+            <li><button class="dropdown-item" type="button" onclick="setSortPreset('km_revision_desc', 'Km a Revisar ↓')">Ordenar mayor a menor [Km a Revisar]</button></li>
+            <li><button class="dropdown-item" type="button" onclick="setSortPreset('km_revision_asc', 'Km a Revisar ↑')">Ordenar menor a mayor [Km a Revisar]</button></li>
+            <li><button class="dropdown-item" type="button" onclick="setSortPreset('id_ics_desc', 'ID ICS ↓')">Ordenar mayor a menor [ID ICS]</button></li>
+            <li><button class="dropdown-item" type="button" onclick="setSortPreset('id_ics_asc', 'ID ICS ↑')">Ordenar menor a mayor [ID ICS]</button></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item" type="button" onclick="setSortPreset('', 'Ordenar')">Quitar orden</button></li>
+          </ul>
+        </div>
+
         <!-- Filtrar -->
         <button onclick="applyFilters()"
           title="Filtrar"
           aria-label="Filtrar"
           style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
             color: white; border-radius: 8px; border: none;
-            font-weight: 600; cursor: pointer; font-size: 0.9rem;
-            height: 22px; width: 30px; display:flex; align-items:center; justify-content:center;"
+            font-weight: 600; cursor: pointer; font-size: 0.78rem;
+            height: 26px; width: 28px; display:flex; align-items:center; justify-content:center;"
           onmouseover="this.style.boxShadow='0 2px 6px rgba(13, 110, 253, 0.3)'"
           onmouseout="this.style.boxShadow='none'">
           <i class="bi bi-search"></i>
@@ -143,8 +204,8 @@
           aria-label="Limpiar"
           style="background: transparent; color: #0d6efd;
             border: 1px solid #0d6efd; border-radius: 8px;
-            font-weight: 600; cursor: pointer; font-size: 0.9rem;
-            height: 22px; width: 30px; display:flex; align-items:center; justify-content:center;"
+            font-weight: 600; cursor: pointer; font-size: 0.78rem;
+            height: 26px; width: 28px; display:flex; align-items:center; justify-content:center;"
           onmouseover="this.style.backgroundColor='#f0f0f0'"
           onmouseout="this.style.backgroundColor='transparent'">
           <i class="bi bi-arrow-counterclockwise"></i>
@@ -155,62 +216,62 @@
     <!-- Grid con separación fija controlada -->
     <div style="
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        column-gap: 0.4rem;
-        row-gap: 0.6rem;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        column-gap: 0.3rem;
+        row-gap: 0.45rem;
         align-items: end;
       ">
 
       <div>
-        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Fecha</label>
+        <label style="font-weight:700;font-size:0.62rem;color:#475569;margin-bottom:0.12rem;text-transform:uppercase;letter-spacing:0.2px;display:block;">Fecha</label>
         <input type="date" id="filterDate" onchange="onFechaChange()"
-          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          style="border:1px solid #e2e8f0;border-radius:12px;padding:0.28rem 0.5rem;font-size:0.7rem;background-color:#fafbfc;width:100%;color:#0f172a;">
       </div>
 
       <div>
-        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">ID ICS</label>
-        <select id="filterIcs"
-          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+        <label style="font-weight:700;font-size:0.62rem;color:#475569;margin-bottom:0.12rem;text-transform:uppercase;letter-spacing:0.2px;display:block;">ID ICS</label>
+        <select id="filterIcs" onchange="onIcsChange()"
+          style="border:1px solid #e2e8f0;border-radius:12px;padding:0.28rem 0.5rem;font-size:0.7rem;background-color:#fafbfc;width:100%;color:#0f172a;">
           <option value="">-- Todos --</option>
         </select>
       </div>
 
       <div>
-        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Componente</label>
+        <label style="font-weight:700;font-size:0.62rem;color:#475569;margin-bottom:0.12rem;text-transform:uppercase;letter-spacing:0.2px;display:block;">Componente</label>
         <select id="filterComponente" onchange="onComponenteChange()"
-          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          style="border:1px solid #e2e8f0;border-radius:12px;padding:0.28rem 0.5rem;font-size:0.7rem;background-color:#fafbfc;width:100%;color:#0f172a;">
           <option value="">-- Todos --</option>
         </select>
       </div>
 
       <div>
-        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Zona</label>
+        <label style="font-weight:700;font-size:0.62rem;color:#475569;margin-bottom:0.12rem;text-transform:uppercase;letter-spacing:0.2px;display:block;">Zona</label>
         <select id="filterZona" onchange="onZonaChange()"
-          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          style="border:1px solid #e2e8f0;border-radius:12px;padding:0.28rem 0.5rem;font-size:0.7rem;background-color:#fafbfc;width:100%;color:#0f172a;">
           <option value="">-- Todas --</option>
         </select>
       </div>
 
       <div>
-        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">COP</label>
+        <label style="font-weight:700;font-size:0.62rem;color:#475569;margin-bottom:0.12rem;text-transform:uppercase;letter-spacing:0.2px;display:block;">COP</label>
         <select id="filterCop" onchange="onCopChange()"
-          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          style="border:1px solid #e2e8f0;border-radius:12px;padding:0.28rem 0.5rem;font-size:0.7rem;background-color:#fafbfc;width:100%;color:#0f172a;">
           <option value="">-- Todos --</option>
         </select>
       </div>
 
       <div>
-        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Ruta</label>
-        <select id="filterRuta"
-          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+        <label style="font-weight:700;font-size:0.62rem;color:#475569;margin-bottom:0.12rem;text-transform:uppercase;letter-spacing:0.2px;display:block;">Ruta</label>
+        <select id="filterRuta" onchange="onRutaChange()"
+          style="border:1px solid #e2e8f0;border-radius:12px;padding:0.28rem 0.5rem;font-size:0.7rem;background-color:#fafbfc;width:100%;color:#0f172a;">
           <option value="">-- Todas --</option>
         </select>
       </div>
 
       <div>
-        <label style="font-weight:700;font-size:0.7rem;color:#475569;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.3px;display:block;">Responsable</label>
+        <label style="font-weight:700;font-size:0.62rem;color:#475569;margin-bottom:0.12rem;text-transform:uppercase;letter-spacing:0.2px;display:block;">Responsable</label>
         <select id="filterResponsable"
-          style="border:1px solid #e2e8f0;border-radius:15px;padding:0.4rem 0.6rem;font-size:0.75rem;background-color:#fafbfc;width:100%;color:#0f172a;">
+          style="border:1px solid #e2e8f0;border-radius:12px;padding:0.28rem 0.5rem;font-size:0.7rem;background-color:#fafbfc;width:100%;color:#0f172a;">
           <option value="">-- Todos --</option>
         </select>
       </div>
@@ -265,7 +326,7 @@
         <h5 style="margin: 0; font-size: 0.95rem; font-weight: 700;">
           <i class="bi bi-pencil-square"></i> Revisión de Kilómetros - <span id="modalRecordId">--</span>
         </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1);"></button>
+        <button type="button" onclick="tryCloseEditModal()" style="background:rgba(255,255,255,.15);border:none;color:white;border-radius:5px;padding:0.25rem 0.6rem;cursor:pointer;font-size:1rem;line-height:1;" title="Cerrar">✕</button>
       </div>
 
       <!-- MODAL PARA MOSTRAR INFORMACIÓN Y GESTIÓN -->
@@ -362,7 +423,7 @@
                   Km a Objetar
                 </label>
                 <input type="number" id="kmObjetar" min="0" step="0.001" placeholder="0.000"
-                  oninput="calcularKmNoObjetado()"
+                  oninput="calcularKmNoObjetado(); _markDirty();"
                   onkeydown="if(event.key==='-'||event.key==='e'||event.key==='E')event.preventDefault()"
                   onpaste="setTimeout(function(){var el=document.getElementById('kmObjetar');if(parseFloat(el.value)<0)el.value='';},0)"
                   style="border:1px solid #ffc107;border-radius:8px;padding:0.35rem 0.5rem;font-size:0.72rem;background:#fffef5;width:100%;color:#0f172a;font-weight:600;"
@@ -397,6 +458,7 @@
             <textarea id="commentText"
               style="border:1px solid #e2e8f0;border-radius:8px;padding:0.4rem 0.5rem;width:100%;background:#fafbfc;color:#0f172a;min-height:75px;font-size:0.72rem;resize:vertical;transition:border-color 0.2s;"
               placeholder="Selecciona un motivo y presiona 'Generar Nota', o escribe manualmente..."
+              oninput="_markDirty()"
               onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
 
             <!-- Aviso -->
@@ -440,6 +502,55 @@
                 onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#475569'">
                 <i class="bi bi-layers"></i> OSM
               </button>
+              <!-- Control capas KML -->
+              <div style="position:relative;display:inline-block;">
+                <button id="kmlLayerBtn" onclick="toggleKmlLayerPanel(event)" title="Capas de ruta"
+                  style="background:transparent;border:1px solid #e2e8f0;color:#475569;padding:0.25rem 0.55rem;border-radius:6px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:all 0.2s;display:flex;align-items:center;gap:0.3rem;"
+                  onmouseover="this.style.borderColor='#0d6efd';this.style.color='#0d6efd'"
+                  onmouseout="this.style.borderColor=(_kmlPanelOpen?'#0d6efd':'#e2e8f0');this.style.color=(_kmlPanelOpen?'#0d6efd':'#475569')">
+                  <i class="bi bi-map"></i> Capas <i class="bi bi-chevron-down" style="font-size:0.55rem;"></i>
+                </button>
+                <div id="kmlLayerPanel" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:white;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);padding:0.55rem 0.7rem;z-index:9999;min-width:185px;font-size:0.7rem;">
+                  <div style="font-weight:800;color:#0f172a;margin-bottom:0.4rem;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid #f1f5f9;padding-bottom:0.3rem;">Capas de Ruta</div>
+                  <!-- Trazados -->
+                  <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;padding:0.25rem 0;color:#334155;">
+                    <input type="checkbox" id="chkTrazados" checked onchange="toggleKmlLayer('trazado',this.checked)"
+                      style="width:13px;height:13px;accent-color:#1d4ed8;cursor:pointer;">
+                    <span style="display:flex;align-items:center;gap:0.35rem;">
+                      <span style="display:inline-block;height:3px;width:18px;border-radius:2px;background:#1d4ed8;flex-shrink:0;"></span>Trazados
+                    </span>
+                  </label>
+                  <div id="trazadoVariantGroup" class="map-layer-subpanel" style="display:none;">
+                    <div style="font-size:0.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.35px;margin-bottom:0.18rem;">Nombre de Trazado</div>
+                    <select id="selTrazadoVariante" class="map-layer-select" onchange="setKmlVariantFilter('trazado', this.value)">
+                      <option value="all">Todos los trazados</option>
+                    </select>
+                  </div>
+                  <!-- Paraderos -->
+                  <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;padding:0.25rem 0;color:#334155;">
+                    <input type="checkbox" id="chkParaderos" checked onchange="toggleKmlLayer('paradero',this.checked)"
+                      style="width:13px;height:13px;accent-color:#1d4ed8;cursor:pointer;">
+                    <span style="display:flex;align-items:center;gap:0.35rem;">
+                      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1d4ed8;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.25);flex-shrink:0;"></span>Paraderos
+                    </span>
+                  </label>
+                  <div id="paraderoVariantGroup" class="map-layer-subpanel" style="display:none;">
+                    <div style="font-size:0.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.35px;margin-bottom:0.18rem;">Tipo</div>
+                    <select id="selParaderoVariante" class="map-layer-select" onchange="setKmlVariantFilter('paradero', this.value)">
+                      <option value="all">Todos los paraderos</option>
+                    </select>
+                  </div>
+                  <!-- Tooltips paraderos -->
+                  <label id="lblParaderosLabel" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;padding:0.25rem 0 0 1.5rem;color:#64748b;">
+                    <input type="checkbox" id="chkLabels" onchange="toggleKmlLayer('labels',this.checked)"
+                      style="width:13px;height:13px;accent-color:#7c3aed;cursor:pointer;">
+                    <span style="font-size:0.65rem;">Tooltips fijos</span>
+                  </label>
+                  <div style="border-top:1px solid #f1f5f9;margin-top:0.35rem;padding-top:0.35rem;font-size:0.62rem;color:#94a3b8;">
+                    <i class="bi bi-info-circle"></i> Activa según ruta del ICS
+                  </div>
+                </div>
+              </div>
               <!-- Popout nueva ventana -->
               <button id="mapPopoutBtn" onclick="popoutMap()" title="Abrir en nueva ventana"
                 style="background:transparent;border:1px solid #e2e8f0;color:#475569;padding:0.25rem 0.55rem;border-radius:6px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:all 0.2s;"
@@ -459,7 +570,7 @@
 
           <!-- PANEL FILTROS MAPA (colapsable) -->
           <div id="mapFilterPanel" class="map-filter-panel collapsed" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.5rem;flex-shrink:0;">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:0.5rem;align-items:end;">
+            <div style="display:grid;grid-template-columns:minmax(150px,1fr) minmax(110px,0.8fr) minmax(110px,0.8fr) auto auto;gap:0.5rem;align-items:end;">
               <div>
                 <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-bus-front" style="color:#0d6efd;"></i> Bus</label>
                 <input type="text" id="mapFilterBus" placeholder="Ej: D127, Z10-4539"
@@ -467,7 +578,7 @@
                   onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
               </div>
               <div>
-                <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-clock" style="color:#0d6efd;"></i> Hora Ini</label>
+                <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-clock" style="color:#0d6efd;"></i> H. Ini</label>
                 <input type="text" id="mapFilterHoraIni" value="00:00"
                 maxlength="5" placeholder="00:00" autocomplete="off"
                 oninput="maskHora(this)" onblur="validateHora(this,'00:00')"
@@ -475,7 +586,7 @@
                 onfocus="this.style.borderColor='#0d6efd'" >
               </div>
               <div>
-                <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-clock-history" style="color:#0d6efd;"></i> Hora Fin</label>
+                <label style="font-size:0.62rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.2rem;"><i class="bi bi-clock-history" style="color:#0d6efd;"></i> H. Fin</label>
                 <input type="text" id="mapFilterHoraFin" value="23:59"
                 maxlength="5" placeholder="23:59" autocomplete="off"
                 oninput="maskHora(this)" onblur="validateHora(this,'23:59')"
@@ -529,69 +640,84 @@
                 <!-- Se cargará dinámicamente -->
               </div>
             </div>
-            
-            <!-- ACTIVIDADES OPERACION -->
+
+            <!-- ACTIVIDADES OPERACION + REPORTES -->
             <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; overflow: hidden;">
               <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem; border-bottom: 2px solid #dc3545; padding-bottom: 0.4rem;">
                 <i class="bi bi-activity" style="color: #dc3545; margin-right: 0.3rem;"></i>Actividades en la Operación
               </div>
-              <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem;" id="operatorActivitiesContainer">
+
+              <!-- REPORTES — crece en vertical, botones al fondo -->
+              <div style="flex: 10; display: flex; flex-direction: column; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; margin-bottom: 0.4rem; min-height: 0;">
+                <div style="font-size: 0.82rem; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 2px solid #0d6efd; flex-shrink: 0;">
+                  <i class="bi bi-table" style="color: #0d6efd; margin-right: 0.3rem;"></i>Reportes
+                </div>
+                <!-- Tarjetas en 2 columnas — rellena espacio disponible -->
+                <div id="reportCardsContainer" style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; align-content: start; overflow-y: auto;">
+                  <div style="font-size: 0.65rem; color: #94a3b8; text-align: center; padding: 0.6rem 0; grid-column: 1 / -1;">
+                    <i class="bi bi-hourglass-split"></i> Abre un registro para ver reportes
+                  </div>
+                </div>
+                <!-- Botones al fondo -->
+                <div style="display: flex; gap: 0.3rem; margin-top: 0.55rem; flex-shrink: 0;">
+                  <button id="btnOpenReportModal" onclick="openAllReportsModal()" disabled
+                    style="background: linear-gradient(135deg, #0d6efd, #0b5ed7); color: white; padding: 0.28rem 0.4rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.62rem; flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.25rem; opacity: 0.45; transition: opacity 0.2s;">
+                    <i class="bi bi-table"></i> Modal
+                  </button>
+                  <button id="btnOpenReportWindow" onclick="openAllReportsWindow()" disabled
+                    style="background: transparent; color: #0d6efd; padding: 0.28rem 0.4rem; border: 1px solid #0d6efd; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.62rem; flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.25rem; opacity: 0.45; transition: opacity 0.2s;">
+                    <i class="bi bi-box-arrow-up-right"></i> Ventana
+                  </button>
+                </div>
+              </div>
+
+              <!-- Actividades — espacio restante debajo -->
+              <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem; min-height: 0;" id="operatorActivitiesContainer">
                 <!-- Se cargará dinámicamente -->
               </div>
             </div>
           </div>
         </div>
 
-        <!-- COLUMNA DERECHA - REPORTES Y ARCHIVOS -->
-        <div style="display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; padding-left: 0.5rem;">
-          
-          <!-- REPORTES -->
-          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);">
-            <div style="font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem;">
-              <i class="bi bi-file-earmark-text" style="color: #0d6efd; margin-right: 0.3rem; font-size: 0.9rem;"></i>Reportes
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              <button onclick="openReport('detail')" style="background: transparent; color: #0d6efd; padding: 0.5rem; border: 1px solid #0d6efd; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; width: 100%; text-align: left;" onmouseover="this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.backgroundColor='transparent'">
-                <i class="bi bi-file-earmark"></i> Detallado
-              </button>
-              <button onclick="openReport('activity')" style="background: transparent; color: #0d6efd; padding: 0.5rem; border: 1px solid #0d6efd; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; width: 100%; text-align: left;" onmouseover="this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.backgroundColor='transparent'">
-                <i class="bi bi-bus-front"></i> Actividad
-              </button>
-              <button onclick="openReport('stats')" style="background: transparent; color: #0d6efd; padding: 0.5rem; border: 1px solid #0d6efd; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; width: 100%; text-align: left;" onmouseover="this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.backgroundColor='transparent'">
-                <i class="bi bi-graph-up"></i> Estadísticas
-              </button>
-            </div>
-          </div>
+        <!-- COLUMNA DERECHA — ADJUNTOS Y EVIDENCIAS -->
+        <div style="display: flex; flex-direction: column; overflow: hidden; padding-left: 0.5rem;">
+          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); flex: 1; display: flex; flex-direction: column; overflow: hidden;">
 
-          <!-- CARGA DE ARCHIVOS -->
-          <div style="background: white; border-radius: 6px; padding: 0.9rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
-            <div style="font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.6rem;">
-              <i class="bi bi-cloud-upload" style="color: #0d6efd; margin-right: 0.3rem; font-size: 0.9rem;"></i>Archivos
+            <!-- Encabezado -->
+            <div style="font-size: 0.82rem; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 2px solid #7c3aed; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;">
+              <span><i class="bi bi-paperclip" style="color: #7c3aed; margin-right: 0.3rem;"></i>Adjuntos y Evidencias</span>
+              <span id="attachCount" style="font-size: 0.62rem; background: #f3e8ff; color: #7c3aed; padding: 0.1rem 0.45rem; border-radius: 8px; font-weight: 700;">0</span>
             </div>
-            
-            <div class="drag-drop-area" id="dragDropArea" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFiles(event)">
-              <div style="text-align: center; pointer-events: none;">
-                <i class="bi bi-cloud-arrow-up" style="font-size: 1.5rem; color: #0d6efd; margin-bottom: 0.3rem; display: block;"></i>
-                <div style="font-size: 0.7rem; color: #0d6efd; font-weight: 600;">Arrastra archivos aquí</div>
-                <div style="font-size: 0.65rem; color: #64748b; margin-top: 0.2rem;">o haz click</div>
+
+            <!-- Zona Drag & Drop / Paste -->
+            <div id="attachDropZone"
+              style="border: 2px dashed #c4b5fd; border-radius: 6px; padding: 0.55rem; text-align: center; cursor: pointer; flex-shrink: 0; background: #faf5ff; transition: all 0.2s; margin-bottom: 0.5rem;"
+              ondragover="attachDragOver(event)" ondragleave="attachDragLeave(event)" ondrop="attachDrop(event)" onclick="document.getElementById('attachFileInput').click()">
+              <i class="bi bi-cloud-arrow-up" style="font-size: 1.3rem; color: #7c3aed; display: block; margin-bottom: 0.2rem;"></i>
+              <div style="font-size: 0.67rem; color: #7c3aed; font-weight: 600;">Arrastra, pega (Ctrl+V) o haz clic</div>
+              <div style="font-size: 0.6rem; color: #94a3b8; margin-top: 0.15rem;">Imágenes, capturas del mapa, PDF…</div>
+              <input type="file" id="attachFileInput" multiple accept="image/*,application/pdf" style="display:none;" onchange="attachHandleFiles(event.target.files)">
+            </div>
+
+            <!-- Lista de adjuntos -->
+            <div id="attachList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; padding-right: 0.2rem;">
+              <div id="attachEmptyMsg" style="font-size: 0.65rem; color: #94a3b8; text-align: center; padding: 1rem 0;">
+                <i class="bi bi-inbox" style="font-size: 1.4rem; display:block; margin-bottom: 0.3rem;"></i>
+                Sin adjuntos aún
               </div>
-              <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFiles(event)">
             </div>
 
-            <div style="margin-top: 0.8rem; font-size: 0.75rem; font-weight: 600; color: #0f172a; margin-bottom: 0.4rem;">Archivos:</div>
-            <div id="filesList" style="flex: 1; overflow-y: auto; padding-right: 0.3rem;"></div>
           </div>
-
         </div>
 
       </div>
 
       <!-- MODAL PARA ACCIONES DE GUARDADO, EXPORTACIÓN, ETC -->
       <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 0.7rem 1.2rem; display: flex; gap: 0.8rem; justify-content: flex-end;">
-        <button type="button" data-bs-dismiss="modal" style="background: transparent; color: #475569; padding: 0.5rem 1rem; border: 1px solid #e2e8f0; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem;">
+        <button type="button" onclick="tryCloseEditModal()" style="background: transparent; color: #475569; padding: 0.5rem 1rem; border: 1px solid #e2e8f0; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem;">
           <i class="bi bi-x-lg"></i> Cerrar
         </button>
-        <button type="button" style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(13, 110, 253, 0.4)'" onmouseout="this.style.boxShadow='none'">
+        <button type="button" onclick="generarPDF()" style="background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%); color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(220,53,69,0.4)'" onmouseout="this.style.boxShadow='none'">
           <i class="bi bi-file-earmark-pdf"></i> PDF
         </button>
         <button type="button" onclick="saveRecord()" style="background: #198754; color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(25, 135, 84, 0.4)'" onmouseout="this.style.boxShadow='none'">
@@ -602,34 +728,126 @@
   </div>
 </div>
 
-<!-- MODAL REPORTES DE FMS Y TRANSMITOOLS -->
+<!-- MODAL ADVERTENCIA — cambios sin guardar -->
+<div id="unsavedWarnModal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:12px;overflow:hidden;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.45);animation:fadeInScale .18s ease;">
+    <!-- Cabecera roja -->
+    <div style="background:linear-gradient(135deg,#dc3545,#b02a37);color:white;padding:0.9rem 1.2rem;display:flex;align-items:center;gap:0.7rem;">
+      <i class="bi bi-exclamation-triangle-fill" style="font-size:1.2rem;"></i>
+      <span style="font-weight:700;font-size:0.92rem;">Cambios sin guardar</span>
+    </div>
+    <!-- Cuerpo -->
+    <div style="padding:1.2rem 1.4rem;">
+      <p style="font-size:0.82rem;color:#1e293b;line-height:1.6;margin:0 0 0.4rem;">
+        Tienes modificaciones pendientes en este registro:
+      </p>
+      <ul id="unsavedWarnList" style="font-size:0.78rem;color:#475569;margin:0.4rem 0 0.9rem 1.2rem;line-height:1.8;padding:0;"></ul>
+      <p style="font-size:0.78rem;color:#dc3545;font-weight:600;margin:0;">
+        <i class="bi bi-info-circle"></i>&nbsp;Si cierras ahora se perderán todos los cambios.
+      </p>
+    </div>
+    <!-- Pie con botones -->
+    <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:0.7rem 1.2rem;display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button onclick="cancelCloseModal()" style="background:transparent;border:1px solid #e2e8f0;border-radius:6px;padding:0.45rem 1.1rem;font-size:0.78rem;font-weight:600;cursor:pointer;color:#475569;transition:all .15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+        <i class="bi bi-arrow-left"></i> Volver al registro
+      </button>
+      <button onclick="confirmCloseModal()" style="background:linear-gradient(135deg,#dc3545,#b02a37);color:white;border:none;border-radius:6px;padding:0.45rem 1.2rem;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all .15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(220,53,69,.4)'" onmouseout="this.style.boxShadow='none'">
+        <i class="bi bi-door-open"></i> Sí, cerrar sin guardar
+      </button>
+    </div>
+  </div>
+</div>
+<style>
+  @keyframes fadeInScale {
+    from { opacity:0; transform:scale(.93); }
+    to   { opacity:1; transform:scale(1);   }
+  }
+</style>
+
+<!-- MODAL PREVIEW PDF -->
+<div id="pdfPreviewModal" style="display:none;position:fixed;inset:0;z-index:2200;background:rgba(0,0,0,.78);align-items:center;justify-content:center;flex-direction:column;">
+  <div style="background:white;border-radius:10px;overflow:hidden;width:min(900px,96vw);height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.55);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:white;padding:0.55rem 1rem;display:flex;align-items:center;gap:0.7rem;flex-shrink:0;">
+      <i class="bi bi-file-earmark-pdf" style="font-size:1rem;"></i>
+      <span style="font-weight:700;font-size:0.88rem;">Vista previa del PDF — Informe Objeción ICS</span>
+      <span id="pdfPreviewIcsLabel" style="font-size:0.7rem;background:rgba(255,255,255,.2);padding:.15rem .5rem;border-radius:10px;"></span>
+      <button onclick="closePdfPreview()" style="margin-left:auto;background:rgba(255,255,255,.15);border:none;color:white;border-radius:5px;padding:0.25rem 0.7rem;cursor:pointer;font-size:0.78rem;font-weight:600;">✕ Cerrar</button>
+    </div>
+    <!-- Área preview — páginas A4 visuales -->
+    <div style="flex:1;overflow-y:auto;background:#cfd8e3;padding:1.4rem;display:flex;flex-direction:column;align-items:center;gap:0.9rem;" id="pdfScrollArea">
+      <div id="pdfPagesContainer" style="display:flex;flex-direction:column;align-items:center;gap:0.9rem;width:100%;"></div>
+    </div>
+    <!-- Contenido real (oculto) — usado para clonar en páginas y para downloadPDF -->
+    <div id="pdfPreviewContent" style="position:fixed;top:-99999px;left:-99999px;width:794px;background:white;padding:2.2rem 2.4rem;font-family:'Segoe UI',Arial,sans-serif;font-size:8.5pt;color:#0f172a;box-sizing:border-box;overflow-x:hidden;"></div>
+    <!-- Footer acciones -->
+    <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:0.6rem 1rem;display:flex;gap:0.5rem;justify-content:flex-end;flex-shrink:0;">
+      <button onclick="closePdfPreview()" style="background:transparent;border:1px solid #e2e8f0;border-radius:5px;padding:0.45rem 1rem;font-size:0.75rem;font-weight:600;cursor:pointer;color:#475569;">Cancelar</button>
+      <button onclick="downloadPDF()" style="background:linear-gradient(135deg,#dc3545,#b02a37);color:white;border:none;border-radius:5px;padding:0.45rem 1.2rem;font-size:0.75rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:0.4rem;">
+        <i class="bi bi-download"></i> Descargar PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RECORTE DE IMAGEN — Cropper.js -->
+<div id="cropModal" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.72);align-items:center;justify-content:center;flex-direction:column;gap:0.6rem;">
+  <div style="background:white;border-radius:10px;overflow:hidden;max-width:820px;width:96%;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;padding:0.55rem 1rem;display:flex;align-items:center;gap:0.6rem;font-size:0.85rem;font-weight:700;">
+      <i class="bi bi-crop"></i> Recortar imagen
+      <button onclick="closeCropModal()" style="margin-left:auto;background:rgba(255,255,255,.2);border:none;color:white;border-radius:5px;padding:0.2rem 0.6rem;cursor:pointer;font-size:0.75rem;">✕ Cancelar</button>
+    </div>
+    <div style="max-height:60vh;overflow:hidden;background:#1e293b;">
+      <img id="cropImage" style="max-width:100%;display:block;">
+    </div>
+    <div style="padding:0.6rem 1rem;display:flex;justify-content:flex-end;gap:0.5rem;background:#f8fafc;">
+      <button onclick="closeCropModal()" style="background:transparent;border:1px solid #e2e8f0;border-radius:5px;padding:0.4rem 1rem;font-size:0.75rem;font-weight:600;cursor:pointer;color:#475569;">Cancelar</button>
+      <button onclick="applyCrop()" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;border-radius:5px;padding:0.4rem 1.2rem;font-size:0.75rem;font-weight:600;cursor:pointer;"><i class="bi bi-check-lg"></i> Aplicar recorte</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REPORTES SNE — CON TABULATOR JS -->
 <div class="modal fade" id="reportModal" tabindex="-1">
   <div class="modal-dialog modal-fullscreen">
-    <div class="modal-content" style="border: none;">
-      <div style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color: white; padding: 0.8rem 1.2rem; display: flex; justify-content: space-between; align-items: center;">
-        <h5 id="reportTitle" style="margin: 0; font-weight: 700; font-size: 0.95rem;"><i class="bi bi-file-earmark"></i> Reporte</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1);"></button>
+    <div class="modal-content" style="border: none; display: flex; flex-direction: column; height: 100vh; overflow: hidden;">
+
+      <!-- HEADER -->
+      <div style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); color: white; padding: 0.55rem 1rem; display: flex; align-items: center; gap: 0.7rem; flex-shrink: 0;">
+        <i class="bi bi-table" style="font-size: 1rem;"></i>
+        <span style="font-weight: 700; font-size: 0.88rem;">Reportes</span>
+        <span id="reportModalIcsId" style="font-size: 0.72rem; background: rgba(255,255,255,0.2); padding: 0.15rem 0.55rem; border-radius: 10px;"></span>
+        <span id="reportTabCount" style="font-size: 0.68rem; background: rgba(255,255,255,0.15); padding: 0.15rem 0.5rem; border-radius: 10px; margin-left: auto;"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1); margin-left: 0.4rem;"></button>
       </div>
-      
-      <!-- CONTROLES DE BÚSQUEDA, FILTROS Y EXPORTACIÓN -->
-      <div style="background: white; padding: 0.8rem 1.2rem; border-bottom: 1px solid #e2e8f0; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;">
-        <input type="text" id="reportSearch" placeholder="Buscar..." style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 0.4rem 0.8rem; font-size: 0.75rem; width: 200px;">
-        <select id="reportFilter" style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
-          <option>Filtrar por...</option>
-          <option>Estado: Aprobado</option>
-          <option>Estado: Rechazado</option>
-          <option>Estado: Pendiente</option>
-        </select>
-        <button onclick="exportReportExcel()" style="background: #198754; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem; margin-left: auto;">
-          <i class="bi bi-download"></i> Exportar
+
+      <!-- TABS -->
+      <div id="reportTabsBar" style="background: white; border-bottom: 2px solid #e2e8f0; padding: 0 0.8rem; display: flex; gap: 0.05rem; overflow-x: auto; flex-shrink: 0; scrollbar-width: thin;"></div>
+
+      <!-- TOOLBAR -->
+      <div style="background: white; padding: 0.38rem 0.8rem; border-bottom: 1px solid #e2e8f0; display: flex; gap: 0.4rem; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
+        <button onclick="exportCurrentTabExcel()" style="background: #198754; color: white; padding: 0.28rem 0.6rem; border: none; border-radius: 5px; font-size: 0.68rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; transition: background 0.2s;" onmouseover="this.style.background='#146c43'" onmouseout="this.style.background='#198754'">
+          <i class="bi bi-file-earmark-excel"></i> Excel
         </button>
-        <button onclick="printReport()" style="background: #0d6efd; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 0.75rem;">
+        <button onclick="copyCurrentTabClipboard()" style="background: white; color: #475569; padding: 0.28rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 0.68rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; transition: all 0.2s;" onmouseover="this.style.background='#f0f9ff';this.style.color='#0d6efd'" onmouseout="this.style.background='white';this.style.color='#475569'">
+          <i class="bi bi-clipboard"></i> Portapapeles
+        </button>
+        <button onclick="window.print()" style="background: white; color: #475569; padding: 0.28rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 0.68rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; transition: all 0.2s;" onmouseover="this.style.background='#f0f9ff';this.style.color='#0d6efd'" onmouseout="this.style.background='white';this.style.color='#475569'">
           <i class="bi bi-printer"></i> Imprimir
+        </button>
+        <button id="btnSendToAttach" onclick="sendSelectionToAttachments()" disabled
+          style="background: linear-gradient(135deg,#7c3aed,#6d28d9); color:white; padding:0.28rem 0.7rem; border:none; border-radius:5px; font-size:0.68rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:0.3rem; opacity:0.45; transition:all 0.2s;"
+          title="Enviar filas seleccionadas al panel de Adjuntos"
+          onmouseover="if(!this.disabled)this.style.boxShadow='0 3px 10px rgba(109,40,217,.4)'" onmouseout="this.style.boxShadow='none'">
+          <i class="bi bi-paperclip"></i> → Adjuntos
+        </button>
+        <button onclick="openAllReportsWindow()" style="background: white; color: #0d6efd; padding: 0.28rem 0.6rem; border: 1px solid #0d6efd; border-radius: 5px; font-size: 0.68rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; transition: all 0.2s; margin-left: auto;" onmouseover="this.style.background='#e7f3ff'" onmouseout="this.style.background='white'">
+          <i class="bi bi-box-arrow-up-right"></i> Nueva Ventana
         </button>
       </div>
 
-      <!-- CONTENIDO -->
-      <div id="reportContent" style="padding: 1rem; overflow: auto; height: calc(100vh - 160px); background: #f8f9fa;"></div>
+      <!-- CONTENIDO TABULATOR -->
+      <div id="reportTabContent" style="flex: 1; overflow: hidden; background: #f0f4f8;"></div>
     </div>
   </div>
 </div>
@@ -663,6 +881,8 @@
   let currentTab  = 'revisar';
   let currentPage = 1;
   const PAGE_SIZE = 50;
+  let currentSortPreset = '';
+  let tableSearchTimer = null;
 
   /* ==================== INIT ==================== */
   async function initializeApp() {
@@ -764,14 +984,21 @@
 
   async function loadResponsables() {
     const sel = document.getElementById('filterResponsable');
+    const selectedValue = sel.value;
     sel.innerHTML = '<option value="">-- Todos --</option>';
     try {
-      const r = await fetch(API + '/filtros/responsables');
+      const p = new URLSearchParams(getFilterParams({ includeResponsable: false, includeAdvanced: false }));
+      p.set('tab', currentTab);
+      const qs = p.toString() ? '?' + p.toString() : '';
+      const r = await fetch(API + '/filtros/responsables' + qs);
       const j = await r.json();
       if (j.ok) j.data.forEach(rs => {
         const o = document.createElement('option');
         o.value = rs.id; o.textContent = rs.responsable; sel.appendChild(o);
       });
+      if ([...sel.options].some(opt => opt.value === selectedValue)) {
+        sel.value = selectedValue;
+      }
     } catch(e) { console.error('filtros/responsables', e); }
   }
 
@@ -780,22 +1007,36 @@
     if (s) s.innerHTML = '<option value="">' + ph + '</option>';
   }
 
-  async function onFechaChange()      { await loadIcsByFecha(); }
+  async function onFechaChange() {
+    await loadIcsByFecha();
+    await loadResponsables();
+  }
   async function onComponenteChange() {
     const comp = document.getElementById('filterComponente').value;
     await loadZonas(comp);
     await loadCop(comp, '');
+    await loadResponsables();
   }
   async function onZonaChange() {
     await loadCop(
       document.getElementById('filterComponente').value,
       document.getElementById('filterZona').value
     );
+    await loadResponsables();
   }
-  async function onCopChange() { await loadRutas(document.getElementById('filterCop').value); }
+  async function onCopChange() {
+    await loadRutas(document.getElementById('filterCop').value);
+    await loadResponsables();
+  }
+  async function onIcsChange()  { await loadResponsables(); }
+  async function onRutaChange() { await loadResponsables(); }
 
   /* ==================== APLICAR / LIMPIAR ==================== */
-  function getFilterParams() {
+  function getFilterParams(options) {
+    const cfg = Object.assign({
+      includeResponsable: true,
+      includeAdvanced: true
+    }, options || {});
     const p = {};
     const fecha      = document.getElementById('filterDate').value;
     const idIcs      = document.getElementById('filterIcs').value;
@@ -804,29 +1045,65 @@
     const zona       = document.getElementById('filterZona').value;
     const idCop      = document.getElementById('filterCop').value;
     const idResp     = document.getElementById('filterResponsable').value;
+    const textoBusqueda = document.getElementById('tableSearch').value.trim();
     if (fecha)      p.fecha          = fecha;
     if (idIcs)      p.id_ics         = idIcs;
     if (idLinea)    p.id_linea       = idLinea;
     if (componente) p.componente     = componente;
     if (zona)       p.zona           = zona;
     if (idCop)      p.id_cop         = idCop;
-    if (idResp)     p.id_responsable = idResp;
+    if (idResp && cfg.includeResponsable) p.id_responsable = idResp;
+    if (cfg.includeAdvanced && textoBusqueda) p.texto_busqueda = textoBusqueda;
+    if (cfg.includeAdvanced && currentSortPreset) p.orden = currentSortPreset;
     return p;
   }
 
-  function applyFilters() { currentPage = 1; loadTabData(currentTab); loadStats(); }
+  async function applyFilters() {
+    currentPage = 1;
+    await loadResponsables();
+    loadTabData(currentTab);
+    loadStats();
+  }
 
   async function clearFilters() {
     ['filterIcs','filterComponente','filterZona','filterCop','filterRuta','filterResponsable']
       .forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('tableSearch').value = '';
+    currentSortPreset = '';
+    document.getElementById('sortPresetLabel').textContent = 'Ordenar';
+    if (tableSearchTimer) clearTimeout(tableSearchTimer);
     await loadIcsByFecha();
+    await loadResponsables();
     currentPage = 1;
     loadTabData(currentTab);
     loadStats();
   }
 
+  function setSortPreset(value, label) {
+    currentSortPreset = value || '';
+    document.getElementById('sortPresetLabel').textContent = label || 'Ordenar';
+    currentPage = 1;
+    loadTabData(currentTab);
+  }
+
+  function onTableSearchInput() {
+    currentPage = 1;
+    if (tableSearchTimer) clearTimeout(tableSearchTimer);
+    tableSearchTimer = setTimeout(function() {
+      loadTabData(currentTab);
+    }, 350);
+  }
+
+  function onTableSearchKeydown(event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    currentPage = 1;
+    if (tableSearchTimer) clearTimeout(tableSearchTimer);
+    loadTabData(currentTab);
+  }
+
   /* ==================== TABS O PESTAÑAS ==================== */
-  function switchTab(e, tabName) {
+  async function switchTab(e, tabName) {
     e.preventDefault();
     currentTab = tabName;
     currentPage = 1;
@@ -881,6 +1158,7 @@
     ab.onmouseover = null;
     ab.onmouseout = null;
 
+    await loadResponsables();
     loadTabData(tabName);
   }
 
@@ -1061,6 +1339,8 @@
     const modal = new bootstrap.Modal(document.getElementById('editModal'));
     modal.show();
 
+    loadReportConteos(idIcs);
+
     fetch(API + '/registros/' + idIcs)
       .then(function(r) { return r.json(); })
       .then(function(j) {
@@ -1124,6 +1404,10 @@
     if (d.vehiculo_real) busInput.value = d.vehiculo_real;
     document.getElementById('mapFilterHoraIni').value = '00:00';
     document.getElementById('mapFilterHoraFin').value = '23:59';
+    document.getElementById('chkLabels').checked = false;
+    _lastKmlLinea = null;
+    _lastKmlGeoJson = { trazados: null, paraderos: null };
+    _syncKmlVariantControls();
 
     // Abrir panel de filtros automáticamente
     const panel = document.getElementById('mapFilterPanel');
@@ -1131,7 +1415,11 @@
 
     // Esperar a que el modal esté completamente visible (shown.bs.modal fires ~300ms)
     // y el mapa inicializado (~50ms más) antes de cargar datos
-    setTimeout(function() { loadMapData(); }, 100);
+    setTimeout(function() {
+      loadMapData();
+      // Cargar capas KML (trazado + paraderos) si hay id_linea en el ICS
+      if (d.id_linea) loadRouteKml(d.id_linea);
+    }, 100);
 
     // Limpiar estado de nota al abrir nuevo ICS
     window._notaTextoBaseConPendientes = '';
@@ -1441,6 +1729,7 @@
     .then(function(r) { return r.json(); })
     .then(function(j) {
       if (j.ok) {
+        _resetDirtyState();                                         // limpia dirty + adjuntos
         bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
         loadTabData(currentTab);
         loadStats();
@@ -1532,14 +1821,14 @@
   }
 
   var layers = {
-    'OSM':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}),
-    'Satelite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}),
-    'Oscuro':   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:20})
+    'OSM':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxNativeZoom:19,maxZoom:22}),
+    'Satelite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:22}),
+    'Oscuro':   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxNativeZoom:20,maxZoom:22})
   };
   var map = L.map('map',{
     center:[4.7110,-74.0054],zoom:12,
     layers:[layers['${layerName}']||layers['Satelite']],
-    zoomControl:false,attributionControl:false
+    zoomControl:false,attributionControl:false,maxZoom:22,zoomSnap:0.25
   });
 
   L.control.zoom({position:'topright'}).addTo(map);
@@ -1561,7 +1850,7 @@
 
   L.control.scale({position:'bottomleft',imperial:false}).addTo(map);
   new L.Control.MiniMap(
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxNativeZoom:19,maxZoom:22}),
     {position:'bottomright',toggleDisplay:true,minimized:true,width:110,height:80,zoomLevelOffset:-5}
   ).addTo(map);
   L.control.layers(layers,null,{position:'topright'}).addTo(map);
@@ -1575,158 +1864,410 @@
   var legendCtrl = L.control({position:'bottomleft'});
   legendCtrl.onAdd = function() {
     this._div = L.DomUtil.create('div','leg');
-    this._div.innerHTML = _buildLegendHtml({});
+    this._div.innerHTML = _buildLegendHtml({}, {});
     L.DomEvent.disableClickPropagation(this._div);
     return this._div;
   };
-  legendCtrl.update = function(estadosPresentes) {
-    if (this._div) this._div.innerHTML = _buildLegendHtml(estadosPresentes);
+  legendCtrl.update = function(estadosPresentes, kmlState) {
+    if (this._div) this._div.innerHTML = _buildLegendHtml(estadosPresentes, kmlState);
   };
   legendCtrl.addTo(map);
 
-  function _buildLegendHtml(estadosPresentes) {
-    var html = '<div style="font-weight:800;margin-bottom:.3rem;font-size:.65rem;border-bottom:1px solid #e2e8f0;padding-bottom:.2rem;">Convenciones</div>'
-      + '<div class="lr" style="margin-bottom:.2rem;"><div class="ll" style="background:#f97316;height:3px;width:22px;border-radius:2px;flex-shrink:0;"></div><span>Recorrido GPS</span></div>'
+  var VAR_COLOR = { 1:'#1d4ed8', 2:'#16a34a', 3:'#ea580c', 4:'#7c3aed' };
+  var PARADERO_COLOR = { 1:'#0f766e', 2:'#c2410c', 3:'#be185d', 4:'#155e75' };
+
+  function _buildLegendHtml(estadosPresentes, kmlState) {
+    var html = '<div style="font-weight:800;margin-bottom:.3rem;font-size:.65rem;border-bottom:1px solid #e2e8f0;padding-bottom:.2rem;">Convenciones</div>';
+    var st = kmlState || {};
+    if (st.trazadoVisible && st.trazadoVariantes && st.trazadoVariantes.length > 0) {
+      st.trazadoVariantes.forEach(function(v, idx) {
+        var c = VAR_COLOR[(idx % 4) + 1]||'#1d4ed8';
+        html += '<div class="lr" style="margin-bottom:.2rem;"><div class="ll" style="background:'+c+';height:3px;width:22px;border-radius:2px;flex-shrink:0;border-top:2px dashed rgba(255,255,255,.45);"></div><span>'+v+'</span></div>';
+      });
+    }
+    if (st.paraderoVisible && st.paraderoVariantes && st.paraderoVariantes.length > 0) {
+      st.paraderoVariantes.forEach(function(v) {
+        var c = PARADERO_COLOR[v]||'#0f766e';
+        html += '<div class="lr" style="margin-bottom:.2rem;"><div class="ld" style="background:'+c+';width:9px;height:9px;border-radius:2px;transform:rotate(45deg);"></div><span>Tipo '+v+(st.labelsVisible?' - fijo':' - hover')+'</span></div>';
+        return;
+        html += '<div class="lr" style="margin-bottom:.2rem;"><div class="ld" style="background:'+c+';width:8px;height:8px;border-radius:50%;"></div><span>Paradero V'+v+(st.labelsVisible?' · etiq.':'')+'</span></div>';
+      });
+    }
+    html += '<div class="lr" style="margin-bottom:.2rem;"><div class="ll" style="background:#f97316;height:3px;width:22px;border-radius:2px;flex-shrink:0;"></div><span>Recorrido GPS</span></div>'
       + '<div class="lr" style="margin-bottom:.2rem;"><div class="ld" style="background:#198754;"></div><span>Inicio</span></div>'
       + '<div class="lr" style="margin-bottom:.4rem;"><div class="ld" style="background:#dc3545;"></div><span>Fin</span></div>';
-
     var ids = Object.keys(estadosPresentes);
     if (ids.length > 0) {
       html += '<div style="font-size:.6rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.3px;margin-bottom:.2rem;">Estados GPS</div>';
       ids.forEach(function(id) {
         var color = estadoColor(id);
-        var nombre = ESTADO_NOMBRE[parseInt(id)] || ('Estado ' + id);
-        var count  = estadosPresentes[id];
-        html += '<div class="lr" style="margin-bottom:.15rem;">'
-          + '<div class="ld" style="background:' + color + ';"></div>'
-          + '<span>' + nombre + ' <span style="color:#94a3b8;font-size:.58rem;">(' + count + ')</span></span>'
-          + '</div>';
+        var nombre = ESTADO_NOMBRE[parseInt(id)] || ('Estado '+id);
+        html += '<div class="lr" style="margin-bottom:.15rem;"><div class="ld" style="background:'+color+';"></div>'
+          + '<span>'+nombre+' <span style="color:#94a3b8;font-size:.58rem;">('+estadosPresentes[id]+')</span></span></div>';
       });
     }
     return html;
   }
 
-  var poly=null,cgrp=null;
+  // ── Estado capas KML ───────────────────────────────────────────────────────
+  var _kmlState = {
+    trazadoVisible:true, paraderoVisible:true, labelsVisible:false,
+    selectedTrazadoVariant:null, selectedParaderoVariant:null,
+    trazadoVariantes:[], paraderoVariantes:[],
+    _trazadoGeoJson:null, _paraderoGeoJson:null
+  };
+  var _estadosGpsActuales = {};
+  var poly=null,cgrp=null,_routeLayer=null,_stopLayer=null;
 
+  function _updateLegend() {
+    legendCtrl.update(_estadosGpsActuales, _kmlState);
+  }
+
+  function _normalizeVariant(value) {
+    var n = parseInt(value, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  function _sortByVariant(a, b) {
+    return (_normalizeVariant(a) || 0) - (_normalizeVariant(b) || 0);
+  }
+
+  function _safeTrazadoName(value) {
+    return String(value || 'Sin nombre');
+  }
+
+  function _extractTrazadoNames(geojson) {
+    var names = [];
+    if (!geojson || !geojson.features) return names;
+    geojson.features.forEach(function(feature) {
+      var name = _safeTrazadoName(feature && feature.properties ? (feature.properties.nombre_placemark || feature.properties.nombre) : '');
+      if (names.indexOf(name) < 0) names.push(name);
+    });
+    return names.sort(function(a, b) { return a.localeCompare(b); });
+  }
+
+  function _extractVariants(geojson) {
+    var vars = [];
+    if (!geojson || !geojson.features) return vars;
+    geojson.features.forEach(function(feature) {
+      var v = _normalizeVariant(feature && feature.properties ? feature.properties.variante : null) || 1;
+      if (vars.indexOf(v) < 0) vars.push(v);
+    });
+    return vars.sort(_sortByVariant);
+  }
+
+  function _sortStopFeatures(a, b) {
+    var va = _normalizeVariant(a && a.properties ? a.properties.variante : null) || 1;
+    var vb = _normalizeVariant(b && b.properties ? b.properties.variante : null) || 1;
+    if (va !== vb) return va - vb;
+    var sa = parseFloat(a && a.properties ? a.properties.secuencia : null);
+    var sb = parseFloat(b && b.properties ? b.properties.secuencia : null);
+    if (!isNaN(sa) && !isNaN(sb)) return sa - sb;
+    if (!isNaN(sa)) return -1;
+    if (!isNaN(sb)) return 1;
+    return 0;
+  }
+
+  function _geoJsonByVariant(geojson, variant, sortFn) {
+    if (!geojson || !geojson.features) return null;
+    var features = geojson.features.slice();
+    if (variant != null) {
+      features = features.filter(function(feature) {
+        var v = _normalizeVariant(feature && feature.properties ? feature.properties.variante : null) || 1;
+        return v === variant;
+      });
+    }
+    if (sortFn) features.sort(sortFn);
+    return Object.assign({}, geojson, { features: features });
+  }
+
+  function _geoJsonByTrazadoName(geojson, name) {
+    if (!geojson || !geojson.features) return null;
+    var features = geojson.features.slice();
+    if (name) {
+      features = features.filter(function(feature) {
+        var currentName = _safeTrazadoName(feature && feature.properties ? (feature.properties.nombre_placemark || feature.properties.nombre) : '');
+        return currentName === name;
+      });
+    }
+    return Object.assign({}, geojson, { features: features });
+  }
+
+  // ── Paraderos: construir capa con labels permanentes opcionales ────────────
+  function _buildStopLayer(geojson, showLabels) {
+    return L.geoJSON(geojson, {
+      pointToLayer: function(feature, latlng) {
+        var color = PARADERO_COLOR[feature.properties.variante||1]||'#0f766e';
+        return L.marker(latlng, {
+          icon: L.divIcon({
+            className:'', iconSize:[16,16], iconAnchor:[8,8],
+            html:'<div style="width:12px;height:12px;background:'+color+';border:2px solid white;box-shadow:0 1px 4px rgba(15,23,42,.35);transform:rotate(45deg);border-radius:2px;"></div>'
+          })
+        });
+      },
+      onEachFeature: function(feature, layer) {
+        var p = feature.properties || {};
+        var color2 = PARADERO_COLOR[p.variante||1]||'#0f766e';
+        var codigo2 = p.codigo || '--';
+        var nombre2 = p.nombre || p.nombre_placemark || 'Paradero';
+        var secuencia2 = p.secuencia != null ? p.secuencia : '--';
+        var ll2 = layer.getLatLng();
+        layer.bindTooltip(
+          '<div style="font-size:.68rem;font-weight:700;line-height:1.55;min-width:185px;">'
+          +'<div style="border-bottom:1px solid #e2e8f0;margin-bottom:.25rem;padding-bottom:.2rem;">'
+          +'Secuencia <span style="color:'+color2+';">'+secuencia2+'</span></div>'
+          +'<div><span style="color:#64748b;">Codigo:</span> '+codigo2+'</div>'
+          +'<div><span style="color:#64748b;">Nombre:</span> '+nombre2+'</div>'
+          +'<div><span style="color:#64748b;">Tipo:</span> '+(p.variante||1)+'</div>'
+          +'<div><span style="color:#64748b;">Coord.:</span> '+ll2.lat.toFixed(6)+', '+ll2.lng.toFixed(6)+'</div>'
+          +'</div>',
+          {
+            direction: showLabels ? 'right' : 'top',
+            sticky: !showLabels,
+            permanent: !!showLabels,
+            className: showLabels ? 'kml-stop-label' : '',
+            offset: showLabels ? [8,0] : [0,-4],
+            opacity:.96
+          }
+        );
+        return;
+        var p = feature.properties;
+        var color = VAR_COLOR[p.variante||1]||'#1d4ed8';
+        var cod = p.codigo ? '<br><span style="color:#64748b;">Código:</span> '+p.codigo : '';
+        // Tooltip de hover siempre presente
+        layer.bindTooltip(
+          '<div style="font-size:.68rem;font-weight:700;line-height:1.6;">'
+          +'<div style="border-bottom:1px solid #e2e8f0;margin-bottom:.25rem;padding-bottom:.2rem;">'
+          +'🚏 <span style="color:'+color+';">'+(p.nombre||p.nombre_placemark||'Paradero')+'</span></div>'
+          +'<span style="color:#64748b;">Sec.:</span> '+(p.secuencia||'--')+cod
+          +'<br><span style="color:#64748b;">Variante:</span> V'+(p.variante||1)
+          +'</div>',
+          { direction:'top', sticky:true, opacity:.95 }
+        );
+        // Etiqueta permanente (código + nombre) si está activada
+        if (showLabels && (p.nombre || p.codigo)) {
+          var txt = (p.codigo ? p.codigo+' · ':'') + (p.nombre||'');
+          layer.bindTooltip(txt, {
+            permanent:true, direction:'right', className:'kml-stop-label',
+            offset:[8,0], opacity:1
+          });
+        }
+      }
+    });
+  }
+
+  // ── Render trazados ────────────────────────────────────────────────────────
+  function renderRuta(geojson) {
+    if (_routeLayer) { map.removeLayer(_routeLayer); _routeLayer=null; }
+    _kmlState._trazadoGeoJson = geojson;
+    _kmlState.trazadoVariantes = _extractTrazadoNames(geojson);
+    if (!_kmlState.trazadoVisible || !_kmlState._trazadoGeoJson) { _updateLegend(); return; }
+    var filteredRuta = _geoJsonByTrazadoName(_kmlState._trazadoGeoJson, _kmlState.selectedTrazadoVariant);
+    _kmlState.trazadoVariantes = _extractTrazadoNames(filteredRuta);
+    if (!filteredRuta || !filteredRuta.features || !filteredRuta.features.length) { _updateLegend(); return; }
+    _routeLayer = L.geoJSON(filteredRuta, {
+      style: function(f) {
+        return { color:VAR_COLOR[f.properties.variante||1]||'#1d4ed8', weight:3.5, opacity:0.92, dashArray:'8 7', lineCap:'round' };
+      },
+      onEachFeature: function(feature, layer) {
+        var p = feature.properties || {};
+        layer.bindTooltip(
+          '<div style="font-size:.68rem;font-weight:700;line-height:1.6;">'
+          +'<div style="border-bottom:1px solid #e2e8f0;margin-bottom:.25rem;padding-bottom:.2rem;">'
+          +'<span style="color:'+(VAR_COLOR[p.variante||1]||'#1d4ed8')+';">'+(p.nombre_placemark||p.nombre||'Sin trazado')+'</span></div>'
+          +'<span style="color:#64748b;">Trazado:</span> '+(p.nombre_placemark||p.nombre||'--')+'<br>'
+          +'<span style="color:#64748b;">Puntos:</span> '+(p.total_puntos||'--')+'</div>',
+          { direction:'top', sticky:true, opacity:.95 }
+        );
+      }
+    }).addTo(map);
+    _updateLegend();
+    return;
+    if (_routeLayer) { map.removeLayer(_routeLayer); _routeLayer=null; }
+    _kmlState._trazadoGeoJson = geojson;
+    if (!geojson || !geojson.features || !geojson.features.length) return;
+    _kmlState.trazadoVariantes = [];
+    geojson.features.forEach(function(f) {
+      var v = f.properties.variante||1;
+      if (_kmlState.trazadoVariantes.indexOf(v)<0) _kmlState.trazadoVariantes.push(v);
+    });
+    _kmlState.trazadoVariantes.sort();
+    if (!_kmlState.trazadoVisible) { _updateLegend(); return; }
+    _routeLayer = L.geoJSON(geojson, {
+      style: function(f) {
+        return { color:VAR_COLOR[f.properties.variante||1]||'#1d4ed8', weight:3.5, opacity:0.78 };
+      },
+      onEachFeature: function(feature, layer) {
+        var p = feature.properties;
+        layer.bindTooltip(
+          '<div style="font-size:.68rem;font-weight:700;line-height:1.6;">'
+          +'<div style="border-bottom:1px solid #e2e8f0;margin-bottom:.25rem;padding-bottom:.2rem;">'
+          +'🛣️ <span style="color:'+(VAR_COLOR[p.variante||1]||'#1d4ed8')+';">Trazado V'+(p.variante||1)+'</span></div>'
+          +'<span style="color:#64748b;">Nombre:</span> '+(p.nombre||'--')+'<br>'
+          +'<span style="color:#64748b;">Puntos:</span> '+(p.total_puntos||'--')+'</div>',
+          { direction:'top', sticky:true, opacity:.95 }
+        );
+      }
+    }).addTo(map);
+    _updateLegend();
+  }
+
+  // ── Render paraderos ───────────────────────────────────────────────────────
+  function renderParaderos(geojson) {
+    if (_stopLayer) { map.removeLayer(_stopLayer); _stopLayer=null; }
+    _kmlState._paraderoGeoJson = geojson;
+    _kmlState.paraderoVariantes = _extractVariants(geojson);
+    if (!_kmlState.paraderoVisible || !_kmlState._paraderoGeoJson) { _updateLegend(); return; }
+    var filteredStops = _geoJsonByVariant(_kmlState._paraderoGeoJson, _kmlState.selectedParaderoVariant, _sortStopFeatures);
+    _kmlState.paraderoVariantes = _extractVariants(filteredStops);
+    if (!filteredStops || !filteredStops.features || !filteredStops.features.length) { _updateLegend(); return; }
+    _stopLayer = _buildStopLayer(filteredStops, _kmlState.labelsVisible).addTo(map);
+    _updateLegend();
+    return;
+    if (_stopLayer) { map.removeLayer(_stopLayer); _stopLayer=null; }
+    _kmlState._paraderoGeoJson = geojson;
+    if (!geojson || !geojson.features || !geojson.features.length) return;
+    _kmlState.paraderoVariantes = [];
+    geojson.features.forEach(function(f) {
+      var v = f.properties.variante||1;
+      if (_kmlState.paraderoVariantes.indexOf(v)<0) _kmlState.paraderoVariantes.push(v);
+    });
+    _kmlState.paraderoVariantes.sort();
+    if (!_kmlState.paraderoVisible) { _updateLegend(); return; }
+    _stopLayer = _buildStopLayer(geojson, _kmlState.labelsVisible).addTo(map);
+    _updateLegend();
+  }
+
+  // ── Listener de mensajes desde el padre ───────────────────────────────────
+  window.addEventListener('message', function(ev) {
+    var d = ev.data; if(!d||!d.type) return;
+    if (d.type==='gps') {
+      document.getElementById('loading').style.display='none';
+      renderGps(d.points);
+    }
+    if (d.type==='ruta')      { renderRuta(d.geojson); }
+    if (d.type==='paraderos') { renderParaderos(d.geojson); }
+    if (d.type==='toggleLayer') {
+      var which = d.which, show = d.show;
+      if (which==='trazado') {
+        _kmlState.trazadoVisible = show;
+        if (show) { if (_kmlState._trazadoGeoJson) renderRuta(_kmlState._trazadoGeoJson); }
+        else { if (_routeLayer) { map.removeLayer(_routeLayer); _routeLayer=null; } _updateLegend(); }
+      }
+      if (which==='paradero') {
+        _kmlState.paraderoVisible = show;
+        if (show) { if (_kmlState._paraderoGeoJson) renderParaderos(_kmlState._paraderoGeoJson); }
+        else { if (_stopLayer) { map.removeLayer(_stopLayer); _stopLayer=null; } _updateLegend(); }
+        // Habilitar/deshabilitar el checkbox de etiquetas en el padre
+        window.parent.postMessage({ type:'syncLabelsChk', enabled:show }, '*');
+      }
+      if (which==='labels') {
+        _kmlState.labelsVisible = show;
+        if (_kmlState._paraderoGeoJson && _kmlState.paraderoVisible) {
+          if (_stopLayer) { map.removeLayer(_stopLayer); _stopLayer=null; }
+          _stopLayer = _buildStopLayer(_kmlState._paraderoGeoJson, show).addTo(map);
+        }
+        _updateLegend();
+      }
+    }
+    if (d.type==='setVariantFilter') {
+      if (d.which==='trazado') {
+        _kmlState.selectedTrazadoVariant = d.variant == null ? null : String(d.variant);
+        renderRuta(_kmlState._trazadoGeoJson);
+      }
+      if (d.which==='paradero') {
+        _kmlState.selectedParaderoVariant = d.variant == null ? null : _normalizeVariant(d.variant);
+        renderParaderos(_kmlState._paraderoGeoJson);
+      }
+    }
+    if (d.type==='clear') {
+      if(poly){map.removeLayer(poly);poly=null;}
+      if(cgrp){map.removeLayer(cgrp);cgrp=null;}
+      if(_routeLayer){map.removeLayer(_routeLayer);_routeLayer=null;}
+      if(_stopLayer){map.removeLayer(_stopLayer);_stopLayer=null;}
+      _kmlState._trazadoGeoJson=null; _kmlState._paraderoGeoJson=null;
+      _kmlState.selectedTrazadoVariant=null; _kmlState.selectedParaderoVariant=null;
+      _kmlState.trazadoVariantes=[]; _kmlState.paraderoVariantes=[];
+      _estadosGpsActuales={};
+      map.setView([4.7110,-74.0054],12);
+      _updateLegend();
+    }
+    if (d.type==='loading') { document.getElementById('loading').innerHTML='⟳ Cargando...'; document.getElementById('loading').style.display='flex'; }
+    if (d.type==='nodata')  { document.getElementById('loading').innerHTML='📍 Sin posicionamientos'; document.getElementById('loading').style.display='flex'; setTimeout(function(){document.getElementById('loading').style.display='none';},3000); }
+    if (d.type==='resize')  { setTimeout(function(){ map.invalidateSize(); }, 100); }
+  });
+  setTimeout(function(){document.getElementById('loading').style.display='none';},2500);
+
+  // ── CSS etiquetas de paraderos ─────────────────────────────────────────────
+  var _styleEl = document.createElement('style');
+  _styleEl.textContent = '.kml-stop-label{background:transparent!important;border:none!important;box-shadow:none!important;font-family:"Century Gothic",Arial,sans-serif;font-size:.58rem;font-weight:700;color:#1e293b;white-space:nowrap;padding:.1rem .25rem;text-shadow:0 0 3px white,0 0 3px white,0 0 3px white;}';
+  document.head.appendChild(_styleEl);
+
+  // ── renderGps ─────────────────────────────────────────────────────────────
   function renderGps(points) {
     if(poly){map.removeLayer(poly);poly=null;}
     if(cgrp){map.removeLayer(cgrp);cgrp=null;}
-
     var lls = [];
-    var estadosPresentes = {}; // {id: count}
-
+    var estadosPresentes = {};
     cgrp = L.markerClusterGroup({
       maxClusterRadius: 40,
       showCoverageOnHover: false,
-      // Cluster del mismo tamaño que los puntos GPS, sin número visible —
-      // el número se muestra en el tooltip al hacer hover
       iconCreateFunction: function(cluster) {
-        var count   = cluster.getChildCount();
-        // Color dominante del cluster = color más frecuente entre sus hijos
+        var count    = cluster.getChildCount();
         var children = cluster.getAllChildMarkers();
         var freq = {};
-        children.forEach(function(m) {
-          var c = m.options.fillColor || '#64748b';
-          freq[c] = (freq[c] || 0) + 1;
+        children.forEach(function(m){ var c=m.options.fillColor||'#64748b'; freq[c]=(freq[c]||0)+1; });
+        var dominante = Object.keys(freq).reduce(function(a,b){ return freq[a]>freq[b]?a:b; },'#64748b');
+        return L.divIcon({
+          html:'<div style="background:'+dominante+';border:2.5px solid white;border-radius:50%;width:14px;height:14px;box-shadow:0 1px 4px rgba(0,0,0,.4);" title="'+count+' puntos"></div>',
+          className:'', iconSize:[14,14], iconAnchor:[7,7]
         });
-        var dominante = Object.keys(freq).reduce(function(a,b){ return freq[a]>freq[b]?a:b; }, '#64748b');
-
-        var icon = L.divIcon({
-          html: '<div style="'
-            + 'background:' + dominante + ';'
-            + 'border:2.5px solid white;'
-            + 'border-radius:50%;'
-            + 'width:14px;height:14px;'
-            + 'box-shadow:0 1px 4px rgba(0,0,0,.4);"'
-            + ' title="' + count + ' puntos">'
-            + '</div>',
-          className: '',
-          iconSize: [14, 14],
-          iconAnchor: [7, 7]
-        });
-        return icon;
       }
     });
-
     points.forEach(function(p, i) {
-      var lat = parseFloat(p.latitud), lng = parseFloat(p.longitud);
-      if (isNaN(lat) || isNaN(lng)) return;
-      lls.push([lat, lng]);
-
-      var isF = i === 0, isL = i === points.length - 1;
-      var estado = parseInt(p.estado_localizacion) || 0;
-      var color  = isF ? '#198754' : isL ? '#dc3545' : estadoColor(estado);
-
-      // Conteo para leyenda (excluir inicio/fin)
-      if (!isF && !isL) {
-        estadosPresentes[estado] = (estadosPresentes[estado] || 0) + 1;
-      }
-
-      var m = L.circleMarker([lat, lng], {
-        radius:      (isF || isL) ? 10 : 7,
-        color:       'white',
-        weight:      2.5,
-        fillColor:   color,
-        fillOpacity: 1
-      });
-
-      var vel    = p.vel_m_s != null ? (parseFloat(p.vel_m_s) * 3.6).toFixed(1) + ' km/h' : '--';
-      var est    = p.nombre_estado || ESTADO_NOMBRE[estado] || '--';
-      var pos    = p.posicion != null ? p.posicion : '--';
-      var hora   = p.hora || '--';
-      var etq    = isF ? '🟢 Inicio' : isL ? '🔴 Fin' : '📍';
-
+      var lat=parseFloat(p.latitud), lng=parseFloat(p.longitud);
+      if(isNaN(lat)||isNaN(lng)) return;
+      lls.push([lat,lng]);
+      var isF=i===0, isL=i===points.length-1;
+      var estado=parseInt(p.estado_localizacion)||0;
+      var color=isF?'#198754':isL?'#dc3545':estadoColor(estado);
+      if(!isF&&!isL) estadosPresentes[estado]=(estadosPresentes[estado]||0)+1;
+      var m=L.circleMarker([lat,lng],{radius:(isF||isL)?10:7,color:'white',weight:2.5,fillColor:color,fillOpacity:1});
+      var vel=p.vel_m_s!=null?(parseFloat(p.vel_m_s)*3.6).toFixed(1)+' km/h':'--';
+      var est=p.nombre_estado||ESTADO_NOMBRE[estado]||'--';
+      var pos=p.posicion!=null?p.posicion:'--';
+      var hora=p.hora||'--';
+      var etq=isF?'🟢 Inicio':isL?'🔴 Fin':'📍';
       m.bindTooltip(
         '<div style="font-size:.7rem;font-weight:700;min-width:160px;line-height:1.7;">'
-        + '<div style="border-bottom:1px solid #e2e8f0;margin-bottom:.3rem;padding-bottom:.2rem;">'
-        + etq + ' <span style="color:#0d6efd;">' + (p.movil_bus||'') + '</span>'
-        + ' <span style="color:#64748b;font-size:.65rem;">' + hora + '</span></div>'
-        + '<div style="display:grid;grid-template-columns:auto 1fr;gap:.1rem .5rem;">'
-        + '<span style="color:#64748b;font-size:.65rem;">Estado</span>'
-        + '<span style="font-weight:600;color:' + color + ';">● ' + est + '</span>'
-        + '<span style="color:#64748b;font-size:.65rem;">Posición</span>'
-        + '<span style="font-weight:600;">' + pos + '</span>'
-        + '<span style="color:#64748b;font-size:.65rem;">Velocidad</span>'
-        + '<span style="font-weight:600;color:' + (parseFloat(p.vel_m_s)>0?'#198754':'#64748b') + ';">' + vel + '</span>'
-        + '</div></div>',
-        {direction:'top', offset:[0,-5], opacity:.97, sticky:true}
+        +'<div style="border-bottom:1px solid #e2e8f0;margin-bottom:.3rem;padding-bottom:.2rem;">'
+        +etq+' <span style="color:#0d6efd;">'+(p.movil_bus||'')+'</span>'
+        +' <span style="color:#64748b;font-size:.65rem;">'+hora+'</span></div>'
+        +'<div style="display:grid;grid-template-columns:auto 1fr;gap:.1rem .5rem;">'
+        +'<span style="color:#64748b;font-size:.65rem;">Estado</span>'
+        +'<span style="font-weight:600;color:'+color+';">● '+est+'</span>'
+        +'<span style="color:#64748b;font-size:.65rem;">Posición</span>'
+        +'<span style="font-weight:600;">'+pos+'</span>'
+        +'<span style="color:#64748b;font-size:.65rem;">Velocidad</span>'
+        +'<span style="font-weight:600;color:'+(parseFloat(p.vel_m_s)>0?'#198754':'#64748b')+';">'+vel+'</span>'
+        +'</div></div>',
+        {direction:'top',offset:[0,-5],opacity:.97,sticky:true}
       );
-
       cgrp.addLayer(m);
     });
-
-    if (lls.length > 1)
-      poly = L.polyline(lls, {color:'#f97316', weight:3, opacity:.9, smoothFactor:1.5}).addTo(map);
-
+    if(lls.length>1) poly=L.polyline(lls,{color:'#f97316',weight:3,opacity:.9,smoothFactor:1.5}).addTo(map);
     map.addLayer(cgrp);
-
-    // Marcadores inicio/fin encima del cluster (directos al mapa, no al cluster)
-    if (lls.length > 0) {
-      [{i:0, c:'#198754', t:'Inicio'}, {i:lls.length-1, c:'#dc3545', t:'Fin'}].forEach(function(e){
-        L.circleMarker(lls[e.i], {radius:11, color:'white', weight:3, fillColor:e.c, fillOpacity:1})
-          .bindPopup('<strong>' + e.t + '</strong><br><span style="font-size:.7rem;">' + (points[e.i].hora||'') + '</span>')
+    if(lls.length>0){
+      [{i:0,c:'#198754',t:'Inicio'},{i:lls.length-1,c:'#dc3545',t:'Fin'}].forEach(function(e){
+        L.circleMarker(lls[e.i],{radius:11,color:'white',weight:3,fillColor:e.c,fillOpacity:1})
+          .bindPopup('<strong>'+e.t+'</strong><br><span style="font-size:.7rem;">'+(points[e.i].hora||'')+'</span>')
           .addTo(map);
       });
-      map.fitBounds(L.latLngBounds(lls), {padding:[30,30], maxZoom:16});
+      map.fitBounds(L.latLngBounds(lls),{padding:[30,30],maxZoom:16});
     }
-
-    // Actualizar leyenda con estados presentes en esta consulta
-    legendCtrl.update(estadosPresentes);
+    _estadosGpsActuales = estadosPresentes;
+    _updateLegend();
   }
-
-  window.addEventListener('message', function(ev) {
-    var d = ev.data; if(!d||!d.type) return;
-    if(d.type==='gps'){document.getElementById('loading').style.display='none'; renderGps(d.points);}
-    if(d.type==='clear'){
-      if(poly){map.removeLayer(poly);poly=null;}
-      if(cgrp){map.removeLayer(cgrp);cgrp=null;}
-      map.setView([4.7110,-74.0054],12);
-      legendCtrl.update({});
-    }
-    if(d.type==='loading'){document.getElementById('loading').innerHTML='⟳ Cargando...';document.getElementById('loading').style.display='flex';}
-    if(d.type==='nodata'){document.getElementById('loading').innerHTML='📍 Sin posicionamientos';document.getElementById('loading').style.display='flex';setTimeout(function(){document.getElementById('loading').style.display='none';},3000);}
-  });
-  setTimeout(function(){document.getElementById('loading').style.display='none';},2500);
   <\/script>
   </body></html>`;
   }
@@ -1747,10 +2288,21 @@
       }
     });
     editModal.addEventListener('hidden.bs.modal', function() {
+      _isDirty  = false;           // reset silencioso al cerrarse por cualquier vía
       _pendingIcsData = null;
       _mapReady       = false;
       _lastGpsData    = [];
       _gpsLayer       = null;
+      _lastKmlLinea   = null;
+      _lastKmlGeoJson = { trazados: null, paraderos: null };
+      document.getElementById('mapCard').setAttribute('style', 'background:white;border-radius:6px;padding:0.9rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;flex-direction:column;min-height:420px;');
+      document.getElementById('mapModal').setAttribute('style', 'flex:1;border-radius:8px;border:1px solid #e2e8f0;height:300px;min-height:300px;width:100%;display:block;');
+      document.getElementById('mapCard')._fs = false;
+      document.body.style.overflow = '';
+      var minBtn = document.getElementById('_mapMinBtn');
+      if (minBtn) minBtn.remove();
+      document.getElementById('mapToggleBtn').innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Maximizar';
+      _resetKmlControlState();
       document.getElementById('mapStatusBadge').style.display = 'none';
       document.getElementById('mapQueryInfo').style.display   = 'none';
     });
@@ -1766,18 +2318,175 @@
     var name = _mapLayerNames[_mapLayerIndex];
     document.getElementById('layerBtn').innerHTML = '<i class="bi bi-layers"></i> ' + name;
     document.getElementById('mapModal').srcdoc = _buildMapHtml(name);
-    if (_lastGpsData.length > 0) {
-      setTimeout(function() { _iframeMsg({ type: 'gps', points: _lastGpsData }); }, 1500);
-    }
+    setTimeout(function() {
+      if (_lastGpsData.length > 0) _iframeMsg({ type: 'gps', points: _lastGpsData });
+      // Reenviar KML desde caché local (no refetch)
+      if (_lastKmlGeoJson.trazados)  _iframeMsg({ type: 'ruta',      geojson: _lastKmlGeoJson.trazados  });
+      if (_lastKmlGeoJson.paraderos) _iframeMsg({ type: 'paraderos', geojson: _lastKmlGeoJson.paraderos });
+      // Sincronizar estado de toggles
+      _iframeMsg({ type: 'toggleLayer', which: 'trazado',  show: document.getElementById('chkTrazados').checked });
+      _iframeMsg({ type: 'toggleLayer', which: 'paradero', show: document.getElementById('chkParaderos').checked });
+      _iframeMsg({ type: 'toggleLayer', which: 'labels',   show: document.getElementById('chkLabels').checked });
+      setKmlVariantFilter('trazado', document.getElementById('selTrazadoVariante').value || 'all');
+      setKmlVariantFilter('paradero', document.getElementById('selParaderoVariante').value || 'all');
+    }, 1500);
   }
 
   function _clearMapDataLayers() {
     _iframeMsg({ type: 'clear' });
     _lastGpsData = [];
     _gpsLayer    = null;
+    _resetKmlControlState();
     document.getElementById('mapQueryInfo').style.display   = 'none';
     document.getElementById('mapStatusBadge').style.display = 'none';
   }
+
+  // ── KML: caché GeoJSON para popout/fullscreen y carga desde API ────────────
+  var _lastKmlLinea   = null;
+  var _lastKmlGeoJson = { trazados: null, paraderos: null };
+  var _popupMapWin    = null;
+
+  function _safeTrazadoNameParent(value) {
+    return String(value || 'Sin nombre');
+  }
+
+  function _extractKmlVariantsParent(geojson, which) {
+    var vars = [];
+    if (!geojson || !geojson.features) return vars;
+    geojson.features.forEach(function(feature) {
+      var value;
+      if (which === 'trazado') {
+        value = _safeTrazadoNameParent(feature && feature.properties ? (feature.properties.nombre_placemark || feature.properties.nombre) : '');
+      } else {
+        value = String(parseInt(feature && feature.properties ? feature.properties.variante : null, 10) || 1);
+      }
+      if (vars.indexOf(value) < 0) vars.push(value);
+    });
+    return which === 'trazado'
+      ? vars.sort(function(a, b) { return a.localeCompare(b); })
+      : vars.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+  }
+
+  function _populateKmlVariantSelect(selectId, groupId, items, labelAll, formatter) {
+    var select = document.getElementById(selectId);
+    var group  = document.getElementById(groupId);
+    if (!select || !group) return;
+    var current = select.value || 'all';
+    var html = '<option value="all">' + labelAll + '</option>';
+    items.forEach(function(item) {
+      html += '<option value="' + item + '">' + (formatter ? formatter(item) : item) + '</option>';
+    });
+    select.innerHTML = html;
+    group.style.display = items.length > 1 ? 'block' : 'none';
+    select.disabled = items.length <= 1;
+    if (items.length > 1 && current !== 'all' && items.indexOf(current) >= 0) {
+      select.value = current;
+    } else {
+      select.value = 'all';
+    }
+  }
+
+  function _syncKmlVariantControls() {
+    _populateKmlVariantSelect('selTrazadoVariante', 'trazadoVariantGroup', _extractKmlVariantsParent(_lastKmlGeoJson.trazados, 'trazado'), 'Todos los trazados');
+    _populateKmlVariantSelect('selParaderoVariante', 'paraderoVariantGroup', _extractKmlVariantsParent(_lastKmlGeoJson.paraderos, 'paradero'), 'Todos los paraderos', function(item) { return 'Tipo ' + item; });
+  }
+
+  function setKmlVariantFilter(which, value) {
+    _iframeMsg({ type: 'setVariantFilter', which: which, variant: value === 'all' ? null : value });
+  }
+
+  function _getDefaultMapDate() {
+    return (_currentIcsData && _currentIcsData.fecha) || document.getElementById('filterDate').value || '';
+  }
+
+  function _resetKmlControlState() {
+    var t = document.getElementById('selTrazadoVariante');
+    var p = document.getElementById('selParaderoVariante');
+    var lbl = document.getElementById('chkLabels');
+    if (t) t.value = 'all';
+    if (p) p.value = 'all';
+    if (lbl) lbl.checked = false;
+    _syncKmlVariantControls();
+    _iframeMsg({ type: 'setVariantFilter', which: 'trazado', variant: null });
+    _iframeMsg({ type: 'setVariantFilter', which: 'paradero', variant: null });
+    _iframeMsg({ type: 'toggleLayer', which: 'labels', show: false });
+  }
+
+  async function loadRouteKml(idLinea) {
+    if (!idLinea) return;
+    if (_lastKmlLinea === idLinea) return;
+    _lastKmlLinea = idLinea;
+    var base = '/api/config/rutas/' + idLinea + '/kml';
+    try {
+      var [rT, rP] = await Promise.all([
+        fetch(base + '/trazados'),
+        fetch(base + '/paraderos'),
+      ]);
+      var trazados  = await rT.json();
+      var paraderos = await rP.json();
+      _lastKmlGeoJson.trazados  = (trazados  && trazados.features  && trazados.features.length)  ? trazados  : null;
+      _lastKmlGeoJson.paraderos = (paraderos && paraderos.features && paraderos.features.length) ? paraderos : null;
+      _syncKmlVariantControls();
+      if (_lastKmlGeoJson.trazados)  _iframeMsg({ type: 'ruta',      geojson: _lastKmlGeoJson.trazados  });
+      if (_lastKmlGeoJson.paraderos) _iframeMsg({ type: 'paraderos', geojson: _lastKmlGeoJson.paraderos });
+      setKmlVariantFilter('trazado', document.getElementById('selTrazadoVariante').value || 'all');
+      setKmlVariantFilter('paradero', document.getElementById('selParaderoVariante').value || 'all');
+    } catch(e) {
+      console.warn('[KML]', e);
+    }
+  }
+
+  // ── Control de capas KML (dropdown) ───────────────────────────────────────
+  var _kmlPanelOpen = false;
+
+  function toggleKmlLayerPanel(e) {
+    e.stopPropagation();
+    _kmlPanelOpen = !_kmlPanelOpen;
+    var panel = document.getElementById('kmlLayerPanel');
+    var btn   = document.getElementById('kmlLayerBtn');
+    panel.style.display = _kmlPanelOpen ? 'block' : 'none';
+    btn.style.borderColor = _kmlPanelOpen ? '#0d6efd' : '#e2e8f0';
+    btn.style.color       = _kmlPanelOpen ? '#0d6efd' : '#475569';
+  }
+
+  document.addEventListener('click', function(e) {
+    var panel = document.getElementById('kmlLayerPanel');
+    var btn   = document.getElementById('kmlLayerBtn');
+    if (_kmlPanelOpen && panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
+      _kmlPanelOpen = false;
+      panel.style.display = 'none';
+      btn.style.borderColor = '#e2e8f0';
+      btn.style.color = '#475569';
+    }
+  });
+
+  function toggleKmlLayer(which, show) {
+    _iframeMsg({ type: 'toggleLayer', which: which, show: show });
+    if (which === 'paradero') {
+      var lbl = document.getElementById('lblParaderosLabel');
+      var chk = document.getElementById('chkLabels');
+      var grp = document.getElementById('paraderoVariantGroup');
+      lbl.style.opacity   = show ? '1' : '0.4';
+      chk.disabled        = !show;
+      if (grp) grp.style.opacity = show ? '1' : '0.45';
+    }
+    if (which === 'trazado') {
+      var grpT = document.getElementById('trazadoVariantGroup');
+      if (grpT) grpT.style.opacity = show ? '1' : '0.45';
+    }
+  }
+
+  // Recibir sincronización de estado desde el iframe
+  window.addEventListener('message', function(ev) {
+    if (ev.data && ev.data.type === 'syncLabelsChk') {
+      var chk = document.getElementById('chkLabels');
+      var lbl = document.getElementById('lblParaderosLabel');
+      var grp = document.getElementById('paraderoVariantGroup');
+      if (chk) chk.disabled = !ev.data.enabled;
+      if (lbl) lbl.style.opacity = ev.data.enabled ? '1' : '0.4';
+      if (grp) grp.style.opacity = ev.data.enabled ? '1' : '0.45';
+    }
+  });
 
   function toggleMapFilters() {
     document.getElementById('mapFilterPanel').classList.toggle('collapsed');
@@ -1785,11 +2494,11 @@
 
   async function loadMapData() {
     var bus      = document.getElementById('mapFilterBus').value.trim().toUpperCase();
+    var fecha    = _getDefaultMapDate();
     var horaIniR = document.getElementById('mapFilterHoraIni').value.trim() || '00:00';
     var horaFinR = document.getElementById('mapFilterHoraFin').value.trim() || '23:59';
     var horaIni  = horaIniR + ':00';
     var horaFin  = horaFinR + ':59';
-    var fecha    = _currentIcsData ? _currentIcsData.fecha : document.getElementById('filterDate').value;
 
     if (!bus) {
       document.getElementById('mapFilterBus').style.borderColor = '#dc3545';
@@ -1826,10 +2535,7 @@
       var info = document.getElementById('mapQueryInfo');
       info.style.display = 'flex';
       info.innerHTML =
-        '<i class="bi bi-bus-front" style="color:#0d6efd;"></i>&nbsp;<strong>' + bus + '</strong>'
-      + '&nbsp;|&nbsp;<i class="bi bi-calendar3"></i>&nbsp;' + (fecha||'--')
-      + '&nbsp;|&nbsp;<i class="bi bi-clock"></i>&nbsp;' + horaIniR + '–' + horaFinR
-      + '&nbsp;|&nbsp;<strong>' + j.data.length + '</strong> posicionamientos';
+      '&nbsp;|&nbsp;<strong>' + j.data.length + '</strong>  _posicionamientos';
 
     } catch(e) {
       console.error('[MAPA]', e);
@@ -2080,16 +2786,21 @@
 
   /* ==================== FUNCIONES MAPA ==================== */
   function toggleMapFullscreen() {
+    var card   = document.getElementById('mapCard');
     var iframe = document.getElementById('mapModal');
     var btn    = document.getElementById('mapToggleBtn');
-    var existing = document.getElementById('_mapMinBtn');
+    var panel  = document.getElementById('mapFilterPanel');
 
-    if (!iframe._fs) {
-      iframe.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;border:none;border-radius:0;display:block;';
-      btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Maximizar';
-      iframe._fs = true;
-      // Botón flotante de Minimizar encima del iframe
-      if (!existing) {
+    if (!card._fs) {
+      card._prevStyle = card.getAttribute('style') || '';
+      iframe._prevStyle = iframe.getAttribute('style') || '';
+      card.style.cssText = 'position:fixed;inset:0;z-index:9999;background:white;border-radius:0;padding:0.9rem;box-shadow:none;display:flex;flex-direction:column;min-height:100vh;width:100vw;';
+      iframe.style.cssText = 'flex:1;border-radius:8px;border:1px solid #e2e8f0;height:auto;min-height:0;width:100%;display:block;';
+      if (panel) panel.classList.remove('collapsed');
+      btn.innerHTML = '<i class="bi bi-arrows-collapse"></i> Minimizar';
+      card._fs = true;
+      document.body.style.overflow = 'hidden';
+      if (!document.getElementById('_mapMinBtn')) {
         var minBtn = document.createElement('button');
         minBtn.id = '_mapMinBtn';
         minBtn.innerHTML = '<i class="bi bi-arrows-collapse"></i> Minimizar';
@@ -2098,74 +2809,1283 @@
         document.body.appendChild(minBtn);
       }
     } else {
-      iframe.style.cssText = 'flex:1;border-radius:8px;border:1px solid #e2e8f0;height:300px;min-height:300px;width:100%;display:block;';
+      card.setAttribute('style', card._prevStyle || 'background:white;border-radius:6px;padding:0.9rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;flex-direction:column;min-height:420px;');
+      iframe.setAttribute('style', iframe._prevStyle || 'flex:1;border-radius:8px;border:1px solid #e2e8f0;height:300px;min-height:300px;width:100%;display:block;');
       btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Maximizar';
-      iframe._fs = false;
-      // Eliminar botón flotante
+      card._fs = false;
+      document.body.style.overflow = '';
       var minBtn = document.getElementById('_mapMinBtn');
       if (minBtn) minBtn.remove();
+      // Notificar al mapa para que haga invalidateSize (refresca tiles)
+      setTimeout(function() { _iframeMsg({ type: 'resize' }); }, 50);
     }
+    setTimeout(function() { _iframeMsg({ type: 'resize' }); }, 80);
+  }
+
+  function _buildPopupMapPage() {
+    var config = {
+      api: API,
+      fecha: _getDefaultMapDate(),
+      bus: document.getElementById('mapFilterBus').value || '',
+      horaIni: document.getElementById('mapFilterHoraIni').value || '00:00',
+      horaFin: document.getElementById('mapFilterHoraFin').value || '23:59',
+      layerIndex: _mapLayerIndex,
+      layerNames: _mapLayerNames,
+      gps: _lastGpsData,
+      kml: _lastKmlGeoJson,
+      chkTrazados: document.getElementById('chkTrazados').checked,
+      chkParaderos: document.getElementById('chkParaderos').checked,
+      chkLabels: document.getElementById('chkLabels').checked,
+      trazadoSel: document.getElementById('selTrazadoVariante').value || 'all',
+      paraderoSel: document.getElementById('selParaderoVariante').value || 'all'
+    };
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Mapa GPS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+      *{box-sizing:border-box;font-family:'Century Gothic',Arial,sans-serif;}
+      html,body{margin:0;height:100%;background:#f8fafc;}
+      body{display:flex;flex-direction:column;padding:12px;gap:10px;}
+      .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:white;padding:10px 14px;border-radius:10px;}
+      .btns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+      .btn{border:1px solid #dbe2ea;background:white;color:#334155;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+      .btn.primary{background:#0f172a;color:white;border-color:#0f172a;}
+      .panel{background:white;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;}
+      .panel.hide{display:none;}
+      .grid{display:grid;grid-template-columns:minmax(150px,1fr) minmax(95px,.7fr) minmax(95px,.7fr) auto auto;gap:8px;align-items:end;}
+      .field label{display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;}
+      .field input,.field select{width:100%;border:1px solid #dbe2ea;border-radius:7px;padding:6px 8px;font-size:12px;background:white;}
+      .info{font-size:12px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;min-width:250px;}
+      .caps{position:relative;}
+      .caps-panel{display:none;position:absolute;top:36px;right:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:10px 12px;z-index:20;min-width:220px;color:#334155;}
+      .caps.open .caps-panel{display:block;}
+      .sub{margin:6px 0 0 20px;padding-left:8px;border-left:2px solid #e2e8f0;}
+      .sub.hide{display:none;}
+      iframe{flex:1;border:1px solid #dbe2ea;border-radius:10px;width:100%;background:white;}
+    </style></head><body>
+    <div class="bar">
+      <div style="font-weight:700;font-size:15px;"><i class="bi bi-map-fill"></i> Mapa GPS</div>
+      <div class="btns">
+        <button class="btn" onclick="toggleFilters()"><i class="bi bi-sliders"></i> Filtros</button>
+        <button class="btn" id="btnBase" onclick="cycleLayer()"><i class="bi bi-layers"></i> ${_mapLayerNames[_mapLayerIndex]}</button>
+        <div class="caps" id="capsWrap">
+          <button class="btn" onclick="toggleCaps(event)"><i class="bi bi-map"></i> Capas</button>
+          <div class="caps-panel">
+            <div style="font-size:11px;font-weight:800;color:#0f172a;text-transform:uppercase;margin-bottom:6px;">Capas de Ruta</div>
+            <label style="display:flex;gap:8px;align-items:center;padding:3px 0;"><input type="checkbox" id="popChkTrazados" onchange="syncStates()" checked> Trazados</label>
+            <div class="sub hide" id="popTrazadoGroup">
+              <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Nombre de Trazado</div>
+              <select id="popSelTrazado" onchange="syncStates()"><option value="all">Todos los trazados</option></select>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;padding:3px 0;"><input type="checkbox" id="popChkParaderos" onchange="syncStates()" checked> Paraderos</label>
+            <div class="sub hide" id="popParaderoGroup">
+              <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px;">Tipo</div>
+              <select id="popSelParadero" onchange="syncStates()"><option value="all">Todos los paraderos</option></select>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;padding:5px 0 0 20px;color:#64748b;"><input type="checkbox" id="popChkLabels" onchange="syncStates()"> Tooltips fijos</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="filtersPanel">
+      <div class="grid">
+        <div class="field"><label>Bus</label><input id="popBus"></div>
+        <div class="field"><label>H. Ini</label><input id="popHoraIni" value="00:00"></div>
+        <div class="field"><label>H. Fin</label><input id="popHoraFin" value="23:59"></div>
+        <button class="btn primary" onclick="loadData()"><i class="bi bi-search"></i></button>
+        <button class="btn" onclick="clearData()"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="info" id="popInfo" style="margin-top:8px;display:none;"></div>
+    </div>
+    <iframe id="popFrame" frameborder="0"></iframe>
+    <script>
+      var CFG = ${JSON.stringify(config)};
+      var layerIndex = CFG.layerIndex;
+      var layerNames = CFG.layerNames;
+      var lastGpsData = CFG.gps || [];
+      var lastKml = CFG.kml || { trazados:null, paraderos:null };
+      function iframeMsg(data){ var f=document.getElementById('popFrame'); if(f&&f.contentWindow) f.contentWindow.postMessage(data,'*'); }
+      function buildMap(name){ return window.opener && window.opener._buildMapHtml ? window.opener._buildMapHtml(name) : ''; }
+      function extractNames(geojson){ var out=[]; if(!geojson||!geojson.features) return out; geojson.features.forEach(function(ft){ var n=String((ft.properties&& (ft.properties.nombre_placemark||ft.properties.nombre))||'Sin nombre'); if(out.indexOf(n)<0) out.push(n); }); return out.sort(function(a,b){ return a.localeCompare(b); }); }
+      function extractTypes(geojson){ var out=[]; if(!geojson||!geojson.features) return out; geojson.features.forEach(function(ft){ var n=String(parseInt(ft.properties&&ft.properties.variante,10)||1); if(out.indexOf(n)<0) out.push(n); }); return out.sort(function(a,b){ return parseInt(a,10)-parseInt(b,10); }); }
+      function fillSelect(id, groupId, items, labelAll, formatter){ var sel=document.getElementById(id), grp=document.getElementById(groupId), current=sel.value||'all', html='<option value="all">'+labelAll+'</option>'; items.forEach(function(item){ html+='<option value="'+item+'">'+(formatter?formatter(item):item)+'</option>'; }); sel.innerHTML=html; grp.classList.toggle('hide', items.length<=1); sel.disabled=items.length<=1; sel.value=(items.indexOf(current)>=0)?current:'all'; }
+      function syncSelects(){ fillSelect('popSelTrazado','popTrazadoGroup',extractNames(lastKml.trazados),'Todos los trazados'); fillSelect('popSelParadero','popParaderoGroup',extractTypes(lastKml.paraderos),'Todos los paraderos',function(item){ return 'Tipo '+item; }); }
+      function syncStates(){ iframeMsg({ type:'toggleLayer', which:'trazado', show:document.getElementById('popChkTrazados').checked }); iframeMsg({ type:'toggleLayer', which:'paradero', show:document.getElementById('popChkParaderos').checked }); iframeMsg({ type:'toggleLayer', which:'labels', show:document.getElementById('popChkLabels').checked }); iframeMsg({ type:'setVariantFilter', which:'trazado', variant:document.getElementById('popSelTrazado').value==='all'?null:document.getElementById('popSelTrazado').value }); iframeMsg({ type:'setVariantFilter', which:'paradero', variant:document.getElementById('popSelParadero').value==='all'?null:document.getElementById('popSelParadero').value }); }
+      function hydrate(){ document.getElementById('btnBase').innerHTML='<i class="bi bi-layers"></i> '+layerNames[layerIndex]; document.getElementById('popFrame').srcdoc=buildMap(layerNames[layerIndex]); setTimeout(function(){ if(lastGpsData.length>0) iframeMsg({type:'gps', points:lastGpsData}); if(lastKml.trazados) iframeMsg({type:'ruta', geojson:lastKml.trazados}); if(lastKml.paraderos) iframeMsg({type:'paraderos', geojson:lastKml.paraderos}); syncStates(); }, 1300); }
+      function cycleLayer(){ layerIndex=(layerIndex+1)%layerNames.length; hydrate(); }
+      function toggleFilters(){ document.getElementById('filtersPanel').classList.toggle('hide'); }
+      function toggleCaps(e){ e.stopPropagation(); document.getElementById('capsWrap').classList.toggle('open'); }
+      document.addEventListener('click', function(ev){ var wrap=document.getElementById('capsWrap'); if(wrap && !wrap.contains(ev.target)) wrap.classList.remove('open'); });
+      function loadData(){ var bus=document.getElementById('popBus').value.trim().toUpperCase(); var hi=(document.getElementById('popHoraIni').value||'00:00').trim(); var hf=(document.getElementById('popHoraFin').value||'23:59').trim(); if(!bus) return; var params=new URLSearchParams({ bus:bus, fecha:CFG.fecha, hora_ini:hi+':00', hora_fin:hf+':59' }); fetch(CFG.api+'/mapa/posicionamientos?'+params.toString()).then(function(r){ return r.json(); }).then(function(j){ if(!j.ok||!j.data){ return; } lastGpsData=j.data||[]; iframeMsg({type:'gps', points:lastGpsData}); var info=document.getElementById('popInfo'); info.style.display='block'; info.innerHTML='<i class="bi bi-bus-front"></i> <strong>'+bus+'</strong> | <i class="bi bi-calendar3"></i> '+(CFG.fecha||'--')+' | <i class="bi bi-clock"></i> '+hi+' - '+hf+' | <strong>'+lastGpsData.length+'</strong> posicionamientos'; }); }
+      function clearData(){ lastGpsData=[]; iframeMsg({type:'clear'}); setTimeout(function(){ if(lastKml.trazados) iframeMsg({type:'ruta', geojson:lastKml.trazados}); if(lastKml.paraderos) iframeMsg({type:'paraderos', geojson:lastKml.paraderos}); syncStates(); }, 100); document.getElementById('popInfo').style.display='none'; }
+      window.addEventListener('message', function(ev){ if(ev.data&&ev.data.type==='syncLabelsChk'){ document.getElementById('popChkLabels').disabled=!ev.data.enabled; } });
+      document.getElementById('popBus').value=CFG.bus||''; document.getElementById('popHoraIni').value=CFG.horaIni||'00:00'; document.getElementById('popHoraFin').value=CFG.horaFin||'23:59';
+      document.getElementById('popChkTrazados').checked=!!CFG.chkTrazados; document.getElementById('popChkParaderos').checked=!!CFG.chkParaderos; document.getElementById('popChkLabels').checked=!!CFG.chkLabels;
+      syncSelects(); document.getElementById('popSelTrazado').value=CFG.trazadoSel||'all'; document.getElementById('popSelParadero').value=CFG.paraderoSel||'all'; hydrate();
+    <\/script></body></html>`;
   }
 
   function popoutMap() {
-    var win  = window.open('','_blank','width=1200,height=750,toolbar=0,menubar=0,location=0,status=0,resizable=1');
-    var html = _buildMapHtml(_mapLayerNames[_mapLayerIndex]);
-    win.document.write(html);
-    win.document.close();
-    if (_lastGpsData.length > 0) {
-      setTimeout(function() { win.postMessage({ type: 'gps', points: _lastGpsData }, '*'); }, 1500);
+    _popupMapWin = window.open('','_blank','width=1320,height=820,toolbar=0,menubar=0,location=0,status=0,resizable=1');
+    if (!_popupMapWin) return;
+    _popupMapWin.document.write(_buildPopupMapPage());
+    _popupMapWin.document.close();
+  }
+
+  /* ==================== REPORTES SNE ==================== */
+  let _currentIcsForReports = null;
+  let _activeReportTabKey   = null;
+  let _tabulatorInstances   = {};
+  let _reportCountData      = {};
+
+  const REPORT_CONFIG = {
+    detallado:           { label: 'Detallado',          icon: 'bi-table',            color: '#0d6efd' },
+    tabla_acciones:      { label: 'Acciones',           icon: 'bi-lightning-charge', color: '#6f42c1' },
+    acciones_regulacion: { label: 'Acc. Regulación',    icon: 'bi-gear-fill',        color: '#fd7e14' },
+    actividad_bus:       { label: 'Actividad Bus',      icon: 'bi-bus-front',        color: '#20c997' },
+    asignaciones:        { label: 'Asignaciones',       icon: 'bi-person-check',     color: '#0dcaf0' },
+    desvios:             { label: 'Desvíos',            icon: 'bi-sign-turn-right',  color: '#ffc107' },
+    validaciones:        { label: 'Validaciones',       icon: 'bi-check-circle',     color: '#198754' },
+    viajestat:           { label: 'ViajeStat',          icon: 'bi-graph-up',         color: '#dc3545' },
+  };
+
+  // Llamado al abrir el modal de un ICS — carga conteos y renderiza tarjetas
+  async function loadReportConteos(id_ics) {
+    _currentIcsForReports = id_ics;
+    _reportCountData      = {};
+    const container = document.getElementById('reportCardsContainer');
+    if (!container) return;
+
+    const btnModal  = document.getElementById('btnOpenReportModal');
+    const btnWindow = document.getElementById('btnOpenReportWindow');
+    if (btnModal)  { btnModal.disabled  = true;  btnModal.style.opacity  = '0.45'; }
+    if (btnWindow) { btnWindow.disabled = true; btnWindow.style.opacity = '0.45'; }
+
+    container.innerHTML = '<div style="font-size:0.7rem;color:#94a3b8;text-align:center;padding:0.7rem 0;">'
+      + '<span class="spinner-border spinner-border-sm" style="width:0.65rem;height:0.65rem;border-width:2px;"></span>'
+      + ' Cargando...</div>';
+
+    try {
+      const r = await fetch(API + '/registros/' + id_ics + '/reportes/conteos');
+      const j = await r.json();
+      if (!j.ok) throw new Error('Error conteos');
+      _reportCountData = j.data;
+      renderReportCards(j.data);
+    } catch(e) {
+      container.innerHTML = '<div style="font-size:0.7rem;color:#dc3545;text-align:center;padding:0.5rem 0;">'
+        + '<i class="bi bi-exclamation-triangle"></i> Error al cargar</div>';
     }
   }
 
-  /* ==================== REPORTES ==================== */
-  function openReport(type) {
-    const m = new bootstrap.Modal(document.getElementById('reportModal'));
-    document.getElementById('reportContent').innerHTML = '<p>Cargando Reporte...</p>';
+  function renderReportCards(data) {
+    const container = document.getElementById('reportCardsContainer');
+    let html = '';
+    let hayDatos = false;
+
+    for (const [key, meta] of Object.entries(data)) {
+      const cfg = REPORT_CONFIG[key] || { label: key, icon: 'bi-file', color: '#64748b' };
+      const tieneData = meta.existe && meta.total > 0;
+      if (tieneData) hayDatos = true;
+
+      const badge = !meta.existe
+        ? '<span style="font-size:0.56rem;background:#f1f5f9;color:#94a3b8;padding:0.1rem 0.35rem;border-radius:8px;white-space:nowrap;">N/D</span>'
+        : tieneData
+          ? '<span style="font-size:0.56rem;background:#dcfce7;color:#16a34a;padding:0.1rem 0.35rem;border-radius:8px;font-weight:700;white-space:nowrap;">' + meta.total.toLocaleString() + '</span>'
+          : '<span style="font-size:0.56rem;background:#fef9c3;color:#854d0e;padding:0.1rem 0.35rem;border-radius:8px;white-space:nowrap;">0</span>';
+
+      const cardStyle = tieneData
+        ? 'display:flex;align-items:center;gap:0.35rem;padding:0.3rem 0.45rem;border-radius:5px;border-left:3px solid ' + cfg.color + ';background:#fafbfc;cursor:pointer;transition:background 0.15s;'
+        : 'display:flex;align-items:center;gap:0.35rem;padding:0.3rem 0.45rem;border-radius:5px;border-left:3px solid #e2e8f0;background:#f8f9fa;opacity:0.55;';
+
+      const hover = tieneData
+        ? ' onmouseover="this.style.background=\'#e7f3ff\'" onmouseout="this.style.background=\'#fafbfc\'"'
+        : '';
+      const click = tieneData ? ' onclick="openReportModalTab(\'' + key + '\')"' : '';
+
+      html += '<div style="' + cardStyle + '"' + click + hover + ' title="' + meta.label + '">'
+        + '<i class="bi ' + cfg.icon + '" style="font-size:0.72rem;color:' + (tieneData ? cfg.color : '#94a3b8') + ';flex-shrink:0;"></i>'
+        + '<span style="font-size:0.66rem;font-weight:600;color:' + (tieneData ? '#0f172a' : '#94a3b8') + ';flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + cfg.label + '</span>'
+        + badge
+        + '</div>';
+    }
+    container.innerHTML = html;
+
+    const btnModal  = document.getElementById('btnOpenReportModal');
+    const btnWindow = document.getElementById('btnOpenReportWindow');
+    if (hayDatos) {
+      if (btnModal)  { btnModal.disabled  = false; btnModal.style.opacity  = '1'; }
+      if (btnWindow) { btnWindow.disabled = false; btnWindow.style.opacity = '1'; }
+    }
+  }
+
+  // Abre el modal en la pestaña indicada
+  function openReportModalTab(tabKey) {
+    _activeReportTabKey = tabKey || Object.keys(REPORT_CONFIG)[0];
+    document.getElementById('reportModalIcsId').textContent = 'ICS #' + _currentIcsForReports;
+    renderReportTabs();
+    const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('reportModal'));
     m.show();
+    document.getElementById('reportModal').addEventListener('shown.bs.modal', function handler() {
+      this.removeEventListener('shown.bs.modal', handler);
+      activateReportTab(_activeReportTabKey);
+    }, { once: true });
   }
-  function exportReportExcel() { console.log('Exportar Excel'); }
-  function printReport()       { window.print(); }
 
-  /* ============== DRAG & DROP  PARA  CARGAR ADJUNTOS ================== */
-  const dragDropArea = document.getElementById('dragDropArea');
-  const fileInput    = document.getElementById('fileInput');
-  const filesList    = document.getElementById('filesList');
-
-  dragDropArea.addEventListener('click', function() { fileInput.click(); });
-
-  function dragOver(e)  { e.preventDefault(); dragDropArea.classList.add('dragover'); }
-  function dragLeave(e) { dragDropArea.classList.remove('dragover'); }
-  function dropFiles(e) {
-    e.preventDefault(); dragDropArea.classList.remove('dragover');
-    handleFiles({ target: { files: e.dataTransfer.files } });
+  function openAllReportsModal() {
+    const firstKey = Object.entries(_reportCountData).find(function(e) { return e[1].existe && e[1].total > 0; });
+    openReportModalTab(firstKey ? firstKey[0] : Object.keys(REPORT_CONFIG)[0]);
   }
-  function handleFiles(e) {
-    filesList.innerHTML = '';
-    Array.from(e.target.files).forEach(function(file) {
-      const fileItem = document.createElement('div');
-      fileItem.className = 'file-item';
-      fileItem.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:white;padding:0.6rem 0.8rem;border-radius:4px;border-left:3px solid ' + COLORS.primary + ';margin-bottom:0.4rem;gap:0.8rem;';
-      const maxLength = 30;
-      const displayName = file.name.length > maxLength ? file.name.substring(0, maxLength) + '...' : file.name;
-      const nameDiv = document.createElement('div');
-      nameDiv.style.cssText = 'display:flex;align-items:center;gap:0.4rem;flex:1;min-width:0;';
-      nameDiv.innerHTML = '<i class="bi bi-file-earmark" style="flex-shrink:0;font-size:0.7rem;color:' + COLORS.primary + ';"></i>'
-        + '<span style="font-size:0.65rem;color:' + COLORS.textDark + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + file.name + '">' + displayName + '</span>';
-      const btnRemove = document.createElement('button');
-      btnRemove.innerHTML = '\u2715';
-      btnRemove.style.cssText = 'background:none;border:none;color:' + COLORS.danger + ';cursor:pointer;padding:0 0.3rem;font-weight:600;font-size:1rem;flex-shrink:0;line-height:1;transition:all 0.2s;';
-      btnRemove.onmouseover = function() { this.style.color = '#a02622'; this.style.fontSize = '1.1rem'; };
-      btnRemove.onmouseout  = function() { this.style.color = COLORS.danger; this.style.fontSize = '1rem'; };
-      btnRemove.onclick     = function() { fileItem.remove(); };
-      fileItem.appendChild(nameDiv); fileItem.appendChild(btnRemove);
-      filesList.appendChild(fileItem);
+
+  function renderReportTabs() {
+    const bar = document.getElementById('reportTabsBar');
+    if (!bar) return;
+    const TAB_STYLE_BASE = 'padding:0.4rem 0.7rem;border:none;border-bottom:3px solid transparent;background:transparent;font-size:0.67rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:0.3rem;white-space:nowrap;transition:all 0.2s;';
+    bar.innerHTML = Object.entries(REPORT_CONFIG).map(function(entry) {
+      const key = entry[0], cfg = entry[1];
+      const meta = _reportCountData[key] || {};
+      const cnt  = meta.existe && meta.total > 0 ? meta.total : 0;
+      const disabled = cnt === 0;
+      const badge = cnt > 0 ? '<span style="font-size:0.55rem;background:#e7f3ff;color:#0d6efd;padding:0.1rem 0.3rem;border-radius:7px;">' + cnt.toLocaleString() + '</span>' : '';
+      return '<button class="report-tab-btn" data-tab-key="' + key + '" '
+        + (disabled ? 'disabled ' : '')
+        + 'style="' + TAB_STYLE_BASE + 'color:' + (disabled ? '#cbd5e1' : '#64748b') + ';opacity:' + (disabled ? '0.5' : '1') + ';">'
+        + '<i class="bi ' + cfg.icon + '"></i>' + cfg.label + badge
+        + '</button>';
+    }).join('');
+
+    // Agregar listeners dinámicamente para evitar problemas de onclick con comillas
+    bar.querySelectorAll('.report-tab-btn:not([disabled])').forEach(function(btn) {
+      btn.addEventListener('click', function() { activateReportTab(this.dataset.tabKey); });
     });
+  }
+
+  async function activateReportTab(key) {
+    _activeReportTabKey = key;
+    _onTabulatorRowSelectionChanged(); // resetea botón Adjuntos al cambiar tab
+    document.querySelectorAll('.report-tab-btn').forEach(function(b) {
+      const active = b.dataset.tabKey === key;
+      b.style.color            = active ? '#0d6efd' : '#64748b';
+      b.style.borderBottomColor = active ? '#0d6efd' : 'transparent';
+      b.style.background       = active ? '#f0f9ff' : 'transparent';
+    });
+
+    const contentEl = document.getElementById('reportTabContent');
+    const cfg = REPORT_CONFIG[key] || { label: key };
+    contentEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#64748b;font-size:0.8rem;gap:0.5rem;">'
+      + '<span class="spinner-border spinner-border-sm"></span> Cargando ' + cfg.label + '...</div>';
+
+    if (_tabulatorInstances[key]) { _tabulatorInstances[key].destroy(); delete _tabulatorInstances[key]; }
+
+    try {
+      const r = await fetch(API + '/registros/' + _currentIcsForReports + '/reportes/' + key);
+      const j = await r.json();
+      if (!j.ok || !j.data) throw new Error('Sin datos');
+      const reporte = j.data;
+
+      if (!reporte.existe) {
+        contentEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:250px;flex-direction:column;gap:0.5rem;color:#94a3b8;">'
+          + '<i class="bi bi-database-x" style="font-size:2.2rem;"></i>'
+          + '<span style="font-size:0.82rem;">Tabla no disponible en la base de datos</span></div>';
+        document.getElementById('reportTabCount').textContent = '';
+        return;
+      }
+
+      if (!reporte.datos || reporte.datos.length === 0) {
+        contentEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:250px;flex-direction:column;gap:0.5rem;color:#94a3b8;">'
+          + '<i class="bi bi-inbox" style="font-size:2.2rem;"></i>'
+          + '<span style="font-size:0.82rem;">Sin datos para ' + reporte.label + '</span></div>';
+        document.getElementById('reportTabCount').textContent = '0 registros';
+        return;
+      }
+
+      document.getElementById('reportTabCount').textContent = reporte.total.toLocaleString() + ' registros';
+      contentEl.innerHTML = '<div id="tab-grid-' + key + '" style="height:calc(100vh - 192px);"></div>';
+
+      _tabulatorInstances[key] = new Tabulator('#tab-grid-' + key, {
+        data:                 reporte.datos,
+        columns:              buildTabulatorCols(reporte.columnas),
+        layout:               'fitData',
+        responsiveLayout:     false,
+        virtualDom:           true,
+        virtualDomBuffer:     300,
+        height:               'calc(100vh - 192px)',
+        pagination:           true,
+        paginationMode:       'local',
+        paginationSize:       50,
+        paginationSizeSelector: [25, 50, 100, 250, 500, true],
+        movableColumns:       true,
+        resizableRows:        false,
+        selectable:           true,
+        selectableRangeMode:  'click',
+        clipboard:            true,
+        clipboardCopyStyled:  false,
+        clipboardCopyConfig:  { rowHeaders: false, columnHeaders: true },
+        clipboardPasteAction: 'replace',
+        persistence:          { sort: true, filter: true, columns: true },
+        persistenceID:        'sne_rpt_' + key,
+        locale:               'es-419',
+        langs: {
+          'es-419': {
+            pagination: {
+              page_size: 'Filas', page_title: 'Página',
+              first: '|<', first_title: 'Primera',
+              last:  '>|', last_title:  'Última',
+              prev:  '<',  prev_title:  'Anterior',
+              next:  '>',  next_title:  'Siguiente',
+              all:   'Todo',
+            },
+            headerFilters: { default: 'Filtrar...', columns: {} },
+          },
+        },
+        rowContextMenu: [
+          {
+            label:  '<i class="bi bi-copy"></i>&nbsp;Copiar fila',
+            action: function(e, row) {
+              var vals = Object.values(row.getData()).join('\t');
+              if (navigator.clipboard) navigator.clipboard.writeText(vals);
+            },
+          },
+          { separator: true },
+          {
+            label:  '<i class="bi bi-paperclip"></i>&nbsp;Enviar fila a Adjuntos',
+            action: function(e, row) {
+              var lbl  = (REPORT_CONFIG[key] || {}).label || key;
+              var tab  = _tabulatorInstances[key];
+              var cols = tab.getColumns().filter(function(c) { return c.getDefinition().formatter !== 'rowSelection' && c.getField(); });
+              var hdrs = cols.map(function(c) { return c.getDefinition().title || c.getField(); });
+              var d    = row.getData();
+              addReportAttachment({ tipo:'tabla', label:lbl, headers:hdrs, data:[cols.map(function(c){ return d[c.getField()]; })], id_ics:_currentIcsForReports });
+            },
+          },
+          { separator: true },
+          {
+            label:  '<i class="bi bi-download"></i>&nbsp;Exportar selección Excel',
+            action: function() {
+              if (_tabulatorInstances[key]) _tabulatorInstances[key].download('xlsx', 'sne_' + _currentIcsForReports + '_' + key + '_sel.xlsx', {}, 'selected');
+            },
+          },
+          {
+            label:  '<i class="bi bi-filetype-csv"></i>&nbsp;Exportar selección CSV',
+            action: function() {
+              if (_tabulatorInstances[key]) _tabulatorInstances[key].download('csv', 'sne_' + _currentIcsForReports + '_' + key + '_sel.csv', {}, 'selected');
+            },
+          },
+        ],
+      });
+      _tabulatorInstances[key].on('rowSelectionChanged', _onTabulatorRowSelectionChanged);
+
+    } catch(e) {
+      contentEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:250px;color:#dc3545;font-size:0.82rem;gap:0.5rem;">'
+        + '<i class="bi bi-exclamation-triangle"></i> Error al cargar el reporte</div>';
+    }
+  }
+
+  // Construye definición de columnas Tabulator desde el schema dinámico
+  function buildTabulatorCols(columnas) {
+    var NUM_TYPES  = ['integer','bigint','smallint','numeric','decimal','real','double precision','float4','float8','int4','int8'];
+    var DATE_TYPES = ['date','timestamp','timestamp without time zone','timestamp with time zone','timestamptz'];
+    var headerMenu = function() {
+      return this.getColumns().map(function(col) {
+        return {
+          label:  (col.isVisible() ? '<i class="bi bi-eye me-1"></i>' : '<i class="bi bi-eye-slash me-1"></i>') + (col.getDefinition().title || col.getField()),
+          action: function(e) { e.stopPropagation(); col.toggle(); },
+        };
+      });
+    };
+    var checkCol = {
+      formatter:      'rowSelection',
+      titleFormatter: 'rowSelection',
+      hozAlign:       'center',
+      headerSort:     false,
+      width:          36,
+      frozen:         true,
+      cellClick:      function(e, cell) { cell.getRow().toggleSelect(); },
+    };
+    var dataCols = columnas.map(function(col, idx) {
+      var isNum  = NUM_TYPES.indexOf(col.tipo)  >= 0;
+      var isDate = DATE_TYPES.indexOf(col.tipo) >= 0;
+      return {
+        title:               col.nombre,
+        field:               col.nombre,
+        headerFilter:        true,
+        headerFilterPlaceholder: '...',
+        headerMenu:          idx === 0 ? headerMenu : undefined,
+        minWidth:            80,
+        tooltip:             true,
+        hozAlign:            isNum ? 'right' : 'left',
+        sorter:              isNum ? 'number' : isDate ? 'datetime' : 'string',
+        sorterParams:        isDate ? { format: 'iso' } : {},
+        headerFilterFunc:    isNum ? '>=' : 'like',
+      };
+    });
+    return [checkCol].concat(dataCols);
+  }
+
+  function exportCurrentTabExcel() {
+    if (_activeReportTabKey && _tabulatorInstances[_activeReportTabKey]) {
+      _tabulatorInstances[_activeReportTabKey].download('xlsx', 'sne_' + _currentIcsForReports + '_' + _activeReportTabKey + '.xlsx');
+    }
+  }
+
+  function copyCurrentTabClipboard() {
+    if (_activeReportTabKey && _tabulatorInstances[_activeReportTabKey]) {
+      _tabulatorInstances[_activeReportTabKey].copyToClipboard('all');
+    }
+  }
+
+  /* ── Activa/desactiva botón Adjuntos según filas seleccionadas ── */
+  function _onTabulatorRowSelectionChanged() {
+    var btn = document.getElementById('btnSendToAttach');
+    if (!btn) return;
+    var tab = _activeReportTabKey && _tabulatorInstances[_activeReportTabKey];
+    var count = tab ? tab.getSelectedRows().length : 0;
+    btn.disabled = count === 0;
+    btn.style.opacity = count > 0 ? '1' : '0.45';
+    btn.title = count > 0
+      ? 'Enviar ' + count + ' fila(s) seleccionada(s) al panel Adjuntos'
+      : 'Selecciona filas para enviar a Adjuntos';
+  }
+
+  /* Hook en activateReportTab para registrar el evento de selección */
+  var _origActivateTab = null; // parchado abajo tras la definición
+
+  /* ── Envía selección del tab activo al panel de Adjuntos ── */
+  function sendSelectionToAttachments() {
+    var tab = _activeReportTabKey && _tabulatorInstances[_activeReportTabKey];
+    if (!tab) return;
+    var rows = tab.getSelectedRows();
+    if (!rows.length) return;
+    var label   = (REPORT_CONFIG[_activeReportTabKey] || {}).label || _activeReportTabKey;
+    var cols    = tab.getColumns().filter(function(c) { return c.getDefinition().formatter !== 'rowSelection' && c.getField(); });
+    var headers = cols.map(function(c) { return c.getDefinition().title || c.getField(); });
+    var data    = rows.map(function(r) {
+      var d = r.getData();
+      return cols.map(function(c) { return d[c.getField()]; });
+    });
+    addReportAttachment({ tipo: 'tabla', label: label, headers: headers, data: data, id_ics: _currentIcsForReports });
+    _showToast(rows.length + ' fila(s) de "' + label + '" enviadas al panel de Adjuntos.');
+  }
+
+  // Limpiar instancias Tabulator al cerrar el modal
+  document.getElementById('reportModal').addEventListener('hidden.bs.modal', function() {
+    Object.keys(_tabulatorInstances).forEach(function(k) {
+      try { _tabulatorInstances[k].destroy(); } catch(e) {}
+    });
+    _tabulatorInstances = {};
+    document.getElementById('reportTabContent').innerHTML = '';
+    document.getElementById('reportTabCount').textContent  = '';
+  });
+
+  /* ============ NUEVA VENTANA — REPORTES ============ */
+  function openAllReportsWindow() {
+    if (!_currentIcsForReports) return;
+    var w = window.open('', '_blank', 'width=1400,height=900,toolbar=0,menubar=0,location=0,status=0,resizable=1,scrollbars=1');
+    if (!w) { alert('El navegador bloqueó la ventana emergente. Permite pop-ups para este sitio.'); return; }
+    w.document.write(_buildReportWindowPage(_currentIcsForReports));
+    w.document.close();
+  }
+
+  function _buildReportWindowPage(id_ics) {
+    var apiBase  = window.location.origin + '/sne/api';
+    var tabsJson = JSON.stringify(Object.entries(REPORT_CONFIG).map(function(e) {
+      return { key: e[0], label: e[1].label, icon: e[1].icon, color: e[1].color };
+    }));
+    return '<!DOCTYPE html>'
+      + '<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+      + '<title>Reportes ICS #' + id_ics + ' \u2014 Gesti\u00f3nExpress SNE</title>'
+      + '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">'
+      + '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">'
+      + '<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.4.0/dist/css/tabulator_modern.min.css">'
+      + '<style>'
+      + '*{box-sizing:border-box;margin:0;padding:0;}'
+      + 'body{font-family:"Segoe UI",system-ui,sans-serif;background:#f0f4f8;height:100vh;display:flex;flex-direction:column;overflow:hidden;}'
+      + '.hdr{background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:white;padding:.5rem 1rem;display:flex;align-items:center;gap:.7rem;flex-shrink:0;}'
+      + '.hdr h1{font-size:.88rem;font-weight:700;margin:0;}'
+      + '.hdr .pill{font-size:.65rem;background:rgba(255,255,255,.2);padding:.15rem .5rem;border-radius:10px;}'
+      + '.tabs-bar{background:white;border-bottom:2px solid #e2e8f0;padding:0 .8rem;display:flex;gap:.05rem;overflow-x:auto;flex-shrink:0;scrollbar-width:thin;}'
+      + '.tab-btn{padding:.4rem .7rem;border:none;border-bottom:3px solid transparent;background:transparent;font-size:.67rem;font-weight:600;color:#64748b;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap;transition:all .2s;}'
+      + '.tab-btn:not(:disabled):hover{color:#0d6efd;background:#f0f9ff;}'
+      + '.tab-btn.active{color:#0d6efd!important;border-bottom-color:#0d6efd!important;background:#f0f9ff!important;}'
+      + '.tab-btn:disabled{opacity:.4;cursor:not-allowed;}'
+      + '.tab-btn .badge{font-size:.55rem;background:#e7f3ff;color:#0d6efd;padding:.1rem .3rem;border-radius:7px;}'
+      + '.tab-btn.active .badge{background:#0d6efd;color:white;}'
+      + '.toolbar{background:white;padding:.38rem .8rem;border-bottom:1px solid #e2e8f0;display:flex;gap:.4rem;align-items:center;flex-shrink:0;flex-wrap:wrap;}'
+      + '.btn-t{padding:.28rem .6rem;border:1px solid #e2e8f0;border-radius:5px;font-size:.68rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;background:white;color:#475569;transition:all .2s;}'
+      + '.btn-t:hover{background:#f0f9ff;color:#0d6efd;border-color:#0d6efd;}'
+      + '.btn-t.green{background:#198754;color:white;border-color:#198754;}'
+      + '.btn-t.green:hover{background:#146c43;}'
+      + '.status-txt{margin-left:auto;font-size:.65rem;color:#64748b;}'
+      + '.content{flex:1;overflow:hidden;}'
+      + '#win-grid{height:100%;}'
+      + '.tabulator .tabulator-header .tabulator-col{background:#1e3a5f!important;color:white!important;font-weight:700!important;font-size:.7rem!important;}'
+      + '.tabulator .tabulator-header .tabulator-col:hover{background:#163059!important;}'
+      + '.tabulator-row:nth-child(even){background:#f8faff!important;}'
+      + '.tabulator-row:hover{background:#e7f3ff!important;}'
+      + '.tabulator-row.tabulator-selected{background:#bbf7d0!important;color:#05092e!important;font-weight:700!important;}'
+      + '.tabulator .tabulator-footer{background:#f8f9fa;border-top:1px solid #e2e8f0;font-size:.7rem;}'
+      + '.tabulator{font-size:.75rem!important;}'
+      + '.msg{display:flex;align-items:center;justify-content:center;height:300px;flex-direction:column;gap:.5rem;color:#94a3b8;font-size:.82rem;}'
+      + '.spin{width:1.8rem;height:1.8rem;border:3px solid #e2e8f0;border-top-color:#0d6efd;border-radius:50%;animation:sp .8s linear infinite;}'
+      + '@keyframes sp{to{transform:rotate(360deg);}}'
+      + '::-webkit-scrollbar{width:10px;height:10px;}'
+      + '::-webkit-scrollbar-track{background:#e8edf3;border-radius:4px;}'
+      + '::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:4px;border:2px solid #e8edf3;}'
+      + '::-webkit-scrollbar-thumb:hover{background:#64748b;}'
+      + '</style></head>'
+      + '<body>'
+      + '<div class="hdr">'
+      + '<i class="bi bi-table" style="font-size:1.1rem;"></i>'
+      + '<h1>Reportes ICS <strong>#' + id_ics + '</strong> &mdash; Gesti\u00f3nExpress SNE</h1>'
+      + '<span id="w-cnt" class="pill" style="margin-left:auto;"></span>'
+      + '<button onclick="window.close()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;border-radius:5px;padding:.2rem .5rem;font-size:.68rem;cursor:pointer;margin-left:.5rem;">&times; Cerrar</button>'
+      + '</div>'
+      + '<div class="tabs-bar" id="w-tabs"><div class="msg"><div class="spin"></div><span>Cargando...</span></div></div>'
+      + '<div class="toolbar">'
+      + '<button class="btn-t green" onclick="winXlsx()"><i class="bi bi-file-earmark-excel"></i> Excel</button>'
+      + '<button class="btn-t" onclick="winClip()"><i class="bi bi-clipboard"></i> Portapapeles</button>'
+      + '<button class="btn-t" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>'
+      + '<button id="w-btn-attach" class="btn-t" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border-color:transparent;opacity:.45;" disabled onclick="winSendAttach()" title="Enviar selección a Adjuntos"><i class="bi bi-paperclip"></i> → Adjuntos</button>'
+      + '<span id="w-status" class="status-txt">Cargando reportes...</span>'
+      + '</div>'
+      + '<div class="content"><div id="win-grid"></div></div>'
+      + '<script src="https://unpkg.com/tabulator-tables@6.4.0/dist/js/tabulator.min.js"><\/script>'
+      + '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>'
+      + '<script>'
+      + 'var API_W = "' + apiBase + '";'
+      + 'var ICS_W = ' + id_ics + ';'
+      + 'var TABS_W = ' + tabsJson + ';'
+      + 'var allData = {};'
+      + 'var winTab = null;'
+      + 'var actKey = null;'
+      + 'var NUM_T  = ["integer","bigint","smallint","numeric","decimal","real","double precision","float4","float8","int4","int8"];'
+      + 'var DATE_T = ["date","timestamp","timestamp without time zone","timestamp with time zone","timestamptz"];'
+      + 'async function init() {'
+      + '  try {'
+      + '    var r = await fetch(API_W + "/registros/" + ICS_W + "/reportes/all");'
+      + '    var j = await r.json();'
+      + '    if (!j.ok) throw new Error();'
+      + '    j.data.forEach(function(rep) { allData[rep.key] = rep; });'
+      + '    renderTabs();'
+      + '    var first = j.data.find(function(rep) { return rep.existe && rep.total > 0; });'
+      + '    if (first) activateTab(first.key);'
+      + '    else document.getElementById("w-status").textContent = "Sin datos disponibles";'
+      + '  } catch(e) {'
+      + '    document.getElementById("w-tabs").innerHTML = \'<div class="msg" style="color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:1.5rem;"></i><span>Error al cargar reportes</span></div>\';'
+      + '  }'
+      + '}'
+      + 'function renderTabs() {'
+      + '  var bar = document.getElementById("w-tabs");'
+      + '  bar.innerHTML = TABS_W.map(function(t) {'
+      + '    var rep = allData[t.key] || {};'
+      + '    var cnt = rep.existe && rep.total > 0 ? rep.total : 0;'
+      + '    var dis = cnt === 0;'
+      + '    var badge = cnt > 0 ? \'<span class="badge">\' + cnt.toLocaleString() + "</span>" : "";'
+      + '    return \'<button class="tab-btn" data-key="\' + t.key + \'"\'+ (dis ? " disabled" : "") + \'><i class="bi \' + t.icon + \'"></i>\' + t.label + badge + "</button>";'
+      + '  }).join("");'
+      + '  bar.querySelectorAll(".tab-btn:not([disabled])").forEach(function(btn) {'
+      + '    btn.addEventListener("click", function() { activateTab(this.dataset.key); });'
+      + '  });'
+      + '}'
+      + 'function activateTab(key) {'
+      + '  if (!allData[key] || !allData[key].existe || allData[key].total === 0) return;'
+      + '  actKey = key;'
+      + '  document.querySelectorAll(".tab-btn").forEach(function(b) { b.classList.toggle("active", b.dataset.key === key); });'
+      + '  var rep = allData[key];'
+      + '  document.getElementById("w-cnt").textContent    = rep.total.toLocaleString() + " registros";'
+      + '  document.getElementById("w-status").textContent = rep.label + " \u2014 " + rep.total.toLocaleString() + " registros";'
+      + '  if (winTab) { winTab.destroy(); winTab = null; }'
+      + '  document.getElementById("win-grid").innerHTML = "";'
+      + '  var cols = buildWinCols(rep.columnas);'
+      + '  winTab = new Tabulator("#win-grid", {'
+      + '    data: rep.datos, columns: cols,'
+      + '    layout: "fitData", responsiveLayout: false,'
+      + '    virtualDom: true, virtualDomBuffer: 300,'
+      + '    height: "100%",'
+      + '    pagination: true, paginationMode: "local",'
+      + '    paginationSize: 100, paginationSizeSelector: [50,100,250,500,true],'
+      + '    movableColumns: true,'
+      + '    selectable: true, selectableRangeMode: "click",'
+      + '    clipboard: true, clipboardCopyStyled: false,'
+      + '    clipboardCopyConfig: { rowHeaders: false, columnHeaders: true },'
+      + '    persistence: { sort: true, filter: true, columns: true },'
+      + '    persistenceID: "sne_win_" + ICS_W + "_" + key,'
+      + '    locale: "es-419",'
+      + '    langs: { "es-419": { pagination: { page_size:"Filas", first:"|<", last:">|", prev:"<", next:">", all:"Todo" }, headerFilters:{ default:"Filtrar..." } } },'
+      + '    rowContextMenu: ['
+      + '      { label: \'<i class="bi bi-copy"></i> Copiar fila\', action: function(e, row) { navigator.clipboard && navigator.clipboard.writeText(Object.values(row.getData()).join("\\t")); } },'
+      + '      { separator: true },'
+      + '      { label: \'<i class="bi bi-paperclip"></i> Enviar fila a Adjuntos\', action: function(e,row){ if(!window.opener||!window.opener.addReportAttachment)return; var cols=winTab.getColumns().filter(function(c){return c.getDefinition().formatter!=="rowSelection"&&c.getField();}); var hdrs=cols.map(function(c){return c.getDefinition().title||c.getField();}); var d=row.getData(); window.opener.addReportAttachment({tipo:"tabla",label:actKey||"Reporte",headers:hdrs,data:[cols.map(function(c){return d[c.getField()];})],id_ics:ICS_W}); } },'
+      + '      { separator: true },'
+      + '      { label: \'<i class="bi bi-download"></i> Exportar selecci\u00f3n\', action: function() { winTab && winTab.download("xlsx", key + "_sel.xlsx", {}, "selected"); } }'
+      + '    ]'
+      + '  });'
+      + '  winTab.on("rowSelectionChanged", _updateAttachBtn);'
+      + '}'
+      + 'function buildWinCols(columnas) {'
+      + '  var hMenu = function() {'
+      + '    return this.getColumns().map(function(col) {'
+      + '      return { label: (col.isVisible() ? \'<i class="bi bi-eye me-1"></i>\' : \'<i class="bi bi-eye-slash me-1"></i>\') + (col.getDefinition().title || col.getField()), action: function(e) { e.stopPropagation(); col.toggle(); } };'
+      + '    });'
+      + '  };'
+      + '  var chk = { formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", headerSort:false, width:36, frozen:true, cellClick:function(e,cell){ cell.getRow().toggleSelect(); } };'
+      + '  var dc = columnas.map(function(col, i) {'
+      + '    var isN = NUM_T.indexOf(col.tipo) >= 0, isD = DATE_T.indexOf(col.tipo) >= 0;'
+      + '    return { title: col.nombre, field: col.nombre, headerFilter: true, headerFilterPlaceholder: "...", headerMenu: i===0 ? hMenu : undefined, minWidth: 80, tooltip: true, hozAlign: isN ? "right" : "left", sorter: isN ? "number" : isD ? "datetime" : "string", sorterParams: isD ? { format: "iso" } : {}, headerFilterFunc: isN ? ">=" : "like" };'
+      + '  });'
+      + '  return [chk].concat(dc);'
+      + '}'
+      + 'function winXlsx() { winTab && winTab.download("xlsx", "sne_" + ICS_W + "_" + (actKey||"reporte") + ".xlsx"); }'
+      + 'function winClip() { winTab && winTab.copyToClipboard("all"); }'
+      + 'function _updateAttachBtn() {'
+      + '  var btn = document.getElementById("w-btn-attach");'
+      + '  if (!btn || !winTab) return;'
+      + '  var n = winTab.getSelectedRows().length;'
+      + '  btn.disabled = n === 0;'
+      + '  btn.style.opacity = n > 0 ? "1" : ".45";'
+      + '  btn.title = n > 0 ? "Enviar " + n + " fila(s) a Adjuntos" : "Selecciona filas para enviar";'
+      + '}'
+      + 'function winSendAttach() {'
+      + '  if (!winTab || !window.opener || !window.opener.addReportAttachment) return;'
+      + '  var rows = winTab.getSelectedRows();'
+      + '  if (!rows.length) return;'
+      + '  var cols = winTab.getColumns().filter(function(c){ return c.getDefinition().formatter !== "rowSelection" && c.getField(); });'
+      + '  var hdrs = cols.map(function(c){ return c.getDefinition().title || c.getField(); });'
+      + '  var data = rows.map(function(r){ var d=r.getData(); return cols.map(function(c){ return d[c.getField()]; }); });'
+      + '  window.opener.addReportAttachment({ tipo:"tabla", label: actKey || "Reporte", headers:hdrs, data:data, id_ics:ICS_W });'
+      + '  alert(rows.length + " fila(s) enviadas al panel de Adjuntos.");'
+      + '}'
+      + 'init();'
+      + '<\/script>'
+      + '<\/body><\/html>';
+  }
+
+  /* ================================================================
+    CONTROL DE CAMBIOS SIN GUARDAR — dirty flag + advertencia cierre
+     ================================================================ */
+
+  var _isDirty = false;
+
+  function _markDirty() { _isDirty = true; }
+
+  /* ── Toast de notificación no bloqueante ── */
+  function _showToast(msg, tipo) {
+    var colors = { ok: '#1e3a5f', warn: '#b45309', err: '#b02a37' };
+    var bg = colors[tipo] || colors.ok;
+    var t = document.createElement('div');
+    t.innerHTML = '<i class="bi bi-' + (tipo === 'err' ? 'exclamation-triangle' : 'check-circle') + '"></i> ' + msg;
+    t.style.cssText = 'position:fixed;bottom:1.6rem;right:1.6rem;background:' + bg + ';color:white;'
+      + 'padding:.55rem 1.1rem;border-radius:8px;font-size:.78rem;font-weight:600;z-index:9999;'
+      + 'box-shadow:0 6px 18px rgba(0,0,0,.25);display:flex;align-items:center;gap:.45rem;'
+      + 'animation:fadeInScale .2s ease;max-width:320px;';
+    document.body.appendChild(t);
+    setTimeout(function(){
+      t.style.transition = 'opacity .4s';
+      t.style.opacity = '0';
+      setTimeout(function(){ if (t.parentNode) t.remove(); }, 420);
+    }, 2800);
+  }
+
+  function _getDirtyItems() {
+    var items = [];
+    var km   = document.getElementById('kmObjetar');
+    var nota = document.getElementById('commentText');
+    if (km   && parseFloat(km.value) > 0)  items.push('Km a objetar modificado');
+    if (nota && nota.value.trim() !== '')   items.push('Nota de objeción escrita');
+    if (_adjuntos && _adjuntos.length > 0) items.push(_adjuntos.length + ' adjunto(s) agregado(s)');
+    if (_isDirty && items.length === 0)     items.push('Datos del formulario modificados');
+    return items;
+  }
+
+  function tryCloseEditModal() {
+    var items = _getDirtyItems();
+    if (items.length === 0 && !_isDirty) { _forceCloseEditModal(); return; }
+    var list = document.getElementById('unsavedWarnList');
+    if (list) list.innerHTML = items.map(function(i){ return '<li>' + i + '</li>'; }).join('');
+    document.getElementById('unsavedWarnModal').style.display = 'flex';
+  }
+
+  function confirmCloseModal() {
+    document.getElementById('unsavedWarnModal').style.display = 'none';
+    _forceCloseEditModal();
+  }
+
+  function cancelCloseModal() {
+    document.getElementById('unsavedWarnModal').style.display = 'none';
+  }
+
+  function _forceCloseEditModal() {
+    _resetDirtyState();
+    var m = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+    if (m) m.hide();
+  }
+
+  function _resetDirtyState() {
+    _isDirty  = false;
+    if (typeof _adjuntos !== 'undefined') { _adjuntos = []; _renderAttachList(); }
+  }
+
+  /* ================================================================
+    PANEL DE ADJUNTOS Y EVIDENCIAS — store + render + drag/paste/crop
+     ================================================================ */
+
+  var _adjuntos = [];   // [{id, tipo:'imagen'|'tabla', label, src?, headers?, data?, blob?}]
+  var _adjIdSeq = 0;
+  var _cropperInstance = null;
+  var _cropTarget = null; // id del adjunto en recorte
+
+  /* ── addReportAttachment: llamado desde modal y ventana nueva ── */
+  function addReportAttachment(obj) {
+    var id = ++_adjIdSeq;
+    _adjuntos.push({ id: id, tipo: obj.tipo, label: obj.label,
+                      headers: obj.headers, data: obj.data, id_ics: obj.id_ics });
+    _markDirty();
+    _renderAttachList();
+  }
+
+  /* ── Agrega imagen (File o Blob) al store ── */
+  function _addImageAttachment(file, labelOverride) {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var id = ++_adjIdSeq;
+      _adjuntos.push({ id: id, tipo: 'imagen', label: labelOverride || file.name, src: ev.target.result });
+      _markDirty();
+      _renderAttachList();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ── Renderiza la lista de adjuntos ── */
+  function _renderAttachList() {
+    var list = document.getElementById('attachList');
+    var empty = document.getElementById('attachEmptyMsg');
+    var cnt   = document.getElementById('attachCount');
+    if (!list) return;
+    if (empty) empty.style.display = _adjuntos.length ? 'none' : 'block';
+    if (cnt)   cnt.textContent = _adjuntos.length;
+
+    // Borra items anteriores conservando el mensaje vacío
+    Array.from(list.children).forEach(function(c) {
+      if (c.id !== 'attachEmptyMsg') c.remove();
+    });
+
+    _adjuntos.forEach(function(adj) {
+      var item = document.createElement('div');
+      item.id = 'adj-item-' + adj.id;
+      item.style.cssText = 'display:flex;align-items:center;gap:0.4rem;background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.35rem 0.5rem;font-size:0.65rem;';
+
+      // Miniatura / ícono
+      var thumb = document.createElement('div');
+      thumb.style.cssText = 'flex-shrink:0;width:28px;height:28px;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#ede9fe;';
+      if (adj.tipo === 'imagen' && adj.src) {
+        var img = document.createElement('img');
+        img.src = adj.src;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        thumb.appendChild(img);
+      } else {
+        thumb.innerHTML = '<i class="bi bi-table" style="color:#7c3aed;font-size:0.9rem;"></i>';
+      }
+
+      // Nombre
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3b0764;font-weight:600;';
+      lbl.title = adj.label;
+      lbl.textContent = adj.label;
+
+      // Info filas (tablas)
+      if (adj.tipo === 'tabla' && adj.data) {
+        var badge = document.createElement('span');
+        badge.style.cssText = 'flex-shrink:0;background:#ddd6fe;color:#5b21b6;border-radius:8px;padding:0.08rem 0.35rem;font-size:0.6rem;font-weight:700;';
+        badge.textContent = adj.data.length + ' fil.';
+        item.appendChild(thumb); item.appendChild(lbl); item.appendChild(badge);
+      } else {
+        item.appendChild(thumb); item.appendChild(lbl);
+      }
+
+      // Botones acción
+      var btns = document.createElement('div');
+      btns.style.cssText = 'display:flex;gap:0.2rem;flex-shrink:0;';
+
+      // Botón recortar (solo imágenes)
+      if (adj.tipo === 'imagen') {
+        var bCrop = document.createElement('button');
+        bCrop.innerHTML = '<i class="bi bi-crop"></i>';
+        bCrop.title = 'Recortar imagen';
+        bCrop.style.cssText = 'background:none;border:1px solid #c4b5fd;border-radius:4px;color:#7c3aed;cursor:pointer;padding:0.15rem 0.3rem;font-size:0.7rem;transition:all 0.2s;';
+        bCrop.onmouseover = function(){ this.style.background='#ede9fe'; };
+        bCrop.onmouseout  = function(){ this.style.background='none'; };
+        bCrop.onclick = function() { _openCropModal(adj.id, adj.src); };
+        btns.appendChild(bCrop);
+      }
+
+      // Botón eliminar
+      var bDel = document.createElement('button');
+      bDel.innerHTML = '<i class="bi bi-trash3"></i>';
+      bDel.title = 'Eliminar adjunto';
+      bDel.style.cssText = 'background:none;border:1px solid #fecaca;border-radius:4px;color:#dc3545;cursor:pointer;padding:0.15rem 0.3rem;font-size:0.7rem;transition:all 0.2s;';
+      bDel.onmouseover = function(){ this.style.background='#fff0f0'; };
+      bDel.onmouseout  = function(){ this.style.background='none'; };
+      bDel.onclick = function() {
+        _adjuntos = _adjuntos.filter(function(a){ return a.id !== adj.id; });
+        _renderAttachList();
+      };
+      btns.appendChild(bDel);
+      item.appendChild(btns);
+      list.appendChild(item);
+    });
+  }
+
+  /* ── Drag & Drop zona de adjuntos ── */
+  function attachDragOver(e)  { e.preventDefault(); document.getElementById('attachDropZone').style.borderColor='#7c3aed'; document.getElementById('attachDropZone').style.background='#ede9fe'; }
+  function attachDragLeave(e) { document.getElementById('attachDropZone').style.borderColor='#c4b5fd'; document.getElementById('attachDropZone').style.background='#faf5ff'; }
+  function attachDrop(e) {
+    e.preventDefault();
+    attachDragLeave(e);
+    attachHandleFiles(e.dataTransfer.files);
+  }
+  function attachHandleFiles(files) {
+    Array.from(files).forEach(function(f) {
+      if (f.type.startsWith('image/') || f.type === 'application/pdf') {
+        _addImageAttachment(f, f.name);
+      }
+    });
+  }
+
+  /* ── Paste desde portapapeles (Ctrl+V) ── */
+  document.addEventListener('paste', function(e) {
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        var blob = items[i].getAsFile();
+        if (blob) _addImageAttachment(blob, 'Pegado_' + new Date().toLocaleTimeString('es-CO').replace(/:/g,'') + '.png');
+        break;
+      }
+    }
+  });
+
+  /* ── Modal de recorte con Cropper.js ── */
+  function _openCropModal(adjId, src) {
+    _cropTarget = adjId;
+    var modal = document.getElementById('cropModal');
+    var img   = document.getElementById('cropImage');
+    img.src = src;
+    modal.style.display = 'flex';
+    if (_cropperInstance) { _cropperInstance.destroy(); _cropperInstance = null; }
+    _cropperInstance = new Cropper(img, { viewMode: 1, autoCropArea: 1, movable: true, zoomable: true, scalable: false });
+  }
+  function closeCropModal() {
+    document.getElementById('cropModal').style.display = 'none';
+    if (_cropperInstance) { _cropperInstance.destroy(); _cropperInstance = null; }
+    _cropTarget = null;
+  }
+  function applyCrop() {
+    if (!_cropperInstance || _cropTarget === null) return;
+    var canvas = _cropperInstance.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1200 });
+    var newSrc = canvas.toDataURL('image/png');
+    var adj = _adjuntos.find(function(a){ return a.id === _cropTarget; });
+    if (adj) { adj.src = newSrc; }
+    closeCropModal();
+    _renderAttachList();
+  }
+
+  /* ================================================================
+    GENERADOR PDF — Preview + Descarga con jsPDF + html2canvas
+     ================================================================ */
+
+  function closePdfPreview() {
+    document.getElementById('pdfPreviewModal').style.display = 'none';
+  }
+
+  /* ── Construye HTML interno del preview (hoja A4 simulada 794px) ── */
+  function _buildPdfHtml(rec) {
+    var logoUrl = '/static/Consorcio.png';
+    var ics     = rec.id_ics || _currentIcsForReports || '—';
+
+    /* ─ Campos del registro — nombres exactos del JSON de la API ─ */
+    var campos = [
+      ['Fecha',               rec.fecha              || '—'],
+      ['ID ICS',              ics],
+      ['Concesión',           rec.zona               || '—'],   // config.zona.zona via id_concesion
+      ['Ruta',                rec.ruta_comercial     || '—'],   // config.rutas.ruta_comercial via id_linea
+      ['Línea',               rec.id_linea           || '—'],
+      ['COP',                 rec.cop_nombre         || '—'],   // config.cop.cop via id_cop
+      ['Servicio',            rec.servicio           || '—'],
+      ['Tabla',               rec.tabla              || '—'],
+      ['Viaje Línea',         rec.viaje_linea        || '—'],
+      ['Id Viaje',            rec.id_viaje           || '—'],
+      ['Sentido',             rec.sentido            || '—'],
+      ['Vehículo',            rec.vehiculo_real      || '—'],   // ics.vehiculo_real
+      ['Hora Inicio Teórica', rec.hora_ini_teorica   || '—'],   // ics.hora_ini_teorica
+      ['Km Programado',       rec.km_prog_ad         || '—'],   // ics.km_prog_ad
+      ['Km Ejecutado',        rec.km_ejecutado       || '—'],
+      ['Km Eliminado EIC',    rec.km_elim_eic        || '—'],   // ics.km_elim_eic
+    ];
+
+    /* ─ Tabla de datos en 2 columnas ─ */
+    var mitad = Math.ceil(campos.length / 2);
+    var col1  = campos.slice(0, mitad);
+    var col2  = campos.slice(mitad);
+    var maxR  = Math.max(col1.length, col2.length);
+    var tdS   = 'padding:3px 7px;font-size:7.8pt;border:1px solid #e2e8f0;vertical-align:middle;';
+    var thS   = tdS + 'background:#1e3a5f;color:white;font-weight:700;width:18%;';
+    var rowsHtml = '';
+    for (var i = 0; i < maxR; i++) {
+      var c1 = col1[i] || ['', ''];
+      var c2 = col2[i] || ['', ''];
+      rowsHtml += '<tr>'
+        + '<td style="' + thS + '">' + c1[0] + '</td><td style="' + tdS + 'width:32%;">' + c1[1] + '</td>'
+        + '<td style="' + thS + '">' + c2[0] + '</td><td style="' + tdS + 'width:32%;">' + c2[1] + '</td>'
+        + '</tr>';
+    }
+
+    /* ─ Nota de objeción ─ */
+    var notaEl = document.getElementById('notaObjecion')
+              || document.querySelector('textarea[name*="nota"]')
+              || document.querySelector('textarea');
+    var nota = notaEl ? (notaEl.value || notaEl.textContent || '').trim() : '(Sin nota de objeción)';
+
+    /* ─ Imágenes adjuntas — ancho completo, una por fila ─ */
+    var imgs = _adjuntos.filter(function(a) { return a.tipo === 'imagen' && a.src; });
+    var imgsHtml = imgs.length
+      ? imgs.map(function(a) {
+          return '<div style="margin-bottom:10px;page-break-inside:avoid;">'
+            + '<img src="' + a.src + '" style="width:100%;max-height:400px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;display:block;">'
+            + '<div style="font-size:6.5pt;color:#64748b;text-align:center;margin-top:3px;font-style:italic;">' + a.label + '</div>'
+            + '</div>';
+        }).join('')
+      : '<p style="color:#94a3b8;font-size:8pt;">Sin imágenes adjuntas.</p>';
+
+    /* ─ Tablas de evidencias FMS — fuente adaptativa según nº columnas ─ */
+    var tabAdj = _adjuntos.filter(function(a) { return a.tipo === 'tabla' && a.headers && a.data; });
+    var tabsHtml = tabAdj.length
+      ? tabAdj.map(function(a) {
+          var nCols  = a.headers.length;
+          // Fuente adaptativa: más columnas → letra más pequeña
+          var fSzHdr = nCols > 20 ? '4.2pt' : nCols > 14 ? '5pt'   : nCols > 9 ? '5.8pt' : '6.8pt';
+          var fSzBdy = nCols > 20 ? '4pt'   : nCols > 14 ? '4.8pt' : nCols > 9 ? '5.5pt' : '6.5pt';
+          var padH   = nCols > 20 ? '1px 2px' : nCols > 14 ? '2px 3px' : '3px 5px';
+          var padB   = nCols > 20 ? '1px 2px' : nCols > 14 ? '1px 3px' : '2px 5px';
+          // Ancho de columna fijo para forzar que quepan todas
+          var colW   = Math.floor(100 / nCols) + '%';
+
+          var hdr = a.headers.map(function(h) {
+            return '<th style="background:#1e3a5f;color:white;padding:' + padH + ';font-size:' + fSzHdr + ';'
+              + 'border:1px solid #163059;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:' + colW + ';"'
+              + ' title="' + h + '">' + h + '</th>';
+          }).join('');
+
+          var bdy = a.data.map(function(row, ri) {
+            var bg = ri % 2 === 0 ? '#f8faff' : 'white';
+            return '<tr>' + row.map(function(cell) {
+              var val = (cell !== null && cell !== undefined) ? String(cell) : '';
+              return '<td style="padding:' + padB + ';font-size:' + fSzBdy + ';border:1px solid #e2e8f0;'
+                + 'background:' + bg + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:' + colW + ';"'
+                + ' title="' + val + '">' + val + '</td>';
+            }).join('') + '</tr>';
+          }).join('');
+
+          return '<div style="margin-bottom:14px;page-break-inside:avoid;">'
+            + '<div style="font-size:8.5pt;font-weight:700;color:#1e3a5f;margin-bottom:4px;padding-bottom:2px;border-bottom:1.5px solid #1e3a5f;">'
+            + '<span style="background:#1e3a5f;color:white;padding:1px 7px;border-radius:3px;">▶ ' + a.label + '</span>'
+            + ' <span style="font-size:7pt;color:#64748b;font-weight:400;">— ' + a.data.length + ' registros · ' + nCols + ' columnas</span></div>'
+            + '<div style="width:100%;overflow:hidden;">'
+            + '<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'
+            + '<thead><tr>' + hdr + '</tr></thead><tbody>' + bdy + '</tbody></table></div>'
+            + '</div>';
+        }).join('')
+      : '<p style="color:#94a3b8;font-size:8pt;">Sin evidencias de reportes agregadas.</p>';
+
+    var secStyle    = 'margin-bottom:16px;';
+    var secTitStyle = 'font-size:9.5pt;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:3px;margin-bottom:8px;letter-spacing:.3px;text-transform:uppercase;';
+    var footStyle   = 'margin-top:20px;padding-top:6px;border-top:1px solid #e2e8f0;text-align:center;font-size:6.8pt;color:#94a3b8;';
+
+    return ''
+      /* ENCABEZADO */
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:2.5px solid #1e3a5f;">'
+      +   '<img src="' + logoUrl + '" style="height:44px;object-fit:contain;" onerror="this.style.display=\'none\'">'
+      +   '<div style="text-align:center;flex:1;padding:0 12px;">'
+      +     '<div style="font-size:11.5pt;font-weight:800;color:#1e3a5f;letter-spacing:.5px;">INFORME OBJECIÓN ICS</div>'
+      +     '<div style="font-size:9pt;font-weight:700;color:#0d6efd;">CONSORCIO EXPRESS</div>'
+      +   '</div>'
+      +   '<div style="text-align:right;min-width:110px;">'
+      +     '<div style="font-size:7pt;color:#64748b;text-transform:uppercase;letter-spacing:.3px;">IdICS</div>'
+      +     '<div style="font-size:13pt;font-weight:800;color:#1e3a5f;">' + ics + '</div>'
+      +   '</div>'
+      + '</div>'
+      /* DATOS DEL REGISTRO */
+      + '<div style="' + secStyle + '">'
+      +   '<div style="' + secTitStyle + '">Datos del Registro Objetado</div>'
+      +   '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">' + rowsHtml + '</table>'
+      + '</div>'
+      /* DETALLES DE OBJECIÓN */
+      + '<div style="' + secStyle + '">'
+      +   '<div style="' + secTitStyle + '">Detalles de Objeción</div>'
+      +   '<div style="background:#f8faff;border:1px solid #e2e8f0;border-radius:4px;padding:8px 10px;font-size:8.5pt;line-height:1.7;min-height:40px;white-space:pre-wrap;">' + (nota || '(Sin nota de objeción)') + '</div>'
+      + '</div>'
+      /* IMÁGENES ADJUNTAS */
+      + '<div style="' + secStyle + '">'
+      +   '<div style="' + secTitStyle + '">Imágenes Adjuntas</div>'
+      +   imgsHtml
+      + '</div>'
+      /* EVIDENCIAS REPORTES FMS */
+      + '<div style="' + secStyle + '">'
+      +   '<div style="' + secTitStyle + '">Evidencias Reportes FMS</div>'
+      +   tabsHtml
+      + '</div>'
+      /* PIE DE PÁGINA (flujo normal, no absoluto) */
+      + '<div style="' + footStyle + '">Consorcio Express S.A.S &nbsp;·&nbsp; Carrera 69 # 25B - 44, Oficina 1001 AB, Edificio World Business Port, Bogotá D.C.</div>';
+  }
+
+  /* ── Construye visualmente las páginas A4 en el modal de preview ── */
+  async function _buildPagePreview() {
+    var content   = document.getElementById('pdfPreviewContent');
+    var container = document.getElementById('pdfPagesContainer');
+    container.innerHTML = '<div style="color:#64748b;font-size:.78rem;padding:1.2rem;text-align:center;">'
+      + '<i class="bi bi-hourglass-split"></i> Generando vista previa…</div>';
+
+    /* ── MEDIDOR TEMPORAL ─────────────────────────────────────────────
+       position:fixed dentro del viewport garantiza que scrollHeight
+       se calcule correctamente, independiente de donde esté pdfPreviewContent.
+       opacity:0 + pointer-events:none lo hace totalmente invisible.       */
+    var measurer = document.createElement('div');
+    measurer.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:white;'
+      + 'padding:2.2rem 2.4rem;font-family:"Segoe UI",Arial,sans-serif;font-size:8.5pt;'
+      + 'color:#0f172a;box-sizing:border-box;overflow-x:hidden;'
+      + 'opacity:0;pointer-events:none;z-index:-9999;';
+    measurer.innerHTML = content.innerHTML;
+    document.body.appendChild(measurer);
+
+    /* Esperar que TODAS las imágenes carguen (logo, adjuntos, data-URLs) */
+    await Promise.all(Array.from(measurer.querySelectorAll('img')).map(function(img) {
+      return new Promise(function(r) {
+        if (img.complete && img.naturalHeight > 0) { r(); return; }
+        img.onload  = r;
+        img.onerror = r;
+        setTimeout(r, 4000); /* máx 4 s por imagen */
+      });
+    }));
+
+    /* Dos frames extra para que el layout se estabilice tras las imágenes */
+    await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+
+    var totalH = measurer.scrollHeight;
+    document.body.removeChild(measurer);
+
+    /* ── CONSTRUIR PÁGINAS ─────────────────────────────────────────── */
+    var PAGE_H   = 1122;   /* px ≈ A4 a 96dpi para 794px de ancho       */
+    var MARGIN_T = 20;     /* px de margen blanco arriba/abajo por hoja  */
+    var EFF_H    = PAGE_H - MARGIN_T * 2;   /* px de contenido por hoja */
+    var nPages   = Math.max(1, Math.ceil(totalH / EFF_H));
+
+    container.innerHTML = '';
+
+    for (var p = 0; p < nPages; p++) {
+      /* Etiqueta de hoja */
+      var lbl = document.createElement('div');
+      lbl.textContent = 'Página ' + (p + 1) + ' de ' + nPages;
+      lbl.style.cssText = 'font-size:.62rem;color:#64748b;font-weight:600;'
+        + 'letter-spacing:.5px;text-transform:uppercase;';
+      container.appendChild(lbl);
+
+      /* Tarjeta hoja A4 — overflow:hidden contiene todo el contenido */
+      var card = document.createElement('div');
+      card.style.cssText = 'width:794px;height:' + PAGE_H + 'px;background:white;'
+        + 'overflow:hidden;position:relative;border-radius:3px;'
+        + 'box-shadow:0 6px 24px rgba(0,0,0,.22);flex-shrink:0;';
+
+      /* Clon posicionado para mostrar la franja correspondiente a esta hoja */
+      var clone = content.cloneNode(true);
+      clone.style.cssText = 'position:absolute;left:0;width:794px;'
+        + 'top:' + (-(p * EFF_H) + MARGIN_T) + 'px;'
+        + 'padding:2.2rem 2.4rem;font-family:"Segoe UI",Arial,sans-serif;'
+        + 'font-size:8.5pt;color:#0f172a;box-sizing:border-box;'
+        + 'overflow-x:hidden;background:white;';
+      card.appendChild(clone);
+      container.appendChild(card);
+    }
+  }
+
+  /* ── Abre el modal de preview usando _currentIcsData ya cargado ── */
+  async function generarPDF() {
+    if (!_currentIcsForReports) { alert('Abre un registro antes de generar el PDF.'); return; }
+    var rec = (typeof _currentIcsData !== 'undefined' && _currentIcsData) ? _currentIcsData : {};
+    document.getElementById('pdfPreviewIcsLabel').textContent = 'ICS #' + _currentIcsForReports;
+    document.getElementById('pdfPreviewContent').innerHTML = _buildPdfHtml(rec);
+    document.getElementById('pdfPreviewModal').style.display = 'flex';
+    await _buildPagePreview();   /* construye las hojas visuales */
+  }
+
+  /* ── Descarga PDF multi-página: corta el canvas por página A4 ── */
+  async function downloadPDF() {
+    var content = document.getElementById('pdfPreviewContent');
+    var btn = document.querySelector('#pdfPreviewModal button[onclick="downloadPDF()"]');
+    if (btn) { btn.innerHTML = '⏳ Generando...'; btn.disabled = true; }
+
+    /* ── CLAVE: clonar contenido FUERA del contenedor overflow-y:auto ──
+       html2canvas solo captura la parte visible cuando el padre tiene
+       overflow. Al clonar en un nodo fijo fuera del viewport, captura
+       la altura TOTAL del contenido sin ningún recorte.              */
+    var ghost = document.createElement('div');
+    ghost.style.cssText = 'position:fixed;top:-99999px;left:-99999px;'
+      + 'width:794px;background:white;z-index:-9999;pointer-events:none;';
+    var clone = content.cloneNode(true);
+    clone.style.cssText = 'width:794px;background:white;padding:2.2rem 2.4rem;'
+      + 'font-family:"Segoe UI",Arial,sans-serif;font-size:8.5pt;color:#0f172a;'
+      + 'box-sizing:border-box;';
+    ghost.appendChild(clone);
+    document.body.appendChild(ghost);
+
+    /* ── Espera un frame para que el navegador calcule el layout ── */
+    await new Promise(function(r){ requestAnimationFrame(r); });
+
+    /* ── Evita que imágenes se corten entre páginas: inserta espaciadores ──
+       pageCssPx = altura de página A4 en px CSS dentro del ghost de 794px.
+       Esta medida es CONSTANTE independientemente de la escala de captura. */
+    (function _addImgPageBreaks() {
+      var _pTmp = new (window.jspdf.jsPDF)({ orientation:'portrait', unit:'pt', format:'a4' });
+      var pageCssPx = _pTmp.internal.pageSize.getHeight() * 794
+                    / _pTmp.internal.pageSize.getWidth();     // ≈ 1122.5 px
+
+      var ghostTop = ghost.getBoundingClientRect().top;
+
+      Array.from(ghost.querySelectorAll('img')).forEach(function(img) {
+        var r   = img.getBoundingClientRect();
+        var top = r.top - ghostTop;   // offset desde el inicio del ghost
+        var h   = r.height;
+        if (h < 10) return;           // imagen sin altura (no cargada / miniatura)
+
+        var posInPage = top % pageCssPx;
+
+        /* Imagen se cortaría Y cabe entera en una página → empujarla a la siguiente */
+        if (posInPage > 0 && posInPage + h > pageCssPx && h <= pageCssPx) {
+          var spacerH = Math.ceil(pageCssPx - posInPage) + 2; // +2px margen de seguridad
+          var sp = document.createElement('div');
+          sp.style.cssText = 'height:' + spacerH + 'px;display:block;flex-shrink:0;';
+          img.parentNode.insertBefore(sp, img);
+        }
+      });
+    })();
+
+    var MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+    /* Intenta generar el PDF con la calidad indicada; devuelve el blob */
+    async function _buildPdfBlob(captureScale, jpegQuality) {
+      var cv = await html2canvas(ghost, {
+        scale: captureScale, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff', logging: false,
+        width: 794, height: ghost.scrollHeight,
+        windowWidth: 794, windowHeight: ghost.scrollHeight,
+      });
+
+      var { jsPDF } = window.jspdf;
+      var pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      var pW  = pdf.internal.pageSize.getWidth();
+      var pH  = pdf.internal.pageSize.getHeight();
+      var ratio     = cv.width / pW;
+      var pageHtPx  = Math.floor(pH * ratio);
+      var nPages    = Math.ceil(cv.height / pageHtPx);
+
+      for (var p = 0; p < nPages; p++) {
+        if (p > 0) pdf.addPage();
+        var srcY  = p * pageHtPx;
+        var srcH  = Math.min(pageHtPx, cv.height - srcY);
+        var sl    = document.createElement('canvas');
+        sl.width  = cv.width;
+        sl.height = srcH;
+        sl.getContext('2d').drawImage(cv, 0, srcY, cv.width, srcH, 0, 0, cv.width, srcH);
+        /* JPEG — mucho más liviano que PNG, sin perder contenido */
+        pdf.addImage(sl.toDataURL('image/jpeg', jpegQuality), 'JPEG', 0, 0, pW, srcH / ratio);
+      }
+      return pdf;
+    }
+
+    try {
+      /* Escala 2 + calidad 0.82 → primera pasada */
+      var pdf = await _buildPdfBlob(2, 0.82);
+      var size = pdf.output('arraybuffer').byteLength;
+
+      /* Si supera 10 MB → segunda pasada más liviana */
+      if (size > MAX_BYTES) {
+        if (btn) btn.innerHTML = '⏳ Optimizando…';
+        pdf = await _buildPdfBlob(1.5, 0.65);
+        size = pdf.output('arraybuffer').byteLength;
+      }
+
+      /* Si aún supera 10 MB → tercera pasada mínima */
+      if (size > MAX_BYTES) {
+        if (btn) btn.innerHTML = '⏳ Comprimiendo…';
+        pdf = await _buildPdfBlob(1, 0.45);
+      }
+
+      document.body.removeChild(ghost);
+      ghost = null;
+      pdf.save('ObjecionICS_' + (_currentIcsForReports || 'SNE') + '.pdf');
+    } catch(e) {
+      if (ghost && document.body.contains(ghost)) document.body.removeChild(ghost);
+      alert('Error al generar el PDF: ' + e.message);
+    } finally {
+      if (btn) { btn.innerHTML = '<i class="bi bi-download"></i> Descargar PDF'; btn.disabled = false; }
+    }
   }
 
   /* ==================== INICIALIZACIÓN ==================== */
   document.addEventListener('DOMContentLoaded', initializeApp);
 
 </script>
+
+<!-- Tabulator 6.4 + SheetJS -->
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.4.0/dist/css/tabulator_modern.min.css">
+<script src="https://unpkg.com/tabulator-tables@6.4.0/dist/js/tabulator.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Cropper.js — recorte de imágenes -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<!-- jsPDF + html2canvas — generación PDF cliente -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  /* ── Tabulator modal de reportes — diseño compacto tipo Excel ── */
+  #reportTabContent .tabulator                                   { font-size: 0.72rem !important; }
+  #reportTabContent .tabulator .tabulator-header .tabulator-col  { 
+    background: #1e3a5f !important; 
+    color: white !important; 
+    font-weight: 700 !important; 
+    font-size: 0.67rem !important; 
+  }
+  #reportTabContent .tabulator .tabulator-header .tabulator-col:hover { 
+    background: #163059 !important; 
+  }
+  #reportTabContent .tabulator .tabulator-header .tabulator-col .tabulator-col-content { 
+    padding: 4px 6px; 
+  }
+  #reportTabContent .tabulator-cell { 
+    padding: 3px 6px !important; 
+    font-size: 0.7rem !important; 
+  }
+  /* Filas pares */
+  #reportTabContent .tabulator-row:nth-child(even) { 
+    background: #f8faff !important; 
+  }
+  /* SELECCIÓN */
+  #reportTabContent .tabulator-row.tabulator-selected {
+    background: #bbf7d0 !important;
+    color: #05092e !important;
+    font-weight: 600;
+  }
+  /* Footer */
+  #reportTabContent .tabulator .tabulator-footer { 
+    background: #f8f9fa; 
+    border-top: 1px solid #e2e8f0; 
+    font-size: 0.68rem; 
+  }
+  /* Filtros */
+  #reportTabContent .tabulator-header-filter input { 
+    font-size: 0.64rem !important; 
+    padding: 2px 5px !important; 
+    height: auto !important; 
+  }
+</style>
 
 <!-- Scripts Leaflet cargados -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

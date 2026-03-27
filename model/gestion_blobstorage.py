@@ -55,6 +55,11 @@ class ContainerModel:
         asignados = roles.get_contenedores_por_rol(user_rol_storage)
         return [c for c in self.get_containers() if c in asignados]
 
+    def get_acciones_permitidas(self, user_rol_storage) -> dict:
+        """Retorna dict con booleanos de acciones permitidas para el rol del usuario."""
+        roles = Cargue_Roles_Blob_Storage()
+        return roles.get_acciones_por_rol(user_rol_storage)
+
     # ─────────────────────────────────────────────
     # Árbol de archivos — endpoint unificado
     # ─────────────────────────────────────────────

@@ -40,12 +40,37 @@
                         </div>
                         <div class="mb-3">
                             <label for="containers" class="form-label">Contenedores a Asignar</label>
-                            <select multiple class="form-select" id="containers" name="containers" style="height: 35vh;" required>
+                            <select multiple class="form-select" id="containers" name="containers" style="height: 25vh;" required>
                                 {% for container in containers %}
                                     <option value="{{ container }}">{{ container }}</option>
                                 {% endfor %}
                             </select>
                             <small class="form-text text-muted">Mantenga presionado Ctrl o Cmd para seleccionar varios contenedores.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Acciones permitidas en el módulo</label>
+                            <div class="border rounded p-2" style="background:#f8f9fa;">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="accion_ver" id="accion_ver" value="on" checked>
+                                    <label class="form-check-label" for="accion_ver"><i class="bi bi-eye text-success"></i> Ver archivo</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="accion_editar" id="accion_editar" value="on">
+                                    <label class="form-check-label" for="accion_editar"><i class="bi bi-pencil text-warning"></i> Editar archivo</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="accion_descargar" id="accion_descargar" value="on" checked>
+                                    <label class="form-check-label" for="accion_descargar"><i class="bi bi-download text-primary"></i> Descargar</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="accion_eliminar" id="accion_eliminar" value="on">
+                                    <label class="form-check-label" for="accion_eliminar"><i class="bi bi-trash text-danger"></i> Eliminar</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="accion_cargar" id="accion_cargar" value="on">
+                                    <label class="form-check-label" for="accion_cargar"><i class="bi bi-cloud-upload text-info"></i> Cargar archivos</label>
+                                </div>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-success w-100">Guardar</button>
                     </form>
@@ -63,39 +88,44 @@
                     <table class="table table-hover table-striped tabla-roles" style="font-size: 12px; table-layout: fixed; width: 100%;">
                         <thead class="table-light" style="position: sticky; top: 0; z-index: 1; margin-top: 0; padding: 0;">
                             <tr>
-                                <th style="width: 5px;" >ID</th>
-                                <th style="width: 30px;" >Nombre</th>
-                                <th style="width: 65px;" >Contenedores Asignados</th>
-                                <th style="width: 30px; text-align:center;">Acciones</th>
+                                <th style="width: 4%;">ID</th>
+                                <th style="width: 18%;">Nombre</th>
+                                <th style="width: 32%;">Contenedores</th>
+                                <th style="width: 28%;">Acciones Módulo</th>
+                                <th style="width: 18%; text-align:center;">Opciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for role in roles_storage %}
                             {% set conts = role[2] if role[2] else '' %}
                             {% set lista = conts.split(',') if conts else [] %}
-                            {% set texto = conts %}
                             <tr>
                                 <td>{{ role[0] }}</td>
                                 <td>{{ role[1] }}</td>
                                 <td>
                                 {% if lista and lista|length > 0 %}
-                                    <span title="{{ texto }}">{{ texto|truncate(120, True, '...') }}</span>
+                                    <span title="{{ conts }}">{{ conts|truncate(80, True, '...') }}</span>
                                     <div><small class="text-muted">{{ lista|length }} contenedor(es)</small></div>
                                 {% else %}
                                     <em>—</em>
                                 {% endif %}
                                 </td>
-                                <td class="text-center col-acciones">
-                                <div class="d-inline-flex align-items-center flex-nowrap">
-                                    <button type="button" class="btn btn-primary btn-sm px-2 py-1"
+                                <td style="font-size:11px;">
+                                    {% if role[3] %}<span class="badge bg-success me-1"><i class="bi bi-eye"></i> Ver</span>{% endif %}
+                                    {% if role[4] %}<span class="badge bg-warning text-dark me-1"><i class="bi bi-pencil"></i> Editar</span>{% endif %}
+                                    {% if role[5] %}<span class="badge bg-primary me-1"><i class="bi bi-download"></i> Descargar</span>{% endif %}
+                                    {% if role[6] %}<span class="badge bg-danger me-1"><i class="bi bi-trash"></i> Eliminar</span>{% endif %}
+                                    {% if role[7] %}<span class="badge bg-info text-dark"><i class="bi bi-cloud-upload"></i> Cargar</span>{% endif %}
+                                </td>
+                                <td class="text-center col-acciones" style="white-space: nowrap;">
+                                    <button type="button" class="btn btn-primary btn-sm px-2 py-1 me-1"
                                             data-bs-toggle="modal" data-bs-target="#editRoleStorageModal"
                                             data-role-id="{{ role[0] }}">
-                                    Editar
+                                        Editar
                                     </button>
                                     <form action="/roles_storage/{{ role[0] }}/eliminar" method="post" class="d-inline m-0 p-0">
-                                    <button type="submit" class="btn btn-danger btn-sm px-2 py-1">Eliminar</button>
+                                        <button type="submit" class="btn btn-danger btn-sm px-2 py-1">Eliminar</button>
                                     </form>
-                                </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -139,6 +169,33 @@
                             {% endfor %}
                         </select>
                     </div>
+
+                    <!-- Acciones permitidas -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Acciones permitidas en el módulo</label>
+                        <div class="border rounded p-2" style="background:#f8f9fa;">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="accion_ver" id="edit_accion_ver" value="on">
+                                <label class="form-check-label" for="edit_accion_ver"><i class="bi bi-eye text-success"></i> Ver archivo</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="accion_editar" id="edit_accion_editar" value="on">
+                                <label class="form-check-label" for="edit_accion_editar"><i class="bi bi-pencil text-warning"></i> Editar archivo</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="accion_descargar" id="edit_accion_descargar" value="on">
+                                <label class="form-check-label" for="edit_accion_descargar"><i class="bi bi-download text-primary"></i> Descargar</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="accion_eliminar" id="edit_accion_eliminar" value="on">
+                                <label class="form-check-label" for="edit_accion_eliminar"><i class="bi bi-trash text-danger"></i> Eliminar</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="accion_cargar" id="edit_accion_cargar" value="on">
+                                <label class="form-check-label" for="edit_accion_cargar"><i class="bi bi-cloud-upload text-info"></i> Cargar archivos</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
@@ -155,12 +212,14 @@
     document.getElementById('editRoleStorageModal').addEventListener('show.bs.modal', function (event) {
         const button = event.relatedTarget;
         const roleId = button.getAttribute('data-role-id');
-        
+
         // Restablecer los valores del modal antes de cargar nuevos datos
         document.getElementById('editRoleStorageId').value = '';
         document.getElementById('editRoleStorageName').value = '';
         const editContainers = document.getElementById('editContainers');
         Array.from(editContainers.options).forEach(option => option.selected = false);
+        ['edit_accion_ver','edit_accion_editar','edit_accion_descargar','edit_accion_eliminar','edit_accion_cargar']
+            .forEach(id => { document.getElementById(id).checked = false; });
 
         // Solicitar datos del rol_storage seleccionado
         fetch(`/roles_storage/${roleId}/datos`)
@@ -173,6 +232,13 @@
                 Array.from(editContainers.options).forEach(option => {
                     option.selected = data.contenedores_asignados.includes(option.value);
                 });
+
+                // Precargar acciones permitidas
+                document.getElementById('edit_accion_ver').checked      = !!data.accion_ver;
+                document.getElementById('edit_accion_editar').checked    = !!data.accion_editar;
+                document.getElementById('edit_accion_descargar').checked = !!data.accion_descargar;
+                document.getElementById('edit_accion_eliminar').checked  = !!data.accion_eliminar;
+                document.getElementById('edit_accion_cargar').checked    = !!data.accion_cargar;
 
                 // Actualizamos el formulario para que apunte a la ruta correcta de edición
                 document.getElementById('editRoleStorageForm').action = `/roles_storage/${roleId}/editar`;
