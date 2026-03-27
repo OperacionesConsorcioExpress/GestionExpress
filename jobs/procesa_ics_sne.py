@@ -17,7 +17,7 @@ from database.database_manager import get_db_connection
 # CONFIG
 # =============================================================================
 # Si no existe un log OK previo, empezar desde esta fecha
-FECHA_SEMILLA_STR = "01/02/2026"   # dd/mm/yyyy
+FECHA_SEMILLA_STR = "16/03/2026"   # dd/mm/yyyy
 
 FILTRO_ZONA_TIPO = 3               # 1=ZN, 2=TR, 3=Ambas
 
@@ -196,7 +196,6 @@ def normalize_name(s: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "", s)
     return s
 
-
 def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Optional[str]:
     cols = {str(c).strip(): c for c in df.columns}
     normalized = {normalize_name(k): v for k, v in cols.items()}
@@ -214,7 +213,6 @@ def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Opt
         raise KeyError(f"No se encontró ninguna de estas columnas: {aliases}")
     return None
 
-
 def clean_motivo(v) -> str:
     if v is None:
         return ""
@@ -224,10 +222,8 @@ def clean_motivo(v) -> str:
     s = re.sub(r"\s+", " ", s)
     return s
 
-
 def norm_motivo(v) -> str:
     return clean_motivo(v).upper()
-
 
 # =============================================================================
 # AZURE
@@ -264,7 +260,6 @@ class AzureBlobReader:
             if b.name and not b.name.endswith("/"):
                 out.append(b.name)
         return out
-
 
 # =============================================================================
 # BUILDER
@@ -779,7 +774,6 @@ class SNEExportBuilder:
         print(out["Motivo"].astype(str).str.strip().replace("", "VACIO").value_counts(dropna=False).head(20))
 
         return out
-
 
 # =============================================================================
 # POSTGRES sne.ics
@@ -1300,13 +1294,11 @@ def _get_connection_string() -> str:
         return CONNECTION_STRING_LOCAL
     raise SystemExit(f"❌ Falta connection string. Usa env {AZURE_CONN_ENV}.")
 
-
 def _parse_semilla() -> date:
     try:
         return datetime.strptime(FECHA_SEMILLA_STR, "%d/%m/%Y").date()
     except ValueError:
         raise SystemExit("❌ FECHA_SEMILLA_STR debe estar en formato dd/mm/yyyy.")
-
 
 def main() -> None:
     load_dotenv()
@@ -1443,7 +1435,6 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("✅ PROCESO COMPLETADO")
     print("=" * 80)
-
 
 if __name__ == "__main__":
     main()

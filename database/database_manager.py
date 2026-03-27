@@ -11,6 +11,11 @@ DATABASE_PATH_DEDICATED = os.getenv("DATABASE_PATH_DEDICATED")
 CB_FALLAS_MAX = int(os.getenv("CB_FALLAS_MAX", "10"))
 CB_RECOVERY_SEG = float(os.getenv("CB_RECOVERY_SEG", "15.0"))
 
+# ── Configuración del pool ──
+POOL_MIN_CONN = int(os.getenv("POOL_MIN_CONN", "5"))
+POOL_MAX_CONN = int(os.getenv("POOL_MAX_CONN", "100"))
+POOL_TIMEOUT_SEC = float(os.getenv("POOL_TIMEOUT_SEC", "30"))
+
 _cb_lock = threading.Lock()
 _cb_fallas = 0
 _cb_ultimo_fallo = 0.0
@@ -52,52 +57,183 @@ def _create_connection(dsn: str, application_name: str) -> psycopg2.extensions.c
         **_CONNECT_KWARGS,
     )
 
-class _PgBouncerConnectionAdapter:
+class _PythonConnectionPool:
     """
-    Adaptador de compatibilidad para codigo legado.
+    Pool de conexiones Python thread-safe con control de min/max y limpieza de idle.
 
-    No reutiliza conexiones ni administra un pool Python.
-    Cada getconn() abre una conexion nueva al DSN principal y cada putconn()
-    la cierra. El pooling real queda delegado a PgBouncer.
+    - Recicla conexiones en lugar de abrir/cerrar por request.
+    - Espera hasta POOL_TIMEOUT_SEC cuando el pool está al máximo antes de fallar.
+    - Un hilo daemon libera conexiones idle por encima de POOL_MIN_CONN cada 60s.
+    - Interfaz compatible con el adaptador anterior (getconn/putconn/closeall).
     """
 
-    def __init__(self):
-        self.closed = 0
-        self._lock = threading.Lock()
-        self._pool = []
-        self._used = {}
+    _IDLE_CHECK_INTERVAL = 60   # segundos entre limpiezas
+    _CONN_MAX_AGE_SEC    = 1800 # 30 min; conexiones más viejas se renuevan al devolver
+
+    def __init__(
+        self,
+        dsn: str,
+        app_name: str,
+        min_conn: int,
+        max_conn: int,
+        timeout_sec: float,
+    ):
+        self._dsn         = dsn
+        self._app_name    = app_name
+        self._min_conn    = min_conn
+        self._max_conn    = max_conn
+        self._timeout_sec = timeout_sec
+
+        # _cond protege _idle y _in_use_count; también sirve para wait/notify
+        self._cond         = threading.Condition()
+        # lista de (created_at, conn) — las más recientes al final
+        self._idle: list   = []
+        self._in_use_count = 0
+        self.closed        = 0
+
+        # Pre-calentar hasta min_conn (fallos no son fatales)
+        for _ in range(min_conn):
+            try:
+                conn = _create_connection(dsn, app_name)
+                self._idle.append((time.monotonic(), conn))
+            except Exception as e:
+                logger.warning(f"Pool init: fallo al pre-crear conexión: {e}")
+
+        logger.info(
+            f"Pool Python iniciado — min={min_conn} max={max_conn} "
+            f"timeout={timeout_sec}s  pre-creadas={len(self._idle)}"
+        )
+
+        # Hilo daemon de limpieza idle
+        self._stop_event = threading.Event()
+        t = threading.Thread(
+            target=self._idle_cleanup_loop,
+            daemon=True,
+            name="db-pool-idle-cleanup",
+        )
+        t.start()
+
+    # ── propiedades internas ──────────────────────────────────────────────────
+
+    def _total(self) -> int:
+        """Total de conexiones vivas (idle + en uso). Debe llamarse con _cond adquirido."""
+        return len(self._idle) + self._in_use_count
+
+    # ── ciclo de limpieza ─────────────────────────────────────────────────────
+
+    def _idle_cleanup_loop(self):
+        while not self._stop_event.wait(self._IDLE_CHECK_INTERVAL):
+            self._purge_excess_idle()
+
+    def _purge_excess_idle(self):
+        """Cierra conexiones idle por encima de min_conn (las más viejas primero)."""
+        to_close = []
+        with self._cond:
+            # _idle está ordenado más nuevo al final; pop(0) = más viejo
+            while len(self._idle) > self._min_conn:
+                _ts, conn = self._idle.pop(0)
+                to_close.append(conn)
+
+        for conn in to_close:
+            try:
+                if not conn.closed:
+                    conn.close()
+                logger.debug("Pool: conexión idle eliminada por limpieza periódica")
+            except Exception as e:
+                logger.warning(f"Pool cleanup: {e}")
+
+    # ── interfaz pública ──────────────────────────────────────────────────────
 
     def getconn(self) -> psycopg2.extensions.connection:
-        conn = _create_connection(_resolve_primary_dsn(), "gestion_express")
-        with self._lock:
-            self.closed = 0
-            self._used[id(conn)] = conn
-        return conn
+        deadline = time.monotonic() + self._timeout_sec
+
+        with self._cond:
+            while True:
+                # 1. Reutilizar conexión idle (más reciente primero)
+                while self._idle:
+                    created_at, conn = self._idle.pop()
+                    age = time.monotonic() - created_at
+                    if conn.closed or age > self._CONN_MAX_AGE_SEC:
+                        # demasiado vieja o muerta → descartar silenciosamente
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
+                        continue
+                    try:
+                        conn.rollback()
+                        # Garantizar cursor_factory limpio sin importar qué módulo
+                        # haya modificado la conexión antes de devolverla al pool
+                        conn.cursor_factory = pg_extensions.cursor
+                        self._in_use_count += 1
+                        return conn
+                    except Exception:
+                        pass  # conexión rota, descartar
+
+                # 2. Crear nueva si hay cupo
+                if self._total() < self._max_conn:
+                    self._in_use_count += 1  # reservar slot antes de salir del lock
+                    break
+
+                # 3. Esperar hasta que haya cupo o venza el timeout
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise psycopg2.OperationalError(
+                        f"Pool agotado: ninguna conexión disponible tras {self._timeout_sec}s "
+                        f"(en_uso={self._in_use_count} idle={len(self._idle)} max={self._max_conn})"
+                    )
+                self._cond.wait(timeout=remaining)
+
+        # Crear la conexión fuera del lock para no bloquear otros hilos
+        try:
+            conn = _create_connection(self._dsn, self._app_name)
+            return conn
+        except Exception:
+            with self._cond:
+                self._in_use_count -= 1
+                self._cond.notify()
+            raise
 
     def putconn(self, conn, close: bool = False):
         if conn is None:
             return
 
-        with self._lock:
-            self._used.pop(id(conn), None)
+        returned_to_pool = False
 
-        try:
-            if not conn.closed:
-                try:
-                    conn.rollback()
-                except Exception:
-                    pass
-                conn.close()
-        except Exception as e:
-            logger.warning(f"Error cerrando conexion cliente: {e}")
+        if not close and not conn.closed:
+            try:
+                conn.rollback()
+                # Limpiar cursor_factory para que el próximo usuario siempre
+                # reciba el cursor por defecto (tuplas), independientemente de
+                # lo que haya seteado el módulo anterior (p. ej. RealDictCursor)
+                conn.cursor_factory = pg_extensions.cursor
+                with self._cond:
+                    self._in_use_count -= 1
+                    self._idle.append((time.monotonic(), conn))
+                    returned_to_pool = True
+                    self._cond.notify()
+            except Exception as e:
+                logger.warning(f"Pool putconn: conexión descartada por error: {e}")
+
+        if not returned_to_pool:
+            with self._cond:
+                self._in_use_count -= 1
+                self._cond.notify()
+            try:
+                if not conn.closed:
+                    conn.close()
+            except Exception as e:
+                logger.warning(f"Pool putconn: error cerrando conexión: {e}")
 
     def closeall(self):
-        with self._lock:
-            conexiones = list(self._used.values())
-            self._used.clear()
+        self._stop_event.set()
+        with self._cond:
+            idle_conns = [c for _, c in self._idle]
+            self._idle.clear()
             self.closed = 1
+            self._cond.notify_all()
 
-        for conn in conexiones:
+        for conn in idle_conns:
             try:
                 if not conn.closed:
                     try:
@@ -106,26 +242,42 @@ class _PgBouncerConnectionAdapter:
                         pass
                     conn.close()
             except Exception as e:
-                logger.warning(f"Error cerrando conexion durante shutdown: {e}")
+                logger.warning(f"Pool closeall: error cerrando conexión idle: {e}")
+
+        logger.info("Pool de conexiones cerrado correctamente.")
 
     @property
     def active_connections(self) -> int:
-        with self._lock:
-            return len(self._used)
+        with self._cond:
+            return self._in_use_count
 
-def _get_pool() -> _PgBouncerConnectionAdapter:
+    @property
+    def idle_connections(self) -> int:
+        with self._cond:
+            return len(self._idle)
+
+def _get_pool() -> _PythonConnectionPool:
     global _DB_POOL
 
     if _DB_POOL is None:
         with _MANAGER_LOCK:
             if _DB_POOL is None:
-                _DB_POOL = _PgBouncerConnectionAdapter()
+                dsn  = _resolve_primary_dsn()
                 modo = "PgBouncer :6432" if DATABASE_PATH else "Directo :5432 (fallback)"
+                _DB_POOL = _PythonConnectionPool(
+                    dsn=dsn,
+                    app_name="gestion_express",
+                    min_conn=POOL_MIN_CONN,
+                    max_conn=POOL_MAX_CONN,
+                    timeout_sec=POOL_TIMEOUT_SEC,
+                )
                 logger.info(
-                    f"Conexiones DB inicializadas sin pool local de Python. modo={modo}"
+                    f"Pool Python activo — modo={modo} "
+                    f"min={POOL_MIN_CONN} max={POOL_MAX_CONN} timeout={POOL_TIMEOUT_SEC}s"
                 )
                 print(
-                    f"[database_manager] Conexiones DB sin pool local de Python. modo={modo}"
+                    f"[database_manager] Pool Python activo — modo={modo} "
+                    f"min={POOL_MIN_CONN} max={POOL_MAX_CONN} timeout={POOL_TIMEOUT_SEC}s"
                 )
 
     return _DB_POOL
@@ -256,18 +408,17 @@ def get_dedicated_connection() -> psycopg2.extensions.connection:
 
 def get_pool_status() -> dict:
     """
-    Estado del sistema de conexion.
-
-    Se conservan algunas llaves historicas para compatibilidad, pero ya no
-    representan un pool Python real.
+    Estado del pool Python y métricas de conexión PostgreSQL.
     """
     resultado = {
         "status": "ok",
-        "pool_min": None,
-        "pool_max": None,
+        "pool_min": POOL_MIN_CONN,
+        "pool_max": POOL_MAX_CONN,
+        "pool_timeout_sec": POOL_TIMEOUT_SEC,
         "pool_activo": False,
         "pool_disponibles": None,
         "pool_en_uso": None,
+        "pool_idle": None,
         "pooling_backend": "PgBouncer externo" if DATABASE_PATH else "Directo sin PgBouncer",
         "connection_mode": "DATABASE_PATH" if DATABASE_PATH else "DATABASE_PATH_DEDICATED",
         "circuit_breaker": _cb_estado,
@@ -282,11 +433,13 @@ def get_pool_status() -> dict:
 
     try:
         manager = _get_pool()
-        resultado["pool_activo"] = (manager.closed == 0)
-        resultado["pool_en_uso"] = manager.active_connections
+        resultado["pool_activo"]      = (manager.closed == 0)
+        resultado["pool_en_uso"]      = manager.active_connections
+        resultado["pool_idle"]        = manager.idle_connections
+        resultado["pool_disponibles"] = POOL_MAX_CONN - manager.active_connections
     except Exception as e:
         resultado["status"] = "error"
-        resultado["db_ping"] = f"adapter no disponible: {e}"
+        resultado["db_ping"] = f"pool no disponible: {e}"
         return resultado
 
     try:
@@ -376,5 +529,5 @@ def reset_circuit_breaker() -> dict:
         "fallas_anteriores": fallas_previas,
         "estado_actual": "CLOSED",
         "pool_reseteado": False,
-        "mensaje": "Circuit Breaker reiniciado. Las nuevas solicitudes abriran conexiones nuevas.",
+        "mensaje": "Circuit Breaker reiniciado. El pool Python reanuda la entrega de conexiones.",
     }
