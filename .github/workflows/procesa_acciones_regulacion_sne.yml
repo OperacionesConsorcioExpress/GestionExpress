@@ -1,12 +1,12 @@
-﻿name: Proceso ICS SNE (Azure -> PostgreSQL)
+﻿name: Proceso Acciones Regulacion SNE (Azure -> PostgreSQL)
 
 on:
   schedule:
-    - cron: "0 8 * * *"
+    - cron: "30 17 * * *"
   workflow_dispatch:
 
 jobs:
-  procesa_ics_sne:
+  procesa_acciones_regulacion_sne:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -34,16 +34,16 @@ jobs:
             exit 1
           fi
 
-      - name: Verificar script PY/procesa_ics_sne (1).py
+      - name: Verificar script PY/procesa_acciones_regulacion_sne.py
         run: |
-          if [ ! -f "PY/procesa_ics_sne (1).py" ]; then
-            echo "No se encontro PY/procesa_ics_sne (1).py"
+          if [ ! -f "PY/procesa_acciones_regulacion_sne.py" ]; then
+            echo "No se encontro PY/procesa_acciones_regulacion_sne.py"
             ls -la
             ls -la PY || true
             exit 1
           fi
 
-      - name: Ejecutar proceso ICS SNE
+      - name: Ejecutar proceso Acciones Regulacion SNE
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
@@ -51,7 +51,7 @@ jobs:
           DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
         run: |
           python --version
-          python "PY/procesa_ics_sne (1).py"
+          python "PY/procesa_acciones_regulacion_sne.py"
 
       - name: Mostrar link del error
         if: failure()
