@@ -28,7 +28,10 @@ PROCESA_SNE_DIR = ROOT_DIR / "Procesa_sne"
 if str(PROCESA_SNE_DIR) not in sys.path:
     sys.path.insert(0, str(PROCESA_SNE_DIR))
 
-from database_manager import get_db_connection
+try:
+    from database.database_manager import get_db_connection
+except ImportError:
+    from database_manager import get_db_connection
 
 # =============================================================================
 # CONFIG
