@@ -34,12 +34,12 @@ jobs:
             exit 1
           fi
 
-      - name: Verificar script PY/procesa_viajestat_sne.py
+      - name: Verificar script jobs/procesa_viajestat_sne.py
         run: |
-          if [ ! -f "PY/procesa_viajestat_sne.py" ]; then
-            echo "No se encontro PY/procesa_viajestat_sne.py"
+          if [ ! -f "jobs/procesa_viajestat_sne.py" ]; then
+            echo "No se encontro jobs/procesa_viajestat_sne.py"
             ls -la
-            ls -la PY || true
+            ls -la jobs || true
             exit 1
           fi
 
@@ -51,7 +51,7 @@ jobs:
           DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
         run: |
           python --version
-          python "PY/procesa_viajestat_sne.py"
+          python "jobs/procesa_viajestat_sne.py"
 
       - name: Mostrar link del error
         if: failure()
