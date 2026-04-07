@@ -80,6 +80,7 @@ EXPORT_CSV_SEP = ";"
 # =============================================================================
 
 class DataIO:
+
     @staticmethod
     def limpiar_columnas(df: pd.DataFrame) -> pd.DataFrame:
         if df is None or df.empty:
@@ -99,34 +100,34 @@ class DataIO:
         return df
 
     @classmethod
-def leer_csv_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
-    bio = BytesIO(content)
+    def leer_csv_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
+        bio = BytesIO(content)
 
-    # intento 1: autodetectar separador
-    try:
-        bio.seek(0)
-        df = pd.read_csv(bio, dtype=dtype, sep=None, engine="python")
-        return cls.limpiar_columnas(df)
-    except Exception:
-        pass
+        # intento 1: autodetectar separador
+        try:
+            bio.seek(0)
+            df = pd.read_csv(bio, dtype=dtype, sep=None, engine="python")
+            return cls.limpiar_columnas(df)
+        except Exception:
+            pass
 
-    # intento 2: coma
-    try:
-        bio.seek(0)
-        df = pd.read_csv(bio, dtype=dtype, sep=",")
-        return cls.limpiar_columnas(df)
-    except Exception:
-        pass
+        # intento 2: coma
+        try:
+            bio.seek(0)
+            df = pd.read_csv(bio, dtype=dtype, sep=",")
+            return cls.limpiar_columnas(df)
+        except Exception:
+            pass
 
-    # intento 3: punto y coma
-    try:
-        bio.seek(0)
-        df = pd.read_csv(bio, dtype=dtype, sep=";")
-        return cls.limpiar_columnas(df)
-    except Exception:
-        pass
+        # intento 3: punto y coma
+        try:
+            bio.seek(0)
+            df = pd.read_csv(bio, dtype=dtype, sep=";")
+            return cls.limpiar_columnas(df)
+        except Exception:
+            pass
 
-    raise SystemExit(" No fue posible leer el archivo CSV.")
+        raise SystemExit("No fue posible leer el archivo CSV.")
 
 # =============================================================================
 # TRANSFORM
