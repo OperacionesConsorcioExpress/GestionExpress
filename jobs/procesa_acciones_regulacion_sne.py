@@ -99,21 +99,34 @@ class DataIO:
         return df
 
     @classmethod
-    def leer_excel_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
-        bio = BytesIO(content)
+def leer_csv_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
+    bio = BytesIO(content)
 
-        for kwargs in (
-            dict(dtype=dtype, engine="openpyxl"),
-            dict(dtype=dtype),
-        ):
-            try:
-                bio.seek(0)
-                df = pd.read_excel(bio, **kwargs)
-                return cls.limpiar_columnas(df)
-            except Exception:
-                continue
+    # intento 1: autodetectar separador
+    try:
+        bio.seek(0)
+        df = pd.read_csv(bio, dtype=dtype, sep=None, engine="python")
+        return cls.limpiar_columnas(df)
+    except Exception:
+        pass
 
-        raise SystemExit("❌ No fue posible leer el archivo Excel de Acciones Regulación.")
+    # intento 2: coma
+    try:
+        bio.seek(0)
+        df = pd.read_csv(bio, dtype=dtype, sep=",")
+        return cls.limpiar_columnas(df)
+    except Exception:
+        pass
+
+    # intento 3: punto y coma
+    try:
+        bio.seek(0)
+        df = pd.read_csv(bio, dtype=dtype, sep=";")
+        return cls.limpiar_columnas(df)
+    except Exception:
+        pass
+
+    raise SystemExit(" No fue posible leer el archivo CSV.")
 
 # =============================================================================
 # TRANSFORM
