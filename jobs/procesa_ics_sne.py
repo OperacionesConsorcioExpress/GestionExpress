@@ -15,7 +15,7 @@ from azure.storage.blob import BlobServiceClient
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
-from database_manager import get_db_connection
+from database.database_manager import get_db_connection
 
 
 # =============================================================================
