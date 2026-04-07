@@ -5,6 +5,7 @@ import re
 import csv
 import time
 from io import BytesIO
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional, Dict
@@ -15,7 +16,10 @@ from azure.storage.blob import BlobServiceClient
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
-from database.database_manager import get_db_connection
+try:
+    from database.database_manager import get_db_connection
+except Exception:
+    from database_manager import get_db_connection
 
 
 # =============================================================================
@@ -23,7 +27,7 @@ from database.database_manager import get_db_connection
 # =============================================================================
 
 # Si no existe un log OK previo, empezar desde esta fecha
-FECHA_SEMILLA_STR = "16/03/2026"   # dd/mm/yyyy
+FECHA_SEMILLA_STR = "25/03/2026"   # dd/mm/yyyy
 
 FILTRO_ZONA_TIPO = 3               # 1=ZN, 2=TR, 3=Ambas
 
@@ -32,6 +36,18 @@ AZURE_CONTAINER_ACTIVIDAD = "0001-archivos-de-apoyo-descargas-cex-fms"
 
 # Solo local. En GitHub se espera AZURE_STORAGE_CONNECTION_STRING desde Secrets
 CONNECTION_STRING_LOCAL = ""
+
+USE_LOCAL_FILES = False
+PROCESS_DATE_STR = ""  # dd/mm/yyyy. Si tiene valor, esta fecha manda.
+
+LOCAL_ICS_FILE = ""
+LOCAL_DETALLADO_FILES = [
+]
+LOCAL_STAT_FILES: List[str] = []
+LOCAL_TARDIOS_FILES: List[str] = []
+
+EXPORT_DIR = r"C:\Users\analista.centroinf3\OneDrive - Grupo Express\Juan Buitrago\Desarrollos_Python2\ExportesICS"
+ENABLE_POSTGRES_LOAD = True
 
 # -------------------------------
 # POSTGRES
@@ -308,11 +324,22 @@ class AzureBlobReader:
 # =============================================================================
 
 class SNEExportBuilder:
-    def __init__(self, azure_reader: AzureBlobReader, filtro_zona_tipo: int):
+    def __init__(self, azure_reader: Optional[AzureBlobReader], filtro_zona_tipo: int):
         self.az = azure_reader
         self.filtro = filtro_zona_tipo
         self.io = DataIO()
         self.tu = TransformUtils()
+
+    @staticmethod
+    def _load_local_csv(path_str: str) -> pd.DataFrame:
+        path = Path(path_str)
+        if not path.exists():
+            raise SystemExit(f"❌ No existe archivo local: {path}")
+        return DataIO.leer_csv_desde_bytes(path.read_bytes(), dtype=str)
+
+    @staticmethod
+    def _existing_local_files(paths: List[str]) -> List[Path]:
+        return [Path(p) for p in paths if p and Path(p).exists()]
 
     def _subpaths(self) -> List[str]:
         if self.filtro == 1:
@@ -363,12 +390,20 @@ class SNEExportBuilder:
         print("1) CARGANDO ICS")
         print("=" * 80)
 
-        ruta, nombre = self._blob_path_ics(fecha)
-        if not self.az.exists(ruta):
-            raise SystemExit(f"❌ No existe ICS en Azure:\n   {ruta}")
+        local_ics = Path(LOCAL_ICS_FILE) if LOCAL_ICS_FILE else None
+        if local_ics and local_ics.exists():
+            df = self._load_local_csv(str(local_ics))
+            nombre = local_ics.name
+            print(f"? ICS local cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
+        else:
+            ruta, nombre = self._blob_path_ics(fecha)
+            if self.az is None:
+                raise SystemExit("? No hay lector Azure disponible y tampoco ICS local configurado.")
+            if not self.az.exists(ruta):
+                raise SystemExit(f"? No existe ICS en Azure:\n   {ruta}")
 
-        df = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
-        print(f"✅ ICS cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
+            df = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+            print(f"? ICS cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
         print("DEBUG columnas ICS:", list(df.columns))
 
         c_fecha = pick_col(df, ["Fecha Viaje"])
@@ -439,15 +474,25 @@ class SNEExportBuilder:
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
-        for ruta, nombre in self._blob_paths_detallado(fecha):
-            if not self.az.exists(ruta):
-                print(f"  ⚠️ No existe: {nombre}")
-                continue
+        local_files = self._existing_local_files(LOCAL_DETALLADO_FILES)
+        if local_files:
+            for path in local_files:
+                df0 = self._load_local_csv(str(path))
+                df0["__archivo_origen__"] = path.name
+                frames.append(df0)
+                print(f"  ? Local cargado: {path.name} | filas={len(df0)} cols={len(df0.columns)}")
+        else:
+            for ruta, nombre in self._blob_paths_detallado(fecha):
+                if self.az is None:
+                    raise SystemExit("? No hay lector Azure disponible y tampoco Detallado local configurado.")
+                if not self.az.exists(ruta):
+                    print(f"  ?? No existe: {nombre}")
+                    continue
 
-            df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
-            df0["__archivo_origen__"] = nombre
-            frames.append(df0)
-            print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
+                df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+                df0["__archivo_origen__"] = nombre
+                frames.append(df0)
+                print(f"  ? Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
         if not frames:
             raise SystemExit("❌ No se encontró ningún Detallado para esa fecha.")
@@ -539,18 +584,26 @@ class SNEExportBuilder:
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
-        for ruta, nombre in self._blob_paths_stat(fecha):
-            if not self.az.exists(ruta):
-                print(f"  ⚠️ No existe: {nombre}")
-                continue
+        local_files = self._existing_local_files(LOCAL_STAT_FILES)
+        if local_files:
+            for path in local_files:
+                df0 = self._load_local_csv(str(path))
+                df0["__archivo_origen__"] = path.name
+                frames.append(df0)
+                print(f"  ? Local cargado: {path.name} | filas={len(df0)} cols={len(df0.columns)}")
+        elif self.az is not None:
+            for ruta, nombre in self._blob_paths_stat(fecha):
+                if not self.az.exists(ruta):
+                    print(f"  ?? No existe: {nombre}")
+                    continue
 
-            df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
-            df0["__archivo_origen__"] = nombre
-            frames.append(df0)
-            print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
+                df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+                df0["__archivo_origen__"] = nombre
+                frames.append(df0)
+                print(f"  ? Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
         if not frames:
-            print("⚠️ No se encontró ViajeStat. Se continuará sin Stat.")
+            print("?? No se encontr? ViajeStat. Se continuar? sin Stat.")
             return pd.DataFrame()
 
         df = pd.concat(frames, ignore_index=True, sort=False)
@@ -599,30 +652,37 @@ class SNEExportBuilder:
 
     def load_viajes_tardios(self) -> pd.DataFrame:
         print("\n" + "=" * 80)
-        print("4) CARGANDO VIAJES TARDÍOS")
+        print("4) CARGANDO VIAJES TARD?OS")
         print("=" * 80)
 
-        prefix = self._prefix_viajes_tardios()
-        blob_paths = self.az.list_blob_paths(prefix)
-        blob_paths = [p for p in blob_paths if p.lower().endswith(".csv")]
-
-        if not blob_paths:
-            print("⚠️ No se encontraron archivos de Tardíos. Se continuará sin Tardíos.")
-            return pd.DataFrame()
-
         frames: List[pd.DataFrame] = []
-        for p in blob_paths:
-            nombre = os.path.basename(p)
-            try:
-                df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(p), dtype=str)
-                df0["__archivo_origen__"] = nombre
-                frames.append(df0)
-                print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
-            except Exception as e:
-                print(f"  ⚠️ Error leyendo {nombre}: {e}")
+        local_files = self._existing_local_files(LOCAL_TARDIOS_FILES)
+        if local_files:
+            for path in local_files:
+                try:
+                    df0 = self._load_local_csv(str(path))
+                    df0["__archivo_origen__"] = path.name
+                    frames.append(df0)
+                    print(f"  ? Local cargado: {path.name} | filas={len(df0)} cols={len(df0.columns)}")
+                except Exception as e:
+                    print(f"  ?? Error leyendo {path.name}: {e}")
+        elif self.az is not None:
+            prefix = self._prefix_viajes_tardios()
+            blob_paths = self.az.list_blob_paths(prefix)
+            blob_paths = [p for p in blob_paths if p.lower().endswith(".csv")]
+
+            for p in blob_paths:
+                nombre = os.path.basename(p)
+                try:
+                    df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(p), dtype=str)
+                    df0["__archivo_origen__"] = nombre
+                    frames.append(df0)
+                    print(f"  ? Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
+                except Exception as e:
+                    print(f"  ?? Error leyendo {nombre}: {e}")
 
         if not frames:
-            print("⚠️ No se pudo leer ningún archivo de Tardíos.")
+            print("?? No se encontraron archivos de Tard?os. Se continuar? sin Tard?os.")
             return pd.DataFrame()
 
         df = pd.concat(frames, ignore_index=True, sort=False)
@@ -797,6 +857,20 @@ class SNEExportBuilder:
         blank = motivo.eq("")
         idx = blank & kmrNE0
         motivo.loc[idx] = "Deslocalización"
+
+        concesion_upper = df["Concesion_raw"].astype(str).str.upper().str.strip()
+        km_revision_al = (dsa.fillna(0) - dau.fillna(0)).clip(lower=0).round(3)
+        mask_revision_al = (
+            concesion_upper.isin(["SAN CRISTOBAL AL", "USAQUEN AL"])
+            & (~plan_txt.eq("sustituido"))
+            & kmr.notna()
+            & (kmr.abs() < tol_eq)
+            & (km_revision_al > 0)
+        )
+        if mask_revision_al.any():
+            kmr.loc[mask_revision_al] = km_revision_al.loc[mask_revision_al]
+            motivo.loc[mask_revision_al] = "Revision Alimentacion Acciones de Regulacion"
+            print(f"DEBUG ajuste AL aplicado en {int(mask_revision_al.sum())} filas")
 
         motivo = motivo.map(clean_motivo)
 
@@ -1432,64 +1506,92 @@ def _parse_semilla() -> date:
         raise SystemExit("❌ FECHA_SEMILLA_STR debe estar en formato dd/mm/yyyy.")
 
 
+def _is_local_mode() -> bool:
+    if not USE_LOCAL_FILES:
+        return False
+    if LOCAL_ICS_FILE and Path(LOCAL_ICS_FILE).exists():
+        return True
+    return any(Path(p).exists() for p in LOCAL_DETALLADO_FILES)
+
+
+def _resolve_fecha_to_process(fecha_semilla: date) -> date:
+    if str(PROCESS_DATE_STR).strip():
+        try:
+            return datetime.strptime(str(PROCESS_DATE_STR).strip(), "%d/%m/%Y").date()
+        except ValueError:
+            raise SystemExit("❌ PROCESS_DATE_STR debe estar en formato dd/mm/yyyy.")
+    local_ics = Path(LOCAL_ICS_FILE) if (USE_LOCAL_FILES and LOCAL_ICS_FILE) else None
+    if local_ics and local_ics.exists():
+        m = re.search(r"(\d{2})_(\d{2})_(\d{4})", local_ics.name)
+        if m:
+            return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    return fecha_semilla
+
+
+def _export_df(df_final: pd.DataFrame, fecha_to_process: date) -> Path:
+    export_dir = Path(EXPORT_DIR)
+    export_dir.mkdir(parents=True, exist_ok=True)
+    export_path = export_dir / f"ICSFIN_{fecha_to_process.strftime('%d_%m_%Y')}.csv"
+    df_final.to_csv(export_path, index=False, encoding="utf-8-sig")
+    return export_path
+
+
 def main() -> None:
     load_dotenv()
     start_perf = time.perf_counter()
 
-    conn_azure = _get_connection_string()
     fecha_semilla = _parse_semilla()
+    fecha_to_process = _resolve_fecha_to_process(fecha_semilla)
+    fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
 
-    estado = "ok"
-    archivos_total = 1
-    archivos_ok = 1
-    archivos_error = 0
-    registros_proce = 0
+    meses_es = {
+        1: "enero",
+        2: "febrero",
+        3: "marzo",
+        4: "abril",
+        5: "mayo",
+        6: "junio",
+        7: "julio",
+        8: "agosto",
+        9: "septiembre",
+        10: "octubre",
+        11: "noviembre",
+        12: "diciembre",
+    }
 
-    fecha_dt: Optional[datetime] = None
-    id_reporte: int = 1
+    fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
 
-    with get_db_connection() as conn:
-        logger = ReportRunLogger()
-        id_reporte = logger.get_id_reporte(conn, "ICS", default_id=1)
+    print("\n" + "=" * 80)
+    print(f"FECHA A PROCESAR: {fecha_to_process}")
+    print(f"FECHA EN TEXTO: {fecha_texto}")
+    print("=" * 80)
 
-        fecha_to_process = logger.get_next_fecha_to_process(
-            conn=conn,
-            id_reporte=id_reporte,
-            fecha_semilla=fecha_semilla,
-        )
-        fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
+    try:
+        az = None
+        if not _is_local_mode():
+            conn_azure = _get_connection_string()
+            az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
 
-        meses_es = {
-            1: "enero",
-            2: "febrero",
-            3: "marzo",
-            4: "abril",
-            5: "mayo",
-            6: "junio",
-            7: "julio",
-            8: "agosto",
-            9: "septiembre",
-            10: "octubre",
-            11: "noviembre",
-            12: "diciembre",
-        }
+        builder = SNEExportBuilder(az, filtro_zona_tipo=FILTRO_ZONA_TIPO)
+        df_final = builder.build(fecha_dt)
 
-        fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
+        export_path = _export_df(df_final, fecha_to_process)
+        duracion_seg = int(round(time.perf_counter() - start_perf))
 
         print("\n" + "=" * 80)
-        print(f"📅 FECHA AUTOMÁTICA A PROCESAR: {fecha_to_process}")
-        print(f"📝 FECHA EN TEXTO: {fecha_texto}")
+        print("8) EXPORTANDO RESULTADO")
         print("=" * 80)
+        print(f"Exporte generado: {export_path}")
+        print(f"Filas exportadas: {len(df_final)}")
+        print(f"duracion_seg={duracion_seg}")
 
-        try:
-            az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
-            builder = SNEExportBuilder(az, filtro_zona_tipo=FILTRO_ZONA_TIPO)
+        if not ENABLE_POSTGRES_LOAD:
+            print("Cargue a Postgres desactivado temporalmente.")
+            return
 
-            df_final = builder.build(fecha_dt)
-            registros_proce = int(len(df_final))
-
+        with get_db_connection() as conn:
             print("\n" + "=" * 80)
-            print("8) CARGANDO sne.ics")
+            print("9) CARGANDO sne.ics")
             print("=" * 80)
 
             loader = PostgresLoader(
@@ -1498,10 +1600,10 @@ def main() -> None:
                 batch_size=PG_BATCH_SIZE
             )
             total_ics = loader.insert_df(df_final, conn)
-            print(f"✅ sne.ics upsert: {total_ics} filas")
+            print(f"? sne.ics upsert: {total_ics} filas")
 
             print("\n" + "=" * 80)
-            print("9) CARGANDO sne.gestion_sne")
+            print("10) CARGANDO sne.gestion_sne")
             print("=" * 80)
 
             gestion_loader = GestionSNELoader(
@@ -1511,10 +1613,10 @@ def main() -> None:
                 revisor_default_int=GESTION_REVISOR_DEFAULT_INT,
             )
             total_gestion = gestion_loader.upsert_from_ics_ids(df_final, conn)
-            print(f"✅ sne.gestion_sne actualizado para {total_gestion} ids")
+            print(f"? sne.gestion_sne actualizado para {total_gestion} ids")
 
             print("\n" + "=" * 80)
-            print("10) CARGANDO sne.ics_motivo_resp y catálogo de motivos")
+            print("11) CARGANDO sne.ics_motivo_resp y cat?logo de motivos")
             print("=" * 80)
 
             motivo_resp_loader = IcsMotivoRespLoader(
@@ -1526,45 +1628,15 @@ def main() -> None:
                 responsable_default=RESPONSABLE_DEFAULT,
             )
             total_motivo_resp = motivo_resp_loader.upsert_from_df(df_final, conn)
-            print(f"✅ sne.ics_motivo_resp upsert: {total_motivo_resp} filas")
-
-        except Exception as e:
-            estado = "error"
-            archivos_ok = 0
-            archivos_error = 1
-            print("❌ ERROR en el proceso:", repr(e))
-            raise
-
-        finally:
-            end_ts = datetime.now()
-            duracion_seg = int(round(time.perf_counter() - start_perf))
-            fecha_log = fecha_dt.date() if fecha_dt else fecha_semilla
-
-            print("\n" + "=" * 80)
-            print("11) GUARDANDO LOG")
-            print("=" * 80)
-
-            logger.write_log(
-                conn=conn,
-                id_reporte=id_reporte,
-                fecha_reporte_date=fecha_log,
-                estado=estado,
-                ultima_ejecucion_ts=end_ts,
-                duracion_seg=duracion_seg,
-                archivos_total=archivos_total,
-                archivos_ok=archivos_ok,
-                archivos_error=archivos_error,
-                registros_proce=registros_proce,
-                fecha_actualizacion_ts=end_ts,
-            )
-
+            print(f"? sne.ics_motivo_resp upsert: {total_motivo_resp} filas")
             conn.commit()
 
-            print(f"📌 log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | id_reporte={id_reporte} | fecha={fecha_log} | estado={estado}")
-            print(f"⏱️ duración_seg={duracion_seg} | registros_proce={registros_proce}")
+    except Exception as e:
+        print("? ERROR en el proceso:", repr(e))
+        raise
 
     print("\n" + "=" * 80)
-    print("✅ PROCESO COMPLETADO")
+    print("? PROCESO COMPLETADO")
     print("=" * 80)
 
 
