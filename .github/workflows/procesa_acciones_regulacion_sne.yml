@@ -51,7 +51,7 @@ jobs:
           DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
         run: |
           python --version
-          python "jobs/procesa_acciones_regulacion_sne.py"
+          python -m jobs/procesa_acciones_regulacion_sne.py
 
       - name: Mostrar link del error
         if: failure()
