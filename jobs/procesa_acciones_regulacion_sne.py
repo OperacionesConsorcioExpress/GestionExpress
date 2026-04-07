@@ -135,6 +135,13 @@ class DataIO:
 
 class TransformUtils:
     @staticmethod
+def to_int64(series: pd.Series) -> pd.Series:
+    """
+    Convierte una serie a tipo Int64 (nullable),
+    manejando errores y valores vacíos.
+    """
+    return pd.to_numeric(series, errors="coerce").astype("Int64")
+    @staticmethod
     def fecha_key_robusta(serie: pd.Series, prefer_dayfirst: str = "auto") -> pd.Series:
         s = serie.copy()
         s = s.astype(str).str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
