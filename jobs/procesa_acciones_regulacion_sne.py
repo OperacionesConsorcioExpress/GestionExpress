@@ -98,6 +98,52 @@ class DataIO:
         df.columns = [_clean_col(c0) for c0 in df.columns]
         return df
 
+    @staticmethod
+    def _sniff_sep(sample_text: str, default: str = ",") -> str:
+        try:
+            dialect = csv.Sniffer().sniff(sample_text, delimiters=[",", ";", "\t", "|"])
+            return dialect.delimiter
+        except Exception:
+            return default
+
+    @classmethod
+    def leer_csv_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
+        sample_bytes = content[: 64 * 1024]
+
+        sample_text = None
+        used_encoding = None
+        for enc in ("utf-8-sig", "utf-8", "latin-1"):
+            try:
+                sample_text = sample_bytes.decode(enc, errors="strict")
+                used_encoding = enc
+                break
+            except Exception:
+                continue
+
+        if sample_text is None:
+            sample_text = sample_bytes.decode("latin-1", errors="replace")
+            used_encoding = "latin-1"
+
+        sep = cls._sniff_sep(sample_text, default=",")
+        bio = BytesIO(content)
+
+        for kwargs in (
+            dict(sep=sep, encoding=used_encoding, low_memory=False, dtype=dtype),
+            dict(sep=sep, encoding="latin-1", low_memory=False, dtype=dtype),
+            dict(sep=sep, encoding=used_encoding, engine="python", dtype=dtype),
+            dict(sep=sep, encoding="latin-1", engine="python", dtype=dtype),
+        ):
+            try:
+                bio.seek(0)
+                df = pd.read_csv(bio, **kwargs)
+                return cls.limpiar_columnas(df)
+            except Exception:
+                continue
+
+        bio.seek(0)
+        df = pd.read_csv(bio, sep=sep, encoding="latin-1", engine="python", dtype=dtype)
+        return cls.limpiar_columnas(df)
+
     @classmethod
     def leer_excel_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
         bio = BytesIO(content)
