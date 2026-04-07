@@ -214,6 +214,10 @@ class TransformUtils:
         return out
 
     @staticmethod
+    def to_int64(series: pd.Series) -> pd.Series:
+        return pd.to_numeric(series, errors="coerce").astype("Int64")
+
+    @staticmethod
     def to_datetime_robusto(series: pd.Series) -> pd.Series:
         s = series.astype(str).str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
         s = s.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
