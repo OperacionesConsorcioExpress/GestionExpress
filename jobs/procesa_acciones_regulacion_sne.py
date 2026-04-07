@@ -80,7 +80,6 @@ EXPORT_CSV_SEP = ";"
 # =============================================================================
 
 class DataIO:
-
     @staticmethod
     def limpiar_columnas(df: pd.DataFrame) -> pd.DataFrame:
         if df is None or df.empty:
@@ -100,47 +99,27 @@ class DataIO:
         return df
 
     @classmethod
-    def leer_csv_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
+    def leer_excel_desde_bytes(cls, content: bytes, dtype=str) -> pd.DataFrame:
         bio = BytesIO(content)
 
-        # intento 1: autodetectar separador
-        try:
-            bio.seek(0)
-            df = pd.read_csv(bio, dtype=dtype, sep=None, engine="python")
-            return cls.limpiar_columnas(df)
-        except Exception:
-            pass
+        for kwargs in (
+            dict(dtype=dtype, engine="openpyxl"),
+            dict(dtype=dtype),
+        ):
+            try:
+                bio.seek(0)
+                df = pd.read_excel(bio, **kwargs)
+                return cls.limpiar_columnas(df)
+            except Exception:
+                continue
 
-        # intento 2: coma
-        try:
-            bio.seek(0)
-            df = pd.read_csv(bio, dtype=dtype, sep=",")
-            return cls.limpiar_columnas(df)
-        except Exception:
-            pass
-
-        # intento 3: punto y coma
-        try:
-            bio.seek(0)
-            df = pd.read_csv(bio, dtype=dtype, sep=";")
-            return cls.limpiar_columnas(df)
-        except Exception:
-            pass
-
-        raise SystemExit("No fue posible leer el archivo CSV.")
+        raise SystemExit("❌ No fue posible leer el archivo Excel de Acciones Regulación.")
 
 # =============================================================================
 # TRANSFORM
 # =============================================================================
 
 class TransformUtils:
-    @staticmethod
-def to_int64(series: pd.Series) -> pd.Series:
-    """
-    Convierte una serie a tipo Int64 (nullable),
-    manejando errores y valores vacíos.
-    """
-    return pd.to_numeric(series, errors="coerce").astype("Int64")
     @staticmethod
     def fecha_key_robusta(serie: pd.Series, prefer_dayfirst: str = "auto") -> pd.Series:
         s = serie.copy()
