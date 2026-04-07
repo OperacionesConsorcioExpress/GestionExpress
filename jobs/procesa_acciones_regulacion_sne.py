@@ -667,12 +667,21 @@ class PostgresAccionesRegulacionLoader:
         if v is None:
             return None
         try:
-            if v is pd.NA:
+            if v is pd.NA or pd.isna(v):
                 return None
         except Exception:
             pass
         if isinstance(v, np.generic):
-            return v.item()
+            try:
+                item = v.item()
+            except Exception:
+                item = v
+            try:
+                if pd.isna(item):
+                    return None
+            except Exception:
+                pass
+            return item
         if isinstance(v, float) and np.isnan(v):
             return None
         if isinstance(v, pd.Timestamp):
@@ -681,7 +690,7 @@ class PostgresAccionesRegulacionLoader:
             return v.to_pydatetime()
         if isinstance(v, str):
             s = v.strip()
-            return s if s != "" else None
+            return s if s != "" and s.lower() != "nat" else None
         return v
 
     @staticmethod
@@ -708,6 +717,11 @@ class PostgresAccionesRegulacionLoader:
     def _parse_instante_to_datetime(v):
         if v is None:
             return None
+        try:
+            if pd.isna(v):
+                return None
+        except Exception:
+            pass
         if isinstance(v, pd.Timestamp):
             if pd.isna(v):
                 return None
@@ -715,7 +729,7 @@ class PostgresAccionesRegulacionLoader:
         if isinstance(v, datetime):
             return v
         s = str(v).strip()
-        if s == "":
+        if s == "" or s.lower() == "nat":
             return None
         dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
         if pd.isna(dt):
@@ -1084,6 +1098,11 @@ def main() -> None:
     id_reporte_seed = logger_seed.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
     fecha_proc = logger_seed.get_next_fecha_to_process(id_reporte_seed, fecha_semilla)
     fecha_dt = datetime.combine(fecha_proc, datetime.min.time())
+
+    print("\n" + "=" * 80)
+    print(f"FECHA A PROCESAR: {fecha_proc.isoformat()}")
+    print(f"FECHA ARCHIVO: {fecha_proc.strftime('%d/%m/%Y')}")
+    print("=" * 80)
 
     estado = "ok"
     archivos_total = 1
