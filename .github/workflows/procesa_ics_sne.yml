@@ -34,10 +34,10 @@ jobs:
             exit 1
           fi
 
-      - name: Verificar script PY/procesa_ics_sne (1).py
+      - name: Verificar script PY/procesa_ics_sne.py
         run: |
           if [ ! -f "PY/procesa_ics_sne.py" ]; then
-            echo "No se encontro PY/procesa_ics_sne (1).py"
+            echo "No se encontro PY/procesa_ics_sne.py"
             ls -la
             ls -la PY || true
             exit 1
