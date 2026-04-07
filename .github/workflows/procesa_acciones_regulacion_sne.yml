@@ -1,4 +1,4 @@
-﻿name: Proceso Acciones Regulacion SNE (Azure -> PostgreSQL)
+name: Proceso Acciones Regulacion SNE (Azure -> PostgreSQL)
 
 on:
   schedule:
@@ -34,12 +34,12 @@ jobs:
             exit 1
           fi
 
-      - name: Verificar script jobs/procesa_acciones_regulacion_sne.py
+      - name: Verificar script
         run: |
+          echo "📂 Estructura del repo:"
+          ls -R
           if [ ! -f "jobs/procesa_acciones_regulacion_sne.py" ]; then
-            echo "No se encontro jobs/procesa_acciones_regulacion_sne.py"
-            ls -la
-            ls -la jobs || true
+            echo "❌ No se encontro jobs/procesa_acciones_regulacion_sne.py"
             exit 1
           fi
 
@@ -51,7 +51,7 @@ jobs:
           DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
         run: |
           python --version
-          python -m jobs.procesa_acciones_regulacion_sne.py
+          python -m jobs.procesa_acciones_regulacion_sne
 
       - name: Mostrar link del error
         if: failure()
