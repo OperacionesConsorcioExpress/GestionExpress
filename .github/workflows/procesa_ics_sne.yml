@@ -36,7 +36,7 @@ jobs:
 
       - name: Verificar script PY/procesa_ics_sne (1).py
         run: |
-          if [ ! -f "PY/procesa_ics_sne (1).py" ]; then
+          if [ ! -f "PY/procesa_ics_sne.py" ]; then
             echo "No se encontro PY/procesa_ics_sne (1).py"
             ls -la
             ls -la PY || true
