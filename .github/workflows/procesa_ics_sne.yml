@@ -51,7 +51,7 @@ jobs:
           DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
         run: |
           python --version
-          python "PY/procesa_ics_sne (1).py"
+          python "PY/procesa_ics_sne.py"
 
       - name: Mostrar link del error
         if: failure()
