@@ -398,7 +398,9 @@ class AccionesRegulacionBuilder:
 
         out = pd.DataFrame({
             "Id_ICS": self.tu.to_int64(df[c_idics]),
-            "Fecha_key": pd.to_datetime(df[c_fecha], errors="coerce", dayfirst=True).dt.strftime("%Y-%m-%d"),
+            # Usa el mismo parser robusto que Detallado para evitar invertir
+            # fechas ambiguas como 03/04/2026 -> 2026-03-04.
+            "Fecha_key": self.tu.fecha_key_robusta(df[c_fecha], prefer_dayfirst=True),
             "Servicio_key": df[c_serv].astype(str).str.strip().str.upper(),
             "Coche_key": self.tu.to_int64(df[c_coche]),
             "Viaje_key": self.tu.to_int64(df[c_viaje]),
@@ -449,13 +451,24 @@ class AccionesRegulacionBuilder:
         return out
 
     def build_primary_source(self, fecha: datetime) -> pd.DataFrame:
-        primary = self.load_detallado(fecha).merge(
-            self.load_ics(fecha),
+        detallado = self.load_detallado(fecha)
+        ics = self.load_ics(fecha)
+        primary = detallado.merge(
+            ics,
             on=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"],
             how="left"
         )
         primary = primary[primary["Id_ICS"].notna()].copy()
         primary["Id_ICS"] = primary["Id_ICS"].astype("Int64")
+        if primary.empty:
+            print("⚠️ Sin coincidencias Detallado+ICS. Diagnóstico de llaves:")
+            for key in ("Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"):
+                det_vals = set(detallado[key].dropna().astype(str).unique())
+                ics_vals = set(ics[key].dropna().astype(str).unique())
+                print(
+                    f"   {key}: detallado={len(det_vals)} | ics={len(ics_vals)} | "
+                    f"interseccion={len(det_vals & ics_vals)}"
+                )
         print(f"? Detallado+ICS: filas={len(primary)} | con Id_ICS={primary['Id_ICS'].notna().sum()}")
         return primary[["Id_ICS", "Fecha", "Linea", "Id_Linea", "Tabla", "Viaje_Linea"]].copy()
 
