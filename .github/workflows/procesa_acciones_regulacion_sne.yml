@@ -2,7 +2,7 @@ name: Proceso Acciones Regulacion SNE (Azure -> PostgreSQL)
 
 on:
   schedule:
-    - cron: "30 17 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch:
 
 jobs:
