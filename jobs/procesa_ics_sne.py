@@ -214,7 +214,25 @@ class TransformUtils:
         s = series.astype("string").fillna("").str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
         s = s.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
 
-        out = pd.to_datetime(s, errors="coerce", dayfirst=dayfirst)
+        out = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
+
+        # Priorizar formatos ISO para evitar inversiones con dayfirst=True.
+        mask_iso = s.str.match(r"^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}(:\d{2})?)?$", na=False)
+        if mask_iso.any():
+            s_iso = s[mask_iso]
+            for fmt in (
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
+                "%Y-%m-%d",
+            ):
+                parsed = pd.to_datetime(s_iso, format=fmt, errors="coerce")
+                ok = parsed.notna() & out.loc[s_iso.index].isna()
+                if ok.any():
+                    out.loc[s_iso.index[ok]] = parsed.loc[ok]
+
+        mask_na = out.isna() & s.notna()
+        if mask_na.any():
+            out.loc[mask_na] = pd.to_datetime(s[mask_na], errors="coerce", dayfirst=dayfirst)
 
         mask_na = out.isna() & s.notna()
         if mask_na.any():
