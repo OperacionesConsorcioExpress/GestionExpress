@@ -1546,15 +1546,18 @@ def _resolve_fecha_to_process(fecha_semilla: date) -> date:
         m = re.search(r"(\d{2})_(\d{2})_(\d{4})", local_ics.name)
         if m:
             return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
-    return fecha_semilla
-
-
-def _export_df(df_final: pd.DataFrame, fecha_to_process: date) -> Path:
-    export_dir = Path(EXPORT_DIR)
-    export_dir.mkdir(parents=True, exist_ok=True)
-    export_path = export_dir / f"ICSFIN_{fecha_to_process.strftime('%d_%m_%Y')}.csv"
-    df_final.to_csv(export_path, index=False, encoding="utf-8-sig")
-    return export_path
+    try:
+        logger = ReportRunLogger()
+        with get_db_connection() as conn:
+            id_reporte = logger.get_id_reporte(
+                conn,
+                NOMBRE_REPORTE_LOG,
+                default_id=DEFAULT_ID_REPORTE,
+            )
+            return logger.get_next_fecha_to_process(conn, id_reporte, fecha_semilla)
+    except Exception as e:
+        print(f"⚠️ No se pudo resolver la fecha desde log; se usa fecha semilla. Detalle: {e!r}")
+        return fecha_semilla
 
 
 def main() -> None:
@@ -1601,14 +1604,12 @@ def main() -> None:
         builder = SNEExportBuilder(az, filtro_zona_tipo=FILTRO_ZONA_TIPO)
         df_final = builder.build(fecha_dt)
 
-        export_path = _export_df(df_final, fecha_to_process)
         registros_proce = int(len(df_final))
         duracion_seg = int(round(time.perf_counter() - start_perf))
 
         print("\n" + "=" * 80)
-        print("8) EXPORTANDO RESULTADO")
+        print("8) RESULTADO LISTO PARA CARGUE")
         print("=" * 80)
-        print(f"Exporte generado: {export_path}")
         print(f"Filas exportadas: {len(df_final)}")
         print(f"duracion_seg={duracion_seg}")
 
