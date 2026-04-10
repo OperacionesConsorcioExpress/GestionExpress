@@ -69,6 +69,8 @@ PG_TABLE_REPORTES = "reportes_sne"
 
 PG_SCHEMA_LOG = "log"
 PG_TABLE_LOG = "procesa_report_sne"
+DEFAULT_ID_REPORTE = 1
+NOMBRE_REPORTE_LOG = "Tabla ICS"
 
 PG_BATCH_SIZE = 5000
 
@@ -824,7 +826,8 @@ class SNEExportBuilder:
         idx = blank & kmrNE0 & accionReg
         motivo.loc[idx] = "Regulación Offline"
 
-        idx = kmrNE0 & elim_txt.eq("parcial") & kme.notna() & (kmr > kme)
+        blank = motivo.eq("")
+        idx = blank & kmrNE0 & elim_txt.eq("parcial") & kme.notna() & (kmr > kme)
         motivo.loc[idx] = "Deslocalización con eliminación"
 
         blank = motivo.eq("")
@@ -1543,6 +1546,11 @@ def main() -> None:
     fecha_semilla = _parse_semilla()
     fecha_to_process = _resolve_fecha_to_process(fecha_semilla)
     fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
+    estado = "ok"
+    archivos_total = 1
+    archivos_ok = 1
+    archivos_error = 0
+    registros_proce = 0
 
     meses_es = {
         1: "enero",
@@ -1576,6 +1584,7 @@ def main() -> None:
         df_final = builder.build(fecha_dt)
 
         export_path = _export_df(df_final, fecha_to_process)
+        registros_proce = int(len(df_final))
         duracion_seg = int(round(time.perf_counter() - start_perf))
 
         print("\n" + "=" * 80)
@@ -1632,8 +1641,49 @@ def main() -> None:
             conn.commit()
 
     except Exception as e:
+        estado = "error"
+        archivos_ok = 0
+        archivos_error = 1
         print("? ERROR en el proceso:", repr(e))
         raise
+    finally:
+        end_ts = datetime.now()
+        duracion_seg = int(round(time.perf_counter() - start_perf))
+
+        print("\n" + "=" * 80)
+        print("12) GUARDANDO LOG EN log.procesa_report_sne")
+        print("=" * 80)
+
+        try:
+            logger = ReportRunLogger()
+            with get_db_connection() as conn_log:
+                id_reporte = logger.get_id_reporte(
+                    conn_log,
+                    NOMBRE_REPORTE_LOG,
+                    default_id=DEFAULT_ID_REPORTE,
+                )
+                logger.write_log(
+                    conn_log,
+                    id_reporte=id_reporte,
+                    fecha_reporte_date=fecha_dt.date(),
+                    estado=estado,
+                    ultima_ejecucion_ts=end_ts,
+                    duracion_seg=duracion_seg,
+                    archivos_total=archivos_total,
+                    archivos_ok=archivos_ok,
+                    archivos_error=archivos_error,
+                    registros_proce=registros_proce,
+                    fecha_actualizacion_ts=end_ts,
+                )
+                conn_log.commit()
+
+            print(
+                f"log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | "
+                f"id_reporte={id_reporte} | fecha={fecha_dt.date()} | estado={estado}"
+            )
+            print(f"duracion_seg={duracion_seg} | registros_proce={registros_proce}")
+        except Exception as log_error:
+            print(f"No se pudo guardar el log: {repr(log_error)}")
 
     print("\n" + "=" * 80)
     print("? PROCESO COMPLETADO")
