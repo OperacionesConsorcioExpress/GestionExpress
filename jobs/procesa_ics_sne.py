@@ -844,8 +844,7 @@ class SNEExportBuilder:
         idx = blank & kmrNE0 & accionReg
         motivo.loc[idx] = "Regulación Offline"
 
-        blank = motivo.eq("")
-        idx = blank & kmrNE0 & elim_txt.eq("parcial") & kme.notna() & (kmr > kme)
+        idx = kmrNE0 & elim_txt.eq("parcial") & kme.notna() & (kmr > kme)
         motivo.loc[idx] = "Deslocalización con eliminación"
 
         blank = motivo.eq("")
