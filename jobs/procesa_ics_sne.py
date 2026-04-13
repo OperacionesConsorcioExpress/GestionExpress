@@ -1430,6 +1430,7 @@ class ReportRunLogger:
             FROM {full_table}
             WHERE "id_reporte" = %s
               AND LOWER(TRIM(COALESCE("estado", ''))) = 'ok'
+              AND COALESCE("registros_proce", 0) > 0
         """
         with conn.cursor() as cur:
             cur.execute(sql, (id_reporte,))
@@ -1659,6 +1660,12 @@ def main() -> None:
             print(f"? sne.ics_motivo_resp upsert: {total_motivo_resp} filas")
             conn.commit()
 
+    except SystemExit as e:
+        estado = "error"
+        archivos_ok = 0
+        archivos_error = 1
+        print("? ERROR en el proceso:", repr(e))
+        raise
     except Exception as e:
         estado = "error"
         archivos_ok = 0
