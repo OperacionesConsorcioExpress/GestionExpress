@@ -1065,6 +1065,8 @@ def main() -> None:
 
         df_final, fecha_nombre = builder.build(fecha_dt)
         registros_proce = int(len(df_final))
+        if registros_proce == 0:
+            raise RuntimeError("No se generaron registros para cargar. Revisar cruce con sne.ics o disponibilidad de datos.")
 
         _export_df_to_csv(df_final, fecha_nombre)
 
