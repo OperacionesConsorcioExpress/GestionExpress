@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
 
-      - name: 🚀 Ejecutar proceso ICS SNE
+      - name: 🚀 Ejecutar Bitacora de Notas
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
