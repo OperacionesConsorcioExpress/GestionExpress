@@ -34,7 +34,7 @@ jobs:
             exit 1
           fi
 
-      - name: 🔎 Verificar script jobs/procesa_ics_sne.py
+      - name: 🔎 Verificar script jobs/procesa_bitacoranotas_sne.py
         run: |
           if [ ! -f jobs/procesa_bitacoranotas_sne.py ]; then
             echo "❌ No se encontró jobs/procesa_bitacoranotas_sne.py"
@@ -58,7 +58,7 @@ jobs:
           echo "📁 Working dir: $(pwd)"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          python -m jobs.procesa_ics_sne
+          python -m jobs.procesa_bitacoranotas_sne
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Proceso finalizado correctamente"
