@@ -709,28 +709,29 @@ class SNEExportBuilder:
         df = self.io.limpiar_columnas(df)
 
         c_fecha = pick_col(df, ["Fecha"])
-        c_veh = pick_col(df, ["N° Vehículo", "Nº Vehículo", "No Vehiculo", "N Vehiculo", "N° Vehiculo"])
-        c_viaje = pick_col(df, ["Viaje"])
-        c_linea = pick_col(df, ["Id Línea", "Id Linea"])
-        c_tabla = pick_col(df, ["Tabla"])
+        c_serv_viaje = pick_col(df, ["Servicio Viaje"])
+        c_viaje = pick_col(df, ["Viaje"], required=False)
         c_estado = pick_col(df, ["Estado Localización", "Estado Localizacion"])
 
         out = df.copy()
         out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst="auto")
-        out["Vehiculo_key"] = out[c_veh].astype("string").fillna("").str.strip().str.upper()
-        out["ViajeLinea_key"] = self.tu.to_int64(out[c_viaje])
-        out["Linea_key"] = self.tu.to_int64(out[c_linea])
-        out["Tabla_key"] = self.tu.to_int64(out[c_tabla])
+        servicio_viaje = out[c_serv_viaje].astype("string").fillna("").str.strip()
+        parts = servicio_viaje.str.extract(r"^\d{8}-(?P<servicio>.+?)-(?P<viaje_linea>\d+)-\d+$")
+        out["Servicio_key"] = parts["servicio"].astype("string").fillna("").str.strip().str.upper()
+        out["ViajeLinea_key"] = self.tu.to_int64(parts["viaje_linea"])
+        if c_viaje is not None:
+            viaje_directo = self.tu.to_int64(out[c_viaje])
+            out["ViajeLinea_key"] = out["ViajeLinea_key"].fillna(viaje_directo)
         out["Estado_txt"] = out[c_estado].astype("string").fillna("").str.strip().str.upper()
 
         mask_estado = out["Estado_txt"].str.contains(r"(^|[^0-9])(5|8|9)([^0-9]|$)", regex=True, na=False)
 
         out = out[mask_estado].copy()
-        out = out.dropna(subset=["Fecha_key", "Vehiculo_key", "ViajeLinea_key", "Linea_key", "Tabla_key"]).copy()
+        out = out.dropna(subset=["Fecha_key", "Servicio_key", "ViajeLinea_key"]).copy()
 
         grp = (
             out[
-                ["Fecha_key", "Vehiculo_key", "ViajeLinea_key", "Linea_key", "Tabla_key"]
+                ["Fecha_key", "Servicio_key", "ViajeLinea_key"]
             ]
             .drop_duplicates()
             .assign(Tardio_Flag=1)
@@ -777,7 +778,7 @@ class SNEExportBuilder:
         if not df_tard.empty:
             df = df.merge(
                 df_tard,
-                on=["Fecha_key", "Vehiculo_key", "ViajeLinea_key", "Linea_key", "Tabla_key"],
+                on=["Fecha_key", "Servicio_key", "ViajeLinea_key"],
                 how="left"
             )
         else:
