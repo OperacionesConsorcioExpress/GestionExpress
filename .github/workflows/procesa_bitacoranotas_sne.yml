@@ -2,7 +2,7 @@ name: Proceso Bitacora Notas SNE (Azure -> PostgreSQL)
 
 on:
   schedule:
-    - cron: "45 8 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch:
 
 jobs:
