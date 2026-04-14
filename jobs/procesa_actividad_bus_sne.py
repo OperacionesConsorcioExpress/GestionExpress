@@ -37,10 +37,11 @@ FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
 FILTRO_ZONA_TIPO = 3            # 1=ZN, 2=TR, 3=Ambas
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
-AZURE_CONTAINER_ACTIVIDAD = "0001-archivos-de-apoyo-descargas-cex-fms"
+AZURE_CONTAINER_ACTIVIDAD = "e01-fms"
+AZURE_CONTAINER_ICS = "e02-transmitools"
+AZURE_CONTAINER_DETALLADO = "e01-fms"
 
 # ✅ RUTA CORRECTA de matriz según tu script de descargas
-AZURE_PREFIX_MATRIZ_BASE = "0001-28-fms-matriz-de-distancia"
 
 # Recomendado: usar variables de entorno
 CONNECTION_STRING_LOCAL = (
@@ -284,90 +285,68 @@ class AzureBlobReader:
 # =============================================================================
 
 class ActividadBusBuilder:
-    def __init__(self, azure_reader: AzureBlobReader, filtro_zona_tipo: int):
+    def __init__(self, azure_reader: AzureBlobReader, detallado_reader: AzureBlobReader, filtro_zona_tipo: int):
         self.az = azure_reader
+        self.az_detallado = detallado_reader
         self.filtro = filtro_zona_tipo
         self.io = DataIO()
         self.tu = TransformUtils()
 
     def _subpaths(self) -> List[str]:
-        if self.filtro == 1:
-            return ["ZN"]
-        if self.filtro == 2:
-            return ["TR"]
         return ["ZN", "TR"]
 
     def _blob_path_ics(self, fecha: datetime) -> Tuple[str, str]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
-        nombre = f"ICS_SMART OPERATOR_Etapa1_{fecha_txt}.csv"
-        ruta = f"0001-26-fms-ics/{anio}/{mes}/{nombre}"
+        fecha_txt = fecha.strftime("%Y%m%d")
+        nombre = f"{fecha_txt}_ics_smartoperator_etapa1.csv"
+        ruta = f"{anio}/11_ics_offline/10_ics_etapas/10_etapa1/{nombre}"
         return ruta, nombre
 
     def _blob_paths_detallado(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
 
         out: List[Tuple[str, str]] = []
         for carpeta_tipo in self._subpaths():
-            tipo_nombre = "Zonal" if carpeta_tipo == "ZN" else "Troncal"
-            for zona in ["US", "SC"]:
-                nombre = f"Detallado_{fecha_txt}_{tipo_nombre}_{zona}.csv"
-                ruta = f"0001-24-fms-detallado/{anio}/{mes}/{carpeta_tipo}/{nombre}"
+            for zona_blob in ["sc", "uq"]:
+                raiz = "1_sc" if zona_blob == "sc" else "2_uq"
+                if carpeta_tipo == "ZN":
+                    carpeta = f"20_detallado_viaje_zonal_{zona_blob}"
+                    nombre = f"{fecha_txt}_detallado_viaje_zonal_{zona_blob}.csv"
+                else:
+                    carpeta = f"21_detallado_viaje_troncal_{zona_blob}"
+                    nombre = f"{fecha_txt}_detallado_viaje_troncal_al_{zona_blob}.csv"
+                ruta = f"{raiz}/{anio}/{carpeta}/{nombre}"
                 out.append((ruta, nombre))
         return out
 
     def _blob_paths_actividad_bus(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
 
-        encontrados: List[Tuple[str, str]] = []
-        for subpath in self._subpaths():
-            prefijo = f"0001-22-fms-actividad-vehiculo/{anio}/{mes}/{subpath}/"
-            blob_paths = self.az.list_blob_paths(prefijo)
-
-            for ruta in blob_paths:
-                nombre = os.path.basename(ruta)
-                nombre_upper = nombre.upper()
-
-                if not nombre.lower().endswith(".csv"):
-                    continue
-                if fecha_txt not in nombre:
-                    continue
-                if "ACTIVIDADBUS" in nombre_upper or "ACTIVIDAD" in nombre_upper:
-                    encontrados.append((ruta, nombre))
-
-        return encontrados
+        out: List[Tuple[str, str]] = []
+        for zona_blob in ["sc", "uq"]:
+            raiz = "1_sc" if zona_blob == "sc" else "2_uq"
+            out.append((f"{raiz}/{anio}/10_actividad_vehiculo_zonal_{zona_blob}/{fecha_txt}_actividad_vehiculo_zonal_{zona_blob}.csv", f"{fecha_txt}_actividad_vehiculo_zonal_{zona_blob}.csv"))
+            out.append((f"{raiz}/{anio}/11_actividad_vehiculo_troncal_{zona_blob}/{fecha_txt}_actividad_vehiculo_alimentacion_{zona_blob}.csv", f"{fecha_txt}_actividad_vehiculo_alimentacion_{zona_blob}.csv"))
+        return out
 
     def _blob_paths_matriz(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
 
-        encontrados: List[Tuple[str, str]] = []
-        for subpath in self._subpaths():
-            prefijo = f"{AZURE_PREFIX_MATRIZ_BASE}/{anio}/{mes}/{subpath}/"
-            blob_paths = self.az.list_blob_paths(prefijo)
-
-            for ruta in blob_paths:
-                nombre = os.path.basename(ruta)
-                if not nombre.lower().endswith(".csv"):
-                    continue
-                if fecha_txt not in nombre:
-                    continue
-                if nombre.upper().startswith("MD_"):
-                    encontrados.append((ruta, nombre))
-
-        return encontrados
+        out: List[Tuple[str, str]] = []
+        for zona_blob in ["sc", "uq"]:
+            raiz = "1_sc" if zona_blob == "sc" else "2_uq"
+            out.append((f"{raiz}/{anio}/30_matriz_distancia_zonal_{zona_blob}/{fecha_txt}_matriz_distancias_zonal_{zona_blob}.csv", f"{fecha_txt}_matriz_distancias_zonal_{zona_blob}.csv"))
+            out.append((f"{raiz}/{anio}/31_matriz_distancia_troncal_{zona_blob}/{fecha_txt}_matriz_distancias_troncal_al_{zona_blob}.csv", f"{fecha_txt}_matriz_distancias_troncal_al_{zona_blob}.csv"))
+        return out
 
     def _etiqueta_zona_desde_ruta(self, ruta: str) -> str:
         ruta_up = ruta.replace("\\", "/").upper()
-        if "/ZN/" in ruta_up:
+        if "ZONAL" in ruta_up:
             return "ZN"
-        if "/TR/" in ruta_up:
+        if "TRONCAL" in ruta_up or "ALIMENTACION" in ruta_up:
             return "TR"
         return "NA"
 
@@ -418,11 +397,11 @@ class ActividadBusBuilder:
 
         frames: List[pd.DataFrame] = []
         for ruta, nombre in self._blob_paths_detallado(fecha):
-            if not self.az.exists(ruta):
+            if not self.az_detallado.exists(ruta):
                 print(f"  ⚠️ No existe: {nombre}")
                 continue
 
-            df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+            df0 = self.io.leer_csv_desde_bytes(self.az_detallado.read_bytes(ruta), dtype=str)
             df0["__archivo_origen__"] = nombre
             frames.append(df0)
             print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
@@ -466,7 +445,10 @@ class ActividadBusBuilder:
             nombre_visible = self._nombre_visible_actividad_bus(ruta, nombre)
             zona = self._etiqueta_zona_desde_ruta(ruta)
 
-            df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+            if not self.az_detallado.exists(ruta):
+                print(f"  ⚠️ No existe: {nombre_visible}")
+                continue
+            df0 = self.io.leer_csv_desde_bytes(self.az_detallado.read_bytes(ruta), dtype=str)
             df0["__archivo_origen__"] = nombre_visible
             frames.append(df0)
 
@@ -552,7 +534,10 @@ class ActividadBusBuilder:
         for ruta, nombre in rutas:
             try:
                 nombre_visible = self._nombre_visible_matriz(ruta, nombre)
-                df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+                if not self.az_detallado.exists(ruta):
+                    print(f"  ⚠️ No existe: {nombre_visible}")
+                    continue
+                df0 = self.io.leer_csv_desde_bytes(self.az_detallado.read_bytes(ruta), dtype=str)
                 df0["__archivo_origen__"] = nombre_visible
                 frames.append(df0)
                 print(f"  ✅ Cargado: {nombre_visible} | ruta={ruta} | filas={len(df0)} cols={len(df0.columns)}")
@@ -1041,6 +1026,7 @@ def _report_logger_get_next_fecha_to_process(self, id_reporte: int, fecha_semill
         FROM {full_table}
         WHERE "id_reporte" = %s
           AND LOWER(TRIM(COALESCE("estado", ''))) = 'ok'
+          AND COALESCE("registros_proce", 0) > 0
     """
     with self._connect() as conn:
         with conn.cursor() as cur:
@@ -1114,8 +1100,9 @@ def main() -> None:
     registros_proce = 0
 
     try:
-        az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
-        builder = ActividadBusBuilder(az, filtro_zona_tipo=FILTRO_ZONA_TIPO)
+        az = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_ICS))
+        az_detallado = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_DETALLADO))
+        builder = ActividadBusBuilder(az, az_detallado, filtro_zona_tipo=FILTRO_ZONA_TIPO)
 
         df_final, fecha_nombre = builder.build(fecha_dt)
         registros_proce = int(len(df_final))
@@ -1144,6 +1131,12 @@ def main() -> None:
         total = loader.insert_df(df_final)
         print(f"✅ sne.actividad_bus upsert: {total} filas")
 
+    except SystemExit as e:
+        estado = "error"
+        archivos_ok = 0
+        archivos_error = 1
+        print("❌ ERROR en el proceso:", repr(e))
+        raise
     except Exception as e:
         estado = "error"
         archivos_ok = 0
