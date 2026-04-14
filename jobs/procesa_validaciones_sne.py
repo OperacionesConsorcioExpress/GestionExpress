@@ -38,7 +38,7 @@ FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
 AZURE_CONTAINER_ACTIVIDAD = "e02-transmitools"
 AZURE_CONTAINER_DETALLADO = "e01-fms"
-AZURE_CONTAINER_VALIDACIONES = "1006-operaciones-cinf-pasajeros-cexp"
+AZURE_CONTAINER_VALIDACIONES = "e02-transmitools"
 
 CONNECTION_STRING_LOCAL = (
     "DefaultEndpointsProtocol=https;"
@@ -323,9 +323,9 @@ class ValidacionesBuilder:
         fecha_ymd = fecha.strftime("%Y%m%d")
 
         out: List[Tuple[str, str]] = []
-        for zona in ["US", "SC"]:
-            nombre = f"{zona} {fecha_ymd}.csv"
-            ruta = f"1006-pasajeros-zonal/{anio}/{nombre}"
+        for zona in ["sc", "uq"]:
+            nombre = f"{fecha_ymd}_pax_{zona}.csv"
+            ruta = f"{anio}/60_validaciones/{nombre}"
             out.append((ruta, nombre))
         return out
 
@@ -455,26 +455,25 @@ class ValidacionesBuilder:
         print("📋 Columnas detectadas en Validaciones:")
         print(list(df.columns))
 
-        c_fecha_clearing = pick_col(df, ["Fecha Clearing"])
-        c_linea_sae = pick_col(df, ["Linea SAE"])
+        c_fecha_clearing = pick_col(df, ["Fecha Clearing"], required=False)
+        c_dia_trx = pick_col(df, ["Día Trx", "Dia Trx"], required=False)
+        c_linea_sae = pick_col(df, ["Linea SAE", "ID Línea", "ID Linea"])
         c_parada = pick_col(df, ["Parada"])
         c_vehiculo = pick_col(df, ["Vehiculo"])
         c_hora_trx = pick_col(df, ["Hora Trx"])
-        c_ruta_mod = pick_col(df, ["Ruta Modificada"], required=False)
+        c_nombre_linea = pick_col(df, ["Nombre Linea", "Nombre Línea"], required=False)
 
         out = df.copy()
-        out["Fecha_registro"] = pd.to_datetime(
-            out[c_fecha_clearing].astype(str).str.strip(),
-            errors="coerce",
-            dayfirst=True
-        ).dt.date
+        c_fecha_base = c_dia_trx or c_fecha_clearing
+        fecha_registro_key = self.tu.fecha_key_robusta(
+            out[c_fecha_base].astype(str).str.strip(),
+            prefer_dayfirst="auto"
+        )
+        out["Fecha_registro"] = pd.to_datetime(fecha_registro_key, errors="coerce").dt.date
 
         out["Fecha_val_key"] = out["Fecha_registro"]
 
-        if c_ruta_mod:
-            out["IdLinea_key"] = pd.to_numeric(out[c_ruta_mod], errors="coerce").astype("Int64").astype(str)
-        else:
-            out["IdLinea_key"] = out[c_linea_sae].astype(str).str.extract(r"(\d+)", expand=False)
+        out["IdLinea_key"] = out[c_linea_sae].astype(str).str.extract(r"(\d+)", expand=False)
 
         out["Vehiculo_key"] = out[c_vehiculo].astype(str).str.replace(r"\D", "", regex=True)
         out["HoraTrx_td"] = pd.to_timedelta(out[c_hora_trx].astype(str), errors="coerce")
@@ -493,7 +492,10 @@ class ValidacionesBuilder:
                 errors="coerce"
             ).dt.time
 
-        out["Linea"] = out[c_linea_sae].astype("string").str.strip()
+        if c_nombre_linea:
+            out["Linea"] = out[c_nombre_linea].astype("string").str.strip()
+        else:
+            out["Linea"] = out[c_linea_sae].astype("string").str.strip()
         out["Parada"] = out[c_parada].astype("string").str.strip()
         out["Vehiculo"] = out[c_vehiculo].astype("string").str.strip()
 
