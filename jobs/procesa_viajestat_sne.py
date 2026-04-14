@@ -36,7 +36,9 @@ from database.database_manager import get_db_connection
 FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
-AZURE_CONTAINER_ACTIVIDAD = "0001-archivos-de-apoyo-descargas-cex-fms"
+AZURE_CONTAINER_ACTIVIDAD = "e01-fms"
+AZURE_CONTAINER_ICS = "e02-transmitools"
+AZURE_CONTAINER_FMS = "e01-fms"
 
 CONNECTION_STRING_LOCAL = (
     "DefaultEndpointsProtocol=https;"
@@ -271,28 +273,31 @@ class AzureBlobReader:
 # =============================================================================
 
 class ViajeStatBuilder:
-    def __init__(self, azure_reader: AzureBlobReader):
+    def __init__(self, azure_reader: AzureBlobReader, fms_reader: AzureBlobReader):
         self.az = azure_reader
+        self.az_fms = fms_reader
         self.io = DataIO()
         self.tu = TransformUtils()
 
     def _blob_path_ics(self, fecha: datetime) -> Tuple[str, str]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
-        nombre = f"ICS_SMART OPERATOR_Etapa1_{fecha_txt}.csv"
-        ruta = f"0001-26-fms-ics/{anio}/{mes}/{nombre}"
+        fecha_txt = fecha.strftime("%Y%m%d")
+        nombre = f"{fecha_txt}_ics_smartoperator_etapa1.csv"
+        ruta = f"{anio}/11_ics_offline/10_ics_etapas/10_etapa1/{nombre}"
         return ruta, nombre
 
     def _blob_paths_viajestat(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
 
         out: List[Tuple[str, str]] = []
-        for zona in ["US", "SC"]:
-            nombre = f"Tabla_IntervalosViajeStat_{fecha_txt}_{zona}.csv"
-            ruta = f"0001-36-fms-tabla-viajestat/{anio}/{mes}/{nombre}"
+        for zona_blob in ["sc", "uq"]:
+            prefijo = "1_sc" if zona_blob == "sc" else "2_uq"
+            raiz = f"{prefijo}/{anio}/100_datos_brutos_{zona_blob}"
+            carpeta_db = f"10_DB_RPTDB_zonal_{zona_blob}"
+            carpeta = f"20_TBFVH206_viajestat_zonal_{zona_blob}"
+            nombre = f"{fecha_txt}_vehicle_location_interval_zonal_{zona_blob}.csv"
+            ruta = f"{raiz}/{carpeta_db}/{carpeta}/{nombre}"
             out.append((ruta, nombre))
         return out
 
@@ -331,11 +336,11 @@ class ViajeStatBuilder:
 
         frames: List[pd.DataFrame] = []
         for ruta, nombre in self._blob_paths_viajestat(fecha):
-            if not self.az.exists(ruta):
+            if not self.az_fms.exists(ruta):
                 print(f"  ⚠️ No existe: {nombre}")
                 continue
 
-            df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+            df0 = self.io.leer_csv_desde_bytes(self.az_fms.read_bytes(ruta), dtype=str)
             frames.append(df0)
             print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
@@ -812,6 +817,7 @@ def _report_logger_get_next_fecha_to_process(self, id_reporte: int, fecha_semill
         FROM {full_table}
         WHERE "id_reporte" = %s
           AND LOWER(TRIM(COALESCE("estado", ''))) = 'ok'
+          AND COALESCE("registros_proce", 0) > 0
     """
     with self._connect() as conn:
         with conn.cursor() as cur:
@@ -885,8 +891,9 @@ def main() -> None:
     registros_proce = 0
 
     try:
-        az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
-        builder = ViajeStatBuilder(az)
+        az = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_ICS))
+        az_fms = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_FMS))
+        builder = ViajeStatBuilder(az, az_fms)
 
         df_final, fecha_nombre = builder.build(fecha_dt)
         registros_proce = int(len(df_final))
@@ -907,6 +914,12 @@ def main() -> None:
         total = loader.insert_df(df_final)
         print(f"✅ sne.viajestat upsert: {total} filas")
 
+    except SystemExit as e:
+        estado = "error"
+        archivos_ok = 0
+        archivos_error = 1
+        print("âŒ ERROR en el proceso:", repr(e))
+        raise
     except Exception as e:
         estado = "error"
         archivos_ok = 0
