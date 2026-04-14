@@ -36,7 +36,8 @@ from database.database_manager import get_db_connection
 FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
-AZURE_CONTAINER_ACTIVIDAD = "0001-archivos-de-apoyo-descargas-cex-fms"
+AZURE_CONTAINER_ACTIVIDAD = "e02-transmitools"
+AZURE_CONTAINER_DETALLADO = "e01-fms"
 AZURE_CONTAINER_VALIDACIONES = "1006-operaciones-cinf-pasajeros-cexp"
 
 CONNECTION_STRING_LOCAL = (
@@ -247,6 +248,7 @@ def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Opt
 class AzureConfig:
     connection_string: str
     container_actividad: str = AZURE_CONTAINER_ACTIVIDAD
+    container_detallado: str = AZURE_CONTAINER_DETALLADO
     container_validaciones: str = AZURE_CONTAINER_VALIDACIONES
 
 class AzureBlobReader:
@@ -254,11 +256,17 @@ class AzureBlobReader:
         self.cfg = cfg
         self.service = BlobServiceClient.from_connection_string(cfg.connection_string)
         self.container_actividad = self.service.get_container_client(cfg.container_actividad)
+        self.container_detallado = self.service.get_container_client(cfg.container_detallado)
         self.container_validaciones = self.service.get_container_client(cfg.container_validaciones)
 
     def exists(self, container_name: str, blob_path: str) -> bool:
         try:
-            container = self.container_actividad if container_name == "actividad" else self.container_validaciones
+            if container_name == "actividad":
+                container = self.container_actividad
+            elif container_name == "detallado":
+                container = self.container_detallado
+            else:
+                container = self.container_validaciones
             bc = container.get_blob_client(blob_path)
             bc.get_blob_properties()
             return True
@@ -266,7 +274,12 @@ class AzureBlobReader:
             return False
 
     def read_bytes(self, container_name: str, blob_path: str, timeout: int = 600) -> bytes:
-        container = self.container_actividad if container_name == "actividad" else self.container_validaciones
+        if container_name == "actividad":
+            container = self.container_actividad
+        elif container_name == "detallado":
+            container = self.container_detallado
+        else:
+            container = self.container_validaciones
         bc = container.get_blob_client(blob_path)
         stream = bc.download_blob(timeout=timeout, max_concurrency=8, validate_content=False)
         return stream.readall()
@@ -283,25 +296,25 @@ class ValidacionesBuilder:
 
     def _blob_path_ics_candidates(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
-        nombres = [
-            f"ICS_SMART_OPERATOR_Etapa1_{fecha_txt}.csv",
-            f"ICS_SMART OPERATOR_Etapa1_{fecha_txt}.csv",
-        ]
-        return [(f"0001-26-fms-ics/{anio}/{mes}/{nombre}", nombre) for nombre in nombres]
+        fecha_txt = fecha.strftime("%Y%m%d")
+        nombre = f"{fecha_txt}_ics_smartoperator_etapa1.csv"
+        return [(f"{anio}/11_ics_offline/10_ics_etapas/10_etapa1/{nombre}", nombre)]
 
     def _blob_paths_detallado(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
 
         out: List[Tuple[str, str]] = []
         for carpeta_tipo in ["ZN", "TR"]:
-            tipo_nombre = "Zonal" if carpeta_tipo == "ZN" else "Troncal"
-            for zona in ["US", "SC"]:
-                nombre = f"Detallado_{fecha_txt}_{tipo_nombre}_{zona}.csv"
-                ruta = f"0001-24-fms-detallado/{anio}/{mes}/{carpeta_tipo}/{nombre}"
+            for zona_blob in ["sc", "uq"]:
+                raiz = "1_sc" if zona_blob == "sc" else "2_uq"
+                if carpeta_tipo == "ZN":
+                    carpeta = f"20_detallado_viaje_zonal_{zona_blob}"
+                    nombre = f"{fecha_txt}_detallado_viaje_zonal_{zona_blob}.csv"
+                else:
+                    carpeta = f"21_detallado_viaje_troncal_{zona_blob}"
+                    nombre = f"{fecha_txt}_detallado_viaje_troncal_al_{zona_blob}.csv"
+                ruta = f"{raiz}/{anio}/{carpeta}/{nombre}"
                 out.append((ruta, nombre))
         return out
 
@@ -361,11 +374,11 @@ class ValidacionesBuilder:
 
         frames: List[pd.DataFrame] = []
         for ruta, nombre in self._blob_paths_detallado(fecha):
-            if not self.az.exists("actividad", ruta):
+            if not self.az.exists("detallado", ruta):
                 print(f"  ⚠️ No existe: {nombre}")
                 continue
 
-            df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes("actividad", ruta), dtype=str)
+            df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes("detallado", ruta), dtype=str)
             frames.append(df0)
             print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
@@ -930,6 +943,7 @@ def _report_logger_get_next_fecha_to_process(self, id_reporte: int, fecha_semill
         FROM {full_table}
         WHERE "id_reporte" = %s
           AND LOWER(TRIM(COALESCE("estado", ''))) = 'ok'
+          AND COALESCE("registros_proce", 0) > 0
     """
     with self._connect() as conn:
         with conn.cursor() as cur:
@@ -1024,6 +1038,12 @@ def _legacy_main_validaciones() -> None:
         total = loader.insert_df(df_final)
         print(f"✅ sne.validaciones upsert: {total} filas")
 
+    except SystemExit as e:
+        estado = "error"
+        archivos_ok = 0
+        archivos_error = 1
+        print("❌ ERROR en el proceso:", repr(e))
+        raise
     except Exception as e:
         estado = "error"
         archivos_ok = 0
@@ -1109,6 +1129,12 @@ def main() -> None:
         total = loader.insert_df(df_final)
         print(f"âœ… sne.validaciones upsert: {total} filas")
 
+    except SystemExit as e:
+        estado = "error"
+        archivos_ok = 0
+        archivos_error = 1
+        print("❌ ERROR en el proceso:", repr(e))
+        raise
     except Exception as e:
         estado = "error"
         archivos_ok = 0
