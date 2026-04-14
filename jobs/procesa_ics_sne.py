@@ -32,7 +32,10 @@ FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
 FILTRO_ZONA_TIPO = 3               # 1=ZN, 2=TR, 3=Ambas
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
-AZURE_CONTAINER_ACTIVIDAD = "0001-archivos-de-apoyo-descargas-cex-fms"
+AZURE_CONTAINER_ACTIVIDAD = "e01-fms"
+AZURE_CONTAINER_ICS = "e02-transmitools"
+AZURE_CONTAINER_DETALLADO = "e01-fms"
+AZURE_CONTAINER_FMS = "e01-fms"
 
 # Solo local. En GitHub se espera AZURE_STORAGE_CONNECTION_STRING desde Secrets
 CONNECTION_STRING_LOCAL = ""
@@ -344,8 +347,11 @@ class AzureBlobReader:
 # =============================================================================
 
 class SNEExportBuilder:
-    def __init__(self, azure_reader: Optional[AzureBlobReader], filtro_zona_tipo: int):
+    def __init__(self, azure_reader: Optional[AzureBlobReader], ics_reader: Optional[AzureBlobReader], detallado_reader: Optional[AzureBlobReader], fms_reader: Optional[AzureBlobReader], filtro_zona_tipo: int):
         self.az = azure_reader
+        self.az_ics = ics_reader
+        self.az_detallado = detallado_reader
+        self.az_fms = fms_reader
         self.filtro = filtro_zona_tipo
         self.io = DataIO()
         self.tu = TransformUtils()
@@ -362,48 +368,54 @@ class SNEExportBuilder:
         return [Path(p) for p in paths if p and Path(p).exists()]
 
     def _subpaths(self) -> List[str]:
-        if self.filtro == 1:
-            return ["ZN"]
-        if self.filtro == 2:
-            return ["TR"]
         return ["ZN", "TR"]
 
     def _blob_path_ics(self, fecha: datetime) -> Tuple[str, str]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
-        nombre = f"ICS_SMART OPERATOR_Etapa1_{fecha_txt}.csv"
-        ruta = f"0001-26-fms-ics/{anio}/{mes}/{nombre}"
+        fecha_txt = fecha.strftime("%Y%m%d")
+        nombre = f"{fecha_txt}_ics_smartoperator_etapa1.csv"
+        ruta = f"{anio}/11_ics_offline/10_ics_etapas/10_etapa1/{nombre}"
         return ruta, nombre
 
     def _blob_paths_detallado(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
 
         out: List[Tuple[str, str]] = []
         for carpeta_tipo in self._subpaths():
-            tipo_nombre = "Zonal" if carpeta_tipo == "ZN" else "Troncal"
-            for zona in ["US", "SC"]:
-                nombre = f"Detallado_{fecha_txt}_{tipo_nombre}_{zona}.csv"
-                ruta = f"0001-24-fms-detallado/{anio}/{mes}/{carpeta_tipo}/{nombre}"
+            for zona_blob in ["sc", "uq"]:
+                raiz = "1_sc" if zona_blob == "sc" else "2_uq"
+                if carpeta_tipo == "ZN":
+                    carpeta = f"20_detallado_viaje_zonal_{zona_blob}"
+                    nombre = f"{fecha_txt}_detallado_viaje_zonal_{zona_blob}.csv"
+                else:
+                    carpeta = f"21_detallado_viaje_troncal_{zona_blob}"
+                    nombre = f"{fecha_txt}_detallado_viaje_troncal_al_{zona_blob}.csv"
+                ruta = f"{raiz}/{anio}/{carpeta}/{nombre}"
                 out.append((ruta, nombre))
         return out
 
     def _blob_paths_stat(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
 
         out: List[Tuple[str, str]] = []
-        for zona in ["US", "SC"]:
-            nombre = f"Tabla_IntervalosViajeStat_{fecha_txt}_{zona}.csv"
-            ruta = f"0001-36-fms-tabla-viajestat/{anio}/{mes}/{nombre}"
+        for zona_blob in ["sc", "uq"]:
+            prefijo = "1_sc" if zona_blob == "sc" else "2_uq"
+            raiz = f"{prefijo}/{anio}/100_datos_brutos_{zona_blob}"
+            carpeta_db = f"10_DB_RPTDB_zonal_{zona_blob}"
+            carpeta = f"20_TBFVH206_viajestat_zonal_{zona_blob}"
+            nombre = f"{fecha_txt}_vehicle_location_interval_zonal_{zona_blob}.csv"
+            ruta = f"{raiz}/{carpeta_db}/{carpeta}/{nombre}"
             out.append((ruta, nombre))
         return out
 
-    def _prefix_viajes_tardios(self) -> str:
-        return "0001-40-fms-tabla-viajestardios/"
+    def _prefixes_viajes_tardios(self, fecha: datetime) -> List[str]:
+        anio = fecha.strftime("%Y")
+        return [
+            f"1_sc/{anio}/70_viajes_tardios_zonal_sc/",
+            f"2_uq/{anio}/70_viajes_tardios_zonal_uq/",
+        ]
 
     def load_ics(self, fecha: datetime) -> pd.DataFrame:
         print("\n" + "=" * 80)
@@ -417,12 +429,12 @@ class SNEExportBuilder:
             print(f"? ICS local cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
         else:
             ruta, nombre = self._blob_path_ics(fecha)
-            if self.az is None:
+            if self.az_ics is None:
                 raise SystemExit("? No hay lector Azure disponible y tampoco ICS local configurado.")
-            if not self.az.exists(ruta):
+            if not self.az_ics.exists(ruta):
                 raise SystemExit(f"? No existe ICS en Azure:\n   {ruta}")
 
-            df = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+            df = self.io.leer_csv_desde_bytes(self.az_ics.read_bytes(ruta), dtype=str)
             print(f"? ICS cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
         print("DEBUG columnas ICS:", list(df.columns))
 
@@ -503,13 +515,13 @@ class SNEExportBuilder:
                 print(f"  ? Local cargado: {path.name} | filas={len(df0)} cols={len(df0.columns)}")
         else:
             for ruta, nombre in self._blob_paths_detallado(fecha):
-                if self.az is None:
+                if self.az_detallado is None:
                     raise SystemExit("? No hay lector Azure disponible y tampoco Detallado local configurado.")
-                if not self.az.exists(ruta):
+                if not self.az_detallado.exists(ruta):
                     print(f"  ?? No existe: {nombre}")
                     continue
 
-                df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+                df0 = self.io.leer_csv_desde_bytes(self.az_detallado.read_bytes(ruta), dtype=str)
                 df0["__archivo_origen__"] = nombre
                 frames.append(df0)
                 print(f"  ? Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
@@ -611,13 +623,13 @@ class SNEExportBuilder:
                 df0["__archivo_origen__"] = path.name
                 frames.append(df0)
                 print(f"  ? Local cargado: {path.name} | filas={len(df0)} cols={len(df0.columns)}")
-        elif self.az is not None:
+        elif self.az_fms is not None:
             for ruta, nombre in self._blob_paths_stat(fecha):
-                if not self.az.exists(ruta):
+                if not self.az_fms.exists(ruta):
                     print(f"  ?? No existe: {nombre}")
                     continue
 
-                df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(ruta), dtype=str)
+                df0 = self.io.leer_csv_desde_bytes(self.az_fms.read_bytes(ruta), dtype=str)
                 df0["__archivo_origen__"] = nombre
                 frames.append(df0)
                 print(f"  ? Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
@@ -670,7 +682,7 @@ class SNEExportBuilder:
         print(f"✅ ViajeStat listo: {len(grp)} llaves agregadas")
         return grp
 
-    def load_viajes_tardios(self) -> pd.DataFrame:
+    def load_viajes_tardios(self, fecha: datetime) -> pd.DataFrame:
         print("\n" + "=" * 80)
         print("4) CARGANDO VIAJES TARD?OS")
         print("=" * 80)
@@ -686,15 +698,16 @@ class SNEExportBuilder:
                     print(f"  ? Local cargado: {path.name} | filas={len(df0)} cols={len(df0.columns)}")
                 except Exception as e:
                     print(f"  ?? Error leyendo {path.name}: {e}")
-        elif self.az is not None:
-            prefix = self._prefix_viajes_tardios()
-            blob_paths = self.az.list_blob_paths(prefix)
-            blob_paths = [p for p in blob_paths if p.lower().endswith(".csv")]
+        elif self.az_fms is not None:
+            blob_paths: List[str] = []
+            for prefix in self._prefixes_viajes_tardios(fecha):
+                blob_paths.extend(self.az_fms.list_blob_paths(prefix))
+            blob_paths = [p for p in sorted(set(blob_paths)) if p.lower().endswith(".csv")]
 
             for p in blob_paths:
                 nombre = os.path.basename(p)
                 try:
-                    df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes(p), dtype=str)
+                    df0 = self.io.leer_csv_desde_bytes(self.az_fms.read_bytes(p), dtype=str)
                     df0["__archivo_origen__"] = nombre
                     frames.append(df0)
                     print(f"  ? Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
@@ -744,7 +757,7 @@ class SNEExportBuilder:
         df_det = self.load_detallado(fecha)
         df_ics = self.load_ics(fecha)
         df_stat = self.load_stat(fecha)
-        df_tard = self.load_viajes_tardios()
+        df_tard = self.load_viajes_tardios(fecha)
 
         print("\n" + "=" * 80)
         print("5) CRUCE DETALLADO ↔ ICS")
@@ -1598,11 +1611,17 @@ def main() -> None:
 
     try:
         az = None
+        az_ics = None
+        az_detallado = None
+        az_fms = None
         if not _is_local_mode():
             conn_azure = _get_connection_string()
             az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
+            az_ics = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_ICS))
+            az_detallado = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_DETALLADO))
+            az_fms = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_FMS))
 
-        builder = SNEExportBuilder(az, filtro_zona_tipo=FILTRO_ZONA_TIPO)
+        builder = SNEExportBuilder(az, az_ics, az_detallado, az_fms, filtro_zona_tipo=FILTRO_ZONA_TIPO)
         df_final = builder.build(fecha_dt)
 
         registros_proce = int(len(df_final))
