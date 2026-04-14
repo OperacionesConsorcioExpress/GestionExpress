@@ -29,7 +29,7 @@ FECHA_SEMILLA_STR = "01/04/2026"  # dd/mm/yyyy
 PROCESS_DATE_STR = ""
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
-AZURE_CONTAINER_ICS = "0001-archivos-de-apoyo-descargas-cex-fms"
+AZURE_CONTAINER_ICS = "e02-transmitools"
 AZURE_CONTAINER_FMS = "e01-fms"
 
 PG_SCHEMA_NAME = "sne"
@@ -245,10 +245,9 @@ class BitacoraNotasBuilder:
 
     def _blob_path_ics(self, fecha: datetime) -> Tuple[str, str]:
         anio = fecha.strftime("%Y")
-        mes = fecha.strftime("%m")
-        fecha_txt = fecha.strftime("%d_%m_%Y")
-        nombre = f"ICS_SMART OPERATOR_Etapa1_{fecha_txt}.csv"
-        ruta = f"0001-26-fms-ics/{anio}/{mes}/{nombre}"
+        fecha_txt = fecha.strftime("%Y%m%d")
+        nombre = f"{fecha_txt}_ics_smartoperator_etapa1.csv"
+        ruta = f"{anio}/11_ics_offline/10_ics_etapas/10_etapa1/{nombre}"
         return ruta, nombre
 
     def load_ics(self, fecha: datetime) -> pd.DataFrame:
