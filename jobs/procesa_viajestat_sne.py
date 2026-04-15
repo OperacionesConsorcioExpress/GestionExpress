@@ -33,7 +33,7 @@ from database.database_manager import get_db_connection
 # CONFIG
 # =============================================================================
 
-FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
+FECHA_SEMILLA_STR = "13/04/2026"   # dd/mm/yyyy
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
 AZURE_CONTAINER_ACTIVIDAD = "e01-fms"
