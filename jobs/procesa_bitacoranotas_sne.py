@@ -25,7 +25,7 @@ except Exception:
 # CONFIG
 # =============================================================================
 
-FECHA_SEMILLA_STR = "01/04/2026"  # dd/mm/yyyy
+FECHA_SEMILLA_STR = "13/04/2026"  # dd/mm/yyyy
 PROCESS_DATE_STR = ""
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
