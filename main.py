@@ -29,9 +29,12 @@ from controller.route_cop import router_cop
 from controller.route_buses import router_buses
 from controller.route_rutas import router_rutas
 from controller.route_eds import router_eds
+from controller.route_eds_kilometros import router_eds_kilometros
 from controller.route_sne_motivos import router_sne_motivos
 from controller.route_sne_plantillas import router_sne_plantillas
-from controller.route_sne import router_sne
+from controller.route_sne_asignacion import router_sne_asignacion
+from controller.route_sne_objecion import router_sne_objecion
+from controller.route_sne_monitor import router_sne_monitor
 
 ##################### Importar Modelos Backend ##########################
 from database.database_manager import get_db_connection, get_pool_status, close_pool, reset_circuit_breaker
@@ -290,9 +293,16 @@ def eds(req: Request, user_session: dict = Depends(get_user_session)):
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("eds_registro.html", {"request": req, "user_session": user_session})
 
+app.include_router(router_eds_kilometros) 
+@app.get("/eds_kilometros", response_class=HTMLResponse)
+def eds(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("eds_kilometros.html", {"request": req, "user_session": user_session})
+
 ######################  MODULO SNE SERVICIOS NO EJECUTADOS   #########################
 app.include_router(router_sne_motivos) 
-@app.get("/motivos_sne", response_class=HTMLResponse)
+@app.get("/sne_motivos", response_class=HTMLResponse)
 def sne_motivos(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
@@ -305,15 +315,23 @@ def sne_plantillas(req: Request, user_session: dict = Depends(get_user_session))
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("sne_plantillas.html", {"request": req, "user_session": user_session})
 
-app.include_router(router_sne) 
+app.include_router(router_sne_asignacion) 
 @app.get("/sne_asignacion", response_class=HTMLResponse)
 def sne_asignancion(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("sne_asignacion.html", {"request": req, "user_session": user_session})
 
+app.include_router(router_sne_objecion) 
 @app.get("/sne_objecion", response_class=HTMLResponse)
 def sne_objecion(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("sne_objecion.html", {"request": req, "user_session": user_session})
+
+app.include_router(router_sne_monitor) 
+@app.get("/sne_monitor", response_class=HTMLResponse)
+def sne_monitor(req: Request, user_session: dict = Depends(get_user_session)):
+    if not user_session:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("sne_monitor.html", {"request": req, "user_session": user_session})
