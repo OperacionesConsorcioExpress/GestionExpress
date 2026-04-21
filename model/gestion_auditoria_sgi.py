@@ -480,7 +480,15 @@ class AuditoriaSGI:
             self.connection.rollback()
             self.connection.cursor_factory = pg_extensions.cursor
             get_db_pool().putconn(self.connection)
+            self.connection = None
             print("✅ Conexión de auditoría devuelta al pool")
+
+    def __del__(self):
+        try:
+            if getattr(self, 'connection', None) and not self.connection.closed:
+                self.cerrar_conexion()
+        except Exception:
+            pass
 
 # Decorador para auditar funciones automáticamente
 def auditar_accion(accion: str, modulo: str):

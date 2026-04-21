@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from threading import Lock
+from datetime import datetime
 from bs4 import BeautifulSoup
 import pandas as pd
 import pytz
@@ -160,6 +161,87 @@ class HandleDB:
                         "rol_powerbi": usuario[7]
                     }
                 return None
+
+    def ensure_transmitool_columns(self):
+        """Asegura columnas para credenciales diarias de Transmitool."""
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    ALTER TABLE public.usuarios
+                    ADD COLUMN IF NOT EXISTS usuario_tm VARCHAR(255)
+                """)
+                cur.execute("""
+                    ALTER TABLE public.usuarios
+                    ADD COLUMN IF NOT EXISTS clave_tm TEXT
+                """)
+                cur.execute("""
+                    ALTER TABLE public.usuarios
+                    ADD COLUMN IF NOT EXISTS tm_actualizado_en TIMESTAMP
+                """)
+            conn.commit()
+
+    def get_transmitool_credentials(self, user_id):
+        """Retorna credenciales TM del usuario y si debe volver a registrarlas hoy."""
+        self.ensure_transmitool_columns()
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT usuario_tm, clave_tm, tm_actualizado_en
+                    FROM public.usuarios
+                    WHERE id = %s
+                """, (user_id,))
+                row = cur.fetchone()
+
+        if not row:
+            raise ValueError("Usuario no encontrado")
+
+        usuario_tm = row[0] or ""
+        clave_tm = row[1] or ""
+        tm_actualizado_en = row[2]
+
+        ahora_bogota = datetime.now(colombia_tz)
+        fecha_hoy = ahora_bogota.date()
+        fecha_actualizacion = tm_actualizado_en.date() if tm_actualizado_en else None
+
+        return {
+            "usuario_tm": usuario_tm,
+            "clave_tm": clave_tm,
+            "tm_actualizado_en": tm_actualizado_en.strftime("%Y-%m-%d %H:%M:%S") if tm_actualizado_en else None,
+            "requiere_registro_hoy": (
+                not usuario_tm
+                or not clave_tm
+                or fecha_actualizacion != fecha_hoy
+            ),
+            "fecha_hoy": fecha_hoy.isoformat(),
+        }
+
+    def update_transmitool_credentials(self, user_id, usuario_tm, clave_tm):
+        """Actualiza credenciales TM del usuario logueado y la marca de tiempo."""
+        self.ensure_transmitool_columns()
+
+        usuario_tm = (usuario_tm or "").strip()
+        clave_tm = (clave_tm or "").strip()
+
+        if not usuario_tm or not clave_tm:
+            raise ValueError("Debes ingresar usuario y contraseña de Transmitool.")
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE public.usuarios
+                    SET usuario_tm = %s,
+                        clave_tm = %s,
+                        tm_actualizado_en = timezone('America/Bogota', now())
+                    WHERE id = %s
+                """, (usuario_tm, clave_tm, user_id))
+
+                if cur.rowcount == 0:
+                    raise ValueError("Usuario no encontrado")
+
+            conn.commit()
+
+        return self.get_transmitool_credentials(user_id)
 
     def update_user(self, user_id, data):
         """Actualiza datos de un usuario. Actualiza contraseña solo si viene en data."""

@@ -19,6 +19,15 @@ class GestionChecklist:
             self.connection.rollback()
             self.connection.cursor_factory = pg_extensions.cursor
             get_db_pool().putconn(self.connection)
+            self.connection = None
+            self.cursor = None
+
+    def __del__(self):
+        try:
+            if getattr(self, "connection", None) and not self.connection.closed:
+                self.cerrar_conexion()
+        except Exception:
+            pass
 
     def obtener_procesos_para_select(self):
         """

@@ -10,7 +10,6 @@ import os
 _CACHE: dict = {}
 CACHE_TTL_MINUTES = 5
 
-
 class ContainerModel:
     def __init__(self):
         connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")

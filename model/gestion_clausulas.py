@@ -31,8 +31,6 @@ class GestionClausulas:
         self.connection = None
 
     def __enter__(self):
-        if getattr(self, "connection", None) and not self.connection.closed:
-            return self
         self._ctx = get_db_connection()
         self.connection = self._ctx.__enter__()
         return self
@@ -952,12 +950,19 @@ class GestionClausulas:
 # Recordatorio de Notificaciones
     def validar_conexion(self):
         """
-        Verifica si la conexión del pool sigue activa y obtiene una nueva si está cerrada.
+        Verifica si la conexión sigue activa y reconecta correctamente si está cerrada.
+        Debe llamarse dentro de un bloque with GestionClausulas().
         """
         try:
             if self.connection is None or self.connection.closed != 0:
-                print("La conexión estaba cerrada. Obteniendo nueva conexión del pool...")
-                self.connection = _get_pool().getconn()
+                print("La conexión estaba cerrada. Reconectando via pool...")
+                if self._ctx is not None:
+                    try:
+                        self._ctx.__exit__(None, None, None)
+                    except Exception:
+                        pass
+                self._ctx = get_db_connection()
+                self.connection = self._ctx.__enter__()
                 if not self.connection.closed:
                     self.connection.rollback()
         except Exception as e:

@@ -63,6 +63,13 @@ class Eds_config:
                 pass
             self.conn = None
 
+    def __del__(self):
+        try:
+            if getattr(self, "conn", None) and not self.conn.closed:
+                self.close()
+        except Exception:
+            pass
+
     def _execute(self, sql: str, params: list = None) -> None:
         with self.conn.cursor() as c:
             c.execute(sql, params or [])

@@ -36,6 +36,15 @@ class GestionSnePlantillas:
                 pass
         return self._ctx.__exit__(exc_type, exc_val, exc_tb)
 
+    def __del__(self):
+        try:
+            ctx = getattr(self, "_ctx", None)
+            if ctx is not None:
+                ctx.__exit__(None, None, None)
+                self._ctx = None
+        except Exception:
+            pass
+
     # ══════════════════════════════════════════════════════════════════════════
     # TOKENS
     # ══════════════════════════════════════════════════════════════════════════
@@ -173,7 +182,7 @@ class GestionSnePlantillas:
 
     def listar_plantillas(self, id_motivo: int = None):
         """
-        Lista plantillas con nombre del motivo y creador.
+        Lista plantillas con nombre del motivo (motivos_notas) y creador.
         Si se pasa id_motivo, filtra por ese motivo (todas las versiones).
         """
         where, params = " WHERE 1=1 ", []
@@ -186,7 +195,7 @@ class GestionSnePlantillas:
             SELECT
                 np.id,
                 np.id_motivo,
-                me.motivo                                             AS motivo_nombre,
+                mn.motivo_nota                                        AS motivo_nombre,
                 np.nombre,
                 np.plantilla,
                 np.activo,
@@ -195,10 +204,10 @@ class GestionSnePlantillas:
                 to_char(np.creado_en,      'YYYY-MM-DD HH24:MI')     AS creado_en,
                 to_char(np.actualizado_en, 'YYYY-MM-DD HH24:MI')     AS actualizado_en
             FROM sne.nota_plantillas np
-            JOIN sne.motivos_eliminacion me ON me.id = np.id_motivo
-            LEFT JOIN public.usuarios u     ON u.id  = np.creado_por
+            JOIN sne.motivos_notas mn  ON mn.id = np.id_motivo
+            LEFT JOIN public.usuarios u ON u.id  = np.creado_por
             {where}
-            ORDER BY me.motivo ASC, np.activo DESC, np.actualizado_en DESC
+            ORDER BY mn.motivo_nota ASC, np.activo DESC, np.actualizado_en DESC
             """,
             params,
         )
@@ -206,28 +215,27 @@ class GestionSnePlantillas:
 
     def listar_motivos_con_estado_plantilla(self):
         """
-        Retorna todos los motivos de eliminación con indicador de si
+        Retorna todos los motivos de notas activos con indicador de si
         tienen plantilla activa y cuántas versiones históricas hay.
         Usado en la pantalla de gestión para mostrar el estado completo.
         """
         self.cursor.execute(
             """
             SELECT
-                me.id                                               AS id_motivo,
-                me.motivo                                           AS motivo_nombre,
-                rs.responsable                                      AS responsable_nombre,
+                mn.id                                               AS id_motivo,
+                mn.motivo_nota                                      AS motivo_nombre,
                 COUNT(np.id)          FILTER (WHERE np.activo)     AS plantillas_activas,
                 COUNT(np.id)          FILTER (WHERE NOT np.activo) AS versiones_historicas,
                 MAX(np.actualizado_en)                              AS ultima_actualizacion,
                 (SELECT np2.id
                     FROM sne.nota_plantillas np2
-                    WHERE np2.id_motivo = me.id AND np2.activo = TRUE
+                    WHERE np2.id_motivo = mn.id AND np2.activo = TRUE
                     ORDER BY np2.actualizado_en DESC LIMIT 1)         AS id_plantilla_activa
-            FROM sne.motivos_eliminacion me
-            LEFT JOIN sne.responsable_sne rs ON rs.id = me.responsable
-            LEFT JOIN sne.nota_plantillas  np ON np.id_motivo = me.id
-            GROUP BY me.id, me.motivo, rs.responsable
-            ORDER BY me.motivo ASC
+            FROM sne.motivos_notas mn
+            LEFT JOIN sne.nota_plantillas np ON np.id_motivo = mn.id
+            WHERE mn.estado = TRUE
+            GROUP BY mn.id, mn.motivo_nota
+            ORDER BY mn.motivo_nota ASC
             """
         )
         return self.cursor.fetchall()
@@ -236,12 +244,12 @@ class GestionSnePlantillas:
         self.cursor.execute(
             """
             SELECT
-                np.id, np.id_motivo, me.motivo AS motivo_nombre,
+                np.id, np.id_motivo, mn.motivo_nota AS motivo_nombre,
                 np.nombre, np.plantilla, np.activo,
                 to_char(np.creado_en,      'YYYY-MM-DD HH24:MI') AS creado_en,
                 to_char(np.actualizado_en, 'YYYY-MM-DD HH24:MI') AS actualizado_en
             FROM sne.nota_plantillas np
-            JOIN sne.motivos_eliminacion me ON me.id = np.id_motivo
+            JOIN sne.motivos_notas mn ON mn.id = np.id_motivo
             WHERE np.id = %s
             """,
             (id_plantilla,),
@@ -267,12 +275,12 @@ class GestionSnePlantillas:
         if not plantilla:
             raise ValueError("La plantilla no puede estar vacía")
 
-        # Verificar que el motivo existe
+        # Verificar que el motivo (motivos_notas) existe
         self.cursor.execute(
-            "SELECT id FROM sne.motivos_eliminacion WHERE id = %s", (id_motivo,)
+            "SELECT id FROM sne.motivos_notas WHERE id = %s", (id_motivo,)
         )
         if not self.cursor.fetchone():
-            raise ValueError(f"Motivo {id_motivo} no encontrado")
+            raise ValueError(f"Motivo nota {id_motivo} no encontrado")
 
         try:
             # Desactivar versiones anteriores

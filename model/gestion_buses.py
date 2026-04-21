@@ -33,6 +33,15 @@ class GestionBuses:
                 pass
         return self._ctx.__exit__(exc_type, exc_val, exc_tb)
 
+    def __del__(self):
+        try:
+            ctx = getattr(self, "_ctx", None)
+            if ctx is not None:
+                ctx.__exit__(None, None, None)
+                self._ctx = None
+        except Exception:
+            pass
+
     # === Helpers para detectar columnas y armar joins dinámicos ===
     def _col_exists(self, schema: str, table: str, column: str) -> bool:
         key = (schema, table, column)
