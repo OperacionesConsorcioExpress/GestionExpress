@@ -2,17 +2,55 @@
 {% block title %}Programación y Asignación de Kilómetros{% endblock %}
 
 {% block head %}
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-<style>
-  /* mínimo para evitar “pisadas” del layout */
-  #edsApp * { box-sizing: border-box; }
-</style>
+<!-- Tabulator CSS -->
+<link rel="stylesheet" href="{{ url_for('static', path='sne-asignacion/vendor/tabulator/tabulator_bootstrap5.min.css') }}?v={{ build_v }}">
+<!-- App CSS -->
+<link rel="stylesheet" href="{{ url_for('static', path='sne-asignacion/app.css') }}?v={{ build_v }}">
 {% endblock %}
 
-
 {% block content %}
+<script id="sne-session-data" type="application/json">
+  {{ {
+    'id': user_session.id,
+    'username': user_session.username,
+    'nombres': user_session.nombres,
+    'apellidos': user_session.apellidos,
+    'rol': user_session.rol
+  } | tojson }}
+</script>
+<script>
+  window.__SNE_SESSION__ = JSON.parse(
+    document.getElementById('sne-session-data').textContent
+  );
+</script>
+<div id="sne-root"></div>
 
+<!-- Tabulator JS - debe cargar antes de los módulos -->
+<script src="{{ url_for('static', path='sne-asignacion/vendor/tabulator/tabulator.min.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  if (typeof Tabulator === 'undefined') {
+    console.error('[SNE] Error crítico: Tabulator no se cargó correctamente');
+    document.getElementById('sne-root').innerHTML = '<div class="alert alert-danger m-3">Error: No se pudo cargar la biblioteca Tabulator. Recarga la página.</div>';
+  }
 
+  if (typeof XLSX === 'undefined') {
+    console.warn('[SNE] Advertencia: no se cargó SheetJS, la descarga XLSX quedará deshabilitada.');
+  }
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "@sne/api": "{{ url_for('static', path='sne-asignacion/api.js') }}?v={{ build_v }}",
+    "@sne/app": "{{ url_for('static', path='sne-asignacion/app.js') }}?v={{ build_v }}",
+    "@sne/ics-table": "{{ url_for('static', path='sne-asignacion/ics-table.js') }}?v={{ build_v }}",
+    "@sne/reglas": "{{ url_for('static', path='sne-asignacion/reglas.js') }}?v={{ build_v }}",
+    "@sne/utils": "{{ url_for('static', path='sne-asignacion/utils.js') }}?v={{ build_v }}"
+  }
+}
+</script>
+<!-- App JS modules -->
+<script type="module">
+  import '@sne/app';
+</script>
 {% endblock %}

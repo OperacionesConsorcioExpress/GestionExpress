@@ -251,6 +251,29 @@
 
 <!-- PERMITE SELECCIONAR SUBPROCESO A PARTIR DEL PROCESO SELECCIONADO -->
 <script>
+    function limpiarBackdropsBootstrap() {
+        if (document.querySelectorAll('.modal.show').length > 0) {
+            return;
+        }
+
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+
+    if (!window.__juridicoModalCleanupRegistrado) {
+        window.__juridicoModalCleanupRegistrado = true;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('hidden.bs.modal', function () {
+                    setTimeout(limpiarBackdropsBootstrap, 50);
+                });
+            });
+        });
+    }
+
     function actualizarSubprocesos(modal, proceso) {
         const subprocesoSelect = document.getElementById(`${modal}_subproceso_responsable`);
         
@@ -430,7 +453,8 @@
     
             const result = await response.json();
             if (result.success) {
-                bootstrap.Modal.getInstance(document.getElementById('modalCrearClausula')).hide();
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCrearClausula')).hide();
+                setTimeout(limpiarBackdropsBootstrap, 200);
                 showGlobalMessage(result.message, 'success');
                 setTimeout(() => location.reload(), 2000); // Recargar página tras 2 segundos
             } else {
@@ -666,8 +690,9 @@
     function confirmarCierreModal() {
         if (confirm("¿Está seguro de que desea cerrar la ventana? Los cambios no guardados se perderán.")) {
             const modalElement = document.getElementById('modalGestion');
-            const modalGestion = bootstrap.Modal.getInstance(modalElement);
+            const modalGestion = bootstrap.Modal.getOrCreateInstance(modalElement);
             modalGestion.hide(); // Usamos hide en lugar de dispose para que cierre correctamente
+            setTimeout(limpiarBackdropsBootstrap, 200);
         }
     }
 </script>
@@ -793,7 +818,7 @@
     
             // **Evitar el error de getAttribute() asegurando que el modal existe antes de mostrar**
             if (modalCopiaCorreos) {
-                const modalInstance = new bootstrap.Modal(modalCopiaCorreos, {
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(modalCopiaCorreos, {
                     backdrop: "static",
                     keyboard: false,
                 });
@@ -948,7 +973,8 @@
             });
 
             alert("Responsables guardados correctamente.");
-            bootstrap.Modal.getInstance(document.getElementById(`${modal}_modalCopiaCorreos`)).hide();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById(`${modal}_modalCopiaCorreos`)).hide();
+            setTimeout(limpiarBackdropsBootstrap, 200);
         } catch (error) {
             alert("Error al guardar los responsables.");
             console.error("Error al guardar responsables:", error);

@@ -1,0 +1,1542 @@
+{% extends "components/layout.html" %}
+{% block title %}Gestión de Kilómetros{% endblock %}
+
+{% block head %}
+<!-- Tabulator 5.5 Bootstrap5 -->
+<link href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.0/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
+<!-- SheetJS (exportar Excel) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+    * {
+        font-family: 'Century Gothic', 'Segoe UI', Arial, sans-serif;
+    }
+
+    /* ── encabezado ─────────────────────────────────────── */
+    .gkm-header {
+        background: linear-gradient(135deg, #1f3a6d 0%, #274783 100%);
+        color: #fff;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(31, 58, 109, .25);
+        margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .gkm-header-title {
+        font-size: .95rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .gkm-header-sub {
+        font-size: .78rem;
+        opacity: .88;
+    }
+
+    .gkm-header-meta {
+        margin-left: auto;
+        display: flex;
+        gap: 1.2rem;
+        font-size: .78rem;
+    }
+
+    .gkm-header-meta span {
+        display: flex;
+        align-items: center;
+        gap: .3rem;
+    }
+
+    /* ── tarjetas de estadísticas ───────────────────────── */
+    .gkm-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: .6rem;
+        margin-bottom: .8rem;
+    }
+
+    .gkm-stat-card {
+        background: #fff;
+        border-radius: 10px;
+        border: 1px solid #e4ebf5;
+        padding: .6rem .9rem;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .05);
+        display: flex;
+        flex-direction: column;
+        gap: .15rem;
+    }
+
+    .gkm-stat-card .lbl {
+        font-size: .62rem;
+        font-weight: 700;
+        color: #667085;
+        text-transform: uppercase;
+        letter-spacing: .2px;
+    }
+
+    .gkm-stat-card .val {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1f3a6d;
+        line-height: 1;
+    }
+
+    .gkm-stat-card .sub {
+        font-size: .62rem;
+        color: #94a3b8;
+    }
+
+    .gkm-stat-card.green .val {
+        color: #166534;
+    }
+
+    .gkm-stat-card.amber .val {
+        color: #92400e;
+    }
+
+    .gkm-stat-card.blue .val {
+        color: #1d4ed8;
+    }
+
+    /* ── panel de filtros ───────────────────────────────── */
+    .gkm-filters {
+        background: #dde2e9;
+        border-radius: 8px;
+        padding: .6rem .75rem;
+        margin-bottom: .8rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, .07);
+    }
+
+    .gkm-filters-title {
+        font-size: .76rem;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        margin-bottom: .5rem;
+    }
+
+    .gkm-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: .3rem .4rem;
+        align-items: end;
+        margin-bottom: .4rem;
+    }
+
+    .gkm-filter-group label {
+        display: block;
+        font-size: .60rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: .2px;
+        margin-bottom: .1rem;
+    }
+
+    .gkm-filter-group input,
+    .gkm-filter-group select {
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: .28rem .55rem;
+        font-size: .70rem;
+        background: #fafbfc;
+        color: #0f172a;
+        outline: none;
+        transition: border-color .15s;
+    }
+
+    .gkm-filter-group input:focus,
+    .gkm-filter-group select:focus {
+        border-color: #1f3a6d;
+    }
+
+    .gkm-filter-actions {
+        display: flex;
+        gap: .35rem;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    /* botones acción */
+    .btn-gkm {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: .72rem;
+        font-weight: 600;
+        padding: .32rem .75rem;
+        transition: all .15s;
+    }
+
+    .btn-gkm-primary {
+        background: #1f3a6d;
+        color: #fff;
+    }
+
+    .btn-gkm-primary:hover {
+        background: #274783;
+    }
+
+    .btn-gkm-outline {
+        background: transparent;
+        color: #1f3a6d;
+        border: 1px solid #1f3a6d;
+    }
+
+    .btn-gkm-outline:hover {
+        background: #eef3fb;
+    }
+
+    .btn-gkm-success {
+        background: #166534;
+        color: #fff;
+    }
+
+    .btn-gkm-success:hover {
+        background: #14532d;
+    }
+
+    .btn-gkm-csv {
+        background: #0f766e;
+        color: #fff;
+    }
+
+    .btn-gkm-csv:hover {
+        background: #115e59;
+    }
+
+    .btn-gkm-sm {
+        padding: .22rem .55rem;
+        font-size: .68rem;
+        height: 26px;
+    }
+
+    /* ── barra de herramientas tabla ────────────────────── */
+    .gkm-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: .4rem;
+        margin-bottom: .45rem;
+    }
+
+    .gkm-toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        flex-wrap: wrap;
+    }
+
+    .gkm-toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        flex-wrap: wrap;
+    }
+
+    .gkm-search-wrap {
+        position: relative;
+        min-width: 200px;
+    }
+
+    .gkm-search-wrap i {
+        position: absolute;
+        left: .6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: .72rem;
+    }
+
+    .gkm-search-wrap input {
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        padding: .28rem .75rem .28rem 1.8rem;
+        font-size: .70rem;
+        background: #fff;
+        color: #0f172a;
+        width: 100%;
+    }
+
+    .gkm-count-badge {
+        background: #e4ebf5;
+        color: #1f3a6d;
+        border-radius: 999px;
+        padding: .18rem .65rem;
+        font-size: .65rem;
+        font-weight: 700;
+    }
+
+    /* ── columnas especiales Tabulator ─────────────────── */
+    .tabulator .tabulator-cell.col-km-calculado {
+        background: #fffbeb !important;
+    }
+
+    .tabulator .tabulator-col.col-km-calculado {
+        background: #fef3c7 !important;
+        border-color: #fde68a !important;
+    }
+
+    .tabulator .tabulator-col.col-km-calculado .tabulator-col-title {
+        color: #92400e !important;
+        font-weight: 700 !important;
+    }
+
+    .tabulator .tabulator-cell.col-km-final {
+        background: #f0fdf4 !important;
+        cursor: pointer;
+    }
+
+    .tabulator .tabulator-col.col-km-final {
+        background: #dcfce7 !important;
+        border-color: #86efac !important;
+    }
+
+    .tabulator .tabulator-col.col-km-final .tabulator-col-title {
+        color: #166534 !important;
+        font-weight: 700 !important;
+    }
+
+    .tabulator .tabulator-cell.col-km-final:hover {
+        background: #bbf7d0 !important;
+    }
+
+    /* congeladas: sombra sutil */
+    .tabulator .tabulator-frozen {
+        box-shadow: 2px 0 6px rgba(15, 23, 42, .07);
+    }
+
+    /* fuente compacta */
+    .tabulator .tabulator-cell {
+        font-size: .72rem !important;
+    }
+
+    .tabulator .tabulator-col-title {
+        font-size: .68rem !important;
+    }
+
+    /* badges */
+    .badge-si {
+        background: #d1fae5;
+        color: #065f46;
+        border-radius: 999px;
+        padding: .12rem .5rem;
+        font-size: .65rem;
+        font-weight: 700;
+    }
+
+    .badge-no {
+        background: #fee2e2;
+        color: #991b1b;
+        border-radius: 999px;
+        padding: .12rem .5rem;
+        font-size: .65rem;
+        font-weight: 700;
+    }
+
+    .badge-nd {
+        background: #f1f5f9;
+        color: #64748b;
+        border-radius: 999px;
+        padding: .12rem .5rem;
+        font-size: .65rem;
+        font-weight: 700;
+    }
+
+    .badge-activo {
+        background: #d1fae5;
+        color: #065f46;
+        border-radius: 4px;
+        padding: .1rem .4rem;
+        font-size: .62rem;
+        font-weight: 700;
+    }
+
+    .badge-inactivo {
+        background: #fee2e2;
+        color: #991b1b;
+        border-radius: 4px;
+        padding: .1rem .4rem;
+        font-size: .62rem;
+        font-weight: 700;
+    }
+
+    /* contenedor tabla */
+    .gkm-table-wrap {
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e4ebf5;
+    }
+
+    /* ── paginación compacta ──────────────────────────────────────── */
+    .tabulator .tabulator-footer {
+        padding: .15rem .5rem !important;
+        min-height: 28px !important;
+    }
+
+    .tabulator .tabulator-footer .tabulator-paginator {
+        font-size: .63rem !important;
+        display: flex;
+        align-items: center;
+        gap: .15rem;
+        flex-wrap: wrap;
+    }
+
+    .tabulator .tabulator-footer .tabulator-page {
+        padding: .1rem .32rem !important;
+        min-width: 20px !important;
+        font-size: .63rem !important;
+        height: 22px !important;
+        line-height: 1 !important;
+    }
+
+    .tabulator .tabulator-footer .tabulator-page-size {
+        font-size: .63rem !important;
+        padding: .1rem .3rem !important;
+        height: 22px !important;
+    }
+
+    .tabulator .tabulator-footer .tabulator-page-counter {
+        font-size: .63rem !important;
+    }
+
+    .tabulator .tabulator-footer .tabulator-pages {
+        display: inline-flex;
+        gap: .1rem;
+        align-items: center;
+    }
+
+    /* ── encabezado de grupo: solo mostrar la línea de columnas ────── */
+    .tabulator .tabulator-header .tabulator-col.tabulator-col-group>.tabulator-col-content {
+        display: none !important;
+        height: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+
+    .tabulator .tabulator-header .tabulator-col.tabulator-col-group {
+        border-bottom: none !important;
+    }
+
+    /* ── header: texto centrado y con salto de línea ────────────────── */
+    .tabulator .tabulator-col-title {
+        white-space: normal !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
+        word-break: keep-all !important;
+        overflow-wrap: normal !important;
+        hyphens: none;
+        display: block;
+        max-width: 100%;
+    }
+
+    .tabulator .tabulator-cell.col-texto-azul {
+        color: #1d4ed8 !important;
+        font-weight: 700 !important;
+    }
+
+    .tabulator .tabulator-cell.col-km-centrado {
+        text-align: center !important;
+    }
+
+    .tabulator .tabulator-header-filter {
+        display: none !important;
+    }
+
+    .tabulator .tabulator-editing input {
+        text-align: center !important;
+    }
+
+    .tabulator .tabulator-col-content {
+        padding: .22rem .3rem !important;
+        min-height: 48px !important;
+        height: auto !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* ── filas y celdas más compactas ───────────────────────────────── */
+    .tabulator .tabulator-row {
+        min-height: 26px !important;
+    }
+
+    .tabulator .tabulator-cell {
+        padding: .18rem .3rem !important;
+        font-size: .70rem !important;
+    }
+
+    .tabulator .tabulator-col {
+        min-height: 52px !important;
+        height: auto !important;
+    }
+
+    /* ── acordeón ────────────────────────────────────────────────────── */
+    .gkm-collapsible {
+        overflow: hidden;
+        transition: max-height .3s ease, opacity .25s ease, margin .25s ease;
+    }
+
+    .gkm-collapsible.collapsed {
+        max-height: 0 !important;
+        opacity: 0;
+        margin-bottom: 0 !important;
+    }
+
+    .btn-collapse {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: rgba(255, 255, 255, .7);
+        font-size: .75rem;
+        padding: .15rem .35rem;
+        border-radius: 5px;
+        transition: all .15s;
+        line-height: 1;
+    }
+
+    .btn-collapse:hover {
+        background: rgba(255, 255, 255, .18);
+        color: #fff;
+    }
+
+    .btn-collapse-dark {
+        background: none;
+        border: 1px solid #cbd5e1;
+        cursor: pointer;
+        color: #64748b;
+        font-size: .65rem;
+        padding: .12rem .32rem;
+        border-radius: 5px;
+        transition: all .15s;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .btn-collapse-dark:hover {
+        background: #f1f5f9;
+        color: #1f3a6d;
+        border-color: #94a3b8;
+    }
+
+    /* toast */
+    #gkm-toast {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        background: #166534;
+        color: #fff;
+        border-radius: 10px;
+        padding: .6rem 1rem;
+        font-size: .75rem;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, .2);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        gap: .4rem;
+    }
+
+    #gkm-toast.show {
+        display: flex;
+    }
+
+    #gkm-toast.error {
+        background: #991b1b;
+    }
+
+    /* overlay de consulta */
+    #gkm-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 99998;
+        background: rgba(15, 23, 42, .42);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #gkm-overlay.show {
+        display: flex;
+    }
+
+    .gkm-overlay-card {
+        background: rgba(255, 255, 255, .94);
+        border-radius: 14px;
+        min-width: 280px;
+        padding: 1.3rem 1.8rem;
+        text-align: center;
+        box-shadow: 0 18px 45px rgba(0, 0, 0, .22);
+        border: 1px solid rgba(228, 235, 245, .95);
+    }
+
+    .gkm-overlay-spinner {
+        width: 34px;
+        height: 34px;
+        margin: 0 auto .75rem;
+        border: 3px solid #dbe4f0;
+        border-top-color: #1f3a6d;
+        border-radius: 50%;
+        animation: gkm-spin .7s linear infinite;
+    }
+
+    .gkm-overlay-title {
+        font-size: .95rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: .25rem;
+    }
+
+    .gkm-overlay-msg {
+        font-size: .74rem;
+        color: #64748b;
+    }
+
+    /* spinner */
+    .gkm-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #e4ebf5;
+        border-top-color: #1f3a6d;
+        border-radius: 50%;
+        animation: gkm-spin .6s linear infinite;
+    }
+
+    @keyframes gkm-spin {
+        to {
+            transform: rotate(360deg);
+        }
+
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<script id="gkm-session-data" type="application/json">
+    {{ {
+    'id': user_session.id,
+    'username': user_session.username,
+    'nombres': user_session.nombres,
+    'apellidos': user_session.apellidos,
+    'rol': user_session.rol
+    } | tojson }}
+    </script>
+<script>
+    window.__GKM_SESSION__ = JSON.parse(
+        document.getElementById('gkm-session-data').textContent
+    );
+</script>
+
+<div style="padding:.8rem; background:#f4f7fb; min-height:100vh;">
+
+    <!-- ══ ENCABEZADO ══════════════════════════════════════════════════ -->
+    <div class="gkm-header">
+        <div class="gkm-header-title">
+            <i class="bi bi-speedometer2"></i>Gestión de Kilómetros Recorridos
+        </div>
+        <div class="gkm-header-sub">Consolidado diario por bus · Flota CEXP</div>
+        <div class="gkm-header-meta">
+            <span><i class="bi bi-person-circle"></i><span id="hdrUser">--</span></span>
+            <span><i class="bi bi-calendar-event"></i><span id="hdrFecha">--</span></span>
+        </div>
+    </div>
+
+    <!-- ══ ESTADÍSTICAS (acordeón) ════════════════════════════════════ -->
+    <div style="display:flex; align-items:center; gap:.4rem; margin-bottom:.3rem;">
+        <span style="font-size:.62rem; font-weight:700; color:#667085; text-transform:uppercase; letter-spacing:.3px;">
+            <i class="bi bi-bar-chart-steps"></i> Estadísticas del día
+        </span>
+        <button class="btn-collapse-dark" id="btnStats" onclick="gkmToggle('statsBody','btnStats')" title="Colapsar">
+            <i class="bi bi-chevron-up" id="iconStats"></i>
+        </button>
+    </div>
+    <div id="statsBody" class="gkm-stats gkm-collapsible" style="max-height:200px;">
+        <div class="gkm-stat-card">
+            <div class="lbl">Total Buses</div>
+            <div class="val" id="statTotal">--</div>
+            <div class="sub">en flota</div>
+        </div>
+        <div class="gkm-stat-card green">
+            <div class="lbl">Con EDS</div>
+            <div class="val" id="statEds">--</div>
+            <div class="sub">reportaron hoy</div>
+        </div>
+        <div class="gkm-stat-card amber">
+            <div class="lbl">Odómetro SI</div>
+            <div class="val" id="statOdoSi">--</div>
+            <div class="sub">funcional</div>
+        </div>
+        <div class="gkm-stat-card blue">
+            <div class="lbl">Posicionamiento</div>
+            <div class="val" id="statPos">--</div>
+            <div class="sub">con GPS</div>
+        </div>
+        <div class="gkm-stat-card">
+            <div class="lbl">Gest. Express</div>
+            <div class="val" id="statGe">--</div>
+            <div class="sub">km registrados</div>
+        </div>
+    </div>
+
+    <!-- ══ FILTROS (acordeón) ══════════════════════════════════════════ -->
+    <div class="gkm-filters" style="margin-bottom:.5rem;">
+        <!-- Título + botones en la misma línea -->
+        <div class="gkm-filters-title" style="margin-bottom:0; gap:.35rem;">
+            <i class="bi bi-funnel-fill"></i>
+            <span>Filtros de Consulta</span>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:.25rem;">
+                <button class="btn-gkm btn-gkm-primary btn-gkm-sm" onclick="gkmConsultar()">
+                    <i class="bi bi-search"></i> Consultar
+                </button>
+                <button class="btn-gkm btn-gkm-outline btn-gkm-sm" onclick="gkmLimpiar()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Limpiar
+                </button>
+                <button class="btn-gkm btn-gkm-success btn-gkm-sm" onclick="gkmExportExcel()">
+                    <i class="bi bi-file-earmark-excel"></i> Excel
+                </button>
+                <button class="btn-gkm btn-gkm-csv btn-gkm-sm" onclick="gkmExportCSV()">
+                    <i class="bi bi-filetype-csv"></i> CSV
+                </button>
+                <button class="btn-collapse" id="btnFiltros" onclick="gkmToggle('filtrosBody','btnFiltros')"
+                    title="Colapsar filtros">
+                    <i class="bi bi-chevron-up" id="iconFiltros"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Grid de filtros colapsable -->
+        <div id="filtrosBody" class="gkm-collapsible" style="max-height:300px; margin-top:.45rem;">
+            <div class="gkm-filter-grid">
+
+                <div class="gkm-filter-group">
+                    <label>Fecha</label>
+                    <input type="date" id="fFecha">
+                </div>
+                <div class="gkm-filter-group">
+                    <label>Placa</label>
+                    <input type="text" id="fPlaca" placeholder="Ej. TXE123" maxlength="8">
+                </div>
+                <div class="gkm-filter-group">
+                    <label>N° Interno</label>
+                    <input type="text" id="fInterno" placeholder="Ej. Z10-1045" maxlength="6">
+                </div>
+                <div class="gkm-filter-group">
+                    <label>Tipología</label>
+                    <select id="fTipologia">
+                        <option value="">-- Todas --</option>
+                    </select>
+                </div>
+                <div class="gkm-filter-group">
+                    <label>Combustible</label>
+                    <select id="fCombustible">
+                        <option value="">-- Todos --</option>
+                    </select>
+                </div>
+                <div class="gkm-filter-group">
+                    <label>Componente</label>
+                    <select id="fComponente" onchange="gkmOnComponenteChange()">
+                        <option value="">-- Todos --</option>
+                    </select>
+                </div>
+                <div class="gkm-filter-group">
+                    <label>Zona</label>
+                    <select id="fZona" onchange="gkmOnZonaChange()">
+                        <option value="">-- Todas --</option>
+                    </select>
+                </div>
+                <div class="gkm-filter-group">
+                    <label>COP</label>
+                    <select id="fCop">
+                        <option value="">-- Todos --</option>
+                    </select>
+                </div>
+                <div class="gkm-filter-group">
+                    <label>Estado</label>
+                    <select id="fEstado">
+                        <option value="">-- Todos --</option>
+                        <option value="1">Activo</option>
+                        <option value="0">Inactivo</option>
+                    </select>
+                </div>
+
+            </div><!-- /filter-grid -->
+        </div><!-- /filtrosBody -->
+    </div>
+
+    <!-- ══ BARRA HERRAMIENTAS TABLA ════════════════════════════════════ -->
+    <div class="gkm-toolbar">
+        <div class="gkm-toolbar-left">
+            <div class="gkm-search-wrap">
+                <i class="bi bi-search"></i>
+                <input type="text" id="tableSearch" placeholder="Buscar coincidencias en la tabla…"
+                    oninput="gkmTableSearch()" onkeydown="if(event.key==='Enter')gkmTableSearch()">
+            </div>
+            <span class="gkm-count-badge" id="gkmCount">-- registros</span>
+        </div>
+        <div class="gkm-toolbar-right">
+            <div class="dropdown">
+                <button class="btn-gkm btn-gkm-outline btn-gkm-sm dropdown-toggle" data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                    <i class="bi bi-sort-down"></i> <span id="gkmSortLabel">Ordenar</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" style="font-size:.74rem;">
+                    <li><button class="dropdown-item" onclick="gkmSetSort('no_interno','asc')">N° Interno ↑</button>
+                    </li>
+                    <li><button class="dropdown-item" onclick="gkmSetSort('no_interno','desc')">N° Interno ↓</button>
+                    </li>
+                    <li><button class="dropdown-item" onclick="gkmSetSort('placa','asc')">Placa A→Z</button></li>
+                    <li><button class="dropdown-item" onclick="gkmSetSort('posicionamiento','desc')">Posicionamiento
+                            ↓</button></li>
+                    <li><button class="dropdown-item" onclick="gkmSetSort('gestion_express','desc')">Gestión Express
+                            ↓</button></li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li><button class="dropdown-item" onclick="gkmSetSort(null,null)">Sin orden</button></li>
+                </ul>
+            </div>
+            <span id="gkmSpinner" style="display:none;"><span class="gkm-spinner"></span></span>
+        </div>
+    </div>
+
+    <!-- ══ TABLA TABULATOR ═════════════════════════════════════════════ -->
+    <div class="gkm-table-wrap">
+        <div id="gkm-table"></div>
+    </div>
+
+</div><!-- /wrapper -->
+
+<!-- TOAST -->
+<div id="gkm-toast">
+    <i class="bi bi-check-circle-fill"></i>
+    <span id="gkm-toast-msg"></span>
+</div>
+
+<div id="gkm-overlay" aria-hidden="true">
+    <div class="gkm-overlay-card">
+        <div class="gkm-overlay-spinner"></div>
+        <div class="gkm-overlay-title">Proceso de consulta</div>
+        <div class="gkm-overlay-msg" id="gkm-overlay-msg">Consultando información, por favor espere...</div>
+    </div>
+</div>
+
+<!-- ══ JAVASCRIPT ════════════════════════════════════════════════════ -->
+<script>
+    (function () {
+        'use strict';
+
+        var SES = window.__GKM_SESSION__ || {};
+        var _tbl = null;        // instancia Tabulator
+        var _data = [];          // datos del último fetch
+        var _busy = {};          // id_bus → guardando?
+
+        // ── fecha helpers ──────────────────────────────────────────────────
+        function hoy() {
+            var d = new Date();
+            return d.toISOString().slice(0, 10);
+        }
+        function fmtDMY(iso) {
+            if (!iso) return '--';
+            var p = iso.split('-');
+            return p[2] + '/' + p[1] + '/' + p[0];
+        }
+
+        // ── init ───────────────────────────────────────────────────────────
+        function init() {
+            var user = ((SES.nombres || '') + ' ' + (SES.apellidos || '')).trim();
+            document.getElementById('hdrUser').textContent = user || SES.username || '--';
+            document.getElementById('fFecha').value = hoy();
+            document.getElementById('hdrFecha').textContent = fmtDMY(hoy());
+
+            cargarFiltrosEstaticos().then(function () { gkmConsultar(); });
+        }
+
+        // ── filtros estáticos ──────────────────────────────────────────────
+        function cargarFiltrosEstaticos() {
+            return fetch('/api/eds/km/filtros')
+                .then(function (r) { return r.json(); })
+                .then(function (j) {
+                    poblarSelect('fTipologia', j.tipologia || [], function (v) { return { val: v, txt: v }; });
+                    poblarSelect('fCombustible', j.combustible || [], function (v) { return { val: v, txt: v }; });
+                    poblarSelect('fComponente', j.componente || [], function (c) { return { val: c.id, txt: c.componente }; });
+                })
+                .catch(function (e) { console.error('[GKM] filtros:', e); });
+        }
+
+        function gkmOnComponenteChange() {
+            var idComp = document.getElementById('fComponente').value || '';
+            resetarSelect('fZona', '-- Todas --');
+            resetarSelect('fCop', '-- Todos --');
+            if (!idComp) return;
+
+            var urlZ = '/api/eds/km/filtros/zonas?id_componente=' + idComp;
+            fetch(urlZ)
+                .then(function (r) { return r.json(); })
+                .then(function (zonas) {
+                    poblarSelect('fZona', zonas, function (z) { return { val: z.id, txt: z.zona }; });
+                })
+                .catch(function (e) { console.error('[GKM] zonas:', e); });
+
+            recargarCops(idComp, '');
+        }
+
+        function gkmOnZonaChange() {
+            var idComp = document.getElementById('fComponente').value || '';
+            var idZona = document.getElementById('fZona').value || '';
+            resetarSelect('fCop', '-- Todos --');
+            recargarCops(idComp, idZona);
+        }
+
+        function recargarCops(idComp, idZona) {
+            var url = '/api/eds/km/filtros/cops?';
+            if (idComp) url += 'id_componente=' + idComp + '&';
+            if (idZona) url += 'id_zona=' + idZona + '&';
+            fetch(url)
+                .then(function (r) { return r.json(); })
+                .then(function (cops) {
+                    poblarSelect('fCop', cops, function (c) { return { val: c.id, txt: c.cop }; });
+                })
+                .catch(function (e) { console.error('[GKM] cops:', e); });
+        }
+
+        // ── consulta principal ─────────────────────────────────────────────
+        function gkmConsultar() {
+            var fecha = document.getElementById('fFecha').value;
+            if (!fecha) { showToast('Seleccione una fecha', true); return; }
+
+            var placa = document.getElementById('fPlaca').value.trim();
+            var noInterno = document.getElementById('fInterno').value.trim();
+            var tipologia = document.getElementById('fTipologia').value;
+            var combustible = document.getElementById('fCombustible').value;
+            var idComp = document.getElementById('fComponente').value;
+            var idZona = document.getElementById('fZona').value;
+            var idCop = document.getElementById('fCop').value;
+            var estado = document.getElementById('fEstado').value;
+
+            var url = '/api/eds/km/flota?fecha=' + fecha + '&tamano=5000';
+            if (placa) url += '&placa=' + encodeURIComponent(placa);
+            if (noInterno) url += '&no_interno=' + encodeURIComponent(noInterno);
+            if (tipologia) url += '&tipologia=' + encodeURIComponent(tipologia);
+            if (combustible) url += '&combustible=' + encodeURIComponent(combustible);
+            if (idComp) url += '&id_componente=' + idComp;
+            if (idZona) url += '&id_zona=' + idZona;
+            if (idCop) url += '&id_cop=' + idCop;
+            if (estado !== '') url += '&estado=' + estado;
+
+            setLoading(true, 'Consultando información de la flota...');
+            fetch(url)
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function (j) {
+                    _data = gkmOrdenarNoInterno(j.data || []);
+                    renderTabla(_data);
+                    actualizarContador(_data.length, j.total || _data.length);
+                    document.getElementById('hdrFecha').textContent = fmtDMY(fecha);
+                    return cargarEstadisticas(fecha);
+                })
+                .catch(function (e) {
+                    console.error('[GKM]', e);
+                    showToast('Error al consultar: ' + e.message, true);
+                })
+                .finally(function () { setLoading(false); });
+        }
+
+        function cargarEstadisticas(fecha) {
+            setLoading(true, 'Cargando estadísticas de la consulta...');
+            return fetch('/api/eds/km/estadisticas?fecha=' + fecha)
+                .then(function (r) { return r.json(); })
+                .then(function (s) {
+                    document.getElementById('statTotal').textContent = s.total_buses != null ? s.total_buses : '--';
+                    document.getElementById('statEds').textContent = s.buses_con_eds != null ? s.buses_con_eds : '--';
+                    document.getElementById('statOdoSi').textContent = s.odometro_si != null ? s.odometro_si : '--';
+                    document.getElementById('statPos').textContent = s.buses_con_posicionamiento != null ? s.buses_con_posicionamiento : '--';
+                    document.getElementById('statGe').textContent = s.buses_gestion_express != null ? s.buses_gestion_express : '--';
+                })
+                .catch(function (e) { console.error('[GKM] stats:', e); });
+        }
+
+        // ── Tabulator ──────────────────────────────────────────────────────
+        function renderTabla(data) {
+            if (_tbl) {
+                _tbl.replaceData(gkmOrdenarNoInterno(data));
+                _tbl.setSort('no_interno', 'asc');
+                return;
+            }
+
+            // Columnas planas (sin fila de grupos)
+            var cols = [
+                // ── Identificación (frozen) ──────────────────────────
+                {
+                    title: 'Placa', field: 'placa', frozen: true, width: 85,
+                    headerFilter: 'input', headerFilterPlaceholder: 'Filtrar…',
+                    formatter: function (c) {
+                        return '<span style="font-weight:700;color:#1f3a6d;">' + (c.getValue() || '') + '</span>';
+                    }
+                },
+                {
+                    title: 'N°<br>Int.', field: 'no_interno', frozen: true, width: 65,
+                    headerFilter: 'input', headerFilterPlaceholder: 'Filtrar…',
+                    sorter: function (a, b) { return gkmCompararNoInterno(a, b); },
+                    formatter: function (c) {
+                        return '<span style="font-weight:600;">' + (c.getValue() || '') + '</span>';
+                    }
+                },
+                {
+                    title: 'Tipología', field: 'tipologia', frozen: true, width: 100,
+                    headerFilter: 'select',
+                    headerFilterParams: { values: true, clearable: true }
+                },
+                {
+                    title: 'Combustible', field: 'combustible', frozen: true, width: 90,
+                    headerFilter: 'select',
+                    headerFilterParams: { values: true, clearable: true }
+                },
+                // ── Organización ─────────────────────────────────────
+                {
+                    title: 'Componente', field: 'componente', width: 115,
+                    headerFilter: 'select',
+                    headerFilterParams: { values: true, clearable: true }
+                },
+                {
+                    title: 'COP', field: 'cop', width: 80,
+                    headerFilter: 'input', headerFilterPlaceholder: 'Filtrar…'
+                },
+                {
+                    title: 'Estado', field: 'estado', width: 72,
+                    formatter: function (c) {
+                        var v = c.getValue();
+                        return (v == 1)
+                            ? '<span class="badge-activo">Activo</span>'
+                            : '<span class="badge-inactivo">Inactivo</span>';
+                    },
+                    headerFilter: 'select',
+                    headerFilterParams: { values: { '': 'Todos', '1': 'Activo', '0': 'Inactivo' } }
+                },
+                // ── Odómetros / Km ────────────────────────────────────
+                {
+                    title: 'Odómetro<br>Funcional', field: 'odometro', width: 88,
+                    tooltip: 'Odómetro funcional registrado en EDS',
+                    formatter: function (c) {
+                        var v = c.getValue();
+                        if (v === 'SI') return '<span class="badge-si">SI</span>';
+                        if (v === 'NO') return '<span class="badge-no">NO</span>';
+                        return '<span class="badge-nd">N/D</span>';
+                    },
+                    headerFilter: 'select',
+                    headerFilterParams: { values: { '': 'Todos', 'SI': 'SI', 'NO': 'NO' } }
+                },
+                {
+                    title: 'Km Acumulado', field: 'km_acumulado', width: 110,
+                    hozAlign: 'center', formatter: fmtKm
+                },
+                {
+                    title: 'Posiciona-<br>miento', field: 'posicionamiento', width: 90,
+                    hozAlign: 'right', tooltip: 'Km recorridos según GPS (km_recorrido_bus)',
+                    formatter: fmtKm
+                },
+                {
+                    title: 'Speed', field: 'speed', width: 68,
+                    hozAlign: 'right', formatter: fmtKm
+                },
+                {
+                    title: 'Gas<br>Data', field: 'gas_data', width: 65,
+                    hozAlign: 'right', formatter: fmtKm
+                },
+                {
+                    title: 'Gestión<br>Express', field: 'gestion_express', width: 88,
+                    hozAlign: 'right', tooltip: 'Km registrados en EDS Registro',
+                    formatter: fmtKmEntero
+                },
+                {
+                    title: 'FMS<br>Comercial', field: 'fms_comercial', width: 85,
+                    hozAlign: 'right', formatter: fmtKm
+                },
+                {
+                    title: 'Vacío<br>Planeado', field: 'vacio_planeado', width: 85,
+                    hozAlign: 'right', formatter: fmtKm
+                },
+                // ── Resultado (visualmente diferenciados) ─────────────
+                {
+                    title: 'Km Recorrido<br>Calculado',
+                    field: 'km_recorrido_calculado',
+                    width: 105,
+                    cssClass: 'col-km-calculado',
+                    hozAlign: 'right',
+                    tooltip: 'Calculado automáticamente (pendiente)',
+                    formatter: fmtKm
+                },
+                {
+                    title: 'Km Recorrido<br>Final ✏',
+                    field: 'km_recorrido_final',
+                    width: 105,
+                    cssClass: 'col-km-final',
+                    hozAlign: 'right',
+                    tooltip: 'Editable — clic para ingresar el valor final del día',
+                    editor: 'number',
+                    editorParams: { min: 0, step: 0.1, elementAttributes: { style: 'font-size:.70rem;text-align:center;' } },
+                    formatter: fmtKmFinal,
+                    cellEdited: onKmFinalEdited
+                }
+            ];
+
+            _tbl = new Tabulator('#gkm-table', {
+                data: data,
+                columns: cols,
+
+                layout: 'fitDataFill',
+                height: 'calc(100vh - 380px)',
+
+                virtualDom: true,
+                virtualDomBuffer: 400,
+
+                pagination: true,
+                paginationMode: 'local',
+                paginationSize: 50,
+                paginationSizeSelector: [25, 50, 100, 200, true],
+                initialSort: [
+                    { column: 'no_interno', dir: 'asc' }
+                ],
+
+                movableColumns: true,
+                resizableColumns: true,
+                resizableRows: false,
+
+                selectable: true,
+                selectableRangeMode: 'click',
+                rowFormatter: function (row) {
+                    row.getCells().forEach(function (cell) {
+                        var field = cell.getColumn().getField();
+                        var el = cell.getElement();
+
+                        if (field === 'tipologia' || field === 'combustible') {
+                            el.classList.add('col-texto-azul');
+                        }
+
+                        if ([
+                            'km_acumulado',
+                            'posicionamiento',
+                            'speed',
+                            'gas_data',
+                            'gestion_express',
+                            'fms_comercial',
+                            'vacio_planeado',
+                            'km_recorrido_calculado',
+                            'km_recorrido_final'
+                        ].indexOf(field) >= 0) {
+                            el.classList.add('col-km-centrado');
+                        }
+                    });
+                },
+
+                clipboard: true,
+                clipboardCopyStyled: false,
+                clipboardCopyConfig: { rowHeaders: false, columnHeaders: true },
+                clipboardPasteAction: 'replace',
+
+                locale: 'es-419',
+                langs: {
+                    'es-419': {
+                        pagination: {
+                            page_size: 'Filas', page_title: 'Pág.',
+                            first: '|<', first_title: 'Primera',
+                            last: '>|', last_title: 'Última',
+                            prev: '<', prev_title: 'Anterior',
+                            next: '>', next_title: 'Siguiente',
+                            all: 'Todo'
+                        },
+                        headerFilters: { default: 'Filtrar...', columns: {} }
+                    }
+                },
+                tableBuilt: function () { gkmAplicarVisualTabla(); },
+                renderComplete: function () { gkmAplicarVisualTabla(); },
+
+                placeholder: '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;color:#94a3b8;padding:3rem 1rem;">'
+                    + '<i class="bi bi-bus-front" style="font-size:2.5rem;"></i>'
+                    + '<p style="font-size:.82rem;margin:0;">No se encontraron buses para los filtros seleccionados</p>'
+                    + '</div>',
+
+                rowContextMenu: [
+                    {
+                        label: '<i class="bi bi-copy"></i>&nbsp;Copiar fila',
+                        action: function (e, row) {
+                            var vals = Object.values(row.getData()).join('\t');
+                            if (navigator.clipboard) navigator.clipboard.writeText(vals);
+                        }
+                    },
+                    {
+                        label: '<i class="bi bi-check2-all"></i>&nbsp;Seleccionar filas visibles',
+                        action: function () {
+                            if (_tbl) _tbl.getRows('active').forEach(function (r) { r.select(); });
+                        }
+                    },
+                    {
+                        label: '<i class="bi bi-x-square"></i>&nbsp;Deseleccionar todo',
+                        action: function () { if (_tbl) _tbl.deselectAll(); }
+                    },
+                    { separator: true },
+                    {
+                        label: '<i class="bi bi-download"></i>&nbsp;Exportar selección Excel',
+                        action: function () {
+                            if (_tbl) _tbl.download('xlsx', 'gkm_seleccion.xlsx', {}, 'selected');
+                        }
+                    },
+                    {
+                        label: '<i class="bi bi-filetype-csv"></i>&nbsp;Exportar selección CSV',
+                        action: function () {
+                            if (_tbl) _tbl.download('csv', 'gkm_seleccion.csv', {}, 'selected');
+                        }
+                    }
+                ],
+
+                dataFiltered: function (filters, rows) {
+                    actualizarContador(rows.length, _data.length);
+                }
+            });
+        }
+
+        // ── formatters ────────────────────────────────────────────────────
+        function gkmAplicarVisualTabla() {
+            var tabla = document.getElementById('gkm-table');
+            if (!tabla) return;
+
+            tabla.querySelectorAll('.tabulator-header-filter').forEach(function (el) {
+                el.remove();
+            });
+
+            tabla.querySelectorAll('.tabulator-col-title').forEach(function (el) {
+                if (!el.dataset.gkmTituloOriginal) {
+                    el.dataset.gkmTituloOriginal = el.innerHTML;
+                }
+
+                el.innerHTML = el.dataset.gkmTituloOriginal
+                    .replace(/<br\s*\/?>/gi, ' ')
+                    .replace(/-\s+/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            });
+
+            if (!_tbl) return;
+
+            var columnasBase = [
+                ['placa', 85],
+                ['no_interno', 85],
+                ['tipologia', 120],
+                ['combustible', 120],
+                ['componente', 115],
+                ['cop', 80],
+                ['estado', 72],
+                ['odometro', 150],
+                ['km_acumulado', 120],
+                ['posicionamiento', 135],
+                ['speed', 68],
+                ['gas_data', 95],
+                ['gestion_express', 140],
+                ['fms_comercial', 130],
+                ['vacio_planeado', 130],
+                ['km_recorrido_calculado', 175],
+                ['km_recorrido_final', 155]
+            ];
+
+            var wrap = tabla.closest('.gkm-table-wrap');
+            var anchoDisponible = wrap ? wrap.clientWidth : tabla.clientWidth;
+            var anchoBase = columnasBase.reduce(function (acc, item) { return acc + item[1]; }, 0);
+            var escala = anchoDisponible > anchoBase ? (anchoDisponible / anchoBase) : 1;
+
+            if (window.innerWidth >= 1600) escala = Math.max(escala, 1.12);
+            if (window.innerWidth >= 1920) escala = Math.max(escala, 1.22);
+
+            escala = Math.min(escala, 1.55);
+
+            var columnasCalculadas = columnasBase.map(function (item) {
+                return [item[0], Math.round(item[1] * escala)];
+            });
+            var firma = columnasCalculadas.map(function (item) { return item[0] + ':' + item[1]; }).join('|');
+
+            if (_tbl.__gkmResponsiveFirma === firma) return;
+
+            columnasCalculadas.forEach(function (cfg) {
+                var col = _tbl.getColumn(cfg[0]);
+                if (col) col.setWidth(cfg[1]);
+            });
+
+            _tbl.__gkmResponsiveFirma = firma;
+        }
+
+        function gkmCompararNoInterno(a, b) {
+            var va = (a == null ? '' : String(a)).trim();
+            var vb = (b == null ? '' : String(b)).trim();
+
+            var aEsNumero = /^\d+$/.test(va);
+            var bEsNumero = /^\d+$/.test(vb);
+
+            if (aEsNumero && bEsNumero) {
+                if (va.length !== vb.length) return va.length - vb.length;
+                return va.localeCompare(vb, 'es', { numeric: true, sensitivity: 'base' });
+            }
+
+            if (aEsNumero !== bEsNumero) return aEsNumero ? -1 : 1;
+
+            return va.localeCompare(vb, 'es', { numeric: true, sensitivity: 'base' });
+        }
+
+        function gkmOrdenarNoInterno(rows) {
+            return (rows || []).slice().sort(function (a, b) {
+                return gkmCompararNoInterno(a && a.no_interno, b && b.no_interno);
+            });
+        }
+
+        function fmtKm(cell) {
+            var v = cell.getValue();
+            if (v === null || v === undefined || v === '') {
+                return '<span style="color:#cbd5e1;">—</span>';
+            }
+            return '<span style="font-variant-numeric:tabular-nums;">'
+                + Number(v).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                + '</span>';
+        }
+
+        function fmtKmEntero(cell) {
+            var v = cell.getValue();
+            if (v === null || v === undefined || v === '') {
+                return '<span style="color:#cbd5e1;">&mdash;</span>';
+                return '<span style="color:#cbd5e1;">â€”</span>';
+            }
+            return '<span style="font-variant-numeric:tabular-nums;">'
+                + Math.round(Number(v)).toLocaleString('es-CO', { maximumFractionDigits: 0 })
+                + '</span>';
+        }
+
+        function fmtKmFinal(cell) {
+            var v = cell.getValue();
+            if (v === null || v === undefined || v === '') {
+                return '<span style="color:#86efac;font-style:italic;font-size:.65rem;">clic para editar</span>';
+            }
+            return '<span style="font-weight:700;color:#166534;font-variant-numeric:tabular-nums;">'
+                + Number(v).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                + '</span>';
+        }
+
+        // ── edición Km Final ──────────────────────────────────────────────
+        function onKmFinalEdited(cell) {
+            var row = cell.getRow().getData();
+            var idBus = row.id;
+            var fecha = document.getElementById('fFecha').value;
+            var valor = cell.getValue();
+
+            if (!idBus || !fecha) return;
+            if (_busy[idBus]) return;
+
+            _busy[idBus] = true;
+
+            fetch('/api/eds/km/km_final', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_bus: idBus, fecha: fecha, km_recorrido_final: valor })
+            })
+                .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                .then(function (res) {
+                    if (!res.ok || !res.j.ok) throw new Error(res.j.detail || 'Error al guardar');
+                    showToast('Km Final guardado: ' + Number(valor).toLocaleString('es-CO') + ' km');
+                })
+                .catch(function (e) {
+                    showToast('Error al guardar: ' + e.message, true);
+                    cell.restoreOldValue();
+                })
+                .finally(function () { _busy[idBus] = false; });
+        }
+
+        // ── búsqueda rápida ───────────────────────────────────────────────
+        function gkmTableSearch() {
+            var q = document.getElementById('tableSearch').value.trim();
+            if (!_tbl) return;
+            _tbl.clearFilter(true);
+            if (!q) return;
+            _tbl.setFilter([
+                [
+                    { field: 'placa', type: 'like', value: q },
+                    { field: 'no_interno', type: 'like', value: q },
+                    { field: 'componente', type: 'like', value: q },
+                    { field: 'cop', type: 'like', value: q },
+                    { field: 'tipologia', type: 'like', value: q },
+                    { field: 'combustible', type: 'like', value: q }
+                ]
+            ]);
+        }
+
+        // ── ordenar ───────────────────────────────────────────────────────
+        function gkmSetSort(campo, dir) {
+            if (!_tbl) return;
+            if (!campo) {
+                _tbl.clearSort();
+                document.getElementById('gkmSortLabel').textContent = 'Ordenar';
+                return;
+            }
+            _tbl.setSort(campo, dir);
+            var etiquetas = {
+                'no_interno_asc': 'N° Interno ↑',
+                'no_interno_desc': 'N° Interno ↓',
+                'placa_asc': 'Placa A→Z',
+                'posicionamiento_desc': 'Posicionamiento ↓',
+                'gestion_express_desc': 'Gestión Express ↓'
+            };
+            document.getElementById('gkmSortLabel').textContent =
+                etiquetas[campo + '_' + dir] || 'Ordenar';
+        }
+
+        // ── exportar ──────────────────────────────────────────────────────
+        function gkmExportExcel() {
+            if (!_tbl) return;
+            var fecha = document.getElementById('fFecha').value || hoy();
+            _tbl.download('xlsx', 'gkm_' + fecha + '.xlsx');
+        }
+
+        function gkmExportCSV() {
+            if (!_tbl) return;
+            var fecha = document.getElementById('fFecha').value || hoy();
+            _tbl.download('csv', 'gkm_' + fecha + '.csv');
+        }
+
+        // ── limpiar ───────────────────────────────────────────────────────
+        function gkmLimpiar() {
+            document.getElementById('fFecha').value = hoy();
+            document.getElementById('fPlaca').value = '';
+            document.getElementById('fInterno').value = '';
+            document.getElementById('fTipologia').value = '';
+            document.getElementById('fCombustible').value = '';
+            document.getElementById('fComponente').value = '';
+            resetarSelect('fZona', '-- Todas --');
+            resetarSelect('fCop', '-- Todos --');
+            document.getElementById('fEstado').value = '';
+            document.getElementById('tableSearch').value = '';
+            if (_tbl) { _tbl.clearFilter(true); _tbl.clearSort(); }
+            gkmConsultar();
+        }
+
+        // ── helpers DOM ───────────────────────────────────────────────────
+        function poblarSelect(id, items, mapFn) {
+            var sel = document.getElementById(id);
+            items.forEach(function (item) {
+                var m = mapFn(item);
+                var o = document.createElement('option');
+                o.value = m.val; o.textContent = m.txt;
+                sel.appendChild(o);
+            });
+        }
+
+        function resetarSelect(id, etiqueta) {
+            var sel = document.getElementById(id);
+            sel.innerHTML = '';
+            var o = document.createElement('option');
+            o.value = ''; o.textContent = etiqueta;
+            sel.appendChild(o);
+        }
+
+        function setLoading(on, msg) {
+            var spinner = document.getElementById('gkmSpinner');
+            var overlay = document.getElementById('gkm-overlay');
+            var overlayMsg = document.getElementById('gkm-overlay-msg');
+
+            if (spinner) spinner.style.display = on ? 'inline-block' : 'none';
+
+            if (overlayMsg && msg) {
+                overlayMsg.textContent = msg;
+            } else if (overlayMsg && !on) {
+                overlayMsg.textContent = 'Consultando información, por favor espere...';
+            }
+
+            if (overlay) {
+                overlay.classList.toggle('show', !!on);
+                overlay.setAttribute('aria-hidden', on ? 'false' : 'true');
+            }
+
+            document.body.style.overflow = on ? 'hidden' : '';
+        }
+
+        function actualizarContador(visible, total) {
+            var badge = document.getElementById('gkmCount');
+            badge.textContent = (visible === total)
+                ? total.toLocaleString() + ' registros'
+                : visible.toLocaleString() + ' de ' + total.toLocaleString() + ' registros';
+        }
+
+        function showToast(msg, error) {
+            var t = document.getElementById('gkm-toast');
+            var m = document.getElementById('gkm-toast-msg');
+            t.classList.toggle('error', !!error);
+            m.textContent = msg;
+            t.classList.add('show');
+            setTimeout(function () { t.classList.remove('show'); }, 3200);
+        }
+
+        // ── acordeón genérico ─────────────────────────────────────────────
+        function gkmToggle(bodyId, btnId) {
+            var body = document.getElementById(bodyId);
+            var btn = document.getElementById(btnId);
+            if (!body) return;
+            var collapsed = body.classList.toggle('collapsed');
+            // rotar chevron
+            var icon = btn ? btn.querySelector('i') : null;
+            if (icon) {
+                icon.className = collapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+            }
+            // ajustar altura de la tabla después de la transición
+            setTimeout(gkmAjustarAltura, 320);
+        }
+
+        // ── altura dinámica de la tabla ───────────────────────────────────
+        function gkmAjustarAltura() {
+            if (!_tbl) return;
+            var statsH = document.getElementById('statsBody');
+            var filtrosH = document.getElementById('filtrosBody');
+            // medir partes fijas: header (aprox 48px) + barra tabla (38px) + padding (30px) + footer tabla (28px)
+            var fijo = 144;
+            // sumar alturas visibles de acordeones
+            fijo += (statsH && !statsH.classList.contains('collapsed')) ? (statsH.offsetHeight + 24) : 0;
+            fijo += (filtrosH && !filtrosH.classList.contains('collapsed')) ? (filtrosH.offsetHeight + 60) : 0;
+            var minH = 260;
+            var newH = Math.max(minH, window.innerHeight - fijo);
+            _tbl.setHeight(newH);
+            gkmAplicarVisualTabla();
+            _tbl.redraw(true);
+        }
+
+        // ── exponer globalmente ───────────────────────────────────────────
+        window.gkmConsultar = gkmConsultar;
+        window.gkmLimpiar = gkmLimpiar;
+        window.gkmExportExcel = gkmExportExcel;
+        window.gkmExportCSV = gkmExportCSV;
+        window.gkmOnComponenteChange = gkmOnComponenteChange;
+        window.gkmOnZonaChange = gkmOnZonaChange;
+        window.gkmTableSearch = gkmTableSearch;
+        window.gkmSetSort = gkmSetSort;
+        window.gkmToggle = gkmToggle;
+
+        // recalcular altura cuando cambie el tamaño de ventana
+        window.addEventListener('resize', function () { gkmAjustarAltura(); });
+
+        // arranque
+        document.addEventListener('DOMContentLoaded', init);
+
+    })();
+</script>
+{% endblock %}

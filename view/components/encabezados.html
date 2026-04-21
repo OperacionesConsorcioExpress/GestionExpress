@@ -7,14 +7,15 @@
         <!-- Botón Chatbot -->
         <li class="gx-header-item">
           <button id="chatBotButton" class="gx-icon-btn gx-icon-btn-chat" type="button" aria-label="Abrir Chatbot">
-            <img src="/static/images/robot-de-chat.gif" alt="Chatbot">
+            <img src="/static/images/robot-de-chat.png" alt="Chatbot">
             <span class="gx-tooltip">Abrir Chatbot</span>
           </button>
         </li>
 
         <!-- Botón cambiar contraseña -->
         <li class="gx-header-item">
-          <button id="cambiarContrasenaButton" class="gx-icon-btn gx-icon-btn-password" type="button" aria-label="Cambiar contraseña">
+          <button id="cambiarContrasenaButton" class="gx-icon-btn gx-icon-btn-password" type="button"
+            aria-label="Cambiar contraseña">
             <img src="/static/images/contraseña.png" alt="Cambiar Contraseña">
             <span class="gx-tooltip">Cambiar contraseña</span>
           </button>
@@ -82,39 +83,27 @@
       <form id="formCambiarContrasena" autocomplete="off">
 
         <div class="form-floating mb-3">
-          <input
-            type="text"
-            id="usuario"
-            name="usuario"
-            class="form-control"
-            value="{{ user_session.username }}"
-            readonly
-          >
+          <input type="text" id="usuario" name="usuario" class="form-control" value="{{ user_session.username }}"
+            readonly>
           <label for="usuario">Usuario</label>
         </div>
 
         <div class="form-floating mb-3 position-relative">
-          <input type="password" id="nueva_password" name="nueva_password" class="form-control gx-password-input" required>
+          <input type="password" id="nueva_password" name="nueva_password" class="form-control gx-password-input"
+            required>
           <label for="nueva_password">Nueva contraseña</label>
-          <button
-            type="button"
-            class="gx-password-toggle"
-            onclick="togglePassword('nueva_password')"
-            aria-label="Mostrar u ocultar contraseña"
-          >
+          <button type="button" class="gx-password-toggle" onclick="togglePassword('nueva_password')"
+            aria-label="Mostrar u ocultar contraseña">
             <img src="/static/images/gafas.gif" alt="Ver contraseña">
           </button>
         </div>
 
         <div class="form-floating mb-3 position-relative">
-          <input type="password" id="confirmar_password" name="confirmar_password" class="form-control gx-password-input" required>
+          <input type="password" id="confirmar_password" name="confirmar_password"
+            class="form-control gx-password-input" required>
           <label for="confirmar_password">Confirmar contraseña</label>
-          <button
-            type="button"
-            class="gx-password-toggle"
-            onclick="togglePassword('confirmar_password')"
-            aria-label="Mostrar u ocultar contraseña"
-          >
+          <button type="button" class="gx-password-toggle" onclick="togglePassword('confirmar_password')"
+            aria-label="Mostrar u ocultar contraseña">
             <img src="/static/images/gafas.gif" alt="Ver contraseña">
           </button>
         </div>
@@ -486,6 +475,7 @@
       opacity: 0;
       transform: translateY(-16px) scale(.98);
     }
+
     to {
       opacity: 1;
       transform: translateY(0) scale(1);

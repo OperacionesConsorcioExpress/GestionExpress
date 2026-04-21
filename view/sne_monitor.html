@@ -1,0 +1,3518 @@
+{% extends "components/layout.html" %}
+{% block title %}Monitor SNE{% endblock %}
+
+{% block head %}
+<!-- Apache ECharts 5 -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+    :root {
+        --mon-primary: #0a2f75;
+        --mon-secondary: #1e40af;
+        --mon-accent: #0d6efd;
+        --mon-bg: #f4f7fb;
+        --mon-surface: #ffffff;
+        --mon-surface-soft: #f8fbff;
+        --mon-border: #dbe4f1;
+        --mon-text: #122033;
+        --mon-text-soft: #64748b;
+        --mon-shadow-sm: 0 10px 24px rgba(15, 23, 42, 0.06);
+        --mon-shadow-md: 0 18px 42px rgba(15, 23, 42, 0.1);
+        --mon-radius-lg: 20px;
+        --mon-radius-md: 16px;
+    }
+
+    * {
+        font-family: 'Century Gothic', Arial, sans-serif;
+    }
+
+    .mon-page {
+        min-height: 100vh;
+        padding: 0.9rem;
+        background:
+            radial-gradient(circle at top left, rgba(13, 110, 253, 0.12), transparent 28%),
+            radial-gradient(circle at top right, rgba(14, 165, 233, 0.1), transparent 24%),
+            linear-gradient(180deg, #f8fbff 0%, var(--mon-bg) 100%);
+    }
+
+    .mon-shell {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .mon-hero {
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.15rem 1.3rem;
+        border-radius: var(--mon-radius-lg);
+        background: linear-gradient(135deg, #0a2f75 0%, #0d58cf 52%, #0ea5e9 100%);
+        color: #fff;
+        box-shadow: var(--mon-shadow-md);
+    }
+
+    .mon-hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -48px -52px auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+    }
+
+    .mon-hero__content,
+    .mon-hero__meta {
+        position: relative;
+        z-index: 1;
+    }
+
+    .mon-hero__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.36rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .mon-hero__title {
+        margin: 0.65rem 0 0.18rem;
+        font-size: 1.45rem;
+        font-weight: 800;
+    }
+
+    .mon-hero__subtitle {
+        margin: 0;
+        max-width: 700px;
+        font-size: 0.86rem;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.88);
+    }
+
+    .mon-hero__meta {
+        display: flex;
+        align-items: stretch;
+        gap: 0.75rem;
+        margin-left: auto;
+    }
+
+    .mon-hero>div[style*="opacity:0.95"] {
+        display: none !important;
+    }
+
+    .mon-hero-stat {
+        min-width: 155px;
+        padding: 0.9rem 1rem;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        backdrop-filter: blur(12px);
+    }
+
+    .mon-hero-stat__label {
+        margin: 0 0 0.24rem;
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.74);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .mon-hero-stat__value {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.95rem;
+        font-weight: 800;
+    }
+
+    .mon-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.6rem;
+        overflow: visible;
+    }
+
+    .mon-kpi-card {
+        position: relative;
+        overflow: visible;
+        padding: 0.68rem 0.78rem;
+        border-radius: 16px;
+        background: var(--mon-surface);
+        border: 1px solid rgba(219, 228, 241, 0.9);
+        box-shadow: var(--mon-shadow-sm);
+        min-height: 0;
+        z-index: 1;
+    }
+
+    .mon-kpi-card.is-tip-open {
+        z-index: 40;
+    }
+
+    .mon-kpi-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        background: var(--mon-kpi-color, var(--mon-accent));
+    }
+
+    .mon-kpi-card__label {
+        display: flex;
+        align-items: center;
+        gap: 0.38rem;
+        margin: 0 0 0.24rem;
+        font-size: 0.6rem;
+        font-weight: 800;
+        color: var(--mon-text-soft);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        line-height: 1.1;
+    }
+
+    .mon-kpi-card__value {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--mon-text);
+        line-height: 1;
+    }
+
+    .mon-kpi-card__main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .mon-kpi-card__main-copy {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .mon-kpi-card__detail {
+        margin: 0.18rem 0 0;
+        font-size: 0.61rem;
+        color: var(--mon-kpi-color, var(--mon-accent));
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    .mon-kpi-card__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.35rem;
+    }
+
+    .mon-kpi-card__head .mon-kpi-card__label {
+        margin: 0;
+    }
+
+    .mon-kpi-card__stack {
+        display: grid;
+        gap: 0.08rem;
+        margin-top: 0.16rem;
+    }
+
+    .mon-kpi-card__sub {
+        font-size: 0.6rem;
+        color: var(--mon-text-soft);
+        font-weight: 700;
+        line-height: 1.08;
+    }
+
+    .mon-kpi-card__sub strong {
+        color: var(--mon-text);
+    }
+
+    .mon-kpi-card__side {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.38rem;
+        margin-top: 0.14rem;
+    }
+
+    .mon-kpi-card__side--compact {
+        margin-top: 0;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 0.02rem;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .mon-kpi-card__side span {
+        font-size: 0.56rem;
+        color: var(--mon-text-soft);
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .mon-kpi-card__side strong {
+        font-size: 0.8rem;
+        color: var(--mon-kpi-color, var(--mon-accent));
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .mon-kpi-card__mini-list {
+        display: grid;
+        gap: 0.1rem;
+        margin-top: 0.18rem;
+    }
+
+    .mon-kpi-card__mini-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.35rem;
+        font-size: 0.59rem;
+        color: var(--mon-text-soft);
+        font-weight: 700;
+        line-height: 1.08;
+    }
+
+    .mon-kpi-card__mini-row strong {
+        color: var(--mon-text);
+    }
+
+    .mon-kpi-card__comp-list {
+        display: grid;
+        gap: 0.12rem;
+        margin-top: 0.18rem;
+    }
+
+    .mon-kpi-card__comp-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.59rem;
+        line-height: 1.06;
+    }
+
+    .mon-kpi-card__comp-row span {
+        min-width: 0;
+        color: var(--mon-text-soft);
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mon-kpi-card__comp-row strong {
+        color: var(--mon-text);
+        font-weight: 800;
+    }
+
+    .mon-kpi-card__comp-row em {
+        color: var(--mon-kpi-color, var(--mon-accent));
+        font-style: normal;
+        font-weight: 800;
+    }
+
+    .mon-kpi-card__tip-btn {
+        flex: 0 0 auto;
+        min-width: 46px;
+        height: 21px;
+        padding: 0 0.4rem;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
+        color: var(--mon-kpi-color, var(--mon-accent));
+        font-size: 0.55rem;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.18rem;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+        letter-spacing: 0.02em;
+    }
+
+    .mon-kpi-card__tip-btn i {
+        line-height: 1;
+    }
+
+    .mon-kpi-card__tip-btn.is-open {
+        background: var(--mon-kpi-color, var(--mon-accent));
+        color: #fff;
+        border-color: transparent;
+    }
+
+    .mon-kpi-card__tooltip {
+        display: none;
+        position: absolute;
+        top: calc(100% - 0.15rem);
+        right: 0;
+        width: min(250px, calc(100vw - 2.5rem));
+        padding: 0.52rem 0.62rem;
+        border-radius: 12px;
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+        color: #f8fafc;
+        box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 999;
+    }
+
+    .mon-kpi-card__tooltip.is-open {
+        display: block;
+    }
+
+    .mon-kpi-card__tooltip-title {
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #cbd5e1;
+        margin-bottom: 0.25rem;
+        line-height: 1.05;
+    }
+
+    .mon-kpi-card__tooltip-list {
+        display: grid;
+        gap: 0.16rem;
+    }
+
+    .mon-kpi-card__tooltip-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.35rem;
+        font-size: 0.62rem;
+        line-height: 1.08;
+    }
+
+    .mon-kpi-card__tooltip-row span {
+        color: #e2e8f0;
+    }
+
+    .mon-kpi-card__tooltip-row strong {
+        color: #93c5fd;
+        font-weight: 800;
+        text-align: right;
+    }
+
+    .mon-filter-card,
+    .mon-panel,
+    .mon-chart-card,
+    .mon-toolbar-card {
+        background: var(--mon-surface);
+        border: 1px solid rgba(219, 228, 241, 0.9);
+        border-radius: var(--mon-radius-md);
+        box-shadow: var(--mon-shadow-sm);
+    }
+
+    .mon-filter-card {
+        padding: 1rem 1rem 0.95rem;
+    }
+
+    .mon-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.9rem;
+    }
+
+    .mon-toolbar__title {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: var(--mon-text);
+    }
+
+    .mon-toolbar__subtitle {
+        margin: 0.18rem 0 0;
+        font-size: 0.72rem;
+        color: var(--mon-text-soft);
+    }
+
+    .mon-toolbar__actions {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        margin-left: auto;
+    }
+
+    .mon-search-wrap {
+        position: relative;
+        min-width: 215px;
+        flex: 1 1 240px;
+        max-width: 340px;
+    }
+
+    .mon-search-wrap i {
+        position: absolute;
+        top: 50%;
+        left: 0.85rem;
+        transform: translateY(-50%);
+        color: var(--mon-text-soft);
+        font-size: 0.78rem;
+    }
+
+    .mon-input,
+    .mon-select {
+        width: 100%;
+        min-height: 40px;
+        padding: 0.58rem 0.78rem;
+        border-radius: 14px;
+        border: 1px solid var(--mon-border);
+        background: var(--mon-surface-soft);
+        color: var(--mon-text);
+        font-size: 0.75rem;
+        outline: none;
+    }
+
+    .mon-search-wrap .mon-input {
+        padding-left: 2.35rem;
+        border-radius: 999px;
+        min-height: 42px;
+        background: #fff;
+    }
+
+    .mon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        min-height: 40px;
+        padding: 0.6rem 0.9rem;
+        border-radius: 12px;
+        border: 1px solid transparent;
+        font-size: 0.76rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .mon-btn--primary {
+        color: #fff;
+        background: linear-gradient(135deg, var(--mon-primary) 0%, var(--mon-accent) 100%);
+        box-shadow: 0 10px 20px rgba(10, 47, 117, 0.22);
+    }
+
+    .mon-btn--ghost {
+        color: var(--mon-primary);
+        background: rgba(13, 110, 253, 0.06);
+        border-color: rgba(13, 110, 253, 0.18);
+    }
+
+    .mon-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .mon-field {
+        display: grid;
+        gap: 0.32rem;
+    }
+
+    .mon-field label {
+        font-size: 0.64rem;
+        font-weight: 800;
+        color: var(--mon-text-soft);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .mon-tabs {
+        display: inline-flex;
+        gap: 0.2rem;
+        padding: 0.18rem;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.05);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .mon-tab-content {
+        display: none;
+        min-width: 0;
+    }
+
+    .mon-tab-content.is-active {
+        display: block;
+        min-width: 0;
+    }
+
+    .mon-panel {
+        overflow: hidden;
+    }
+
+    .mon-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        padding: 0.95rem 1rem;
+        background: linear-gradient(135deg, #0a2f75 0%, #1e40af 100%);
+        color: #fff;
+    }
+
+    .mon-panel__title {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 0.84rem;
+        font-weight: 800;
+    }
+
+    .mon-panel__meta {
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.82);
+    }
+
+    .mon-wrap-cell {
+        max-width: 180px;
+        white-space: normal;
+        line-height: 1.4;
+        font-size: 0.68rem;
+    }
+
+    .mon-toolbar-card {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.95rem 1rem;
+    }
+
+    .mon-toolbar-card>span {
+        font-size: 0.7rem;
+        font-weight: 800;
+        color: var(--mon-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+    }
+
+    .mon-toolbar-card>div {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .mon-toolbar-card .mon-toolbar {
+        margin-bottom: 0;
+    }
+
+    .mon-toolbar-card .mon-toolbar__title {
+        font-size: 0.8rem;
+    }
+
+    .mon-dashboard-grid {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .mon-dashboard-grid--split {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mon-chart-card {
+        overflow: hidden;
+    }
+
+    .mon-chart-card__header {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.46rem 0.62rem;
+        color: #fff;
+        background: linear-gradient(135deg, var(--mon-card-color, #0a2f75), color-mix(in srgb, var(--mon-card-color, #0a2f75) 72%, white));
+    }
+
+    .mon-chart-card__title {
+        flex: 1;
+        font-size: 0.74rem;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+
+    .mon-chart-card__body {
+        padding: 0.85rem;
+    }
+
+    .mon-chart-stage {
+        position: relative;
+        height: 290px;
+    }
+
+    .mon-pill-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .mon-pill {
+        min-height: 32px;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid rgba(168, 85, 247, 0.28);
+        background: #fff;
+        color: #7e22ce;
+        font-size: 0.68rem;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .mon-pill.is-active {
+        background: #a855f7;
+        color: #fff;
+        border-color: #a855f7;
+    }
+
+    .mon-pill--soft {
+        min-height: 28px;
+        padding: 0.28rem 0.68rem;
+        font-size: 0.64rem;
+        border-color: rgba(148, 163, 184, 0.26);
+        color: #475569;
+    }
+
+    .mon-route-filter {
+        position: relative;
+        display: grid;
+        gap: 0.35rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .mon-route-filter__bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .mon-route-filter__summary {
+        font-size: 0.66rem;
+        color: #64748b;
+        font-weight: 700;
+    }
+
+    .mon-route-filter__menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 0.15rem);
+        left: 0;
+        z-index: 20;
+        width: min(280px, 100%);
+        padding: 0.65rem;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid rgba(226, 232, 240, 0.92);
+        box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16);
+    }
+
+    .mon-route-filter__menu.is-open {
+        display: block;
+    }
+
+    .mon-route-filter__search {
+        width: 100%;
+        min-height: 32px;
+        margin-bottom: 0.45rem;
+        padding: 0.38rem 0.62rem;
+        border-radius: 10px;
+        border: 1px solid rgba(203, 213, 225, 0.95);
+        background: #f8fafc;
+        font-size: 0.68rem;
+        color: #0f172a;
+        outline: none;
+    }
+
+    .mon-route-filter__list {
+        display: grid;
+        gap: 0.22rem;
+        max-height: 188px;
+        overflow: auto;
+        padding-right: 0.12rem;
+    }
+
+    .mon-route-filter__item {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.24rem 0.12rem;
+        font-size: 0.67rem;
+        color: #334155;
+        font-weight: 700;
+    }
+
+    .mon-route-filter__item input {
+        accent-color: #2563eb;
+    }
+
+    .mon-fs-btn {
+        min-height: 28px;
+        min-width: 28px;
+        padding: 0;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        cursor: pointer;
+        font-size: 0.74rem;
+    }
+
+    .mon-empty {
+        display: grid;
+        place-items: center;
+        gap: 0.45rem;
+        min-height: 220px;
+        padding: 1.4rem;
+        text-align: center;
+        color: #94a3b8;
+    }
+
+    .mon-empty i {
+        font-size: 1.45rem;
+    }
+
+    .mon-empty p {
+        margin: 0;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .mon-empty span {
+        font-size: 0.7rem;
+        color: var(--mon-text-soft);
+    }
+
+    /* ── Tabs (misma lógica que sne_objecion) ── */
+    .tab-btn-mon {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.45rem 0.9rem;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--mon-text-soft);
+        font-size: 0.73rem;
+        font-weight: 800;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .tab-btn-mon.active {
+        color: #fff;
+        background: linear-gradient(135deg, var(--mon-primary) 0%, var(--mon-accent) 100%);
+        box-shadow: 0 8px 16px rgba(10, 47, 117, 0.18);
+    }
+
+    /* ── Fullscreen overlay para charts ── */
+    #monFsOverlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9989;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        cursor: pointer;
+    }
+
+    .mon-card-fs {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 9990 !important;
+        border-radius: 0 !important;
+        overflow-y: auto !important;
+        box-shadow: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .mon-card-fs .mon-chart-card__body,
+    .mon-card-fs .mon-card-body {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .mon-card-fs .mon-chart-stage,
+    .mon-card-fs .mon-canvas-cont {
+        height: calc(100vh - 130px) !important;
+        flex: 1 !important;
+    }
+
+    /* ── Tabla ── */
+    .mon-table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.7rem;
+    }
+
+    .mon-table th,
+    .mon-table td {
+        border: 1px solid #e2e8f0;
+        padding: 0.28rem 0.45rem;
+        white-space: nowrap;
+    }
+
+    .mon-table thead th {
+        background: #0a2f75;
+        color: white;
+        font-weight: 700;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 3;
+    }
+
+    #repTableWrap thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #0a2f75;
+        box-shadow: inset 0 -1px 0 #1e3a8a;
+    }
+
+    .mon-table thead tr.th-sub th {
+        background: #1e40af;
+        color: #dbeafe;
+        font-weight: 600;
+        font-size: 0.67rem;
+    }
+
+    .mon-table tbody tr:nth-child(even) td {
+        background: #fafbfc;
+    }
+
+    .mon-table tbody tr:hover td {
+        background: #dbeafe;
+        color: #0f172a;
+    }
+
+    .mon-table tbody tr.is-selected td {
+        background: #bfdbfe !important;
+        color: #0f172a;
+        box-shadow: inset 0 0 0 1px rgba(30, 64, 175, 0.18);
+    }
+
+    .mon-table td.r {
+        text-align: right;
+    }
+
+    .mon-table td.c {
+        text-align: center;
+    }
+
+    .mon-table td.z {
+        color: #94a3b8;
+    }
+
+    .mon-table td.warn {
+        color: #d97706;
+        font-weight: 700;
+    }
+
+    .mon-table td.danger {
+        color: #dc2626;
+        font-weight: 700;
+    }
+
+    .mon-table td.ok {
+        color: #16a34a;
+        font-weight: 700;
+    }
+
+    .mon-table td.t-ok {
+        color: #16a34a;
+        font-weight: 600;
+    }
+
+    .mon-table td.t-warn {
+        color: #d97706;
+        font-weight: 600;
+    }
+
+    .mon-table td.t-bad {
+        color: #dc2626;
+        font-weight: 600;
+    }
+
+    .mon-table td.t-null {
+        color: #94a3b8;
+        font-style: italic;
+        font-size: 0.65rem;
+    }
+
+    /* ── Scroll tabla ── */
+    .mon-tbl-scroll {
+        max-height: 520px;
+        overflow-y: auto;
+        overflow-x: auto;
+        width: 100%;
+        border-radius: 6px;
+    }
+
+    .mon-page {
+        padding: 0.8rem;
+    }
+
+    .mon-shell {
+        gap: 0.85rem;
+    }
+
+    .mon-hero {
+        gap: 1rem 2rem;
+        padding: 0.7rem 1rem;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+        box-shadow: 0 6px 20px rgba(13, 110, 253, 0.18);
+    }
+
+    .mon-hero::after {
+        inset: auto -28px -54px auto;
+        width: 128px;
+        height: 128px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0));
+    }
+
+    .mon-hero__badge {
+        padding: 0.22rem 0.62rem;
+        font-size: 0.63rem;
+    }
+
+    .mon-hero__title {
+        margin: 0.25rem 0 0.08rem;
+        font-size: 1rem;
+    }
+
+    .mon-hero__subtitle {
+        max-width: 620px;
+        font-size: 0.76rem;
+        line-height: 1.35;
+    }
+
+    .mon-hero__meta {
+        align-items: center;
+        gap: 1.1rem;
+    }
+
+    .mon-hero-stat {
+        min-width: auto;
+        padding: 0;
+        border: none;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .mon-hero-stat__label {
+        margin: 0 0 0.12rem;
+        font-size: 0.67rem;
+        letter-spacing: 0.03em;
+    }
+
+    .mon-hero-stat__value {
+        gap: 0.35rem;
+        font-size: 0.8rem;
+    }
+
+    .mon-stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+        gap: 0.7rem;
+    }
+
+    .mon-kpi-card {
+        padding: 0.8rem 0.9rem;
+        border-radius: 14px;
+    }
+
+    .mon-filter-card {
+        padding: 0.55rem 0.65rem;
+        border-radius: 10px;
+        background: rgb(219, 222, 226);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .mon-toolbar {
+        gap: 0.55rem;
+        margin-bottom: 0.45rem;
+    }
+
+    .mon-toolbar__title {
+        gap: 0.45rem;
+        font-size: 0.78rem;
+        color: #0f172a;
+    }
+
+    .mon-toolbar__title-wrap {
+        display: grid;
+        gap: 0.05rem;
+    }
+
+    .mon-toolbar__subtitle {
+        margin: 0.08rem 0 0;
+        font-size: 0.66rem;
+        color: #475569;
+    }
+
+    .mon-search-wrap {
+        min-width: 210px;
+        flex: 1 1 210px;
+        max-width: 300px;
+    }
+
+    .mon-search-wrap i {
+        left: 0.7rem;
+        font-size: 0.72rem;
+    }
+
+    .mon-input,
+    .mon-select {
+        min-height: 30px;
+        padding: 0.34rem 0.56rem;
+        border-radius: 8px;
+        border-color: #cbd5e1;
+        background: #fff;
+        font-size: 0.7rem;
+    }
+
+    .mon-search-wrap .mon-input {
+        min-height: 30px;
+        padding-left: 1.95rem;
+    }
+
+    .mon-btn {
+        min-height: 30px;
+        padding: 0.34rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.72rem;
+    }
+
+    .mon-grid {
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        column-gap: 0.3rem;
+        row-gap: 0.45rem;
+        align-items: end;
+    }
+
+    .mon-panel__actions {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        margin-left: auto;
+    }
+
+    .mon-wrap-cell {
+        max-width: 200px;
+        white-space: normal;
+    }
+
+    .mon-table th,
+    .mon-table td {
+        padding: 0.22rem 0.42rem;
+        line-height: 1.12;
+    }
+
+    .mon-table thead th {
+        z-index: 4;
+        height: 18px;
+        line-height: 1;
+        vertical-align: middle;
+    }
+
+    .mon-table thead tr:first-child th {
+        top: 0;
+        z-index: 6;
+        height: 18px;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    .mon-table thead tr.th-sub th {
+        top: 18px;
+        z-index: 5;
+        height: 18px;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-top: 0;
+    }
+
+    .mon-table td,
+    .mon-table th {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .mon-table .mon-route-col {
+        min-width: 86px;
+        width: 86px;
+        max-width: 86px;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .mon-table .mon-obj-users {
+        min-width: 160px;
+        width: 160px;
+    }
+
+    .mon-table .mon-group-head {
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        line-height: 1;
+    }
+
+    .mon-table thead th[rowspan="2"] {
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .mon-table thead tr.th-sub th {
+        line-height: 1;
+    }
+
+    .mon-table .mon-row-title {
+        min-width: 86px;
+    }
+
+    .mon-panel--compact .mon-panel__header {
+        padding: 0.5rem 0.75rem;
+    }
+
+    @media (max-width: 1100px) {
+        .mon-hero {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .mon-hero__meta {
+            width: 100%;
+            margin-left: 0;
+            justify-content: space-between;
+        }
+
+        .mon-dashboard-grid--split {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .mon-page {
+            padding: 0.7rem;
+        }
+
+        .mon-hero {
+            padding: 0.75rem 0.85rem;
+        }
+
+        .mon-hero__title {
+            font-size: 0.9rem;
+        }
+
+        .mon-hero__meta {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .mon-hero-stat {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .mon-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .mon-tabs {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .tab-btn-mon {
+            flex: 1 1 0;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mon-page">
+    <div class="mon-shell">
+
+        <!-- ══ ENCABEZADO ══════════════════════════════════════════════════════ -->
+        <section class="mon-hero">
+            <div class="mon-hero__content">
+                <h1 class="mon-hero__title">Monitor de asignaciones, kilómetros y objeciones</h1>
+            </div>
+            <div class="mon-hero__meta">
+                <div class="mon-hero-stat">
+                    <div class="mon-hero-stat__value">
+                        <i class="bi bi-calendar-event"></i>
+                        <strong id="monToday">--</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══ KPI CARDS (se actualizan al cargar la tabla) ═══════════════════ -->
+        <div id="monStatsContainer" class="mon-stats-grid">
+        </div>
+
+        <!-- ══ FILTROS GLOBALES ════════════════════════════════════════════════ -->
+        <section class="mon-filter-card">
+            <div class="mon-toolbar">
+                <div class="mon-toolbar__title-wrap">
+                    <h2 class="mon-toolbar__title">
+                        <i class="bi bi-funnel"></i> Filtros
+                    </h2>
+                </div>
+                <div class="mon-toolbar__actions">
+                    <div class="mon-search-wrap">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="monSearch" placeholder="Buscar en la grilla" oninput="monSearchTable()"
+                            class="mon-input">
+                    </div>
+                    <button onclick="monCargar()" title="Consultar" class="mon-btn mon-btn--primary">
+                        <i class="bi bi-search"></i> Consultar
+                    </button>
+                    <button onclick="monLimpiar()" title="Limpiar" class="mon-btn mon-btn--ghost">
+                        <i class="bi bi-arrow-counterclockwise"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+
+            <div class="mon-grid">
+                <div class="mon-field">
+                    <label for="monFechaIni">Fecha inicio</label>
+                    <input type="date" id="monFechaIni" class="mon-input" onchange="monHandleDateChange()">
+                </div>
+                <div class="mon-field">
+                    <label for="monFechaFin">Fecha fin</label>
+                    <input type="date" id="monFechaFin" class="mon-input" onchange="monHandleDateChange()">
+                </div>
+                <div class="mon-field">
+                    <label for="monComponente">Componente</label>
+                    <select id="monComponente" onchange="monLoadZonas()" class="mon-select">
+                        <option value="">-- Todos --</option>
+                    </select>
+                </div>
+                <div class="mon-field">
+                    <label for="monZona">Zona</label>
+                    <select id="monZona" onchange="monLoadCop()" class="mon-select">
+                        <option value="">-- Todas --</option>
+                    </select>
+                </div>
+                <div class="mon-field">
+                    <label for="monCop">COP</label>
+                    <select id="monCop" class="mon-select">
+                        <option value="">-- Todos --</option>
+                    </select>
+                </div>
+                <div class="mon-field">
+                    <label for="monRuta">Ruta</label>
+                    <select id="monRuta" class="mon-select">
+                        <option value="">-- Todas --</option>
+                    </select>
+                </div>
+                <div class="mon-field">
+                    <label for="monAsignador">Asignador</label>
+                    <select id="monAsignador" class="mon-select">
+                        <option value="">-- Todos --</option>
+                    </select>
+                </div>
+                <div class="mon-field">
+                    <label for="monEstAsig">Estado asignación</label>
+                    <select id="monEstAsig" class="mon-select">
+                        <option value="">-- Todos --</option>
+                        <option value="0">Por asignar</option>
+                        <option value="1">Asignado</option>
+                        <option value="2">Vencido s/a</option>
+                    </select>
+                </div>
+                <div class="mon-field">
+                    <label for="monRevisor">Revisor</label>
+                    <select id="monRevisor" class="mon-select">
+                        <option value="">-- Todos --</option>
+                    </select>
+                </div>
+                <div class="mon-field">
+                    <label for="monEstObj">Estado objeción</label>
+                    <select id="monEstObj" class="mon-select">
+                        <option value="">-- Todos --</option>
+                        <option value="0">Pendiente</option>
+                        <option value="1">Objetado</option>
+                        <option value="2">Vencido</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══ TABS ════════════════════════════════════════════════════════════ -->
+        <div class="mon-tabs">
+            <button class="tab-btn-mon active" data-tab="asignaciones" onclick="monSwitchTab(event,'asignaciones')">
+                <i class="bi bi-table"></i> Asignaciones
+            </button>
+            <button class="tab-btn-mon" data-tab="resultados" onclick="monSwitchTab(event,'resultados')">
+                <i class="bi bi-graph-up-arrow"></i> Resultados
+            </button>
+            <button class="tab-btn-mon" data-tab="reportes" onclick="monSwitchTab(event,'reportes')">
+                <i class="bi bi-file-earmark-bar-graph"></i> Reportes
+            </button>
+            <button class="tab-btn-mon" data-tab="procesamientos" onclick="monSwitchTab(event,'procesamientos')">
+                <i class="bi bi-cpu"></i> Procesamientos
+            </button>
+        </div>
+
+        <!-- ══ TAB CONTENT ════════════════════════════════════════════════════ -->
+        <div id="tab-asignaciones" class="mon-tab-content is-active"></div>
+        <div id="tab-resultados" class="mon-tab-content"></div>
+        <div id="tab-reportes" class="mon-tab-content"></div>
+        <div id="tab-procesamientos" class="mon-tab-content"></div>
+
+        <!-- ══ FULLSCREEN OVERLAY ═════════════════════════════════════════════ -->
+        <div id="monFsOverlay" onclick="monCloseFsFromOverlay()"></div>
+
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    JAVASCRIPT
+══════════════════════════════════════════════════════════════════════ -->
+<script>
+    (function () {
+        'use strict';
+
+        var API = '/monitor/api';
+        var _charts = {};           // echarts instances keyed by div id
+        var _tableData = [];        // data completa para búsqueda
+        var _filteredTableData = []; // data filtrada visible en grilla
+        var _activeTab = 'asignaciones';
+        var _repData = [];
+        var _reportesBuilt = false;
+        var _defaultFechaIni = '';
+        var _defaultFechaFin = '';
+
+        /* ── Helpers ─────────────────────────────────────────────────────── */
+        function _q(id) { return document.getElementById(id); }
+        function _num(v) {
+            var n = Number(v);
+            return isFinite(n) ? n : 0;
+        }
+        function _fmtInt(v) {
+            return Math.round(_num(v)).toLocaleString('es-CO');
+        }
+        function _fmtKm(v) {
+            return _num(v).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        }
+        function _fmtPct(v) {
+            return _num(v).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+        }
+        function _sumRows(rows, key) {
+            return rows.reduce(function (acc, row) { return acc + _num(row[key]); }, 0);
+        }
+        function _esc(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+        function _parseDate(v) {
+            if (!v) return null;
+            var d = new Date(v + 'T00:00:00');
+            return isNaN(d.getTime()) ? null : d;
+        }
+        function _fmtDateInput(d) {
+            if (!d || isNaN(d.getTime())) return '';
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+        function _dateParams() {
+            var p = [];
+            var fi = _q('monFechaIni').value, ff = _q('monFechaFin').value;
+            if (fi) p.push('fecha_ini=' + fi);
+            if (ff) p.push('fecha_fin=' + ff);
+            return p;
+        }
+        function _syncDateRange(showAlert) {
+            var iniEl = _q('monFechaIni');
+            var finEl = _q('monFechaFin');
+            var ini = _parseDate(iniEl.value);
+            var fin = _parseDate(finEl.value);
+            if (!ini || !fin) return true;
+            if (fin < ini) {
+                finEl.value = iniEl.value;
+                if (showAlert) alert('La fecha final no puede ser inferior a la fecha inicial.');
+                fin = _parseDate(finEl.value);
+            }
+            var maxFin = new Date(ini.getTime());
+            maxFin.setMonth(maxFin.getMonth() + 6);
+            if (fin > maxFin) {
+                finEl.value = _fmtDateInput(maxFin);
+                if (showAlert) alert('La consulta no puede superar 6 meses. Se ajustó la fecha final automáticamente.');
+            }
+            return true;
+        }
+
+        function _closeCardTips(exceptCard) {
+            document.querySelectorAll('.mon-kpi-card__tooltip.is-open').forEach(function (tip) {
+                if (!exceptCard || !exceptCard.contains(tip)) tip.classList.remove('is-open');
+            });
+            document.querySelectorAll('.mon-kpi-card__tip-btn.is-open').forEach(function (btn) {
+                if (!exceptCard || !exceptCard.contains(btn)) btn.classList.remove('is-open');
+            });
+            document.querySelectorAll('.mon-kpi-card.is-tip-open').forEach(function (card) {
+                if (!exceptCard || card !== exceptCard) card.classList.remove('is-tip-open');
+            });
+        }
+
+        window.monToggleCardTip = function (ev) {
+            if (ev) ev.stopPropagation();
+            var btn = ev && ev.currentTarget ? ev.currentTarget : null;
+            var card = btn ? btn.closest('.mon-kpi-card') : null;
+            if (!card) return;
+            var tip = card.querySelector('.mon-kpi-card__tooltip');
+            if (!tip) return;
+            var open = !tip.classList.contains('is-open');
+            _closeCardTips(card);
+            tip.classList.toggle('is-open', open);
+            btn.classList.toggle('is-open', open);
+            card.classList.toggle('is-tip-open', open);
+        };
+
+        document.addEventListener('click', function (ev) {
+            if (!ev.target.closest('.mon-kpi-card')) _closeCardTips();
+        });
+
+        function _fillSelect(sel, items, valKey, lblKey) {
+            var old = sel.value;
+            while (sel.options.length > 1) sel.remove(1);
+            items.forEach(function (it) {
+                var o = document.createElement('option');
+                o.value = it[valKey]; o.text = it[lblKey];
+                sel.appendChild(o);
+            });
+            if (old) sel.value = old;
+        }
+
+        function _get(url) { return fetch(url).then(function (r) { return r.json(); }); }
+
+        function _gp() {   // get params from global filters
+            var p = [];
+            var comp = _q('monComponente').value, zona = _q('monZona').value;
+            var cop = _q('monCop').value, ruta = _q('monRuta').value;
+            p = p.concat(_dateParams());
+            if (comp) p.push('componente=' + encodeURIComponent(comp));
+            if (zona) p.push('zona=' + encodeURIComponent(zona));
+            if (cop) p.push('id_cop=' + cop);
+            if (ruta) p.push('id_linea=' + ruta);
+            return p;
+        }
+
+        /* ── Fecha hoy en encabezado ──────────────────────────────────────── */
+        _q('monToday').textContent = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+
+        /* ══════════════════════════════════════════════════════════════════
+        CARGA DE FILTROS (cascada)
+        ══════════════════════════════════════════════════════════════════ */
+        function _loadComponentes() {
+            _get(API + '/filtros/componentes').then(function (j) {
+                if (!j.ok) return;
+                var sel = _q('monComponente');
+                while (sel.options.length > 1) sel.remove(1);
+                j.data.forEach(function (c) { var o = document.createElement('option'); o.value = c; o.text = c; sel.appendChild(o); });
+            });
+        }
+
+        window.monLoadZonas = function () {
+            var comp = _q('monComponente').value;
+            _get(API + '/filtros/zonas' + (comp ? '?componente=' + encodeURIComponent(comp) : '')).then(function (j) {
+                if (!j.ok) return;
+                var sel = _q('monZona'); while (sel.options.length > 1) sel.remove(1);
+                j.data.forEach(function (z) { var o = document.createElement('option'); o.value = z; o.text = z; sel.appendChild(o); });
+            });
+            _q('monCop').innerHTML = '<option value="">-- Todos --</option>';
+        };
+
+        window.monLoadCop = function () {
+            var p = []; var comp = _q('monComponente').value, zona = _q('monZona').value;
+            if (comp) p.push('componente=' + encodeURIComponent(comp));
+            if (zona) p.push('zona=' + encodeURIComponent(zona));
+            _get(API + '/filtros/cop' + (p.length ? '?' + p.join('&') : '')).then(function (j) {
+                if (j.ok) _fillSelect(_q('monCop'), j.data, 'id', 'cop');
+            });
+        };
+
+        window.monLoadRutas = function () {
+            var p = _dateParams();
+            _get(API + '/filtros/rutas' + (p.length ? '?' + p.join('&') : '')).then(function (j) {
+                if (j.ok) _fillSelect(_q('monRuta'), j.data, 'id_linea', 'ruta_comercial');
+            });
+        };
+
+        function _loadUsuarios() {
+            var p = _gp();
+            var qs = p.length ? '?' + p.join('&') : '';
+            _get(API + '/usuarios-revisores' + qs).then(function (j) { if (j.ok) _fillSelect(_q('monRevisor'), j.data, 'id', 'nombre_completo'); });
+            _get(API + '/usuarios-asignadores' + qs).then(function (j) { if (j.ok) _fillSelect(_q('monAsignador'), j.data, 'id', 'nombre_completo'); });
+        }
+
+        window.monHandleDateChange = function () {
+            _syncDateRange(true);
+            _q('monRuta').value = '';
+            window.monLoadRutas();
+            _loadUsuarios();
+        };
+
+        window.monLimpiar = function () {
+            ['monComponente', 'monZona', 'monCop', 'monRuta',
+                'monAsignador', 'monEstAsig', 'monRevisor', 'monEstObj'].forEach(function (id) { _q(id).value = ''; });
+            _q('monFechaIni').value = _defaultFechaIni;
+            _q('monFechaFin').value = _defaultFechaFin;
+            _q('monSearch').value = '';
+            _syncDateRange(false);
+            window.monLoadRutas();
+            _loadUsuarios();
+        };
+
+        /* ══════════════════════════════════════════════════════════════════
+        TABS
+        ══════════════════════════════════════════════════════════════════ */
+        window.monSwitchTab = function (e, tabName) {
+            _activeTab = tabName;
+            document.querySelectorAll('.tab-btn-mon').forEach(function (b) { b.classList.remove('active'); });
+            e.currentTarget.classList.add('active');
+            document.querySelectorAll('.mon-tab-content').forEach(function (d) { d.classList.remove('is-active'); });
+            _q('tab-' + tabName).classList.add('is-active');
+            if (tabName === 'resultados') _loadDashboard();
+            if (tabName === 'reportes') _loadReportes();
+            if (tabName === 'procesamientos') _loadProcesamientos();
+        };
+
+        /* ══════════════════════════════════════════════════════════════════
+        CONSULTAR (aplica a ambas tabs)
+        ══════════════════════════════════════════════════════════════════ */
+        window.monCargar = function () {
+            _syncDateRange(true);
+            _loadAsignaciones();
+            if (_activeTab === 'resultados') _loadDashboard();
+            if (_activeTab === 'reportes') _loadReportes();
+            if (_activeTab === 'procesamientos') _loadProcesamientos(true);
+        };
+
+        /* ══════════════════════════════════════════════════════════════════
+        TAB 1 – ASIGNACIONES
+        ══════════════════════════════════════════════════════════════════ */
+
+        function _loadAsignaciones() {
+            var cont = _q('tab-asignaciones');
+            cont.innerHTML = '<section class="mon-panel"><div class="mon-empty"><i class="bi bi-hourglass-split"></i><p>Cargando monitor</p><span>Estamos consultando la información del mes y la grilla por ruta.</span></div></section>';
+
+            var p = _gp();
+            var estAsig = _q('monEstAsig').value, revisor = _q('monRevisor').value;
+            var asig = _q('monAsignador').value, estObj = _q('monEstObj').value;
+            if (estAsig !== '') p.push('estado_asignacion=' + estAsig);
+            if (revisor) p.push('usuario_revisor=' + revisor);
+            if (asig) p.push('usuario_asigna=' + asig);
+            if (estObj !== '') p.push('estado_objecion=' + estObj);
+            var qs = p.length ? '?' + p.join('&') : '';
+
+            _get(API + '/asignaciones' + qs).then(function (j) {
+                if (!j.ok) { cont.innerHTML = '<section class="mon-panel"><div class="mon-empty"><i class="bi bi-exclamation-triangle"></i><p>Error al cargar datos</p><span>Intenta de nuevo en unos segundos.</span></div></section>'; return; }
+                _tableData = j.data;
+                _renderStatsCards(j.data);
+                _renderAsignTable(cont, j.data);
+                if (_activeTab === 'resultados' && _q('tab-resultados').querySelector('#chartRegistros')) {
+                    _dashFetchAll();
+                }
+            }).catch(function () {
+                cont.innerHTML = '<section class="mon-panel"><div class="mon-empty"><i class="bi bi-wifi-off"></i><p>Error de conexion</p><span>No fue posible consultar el monitor.</span></div></section>';
+            });
+        }
+
+        /* KPI Cards */
+        var MESES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+        function _renderStatsCards(rows) {
+            var tot = _sumRows(rows, 'total_registros');
+            var totalKm = _sumRows(rows, 'total_km');
+            var asig = _sumRows(rows, 'asignados');
+            var obj = _sumRows(rows, 'objetados');
+            var kmAsig = _sumRows(rows, 'km_revision_asignados');
+            var kmObj = _sumRows(rows, 'km_objetados');
+            var kmPorAsignar = _sumRows(rows, 'km_por_asignar');
+            var kmVencidosSinAsig = _sumRows(rows, 'km_vencidos_sin_asignar');
+            var kmPorObjetar = _sumRows(rows, 'km_por_objetar');
+            var kmVencidosAsig = _sumRows(rows, 'km_vencidos_asignados');
+            var porAsignar = _sumRows(rows, 'por_asignar');
+            var vjVencidosSinAsig = _sumRows(rows, 'vencidos_sin_asignar');
+            var porObjetar = _sumRows(rows, 'por_objetar');
+            var vjVencidosAsig = _sumRows(rows, 'vencidos_asignados');
+            var pctAsig = tot > 0 ? (asig / tot * 100) : 0;
+            var pctAsigKm = totalKm > 0 ? (kmAsig / totalKm * 100) : 0;
+            var pctCumplKm = kmAsig > 0 ? (kmObj / kmAsig * 100) : 0;
+            var pctCumplVj = asig > 0 ? (obj / asig * 100) : 0;
+            var rutasAfectadas = {};
+            var rutasAsignadas = {};
+            rows.forEach(function (r) {
+                var ruta = r.ruta_comercial || 'Sin Ruta';
+                rutasAfectadas[ruta] = true;
+                if (_num(r.asignados) > 0) rutasAsignadas[ruta] = true;
+            });
+            var componentes = {};
+            rows.forEach(function (r) {
+                var comp = String(r.componente || '').trim() || 'Sin Componente';
+                componentes[comp] = (componentes[comp] || 0) + _num(r.total_km);
+            });
+            var componenteDetalle = Object.keys(componentes).map(function (name) {
+                return { name: name, km: componentes[name] };
+            }).sort(function (a, b) { return b.km - a.km; });
+            var compRows = componenteDetalle.map(function (item) {
+                var share = totalKm > 0 ? (item.km / totalKm * 100) : 0;
+                return [item.name, _fmtKm(item.km) + ' · ' + _fmtPct(share)];
+            });
+            var cards = [
+                {
+                    icon: 'bi-diagram-3', label: 'Km Componente', value: _fmtKm(totalKm),
+                    color: '#0d6efd',
+                    compactRows: compRows,
+                    splitSide: false,
+                    sideLabel: 'Participación', sideValue: _fmtPct(100)
+                },
+                {
+                    icon: 'bi-speedometer2', label: 'Km Totales', value: _fmtKm(totalKm),
+                    detail: 'Base SNE', color: '#0284c7',
+                    sub: 'Km Asignados: <strong>' + _fmtKm(kmAsig) + '</strong>',
+                    sideLabel: '% Asig Km', sideValue: _fmtPct(pctAsigKm), splitSide: true
+                },
+                {
+                    icon: 'bi-sign-turn-right', label: 'Vj Totales', value: _fmtInt(tot),
+                    detail: 'Registros SNE', color: '#16a34a',
+                    sub: 'Vj Asignados: <strong>' + _fmtInt(asig) + '</strong>',
+                    sideLabel: '% Asig Vj', sideValue: _fmtPct(pctAsig), splitSide: true
+                },
+                {
+                    icon: 'bi-signpost-split', label: 'Km Objetados', value: _fmtKm(kmObj),
+                    detail: 'Sobre km asignados', color: '#2563eb',
+                    sideLabel: '% Cump Km', sideValue: _fmtPct(pctCumplKm), splitSide: true
+                },
+                {
+                    icon: 'bi-patch-check', label: 'Viajes Objetados', value: _fmtInt(obj),
+                    detail: 'Sobre viajes asignados', color: '#7c3aed',
+                    sideLabel: '% Cump Vj', sideValue: _fmtPct(pctCumplVj), splitSide: true
+                },
+                {
+                    icon: 'bi-map', label: 'Rutas Afectadas', value: _fmtInt(Object.keys(rutasAfectadas).length),
+                    detail: 'Rutas del filtro', color: '#f97316',
+                    sub: 'Rutas Asignadas: <strong>' + _fmtInt(Object.keys(rutasAsignadas).length) + '</strong>'
+                },
+                {
+                    icon: 'bi-speedometer', label: 'Estados Km', value: _fmtKm(totalKm),
+                    detail: 'Asignación y Objeción', color: '#0891b2',
+                    tipTitle: 'Detalle de km por estado',
+                    tipRows: [
+                        ['Km Por Asignar', _fmtKm(kmPorAsignar)],
+                        ['Km Venc. s/a', _fmtKm(kmVencidosSinAsig)],
+                        ['Km Asignados', _fmtKm(kmAsig)],
+                        ['Km Por Objetar', _fmtKm(kmPorObjetar)],
+                        ['Km Objetados', _fmtKm(kmObj)],
+                        ['Km Venc. Obj', _fmtKm(kmVencidosAsig)]
+                    ],
+                    mini: [
+                        ['Km Por Asignar', _fmtKm(kmPorAsignar)],
+                        ['Km Venc. s/a', _fmtKm(kmVencidosSinAsig)],
+                        ['Km Asignados', _fmtKm(kmAsig)],
+                        ['Km Por Objetar', _fmtKm(kmPorObjetar)],
+                        ['Km Objetados', _fmtKm(kmObj)],
+                        ['Km Venc. Obj', _fmtKm(kmVencidosAsig)]
+                    ]
+                },
+                {
+                    icon: 'bi-collection', label: 'Estados Viajes', value: _fmtInt(tot),
+                    detail: 'Asignación y Objeción', color: '#dc2626',
+                    tipTitle: 'Detalle de viajes por estado',
+                    tipRows: [
+                        ['Vj Por Asignar', _fmtInt(porAsignar)],
+                        ['Vj Venc. s/a', _fmtInt(vjVencidosSinAsig)],
+                        ['Vj Asignados', _fmtInt(asig)],
+                        ['Vj Por Objetar', _fmtInt(porObjetar)],
+                        ['Vj Objetados', _fmtInt(obj)],
+                        ['Vj Venc. Obj', _fmtInt(vjVencidosAsig)]
+                    ],
+                    mini: [
+                        ['Vj Por Asignar', _fmtInt(porAsignar)],
+                        ['Vj Venc. s/a', _fmtInt(vjVencidosSinAsig)],
+                        ['Vj Asignados', _fmtInt(asig)],
+                        ['Vj Por Objetar', _fmtInt(porObjetar)],
+                        ['Vj Objetados', _fmtInt(obj)],
+                        ['Vj Venc. Obj', _fmtInt(vjVencidosAsig)]
+                    ]
+                }
+            ];
+            var cont = _q('monStatsContainer');
+            cont.innerHTML = '';
+            cards.forEach(function (s) {
+                var d = document.createElement('div');
+                d.className = 'mon-kpi-card';
+                d.style.setProperty('--mon-kpi-color', s.color);
+                var cardSideLabel = s.compactRows ? '' : s.sideLabel;
+                var cardSideValue = s.compactRows ? '' : s.sideValue;
+                var head = '<div class="mon-kpi-card__head"><div class="mon-kpi-card__label"><i class="bi ' + s.icon + '"></i> ' + _esc(s.label) + '</div>';
+                if (s.tipRows && s.tipRows.length) {
+                    head += '<button type="button" class="mon-kpi-card__tip-btn" title="Ver detalle" onclick="monToggleCardTip(event)"><i class="bi bi-list-ul"></i><span>Detalle</span></button>';
+                }
+                head += '</div>';
+                var main = '';
+                if (s.splitSide && cardSideLabel && cardSideValue) {
+                    main = '<div class="mon-kpi-card__main">'
+                        + '<div class="mon-kpi-card__main-copy"><div class="mon-kpi-card__value">' + _esc(s.value) + '</div><div class="mon-kpi-card__detail">' + _esc(s.detail || '') + '</div></div>'
+                        + '<div class="mon-kpi-card__side mon-kpi-card__side--compact"><span>' + _esc(cardSideLabel) + '</span><strong>' + _esc(cardSideValue) + '</strong></div>'
+                        + '</div>';
+                } else {
+                    main = '<div class="mon-kpi-card__value">' + _esc(s.value) + '</div><div class="mon-kpi-card__detail">' + _esc(s.detail || '') + '</div>';
+                }
+                var extra = '';
+                if (s.sub) {
+                    extra += '<div class="mon-kpi-card__stack"><div class="mon-kpi-card__sub">' + s.sub + '</div></div>';
+                }
+                if (s.compactRows && s.compactRows.length) {
+                    extra += '<div class="mon-kpi-card__comp-list">' + s.compactRows.map(function (item) {
+                        var km = item[1] || '';
+                        var pct = item[2] || '';
+                        if (!pct && typeof km === 'string') {
+                            var parts = km.split(/·|\u00C2·|\|/).map(function (part) { return part.trim(); }).filter(Boolean);
+                            if (parts.length > 1) {
+                                km = parts[0];
+                                pct = parts.slice(1).join(' ');
+                            }
+                        }
+                        return '<div class="mon-kpi-card__comp-row"><span>' + _esc(item[0]) + '</span><strong>' + _esc(km) + '</strong><em>' + _esc(pct) + '</em></div>';
+                    }).join('') + '</div>';
+                }
+                if (!s.splitSide && cardSideLabel && cardSideValue) {
+                    extra += '<div class="mon-kpi-card__side"><span>' + _esc(cardSideLabel) + '</span><strong>' + _esc(cardSideValue) + '</strong></div>';
+                }
+                if (s.tipRows && s.tipRows.length) {
+                    extra += '<div class="mon-kpi-card__tooltip"><div class="mon-kpi-card__tooltip-title">' + _esc(s.tipTitle || 'Detalle') + '</div><div class="mon-kpi-card__tooltip-list">' + s.tipRows.map(function (item) {
+                        return '<div class="mon-kpi-card__tooltip-row"><span>' + _esc(item[0]) + '</span><strong>' + _esc(item[1]) + '</strong></div>';
+                    }).join('') + '</div></div>';
+                } else if (s.mini && s.mini.length) {
+                    extra += '<div class="mon-kpi-card__mini-list">' + s.mini.map(function (item) {
+                        return '<div class="mon-kpi-card__mini-row"><span>' + _esc(item[0]) + '</span><strong>' + _esc(item[1]) + '</strong></div>';
+                    }).join('') + '</div>';
+                }
+                d.innerHTML =
+                    head
+                    + main
+                    + extra;
+                cont.appendChild(d);
+            });
+        }
+
+        /* Tabla de asignaciones */
+        function _nc(v, cls) {
+            var n = _num(v);
+            var c = 'r' + (n === 0 ? ' z' : '') + (cls ? ' ' + cls : '');
+            return '<td class="' + c + '">' + _fmtInt(n) + '</td>';
+        }
+        function _kmc(v, cls) {
+            var n = _num(v);
+            var c = 'r' + (n === 0 ? ' z' : '') + (cls ? ' ' + cls : '');
+            return '<td class="' + c + '">' + _fmtKm(n) + '</td>';
+        }
+        function _pctc(v) {
+            var n = _num(v);
+            var cls = n >= 80 ? 't-ok' : n >= 50 ? 't-warn' : 't-bad';
+            return '<td class="' + cls + ' r">' + _fmtPct(n) + '</td>';
+        }
+        function _pctViajes(r) {
+            var asignados = _num(r.asignados);
+            return asignados > 0 ? (_num(r.objetados) / asignados * 100) : 0;
+        }
+        function _exportTableMatrix(rows) {
+            return [['Año', 'Mes', 'Ruta Comercial', 'Total Km', 'Total Viajes', '%Asig Km', '%Asig Viajes', 'Vj Por Asignar', 'Viajes Asignados', 'Km por Asignar', 'Km Revisión Asignación', 'Viajes Objetados', 'Km Objetados', '% Cump Km', '% Cump Vj']].concat(
+                rows.map(function (r) {
+                    return [
+                        r.anio || '',
+                        MESES[r.mes] || r.mes || '',
+                        r.ruta_comercial || '—',
+                        _num(r.total_km),
+                        _num(r.total_registros),
+                        _num(r.pct_asig_km),
+                        _num(r.pct_asignacion),
+                        _num(r.por_asignar),
+                        _num(r.asignados),
+                        _num(r.km_por_asignar),
+                        _num(r.km_revision_asignados),
+                        _num(r.objetados),
+                        _num(r.km_objetados),
+                        _num(r.pct_cumplimiento),
+                        _pctViajes(r),
+                    ];
+                })
+            );
+        }
+        function _downloadCsvFallback(rows, fileName) {
+            var csv = rows.map(function (row) {
+                return row.map(function (cell) {
+                    var text = String(cell == null ? '' : cell).replace(/"/g, '""');
+                    return '"' + text + '"';
+                }).join(';');
+            }).join('\r\n');
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName.replace(/\.xlsx$/i, '.csv');
+            link.click();
+            setTimeout(function () { URL.revokeObjectURL(link.href); }, 250);
+        }
+        window.monExportTableExcel = function () {
+            var rows = _filteredTableData.slice();
+            if (!_q('monSearch').value && !rows.length) rows = _tableData.slice();
+            if (!rows.length) return;
+            var matrix = _exportTableMatrix(rows);
+            var fileName = 'monitor_sne_' + (_q('monFechaIni').value || 'inicio') + '_' + (_q('monFechaFin').value || 'fin') + '.xlsx';
+            if (window.XLSX && window.XLSX.utils) {
+                var wb = XLSX.utils.book_new();
+                var ws = XLSX.utils.aoa_to_sheet(matrix);
+                ws['!cols'] = [
+                    { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+                    { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 12 }, { wch: 14 },
+                    { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }
+                ];
+                XLSX.utils.book_append_sheet(wb, ws, 'Monitor SNE');
+                XLSX.writeFile(wb, fileName);
+                return;
+            }
+            _downloadCsvFallback(matrix, fileName);
+        }
+
+        function _renderAsignTable(cont, rows) {
+            var search = (_q('monSearch').value || '').toLowerCase();
+            var filtered = search ? rows.filter(function (r) { return JSON.stringify(r).toLowerCase().indexOf(search) >= 0; }) : rows;
+            _filteredTableData = filtered.slice();
+
+            var html = '<section class="mon-panel mon-panel--compact">'
+                + '<div class="mon-panel__header">'
+                + '<div class="mon-panel__title">'
+                + '<i class="bi bi-table"></i>'
+                + '<span>Detalle de Viajes para SNE</span>'
+                + '</div>'
+                + '<div class="mon-panel__actions">'
+                + '<span class="mon-panel__meta">' + filtered.length + ' filas</span>'
+                + '<button onclick="monExportTableExcel()" class="mon-btn" style="min-height:26px;padding:0.22rem 0.58rem;font-size:0.68rem;background:rgba(255,255,255,0.18);color:white;border-color:rgba(255,255,255,0.28);">'
+                + '<i class="bi bi-file-earmark-excel"></i> Excel</button>'
+                + '</div>'
+                + '</div>'
+                + '<div class="mon-tbl-scroll">'
+                + '<table class="mon-table">'
+                + '<thead>'
+                + '<tr>'
+                + '<th rowspan="2">Año</th><th rowspan="2">Mes</th><th rowspan="2" class="mon-route-col">Ruta Comercial</th><th rowspan="2">Total Km</th><th rowspan="2">Total Viajes</th><th rowspan="2">%Asig Km</th><th rowspan="2">%Asig Viajes</th>'
+                + '<th colspan="4" class="mon-group-head">Asignación</th>'
+                + '<th colspan="4" class="mon-group-head">Objeción</th>'
+                + '</tr>'
+                + '<tr class="th-sub">'
+                + '<th>Vj Por Asignar</th><th>Viajes Asignados</th><th>Km por Asignar</th><th>Km Revisión</th>'
+                + '<th>Viajes Objetados</th><th>Km Objetados</th><th>% Cump Km</th><th>% Cump Vj</th>'
+                + '</tr>'
+                + '</thead><tbody>';
+
+            if (!filtered.length) {
+                html += '<tr><td colspan="15" style="text-align:center;padding:1.5rem;color:#94a3b8;">Sin resultados</td></tr>';
+            } else {
+                filtered.forEach(function (r) {
+                    var pctCumpVj = _pctViajes(r);
+                    html += '<tr>'
+                        + '<td class="c">' + (r.anio || '') + '</td>'
+                        + '<td class="c">' + (MESES[r.mes] || r.mes || '') + '</td>'
+                        + '<td class="mon-route-col">' + (r.ruta_comercial || '—') + '</td>'
+                        + _kmc(r.total_km)
+                        + _nc(r.total_registros)
+                        + _pctc(r.pct_asig_km)
+                        + _pctc(r.pct_asignacion)
+                        + _nc(r.por_asignar, 'warn')
+                        + _nc(r.asignados, 'ok')
+                        + _kmc(r.km_por_asignar, 'warn')
+                        + _kmc(r.km_revision_asignados)
+                        + _nc(r.objetados, 'ok')
+                        + _kmc(r.km_objetados)
+                        + _pctc(r.pct_cumplimiento)
+                        + _pctc(pctCumpVj)
+                        + '</tr>';
+                });
+            }
+            html += '</tbody></table></div></section>';
+            cont.innerHTML = html;
+            var bodyRows = cont.querySelectorAll('.mon-table tbody tr');
+            bodyRows.forEach(function (row) {
+                row.addEventListener('click', function () {
+                    bodyRows.forEach(function (r) { r.classList.remove('is-selected'); });
+                    row.classList.add('is-selected');
+                });
+            });
+        }
+
+        /* Búsqueda en tabla */
+        window.monSearchTable = function () {
+            if (_tableData.length) _renderAsignTable(_q('tab-asignaciones'), _tableData);
+        };
+
+        /* ══════════════════════════════════════════════════════════════════
+        TAB 2 – RESULTADOS (ECharts)
+        ══════════════════════════════════════════════════════════════════ */
+        var _DASH = {
+            charts: { registros: null, km: null, motivos: null, rutas: null, boxplot: null, objetores: null },
+            modoMotivos: 'motivo',
+            modosRuta: { boxplot: 'sne', hist: 'sne', scatter: 'sne' },
+            rutasRuta: { boxplot: [], hist: [], scatter: [] },
+            noneSelected: { boxplot: false, hist: false, scatter: false },
+            data: { registros: [], km: [], motivos: {}, rutas: [], boxplot: { sne: [], asignado: [], objetado: [] }, objetores: [] },
+        };
+
+        var _POLAR_COLORS = [
+            '#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6',
+            '#f59e0b', '#ef4444', '#10b981', '#6366f1', '#fb923c', '#34d399',
+        ];
+
+        function _dashRouteFilterHtml(chartKey) {
+            return '<div class="mon-route-filter">'
+                + '<div class="mon-route-filter__bar">'
+                + '<button type="button" class="mon-pill mon-pill--soft" onclick="_dashToggleRouteMenu(\'' + chartKey + '\', event)">Rutas</button>'
+                + '<span id="dashRouteSummary_' + chartKey + '" class="mon-route-filter__summary">Todas</span>'
+                + '<button type="button" class="mon-pill mon-pill--soft" onclick="_dashSelectAllRoutes(\'' + chartKey + '\')">Todas</button>'
+                + '<button type="button" class="mon-pill mon-pill--soft" onclick="_dashClearRouteSelection(\'' + chartKey + '\')">Limpiar</button>'
+                + '</div>'
+                + '<div id="dashRouteMenu_' + chartKey + '" class="mon-route-filter__menu">'
+                + '<input id="dashRouteSearch_' + chartKey + '" class="mon-route-filter__search" type="text" placeholder="Buscar ruta..." oninput="_dashRenderRouteMenu(\'' + chartKey + '\')">'
+                + '<div style="display:flex;gap:0.32rem;margin-bottom:0.38rem;padding-bottom:0.35rem;border-bottom:1px solid #e2e8f0;">'
+                + '<button type="button" onclick="_dashSelectAllRoutes(\'' + chartKey + '\')" style="flex:1;min-height:24px;padding:0 0.45rem;border-radius:7px;border:1px solid rgba(37,99,235,0.26);background:rgba(37,99,235,0.07);color:#1e40af;font-size:0.63rem;font-weight:800;cursor:pointer;">✓ Sel. todas</button>'
+                + '<button type="button" onclick="_dashDeselectAllRoutes(\'' + chartKey + '\')" style="flex:1;min-height:24px;padding:0 0.45rem;border-radius:7px;border:1px solid rgba(148,163,184,0.28);background:rgba(148,163,184,0.07);color:#475569;font-size:0.63rem;font-weight:800;cursor:pointer;">✗ Des. todas</button>'
+                + '</div>'
+                + '<div id="dashRouteList_' + chartKey + '" class="mon-route-filter__list"></div>'
+                + '</div></div>';
+        }
+
+        /* ── HTML del dashboard ─────────────────────────────────────────── */
+        function _dashHtml() {
+            return ''
+                // Overlay fullscreen
+                + '<style>'
+                + '.mon-card-fs{position:fixed!important;inset:0!important;z-index:9990!important;border-radius:0!important;overflow-y:auto!important;box-shadow:none!important;display:flex!important;flex-direction:column!important;}'
+                + '.mon-card-fs .mon-card-body{flex:1!important;display:flex!important;flex-direction:column!important;}'
+                + '.mon-card-fs .mon-canvas-cont{height:calc(100vh - 130px)!important;flex:1!important;}'
+                + '</style>'
+                // Fila 1: Registros + KM
+                + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
+                + _cardHtml('chartRegistros', 'Comportamiento Viajes Revisados', 'bi-people-fill', '#3b82f6', '')
+                + _cardHtml('chartKm', 'Comportamiento Kilómetros Revisados', 'bi-speedometer2', '#22c55e', '')
+                + '</div>'
+                // Fila 2: Motivos + Rutas
+                + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
+                + _cardHtml('chartMotivos', 'Distribución Km por Motivo / Responsable', 'bi-pie-chart-fill', '#a855f7',
+                    '<div class="mon-pill-group">'
+                    + '<button onclick="_dashSetModoMotivos(\'motivo\')" id="btnDashMotivo" class="mon-pill is-active">Por Motivo</button>'
+                    + '<button onclick="_dashSetModoMotivos(\'responsable\')" id="btnDashResp" class="mon-pill">Por Responsable</button>'
+                    + '</div>')
+                + _cardHtml('chartRutas', 'Objeción por Ruta (Km)', 'bi-map-fill', '#f97316', '')
+                + '</div>'
+                // Fila 3: Boxplot + Histograma
+                + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
+                + _cardHtml('chartBoxplotRutas', 'Boxplot de Kilometros SNE por Ruta', 'bi-boxes', '#0f766e',
+                    '<div class="mon-pill-group">'
+                    + '<button onclick="_dashSetModoBoxplot(\'boxplot\',\'sne\')" id="btnDashBoxplotSne" class="mon-pill is-active">Kilometros SNE</button>'
+                    + '<button onclick="_dashSetModoBoxplot(\'boxplot\',\'asignado\')" id="btnDashBoxplotAsig" class="mon-pill">Km Asignados</button>'
+                    + '<button onclick="_dashSetModoBoxplot(\'boxplot\',\'objetado\')" id="btnDashBoxplotObj" class="mon-pill">Km Objetados</button>'
+                    + '</div>'
+                    + _dashRouteFilterHtml('boxplot'))
+                + _cardHtml('chartHistRutas', 'Histograma de Kilometros por Viajes', 'bi-bar-chart-steps', '#0d9488',
+                    '<div class="mon-pill-group">'
+                    + '<button onclick="_dashSetModoBoxplot(\'hist\',\'sne\')" id="btnDashHistSne" class="mon-pill is-active">Kilometros SNE</button>'
+                    + '<button onclick="_dashSetModoBoxplot(\'hist\',\'asignado\')" id="btnDashHistAsig" class="mon-pill">Km Asignados</button>'
+                    + '<button onclick="_dashSetModoBoxplot(\'hist\',\'objetado\')" id="btnDashHistObj" class="mon-pill">Km Objetados</button>'
+                    + '</div>'
+                    + _dashRouteFilterHtml('hist'))
+                + '</div>'
+                // Fila 4: Dispersión viajes vs kilómetros + Cumplimiento por Objetor
+                + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
+                + _cardHtml('chartScatterRutas', 'Concentracion de Viajes vs Kilometros por Ruta', 'bi-bullseye', '#2563eb',
+                    '<div class="mon-pill-group">'
+                    + '<button onclick="_dashSetModoBoxplot(\'scatter\',\'sne\')" id="btnDashScatterSne" class="mon-pill is-active">Kilometros SNE</button>'
+                    + '<button onclick="_dashSetModoBoxplot(\'scatter\',\'asignado\')" id="btnDashScatterAsig" class="mon-pill">Km Asignados</button>'
+                    + '<button onclick="_dashSetModoBoxplot(\'scatter\',\'objetado\')" id="btnDashScatterObj" class="mon-pill">Km Objetados</button>'
+                    + '</div>'
+                    + _dashRouteFilterHtml('scatter'))
+                + _cardHtml('chartObjetores', 'Cumplimiento de Km Objetado por Colaborador', 'bi-person-check-fill', '#7c3aed', '')
+                + '</div>';
+        }
+
+        function _cardHtml(divId, titulo, icon, color, extraTop) {
+            return '<div id="dashCard_' + divId + '" class="mon-chart-card" style="--mon-card-color:' + color + ';">'
+                + '<div class="mon-chart-card__header">'
+                + '<i class="bi ' + icon + '" style="color:white;font-size:0.9rem;"></i>'
+                + '<span class="mon-chart-card__title">' + titulo + '</span>'
+                + '<button id="dashFsBtn_' + divId + '" onclick="_dashToggleFs(\'' + divId + '\')" title="Maximizar" '
+                + 'class="mon-fs-btn" '
+                + 'onmouseover="this.style.background=\'rgba(255,255,255,0.32)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.18)\'">'
+                + '<i class="bi bi-arrows-fullscreen"></i></button>'
+                + '</div>'
+                + '<div class="mon-chart-card__body mon-card-body">'
+                + extraTop
+                + '<div id="dashCont_' + divId + '" class="mon-chart-stage mon-canvas-cont" style="height:260px;">'
+                + '<div id="' + divId + '" style="width:100%;height:100%;"></div>'
+                + '</div></div></div>';
+        }
+
+        /* ── Inicializar dashboard ─────────────────────────────────────── */
+        function _loadDashboard() {
+            var cont = _q('tab-resultados');
+            if (!cont.querySelector('#chartRegistros')) {
+                cont.innerHTML = _dashHtml();
+            }
+            _dashFetchAll();
+        }
+
+        /* ── Params del dashboard ─────────────────────────────────────── */
+        function _dashQs() {
+            var p = _gp().slice();
+            var uid = (_q('monRevisor') || {}).value;
+            var asig = (_q('monAsignador') || {}).value;
+            var estAsig = (_q('monEstAsig') || {}).value;
+            var estObj = (_q('monEstObj') || {}).value;
+            if (uid) p.push('usuario_revisor=' + uid);
+            if (asig) p.push('usuario_asigna=' + asig);
+            if (estAsig !== '') p.push('estado_asignacion=' + estAsig);
+            if (estObj !== '') p.push('estado_objecion=' + estObj);
+            return p.length ? '?' + p.join('&') : '';
+        }
+
+        window._dashFetchAll = function () {
+            var qs = _dashQs();
+            _fetchRegistros(qs);
+            _fetchKm(qs);
+            _fetchMotivos(qs);
+            _fetchRutas(qs);
+            _fetchRouteAnalytics('boxplot', qs);
+            _fetchRouteAnalytics('hist', qs);
+            _fetchRouteAnalytics('scatter', qs);
+            _fetchObjetores(qs);
+        };
+
+        /* ── ECharts helpers ──────────────────────────────────────────── */
+        function _ec(id) {
+            var dom = document.getElementById(id);
+            if (!dom) return null;
+            var ex = echarts.getInstanceByDom(dom);
+            if (ex) ex.dispose();
+            var inst = echarts.init(dom);
+            _charts[id] = inst;
+            return inst;
+        }
+
+        function _setNoDataChart(id, text) {
+            var inst = _ec(id); if (!inst) return;
+            inst.setOption({
+                title: {
+                    text: text || 'Sin datos',
+                    left: 'center',
+                    top: 'middle',
+                    textStyle: { color: '#94a3b8', fontSize: 13, fontWeight: 700 }
+                },
+                xAxis: { show: false },
+                yAxis: { show: false },
+                series: []
+            }, true);
+        }
+
+        function _lineOpt() {
+            return {
+                backgroundColor: '#fff',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { top: 4, right: 8, textStyle: { fontSize: 11 } },
+                grid: { top: 36, bottom: 50, left: 50, right: 55, containLabel: false },
+                xAxis: { type: 'category', axisLabel: { fontSize: 10, rotate: 30 }, axisTick: { alignWithLabel: true } },
+                yAxis: [
+                    { type: 'value', axisLabel: { fontSize: 10 } },
+                    { type: 'value', name: '%', min: 0, max: 100, axisLabel: { formatter: '{value}%', fontSize: 10 }, splitLine: { show: false } }
+                ]
+            };
+        }
+
+        function _areaSerie(name, data, color) {
+            return {
+                name: name, type: 'line', smooth: true, yAxisIndex: 0, data: data,
+                areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: color + '99' }, { offset: 1, color: color + '0d' }]) },
+                lineStyle: { color: color, width: 2 }, itemStyle: { color: color }, symbol: 'circle', symbolSize: 4
+            };
+        }
+
+        function _pctSerie(data) {
+            return {
+                name: '% Cumpl.', type: 'line', smooth: true, yAxisIndex: 1, data: data,
+                lineStyle: { color: '#6366f1', width: 1.5, type: 'dashed' }, itemStyle: { color: '#6366f1' },
+                symbol: 'none', tooltip: { valueFormatter: function (v) { return v != null ? v.toFixed(1) + '%' : '—'; } }
+            };
+        }
+
+        /* ── Chart 1: Registros ──────────────────────────────────────── */
+        function _fetchRegistros(qs) {
+            _get(API + '/dashboard/registros' + qs).then(function (j) {
+                if (!j.ok || !j.data.length) { _setNoDataChart('chartRegistros', 'Sin datos con los filtros'); return; }
+                var fechas = [], asig = [], rev = [], pct = [];
+                j.data.forEach(function (d) { fechas.push(d.fecha); asig.push(d.ids_asignados); rev.push(d.ids_revisados); pct.push(d.pct_cump); });
+                _DASH.data.registros = j.data;
+                var inst = _ec('chartRegistros'); if (!inst) return;
+                var opt = _lineOpt();
+                opt.xAxis.data = fechas;
+                opt.series = [_areaSerie('Asignados', asig, '#3b82f6'), _areaSerie('Revisados', rev, '#10b981'), _pctSerie(pct)];
+                inst.setOption(opt);
+            });
+        }
+
+        /* ── Chart 2: Kilómetros ─────────────────────────────────────── */
+        function _fetchKm(qs) {
+            _get(API + '/dashboard/kilometros' + qs).then(function (j) {
+                if (!j.ok || !j.data.length) { _setNoDataChart('chartKm', 'Sin datos con los filtros'); return; }
+                var fechas = [], kr = [], ko = [], pct = [];
+                j.data.forEach(function (d) { fechas.push(d.fecha); kr.push(d.km_revision); ko.push(d.km_objetado); pct.push(d.pct_cump); });
+                _DASH.data.km = j.data;
+                var inst = _ec('chartKm'); if (!inst) return;
+                var opt = _lineOpt();
+                opt.xAxis.data = fechas;
+                opt.series = [_areaSerie('Km Revisión', kr, '#f59e0b'), _areaSerie('Km Objetado', ko, '#ef4444'), _pctSerie(pct)];
+                inst.setOption(opt);
+            });
+        }
+
+        /* ── Chart 3: Motivos / Responsables (polar area) ────────────── */
+        function _fetchMotivos(qs) {
+            _get(API + '/dashboard/motivos' + qs).then(function (j) {
+                if (!j.ok) return;
+                _DASH.data.motivos = j.data;
+                _renderMotivos(_DASH.modoMotivos);
+            });
+        }
+
+        window._dashSetModoMotivos = function (modo) {
+            _DASH.modoMotivos = modo;
+            var bm = _q('btnDashMotivo'), br = _q('btnDashResp');
+            if (bm && br) {
+                bm.classList.toggle('is-active', modo === 'motivo');
+                br.classList.toggle('is-active', modo !== 'motivo');
+            }
+            _renderMotivos(modo);
+        };
+
+        window._dashSetModoBoxplot = function (chartKey, modo) {
+            _DASH.modosRuta[chartKey] = modo;
+            ['sne', 'asignado', 'objetado'].forEach(function (name) {
+                var btn = _q('btnDash' + chartKey.charAt(0).toUpperCase() + chartKey.slice(1) + (name === 'sne' ? 'Sne' : name === 'asignado' ? 'Asig' : 'Obj'));
+                if (btn) btn.classList.toggle('is-active', modo === name);
+            });
+            _DASH.rutasRuta[chartKey] = [];
+            _fetchRouteAnalytics(chartKey, _dashQs());
+        };
+
+        function _dashGetRows(chartKey) {
+            var modo = _DASH.modosRuta[chartKey] || 'sne';
+            return _DASH.data.boxplot[modo] || [];
+        }
+
+        function _dashGetAvailableRoutes(chartKey) {
+            var set = {};
+            _dashGetRows(chartKey).forEach(function (r) { set[r.ruta_comercial || 'Sin Ruta'] = true; });
+            return Object.keys(set).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+        }
+
+        function _dashGetFilteredRows(chartKey) {
+            if (_DASH.noneSelected[chartKey]) return [];
+            var rows = _dashGetRows(chartKey);
+            var routes = _dashGetAvailableRoutes(chartKey);
+            var selected = (_DASH.rutasRuta[chartKey] || []).filter(function (r) { return routes.indexOf(r) >= 0; });
+            _DASH.rutasRuta[chartKey] = selected;
+            if (!selected.length || selected.length === routes.length) return rows;
+            return rows.filter(function (r) { return selected.indexOf(r.ruta_comercial || 'Sin Ruta') >= 0; });
+        }
+
+        function _dashUpdateRouteSummary(chartKey) {
+            var el = _q('dashRouteSummary_' + chartKey); if (!el) return;
+            if (_DASH.noneSelected[chartKey]) { el.textContent = 'Ninguna'; return; }
+            var routes = _dashGetAvailableRoutes(chartKey);
+            var selected = _DASH.rutasRuta[chartKey] || [];
+            if (!selected.length || selected.length === routes.length) { el.textContent = 'Todas'; return; }
+            if (selected.length === 1) { el.textContent = selected[0]; return; }
+            el.textContent = selected.length + ' rutas';
+        }
+
+        window._dashToggleRouteMenu = function (chartKey, ev) {
+            if (ev) ev.stopPropagation();
+            document.querySelectorAll('.mon-route-filter__menu.is-open').forEach(function (menu) {
+                if (menu.id !== 'dashRouteMenu_' + chartKey) menu.classList.remove('is-open');
+            });
+            var menu = _q('dashRouteMenu_' + chartKey);
+            if (!menu) return;
+            menu.classList.toggle('is-open');
+            if (menu.classList.contains('is-open')) _dashRenderRouteMenu(chartKey);
+        };
+
+        window._dashRenderRouteMenu = function (chartKey) {
+            var list = _q('dashRouteList_' + chartKey); if (!list) return;
+            var search = ((_q('dashRouteSearch_' + chartKey) || {}).value || '').toLowerCase();
+            var routes = _dashGetAvailableRoutes(chartKey);
+            var selected = _DASH.rutasRuta[chartKey] || [];
+            var isNone = _DASH.noneSelected[chartKey];
+            list.innerHTML = routes.filter(function (ruta) {
+                return !search || ruta.toLowerCase().indexOf(search) >= 0;
+            }).map(function (ruta) {
+                var checked = !isNone && (!selected.length || selected.indexOf(ruta) >= 0);
+                return '<label class="mon-route-filter__item"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="_dashToggleRouteOption(\'' + chartKey + '\', decodeURIComponent(\'' + encodeURIComponent(ruta) + '\'), this.checked)"><span>' + _esc(ruta) + '</span></label>';
+            }).join('') || '<div class="mon-empty" style="min-height:84px;padding:0.8rem;">Sin rutas</div>';
+            _dashUpdateRouteSummary(chartKey);
+        };
+
+        window._dashToggleRouteOption = function (chartKey, ruta, checked) {
+            var wasNone = _DASH.noneSelected[chartKey];
+            _DASH.noneSelected[chartKey] = false;
+            var routes = _dashGetAvailableRoutes(chartKey);
+            var selected = (_DASH.rutasRuta[chartKey] || []).slice();
+            // Solo expandir a "todas" cuando venía del estado normal (no de noneSelected)
+            if (!wasNone && !selected.length) selected = routes.slice();
+            if (checked && selected.indexOf(ruta) < 0) selected.push(ruta);
+            if (!checked) selected = selected.filter(function (r) { return r !== ruta; });
+            _DASH.rutasRuta[chartKey] = selected.length === routes.length ? routes.slice() : selected;
+            _dashRenderRouteMenu(chartKey);
+            _dashRenderRouteChart(chartKey);
+        };
+
+        window._dashSelectAllRoutes = function (chartKey) {
+            _DASH.noneSelected[chartKey] = false;
+            _DASH.rutasRuta[chartKey] = _dashGetAvailableRoutes(chartKey);
+            _dashRenderRouteMenu(chartKey);
+            _dashRenderRouteChart(chartKey);
+        };
+
+        window._dashClearRouteSelection = function (chartKey) {
+            _DASH.noneSelected[chartKey] = false;
+            _DASH.rutasRuta[chartKey] = [];
+            var search = _q('dashRouteSearch_' + chartKey); if (search) search.value = '';
+            _dashRenderRouteMenu(chartKey);
+            _dashRenderRouteChart(chartKey);
+        };
+
+        window._dashDeselectAllRoutes = function (chartKey) {
+            _DASH.noneSelected[chartKey] = true;
+            _DASH.rutasRuta[chartKey] = [];
+            _dashRenderRouteMenu(chartKey);
+            _dashRenderRouteChart(chartKey);
+        };
+
+        function _dashRenderRouteChart(chartKey) {
+            var modo = _DASH.modosRuta[chartKey] || 'sne';
+            var rows = _dashGetFilteredRows(chartKey);
+            if (chartKey === 'boxplot') _renderBoxplot(rows, modo);
+            if (chartKey === 'hist') _renderHistogramRutas(rows, modo);
+            if (chartKey === 'scatter') _renderScatterRutas(rows, modo);
+            _dashUpdateRouteSummary(chartKey);
+        }
+
+        function _fetchRouteAnalytics(chartKey, qs) {
+            var modo = _DASH.modosRuta[chartKey] || 'sne';
+            var joiner = qs ? '&' : '?';
+            _get(API + '/dashboard/boxplot-rutas' + qs + joiner + 'modo=' + encodeURIComponent(modo)).then(function (j) {
+                if (!j.ok) {
+                    if (chartKey === 'boxplot') _setNoDataChart('chartBoxplotRutas', 'Sin datos con los filtros');
+                    if (chartKey === 'hist') _setNoDataChart('chartHistRutas', 'Sin datos con los filtros');
+                    if (chartKey === 'scatter') _setNoDataChart('chartScatterRutas', 'Sin datos con los filtros');
+                    return;
+                }
+                _DASH.data.boxplot[modo] = j.data || [];
+                _dashRenderRouteChart(chartKey);
+            }).catch(function () {
+                if (chartKey === 'boxplot') _setNoDataChart('chartBoxplotRutas', 'Sin datos con los filtros');
+                if (chartKey === 'hist') _setNoDataChart('chartHistRutas', 'Sin datos con los filtros');
+                if (chartKey === 'scatter') _setNoDataChart('chartScatterRutas', 'Sin datos con los filtros');
+            });
+        };
+
+        document.addEventListener('click', function (ev) {
+            if (!ev.target.closest('.mon-route-filter')) {
+                document.querySelectorAll('.mon-route-filter__menu.is-open').forEach(function (menu) {
+                    menu.classList.remove('is-open');
+                });
+            }
+        });
+
+        function _qtl(sorted, q) {
+            if (!sorted.length) return 0;
+            if (sorted.length === 1) return sorted[0];
+            var pos = (sorted.length - 1) * q;
+            var base = Math.floor(pos);
+            var rest = pos - base;
+            return sorted[base + 1] !== undefined
+                ? sorted[base] + rest * (sorted[base + 1] - sorted[base])
+                : sorted[base];
+        }
+
+        function _renderMotivos(modo) {
+            var src = (modo === 'motivo' ? _DASH.data.motivos.por_motivo : _DASH.data.motivos.por_responsable) || [];
+            var inst = _ec('chartMotivos'); if (!inst) return;
+            if (!src.length) { _setNoDataChart('chartMotivos', 'Sin datos con los filtros'); return; }
+            var items = src.slice(0, 12).map(function (d, i) { return { name: d.etiqueta || '—', value: parseFloat(d.km_total) || 0, itemStyle: { color: _POLAR_COLORS[i % _POLAR_COLORS.length] } }; });
+            inst.setOption({
+                backgroundColor: '#fff',
+                tooltip: { trigger: 'item', formatter: '{b}: {c} km ({d}%)' },
+                legend: { orient: 'vertical', right: 4, top: 'middle', textStyle: { fontSize: 10 }, type: 'scroll', width: 130 },
+                series: [{
+                    type: 'pie', radius: ['30%', '68%'], center: ['38%', '50%'],
+                    roseType: 'area', label: { show: false },
+                    itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                    data: items
+                }]
+            });
+        }
+
+        /* ── Chart 4: Barras por Ruta ────────────────────────────────── */
+        function _fetchRutas(qs) {
+            _get(API + '/dashboard/rutas' + qs).then(function (j) {
+                if (!j.ok) return;
+                _DASH.data.rutas = j.data;
+                _renderRutas(j.data);
+            });
+        }
+
+        function _renderRutas(rows) {
+            if (!rows || !rows.length) { _setNoDataChart('chartRutas', 'Sin datos con los filtros'); return; }
+            var inst = _ec('chartRutas'); if (!inst) return;
+            var map = {};
+            rows.forEach(function (r) {
+                var k = r.ruta_comercial || 'Sin Ruta';
+                if (!map[k]) map[k] = { kr: 0, ko: 0 };
+                map[k].kr += parseFloat(r.km_revision) || 0;
+                map[k].ko += parseFloat(r.km_objetado) || 0;
+            });
+            var labels = Object.keys(map).sort(function (a, b) {
+                return Math.max(map[b].kr, map[b].ko) - Math.max(map[a].kr, map[a].ko);
+            }).slice(0, 15);
+            var totalKm = labels.map(function (k) { return Math.max(_num(map[k].kr), _num(map[k].ko)); });
+            var kmObjetado = labels.map(function (k, idx) {
+                return Math.min(_num(map[k].ko), totalKm[idx]);
+            });
+            var kmPendiente = labels.map(function (k, idx) {
+                return Math.max(totalKm[idx] - kmObjetado[idx], 0);
+            });
+            var pctCumpl = labels.map(function (k, idx) {
+                return totalKm[idx] > 0 ? (kmObjetado[idx] / totalKm[idx] * 100) : 0;
+            });
+            var kr = totalKm.slice();
+            var ko = kmObjetado.slice();
+            inst.setOption({
+                backgroundColor: '#fff',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(37,99,235,0.06)' } },
+                    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                    borderWidth: 0,
+                    textStyle: { color: '#f8fafc', fontSize: 11 },
+                    padding: [10, 12],
+                    formatter: function (params) {
+                        var idx = params && params.length ? params[0].dataIndex : 0;
+                        return '<div style="font-weight:800;margin-bottom:6px;">' + _esc(labels[idx]) + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km Objetado</span><strong>' + _fmtKm(kmObjetado[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km restante</span><strong>' + _fmtKm(kmPendiente[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Total Km revisión</span><strong>' + _fmtKm(totalKm[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;color:#93c5fd;"><span>% Objeción</span><strong>' + _fmtPct(pctCumpl[idx]) + '</strong></div>';
+                    }
+                },
+                legend: {
+                    top: 2,
+                    right: 8,
+                    icon: 'roundRect',
+                    itemWidth: 10,
+                    itemHeight: 10,
+                    textStyle: { fontSize: 11, color: '#334155', fontWeight: 700 }
+                },
+                grid: { top: 34, bottom: 18, left: 118, right: 26, containLabel: false },
+                xAxis: {
+                    type: 'value',
+                    axisLabel: { fontSize: 10, color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: labels,
+                    axisLabel: { fontSize: 10, color: '#0f172a', fontWeight: 700, interval: 0 },
+                    axisTick: { show: false },
+                    axisLine: { show: false }
+                },
+                series: [
+                    { name: 'Km Revisión', type: 'bar', data: kr, itemStyle: { color: '#f59e0b', borderRadius: [3, 3, 0, 0] } },
+                    { name: 'Km Objetado', type: 'bar', data: ko, itemStyle: { color: '#3b82f6', borderRadius: [3, 3, 0, 0] } }
+                ]
+            });
+            inst.setOption({
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(37,99,235,0.06)' } },
+                    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                    borderWidth: 0,
+                    textStyle: { color: '#f8fafc', fontSize: 11 },
+                    padding: [10, 12],
+                    formatter: function (params) {
+                        var idx = params && params.length ? params[0].dataIndex : 0;
+                        return '<div style="font-weight:800;margin-bottom:6px;">' + _esc(labels[idx]) + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km Objetado</span><strong>' + _fmtKm(kmObjetado[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km restante</span><strong>' + _fmtKm(kmPendiente[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Total Km revisión</span><strong>' + _fmtKm(totalKm[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;color:#93c5fd;"><span>% Objeción</span><strong>' + _fmtPct(pctCumpl[idx]) + '</strong></div>';
+                    }
+                },
+                legend: {
+                    top: 2,
+                    right: 8,
+                    icon: 'roundRect',
+                    itemWidth: 10,
+                    itemHeight: 10,
+                    textStyle: { fontSize: 11, color: '#334155', fontWeight: 700 }
+                },
+                grid: { top: 34, bottom: 18, left: 118, right: 26, containLabel: false },
+                xAxis: {
+                    type: 'value',
+                    axisLabel: { fontSize: 10, color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: labels,
+                    axisLabel: { fontSize: 10, color: '#0f172a', fontWeight: 700, interval: 0 },
+                    axisTick: { show: false },
+                    axisLine: { show: false }
+                },
+                series: [
+                    {
+                        name: 'Km Objetado',
+                        type: 'bar',
+                        stack: 'obj-ruta',
+                        data: kmObjetado,
+                        barWidth: 18,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
+                                { offset: 0, color: '#2563eb' },
+                                { offset: 1, color: '#60a5fa' }
+                            ]),
+                            borderRadius: [9, 0, 0, 9]
+                        },
+                        label: {
+                            show: true,
+                            position: 'insideLeft',
+                            color: '#ffffff',
+                            fontSize: 10,
+                            fontWeight: 800,
+                            formatter: function (p) {
+                                var pct = pctCumpl[p.dataIndex] || 0;
+                                return pct >= 10 ? _fmtPct(pct) : '';
+                            }
+                        },
+                        emphasis: { focus: 'series' }
+                    },
+                    {
+                        name: 'Km restante por objetar',
+                        type: 'bar',
+                        stack: 'obj-ruta',
+                        data: kmPendiente,
+                        barWidth: 18,
+                        itemStyle: {
+                            color: '#dbeafe',
+                            borderColor: '#bfdbfe',
+                            borderWidth: 1,
+                            borderRadius: [0, 9, 9, 0]
+                        },
+                        label: {
+                            show: true,
+                            position: 'right',
+                            color: '#334155',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            formatter: function (p) {
+                                return _fmtKm(totalKm[p.dataIndex]);
+                            }
+                        },
+                        emphasis: { focus: 'series' }
+                    }
+                ]
+            }, true);
+        }
+
+        /* ── Chart 5: Cumplimiento por Objetor ──────────────────────── */
+        function _fetchObjetores(qs) {
+            _get(API + '/dashboard/objetores' + qs).then(function (j) {
+                if (!j.ok) { _setNoDataChart('chartObjetores', 'Sin datos con los filtros'); return; }
+                _DASH.data.objetores = j.data;
+                _renderObjetores(j.data);
+            }).catch(function () { _setNoDataChart('chartObjetores', 'Sin datos con los filtros'); });
+        }
+
+        function _renderObjetores(rows) {
+            var inst = _ec('chartObjetores'); if (!inst) return;
+            if (!rows || !rows.length) { _setNoDataChart('chartObjetores', 'Sin datos con los filtros'); return; }
+
+            // Partir nombre en dos líneas: primera mitad → arriba, segunda mitad → abajo
+            function _splitName(name) {
+                if (!name) return name;
+                var parts = name.trim().split(/\s+/);
+                if (parts.length <= 1) return name;
+                var mid = Math.ceil(parts.length / 2);
+                return parts.slice(0, mid).join(' ') + '\n' + parts.slice(mid).join(' ');
+            }
+
+            // Ordenar de mayor a menor % cumplimiento
+            var sorted = rows.slice().sort(function (a, b) { return b.pct_cumplimiento - a.pct_cumplimiento; });
+
+            var labels      = sorted.map(function (r) { return r.objetor; });       // nombre completo (tooltip)
+            var labels2     = labels.map(_splitName);                                // dos líneas (eje Y)
+            var kmObjetado  = sorted.map(function (r) { return _num(r.km_objetado); });
+            var kmPendiente = sorted.map(function (r) { return _num(r.km_pendiente); });
+            var totalKm     = sorted.map(function (r) { return _num(r.km_asignado); });
+            var pctCumpl    = sorted.map(function (r) { return _num(r.pct_cumplimiento); });
+
+            inst.setOption({
+                backgroundColor: '#fff',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(124,58,237,0.05)' } },
+                    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                    borderWidth: 0,
+                    textStyle: { color: '#f8fafc', fontSize: 11 },
+                    padding: [10, 12],
+                    formatter: function (params) {
+                        var idx = params && params.length ? params[0].dataIndex : 0;
+                        return '<div style="font-weight:800;margin-bottom:6px;">' + _esc(labels[idx]) + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km Objetado</span><strong>' + _fmtKm(kmObjetado[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km Pendiente</span><strong>' + _fmtKm(kmPendiente[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Total Km Asignado</span><strong>' + _fmtKm(totalKm[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;color:#c4b5fd;"><span>% Cumplimiento</span><strong>' + _fmtPct(pctCumpl[idx]) + '</strong></div>';
+                    }
+                },
+                legend: {
+                    top: 2, right: 8, icon: 'roundRect',
+                    itemWidth: 10, itemHeight: 10,
+                    textStyle: { fontSize: 11, color: '#334155', fontWeight: 700 }
+                },
+                grid: { top: 34, bottom: 18, left: 8, right: 90, containLabel: true },
+                xAxis: {
+                    type: 'value',
+                    axisLabel: { fontSize: 10, color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: labels2,
+                    inverse: true,
+                    axisLabel: {
+                        fontSize: 10, color: '#0f172a', fontWeight: 700,
+                        interval: 0, lineHeight: 13, overflow: 'none'
+                    },
+                    axisTick: { show: false },
+                    axisLine: { show: false }
+                },
+                dataZoom: labels.length > 10 ? [
+                    { type: 'inside', yAxisIndex: 0 },
+                    { type: 'slider', yAxisIndex: 0, right: 2, width: 12, start: 0, end: Math.min(100, Math.max(30, (10 / labels.length) * 100)) }
+                ] : [],
+                series: [
+                    {
+                        name: 'Km Objetado',
+                        type: 'bar',
+                        stack: 'obj-obj',
+                        data: kmObjetado,
+                        barWidth: 20,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
+                                { offset: 0, color: '#7c3aed' },
+                                { offset: 1, color: '#a78bfa' }
+                            ]),
+                            borderRadius: [9, 0, 0, 9]
+                        },
+                        label: {
+                            show: true,
+                            position: 'insideLeft',
+                            color: '#ffffff',
+                            fontSize: 10,
+                            fontWeight: 800,
+                            formatter: function (p) {
+                                var pct = pctCumpl[p.dataIndex] || 0;
+                                return pct >= 10 ? _fmtPct(pct) : '';
+                            }
+                        },
+                        emphasis: { focus: 'series' }
+                    },
+                    {
+                        name: 'Km Pendiente',
+                        type: 'bar',
+                        stack: 'obj-obj',
+                        data: kmPendiente,
+                        barWidth: 20,
+                        itemStyle: {
+                            color: '#ede9fe',
+                            borderColor: '#ddd6fe',
+                            borderWidth: 1,
+                            borderRadius: [0, 9, 9, 0]
+                        },
+                        label: {
+                            show: true,
+                            position: 'right',
+                            color: '#334155',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            formatter: function (p) { return _fmtKm(totalKm[p.dataIndex]); }
+                        },
+                        emphasis: { focus: 'series' }
+                    }
+                ]
+            }, true);
+        }
+
+        /* ── Fullscreen de charts ─────────────────────────────────────── */
+        function _renderBoxplot(rows, modo) {
+            var inst = _ec('chartBoxplotRutas'); if (!inst) return;
+            if (!rows || !rows.length) { _setNoDataChart('chartBoxplotRutas', 'Sin datos con los filtros'); return; }
+
+            var groups = {};
+            rows.forEach(function (r) {
+                var ruta = r.ruta_comercial || 'Sin Ruta';
+                var val = _num(r.km_valor);
+                if (!groups[ruta]) groups[ruta] = [];
+                if (val > 0) groups[ruta].push(val);
+            });
+
+            var stats = Object.keys(groups).map(function (ruta) {
+                var vals = groups[ruta].slice().sort(function (a, b) { return a - b; });
+                if (!vals.length) return null;
+                return {
+                    ruta: ruta,
+                    count: vals.length,
+                    min: vals[0],
+                    q1: _qtl(vals, 0.25),
+                    median: _qtl(vals, 0.5),
+                    q3: _qtl(vals, 0.75),
+                    max: vals[vals.length - 1],
+                };
+            }).filter(Boolean).sort(function (a, b) { return a.ruta.localeCompare(b.ruta, 'es'); });
+
+            if (!stats.length) { _setNoDataChart('chartBoxplotRutas', 'Sin datos con los filtros'); return; }
+
+            var labels = stats.map(function (d) { return d.ruta; });
+            var boxData = stats.map(function (d) { return [d.min, d.q1, d.median, d.q3, d.max]; });
+            var colorMap = { sne: '#0f766e', asignado: '#2563eb', objetado: '#dc2626' };
+            var titleMap = { sne: 'Kilometros SNE', asignado: 'Km Asignados', objetado: 'Km Objetados' };
+
+            inst.setOption({
+                backgroundColor: '#fff',
+                animationDuration: 350,
+                tooltip: {
+                    trigger: 'item',
+                    confine: true,
+                    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                    borderWidth: 0,
+                    textStyle: { color: '#f8fafc', fontSize: 11 },
+                    padding: [10, 12],
+                    formatter: function (p) {
+                        var idx = p.dataIndex || 0;
+                        var s = stats[idx];
+                        return '<div style="font-weight:800;margin-bottom:6px;">' + _esc(s.ruta) + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Min</span><strong>' + _fmtKm(s.min) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Q1</span><strong>' + _fmtKm(s.q1) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Mediana</span><strong>' + _fmtKm(s.median) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Q3</span><strong>' + _fmtKm(s.q3) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Max</span><strong>' + _fmtKm(s.max) + '</strong></div>';
+                    }
+                },
+                grid: { top: 20, bottom: 52, left: 120, right: 20, containLabel: false },
+                xAxis: {
+                    type: 'value',
+                    name: titleMap[modo] || 'Kilometros',
+                    nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 },
+                    axisLabel: { fontSize: 10, color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: labels,
+                    axisTick: { show: false },
+                    axisLine: { show: false },
+                    axisLabel: { fontSize: 10, color: '#0f172a', fontWeight: 700, interval: 0 }
+                },
+                dataZoom: [
+                    { type: 'inside', yAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
+                    { type: 'slider', yAxisIndex: 0, right: 2, width: 12, start: 0, end: Math.min(100, Math.max(30, (12 / labels.length) * 100)) }
+                ],
+                series: [{
+                    name: titleMap[modo] || 'Kilometros',
+                    type: 'boxplot',
+                    data: boxData,
+                    itemStyle: {
+                        color: echarts.color.modifyAlpha(colorMap[modo] || '#0f766e', 0.22),
+                        borderColor: colorMap[modo] || '#0f766e',
+                        borderWidth: 2
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            color: echarts.color.modifyAlpha(colorMap[modo] || '#0f766e', 0.34),
+                            borderColor: colorMap[modo] || '#0f766e'
+                        }
+                    }
+                }]
+            }, true);
+        }
+
+        function _renderHistogramRutas(rows, modo) {
+            var inst = _ec('chartHistRutas'); if (!inst) return;
+            if (!rows || !rows.length) { _setNoDataChart('chartHistRutas', 'Sin datos con los filtros'); return; }
+
+            // ── Paso 1: agregar por ruta (igual que el scatter) ──────────────
+            var map = {};
+            rows.forEach(function (r) {
+                var ruta = r.ruta_comercial || 'Sin Ruta';
+                var km = _num(r.km_valor);
+                if (!map[ruta]) map[ruta] = { ruta: ruta, km: 0, viajes: 0 };
+                map[ruta].km += km;
+                map[ruta].viajes += 1;
+            });
+            var rutaList = Object.keys(map).map(function (k) { return map[k]; }).filter(function (d) { return d.km > 0; });
+            if (!rutaList.length) { _setNoDataChart('chartHistRutas', 'Sin datos con los filtros'); return; }
+
+            // ── Paso 2: nice-step binning dinámico ───────────────────────────
+            // Calcula un paso redondeado a cifra "bonita" (1·10^n, 2·10^n,
+            // 2.5·10^n, 5·10^n) para que los bordes de bin sean valores limpios
+            // y la cantidad de bins quede entre 5 y 10 según los datos.
+            var kmValues = rutaList.map(function (d) { return d.km; });
+            var rawMin = Math.min.apply(null, kmValues);
+            var rawMax = Math.max.apply(null, kmValues);
+
+            function _niceStep(dataRange, target) {
+                if (dataRange <= 0) return 1;
+                var rough = dataRange / target;
+                var mag = Math.pow(10, Math.floor(Math.log10(rough)));
+                var factors = [1, 2, 2.5, 5, 10];
+                for (var fi = 0; fi < factors.length; fi++) {
+                    if (factors[fi] * mag >= rough) return factors[fi] * mag;
+                }
+                return 10 * mag;
+            }
+
+            // Objetivo: ~7 bins (se ajusta entre 5 y 10 solos con el nice-step)
+            var targetBins = Math.max(5, Math.min(10, Math.round(Math.sqrt(rutaList.length))));
+            var step = _niceStep(rawMax - rawMin, targetBins);
+
+            // Fronteras "bonitas" alineadas al paso
+            var niceMin = Math.floor(rawMin / step) * step;
+            var niceMax = Math.ceil(rawMax / step) * step;
+            if (niceMax <= niceMin) niceMax = niceMin + step;   // al menos 1 bin
+
+            var bins = Math.round((niceMax - niceMin) / step);
+            if (bins < 1) bins = 1;
+
+            var ranges = [];
+            for (var i = 0; i < bins; i++) {
+                var from = niceMin + i * step;
+                var to = from + step;
+                ranges.push({ from: from, to: to, viajes: 0, kmSum: 0, rutas: 0 });
+            }
+
+            // ── Paso 3: asignar cada ruta al bin correspondiente ─────────────
+            rutaList.forEach(function (d) {
+                var idx = Math.min(ranges.length - 1, Math.floor((d.km - niceMin) / step));
+                if (idx < 0) idx = 0;
+                ranges[idx].viajes += d.viajes;   // y-axis: cantidad de viajes
+                ranges[idx].kmSum += d.km;        // para tooltip
+                ranges[idx].rutas += 1;           // cantidad de rutas en el bin
+            });
+
+            var colorMap = { sne: '#0f766e', asignado: '#2563eb', objetado: '#dc2626' };
+            var titleMap = { sne: 'Kilometros SNE', asignado: 'Km Asignados', objetado: 'Km Objetados' };
+
+            var labels = ranges.map(function (r) { return _fmtKm(r.from) + ' – ' + _fmtKm(r.to); });
+            var viajesD = ranges.map(function (r) { return r.viajes; });
+            var kmSumD = ranges.map(function (r) { return Math.round(r.kmSum * 10) / 10; });
+            var rutasD = ranges.map(function (r) { return r.rutas; });
+
+            inst.setOption({
+                backgroundColor: '#fff',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                    borderWidth: 0,
+                    textStyle: { color: '#f8fafc', fontSize: 11 },
+                    formatter: function (params) {
+                        var idx = params && params.length ? params[0].dataIndex : 0;
+                        return '<div style="font-weight:800;margin-bottom:6px;">' + _esc(labels[idx]) + ' km</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Rutas en rango</span><strong>' + _fmtInt(rutasD[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Viajes acumulados</span><strong>' + _fmtInt(viajesD[idx]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km totales rango</span><strong>' + _fmtKm(kmSumD[idx]) + '</strong></div>';
+                    }
+                },
+                grid: { top: 26, bottom: 62, left: 52, right: 18, containLabel: false },
+                xAxis: {
+                    type: 'category',
+                    data: labels,
+                    name: 'Km por Ruta',
+                    nameLocation: 'middle',
+                    nameGap: 42,
+                    nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 },
+                    axisLabel: { fontSize: 9, color: '#64748b', rotate: 32, interval: 0 },
+                    axisTick: { alignWithLabel: true }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'Viajes',
+                    nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 },
+                    axisLabel: { fontSize: 10, color: '#64748b', formatter: function (v) { return _fmtInt(v); } },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } }
+                },
+                series: [{
+                    name: titleMap[modo] || 'Kilometros',
+                    type: 'bar',
+                    data: viajesD,
+                    barMaxWidth: 28,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: echarts.color.modifyAlpha(colorMap[modo] || '#0f766e', 0.92) },
+                            { offset: 1, color: echarts.color.modifyAlpha(colorMap[modo] || '#0f766e', 0.55) }
+                        ]),
+                        borderRadius: [8, 8, 0, 0]
+                    },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        fontSize: 9,
+                        color: '#475569',
+                        formatter: function (p) { return p.value > 0 ? _fmtInt(p.value) : ''; }
+                    }
+                }]
+            }, true);
+        }
+
+        function _renderScatterRutas(rows, modo) {
+            var inst = _ec('chartScatterRutas'); if (!inst) return;
+            if (!rows || !rows.length) { _setNoDataChart('chartScatterRutas', 'Sin datos con los filtros'); return; }
+
+            var map = {};
+            rows.forEach(function (r) {
+                var ruta = r.ruta_comercial || 'Sin Ruta';
+                var km = _num(r.km_valor);
+                if (!map[ruta]) map[ruta] = { ruta: ruta, km: 0, viajes: 0 };
+                map[ruta].km += km;
+                map[ruta].viajes += 1;
+            });
+
+            var points = Object.keys(map).map(function (ruta) { return map[ruta]; }).sort(function (a, b) {
+                return b.km - a.km;
+            });
+            if (!points.length) { _setNoDataChart('chartScatterRutas', 'Sin datos con los filtros'); return; }
+
+            var titleMap = { sne: 'Kilometros SNE', asignado: 'Km Asignados', objetado: 'Km Objetados' };
+            var avgKm = points.reduce(function (acc, item) { return acc + item.km; }, 0) / points.length;
+            var avgVj = points.reduce(function (acc, item) { return acc + item.viajes; }, 0) / points.length;
+            var maxKm = points.reduce(function (acc, item) { return Math.max(acc, item.km); }, 0) || 1;
+            var palette = ['#2563eb', '#0f766e', '#dc2626', '#7c3aed', '#f97316', '#0891b2', '#16a34a', '#db2777', '#ca8a04', '#4f46e5', '#059669', '#ea580c'];
+
+            inst.setOption({
+                backgroundColor: '#fff',
+                grid: { top: 26, bottom: 58, left: 56, right: 24, containLabel: false },
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                    borderWidth: 0,
+                    textStyle: { color: '#f8fafc', fontSize: 11 },
+                    formatter: function (p) {
+                        var d = p.data || {};
+                        return '<div style="font-weight:800;margin-bottom:6px;">' + _esc(d.ruta || '') + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>' + _esc(titleMap[modo] || 'Kilometros') + '</span><strong>' + _fmtKm(d.value[0]) + '</strong></div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Viajes</span><strong>' + _fmtInt(d.value[1]) + '</strong></div>';
+                    }
+                },
+                xAxis: {
+                    type: 'value',
+                    name: titleMap[modo] || 'Kilómetros',
+                    nameLocation: 'middle',
+                    nameGap: 30,
+                    nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 },
+                    axisLabel: { fontSize: 10, color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } },
+                    axisPointer: { show: true, type: 'line', lineStyle: { color: 'rgba(100,116,139,0.45)', type: 'dashed', width: 1 } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'Cantidad de viajes',
+                    nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 },
+                    axisLabel: { fontSize: 10, color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.12)' } },
+                    axisPointer: { show: true, type: 'line', lineStyle: { color: 'rgba(100,116,139,0.45)', type: 'dashed', width: 1 } }
+                },
+                series: [{
+                    name: 'Rutas',
+                    type: 'scatter',
+                    data: points.map(function (item, idx) {
+                        var scaled = Math.sqrt(item.km / maxKm);
+                        return {
+                            ruta: item.ruta,
+                            value: [parseFloat(item.km.toFixed(3)), item.viajes],
+                            symbolSize: Math.max(10, Math.min(22, 9 + (scaled * 13))),
+                            itemStyle: {
+                                color: echarts.color.modifyAlpha(palette[idx % palette.length], 0.74),
+                                borderColor: palette[idx % palette.length],
+                                borderWidth: 1.35
+                            }
+                        };
+                    }),
+                    emphasis: { focus: 'series' },
+                    markLine: {
+                        symbol: 'none',
+                        label: { color: '#64748b', fontSize: 10, fontWeight: 700 },
+                        lineStyle: { type: 'dashed', color: 'rgba(100,116,139,0.65)' },
+                        data: [
+                            { xAxis: parseFloat(avgKm.toFixed(3)), name: 'Prom. Km' },
+                            { yAxis: parseFloat(avgVj.toFixed(3)), name: 'Prom. Viajes' }
+                        ]
+                    }
+                }]
+            }, true);
+        }
+
+        window._dashToggleFs = function (divId) {
+            var card = _q('dashCard_' + divId);
+            var btn = _q('dashFsBtn_' + divId);
+            var cont = _q('dashCont_' + divId);
+            var overlay = _q('monFsOverlay');
+            if (!card) return;
+            var isFull = card.classList.contains('mon-card-fs');
+            if (!isFull) {
+                card.classList.add('mon-card-fs');
+                // Limpiar height inline para que el CSS !important tome control total
+                if (cont) cont.style.height = '';
+                if (overlay) overlay.style.display = 'block';
+                if (btn) btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
+                document.body.style.overflow = 'hidden';
+                document.addEventListener('keydown', _fsEscHandler);
+            } else {
+                card.classList.remove('mon-card-fs');
+                if (cont) cont.style.height = '260px';
+                if (overlay) overlay.style.display = 'none';
+                if (btn) btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+                document.body.style.overflow = '';
+                document.removeEventListener('keydown', _fsEscHandler);
+            }
+            // Redimensionar el chart — doble llamada para garantizar layout estable
+            var inst = _charts[divId];
+            setTimeout(function () {
+                if (inst) try { inst.resize(); } catch (e) { }
+                setTimeout(function () {
+                    if (inst) try { inst.resize(); } catch (e) { }
+                }, 180);
+            }, 60);
+        };
+
+        function _fsEscHandler(e) { if (e.key === 'Escape') _closeFsAll(); }
+
+        window.monCloseFsFromOverlay = function () { _closeFsAll(); };
+
+        function _closeFsAll() {
+            document.querySelectorAll('.mon-card-fs').forEach(function (card) {
+                card.classList.remove('mon-card-fs');
+            });
+            var overlay = _q('monFsOverlay');
+            if (overlay) overlay.style.display = 'none';
+            document.body.style.overflow = '';
+            document.removeEventListener('keydown', _fsEscHandler);
+            // Restaurar alturas
+            ['chartRegistros', 'chartKm', 'chartMotivos', 'chartRutas', 'chartBoxplotRutas', 'chartHistRutas', 'chartScatterRutas', 'chartObjetores'].forEach(function (id) {
+                var cont = _q('dashCont_' + id);
+                if (cont) cont.style.height = '260px';
+                var inst = _charts[id];
+                if (inst) try { inst.resize(); } catch (e) { }
+            });
+        }
+
+        /* ── Resize al cambiar tamaño ventana ────────────────────────── */
+        window.addEventListener('resize', function () {
+            Object.values(_charts).forEach(function (c) { try { c.resize(); } catch (e) { } });
+        });
+
+        /* ══════════════════════════════════════════════════════════════════
+        TAB 3 – REPORTES
+        ══════════════════════════════════════════════════════════════════ */
+
+        function _fmtShortDateTime(v) {
+            if (!v) return '';
+            var d = new Date(String(v).replace(' ', 'T'));
+            if (isNaN(d.getTime())) return String(v);
+            return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                + ' ' + d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        var REP_COLS_SNE_PROCESADO = [
+            { key: 'fecha',            label: 'Fecha' },
+            { key: 'id_ics',           label: 'ID ICS' },
+            { key: 'id_linea',         label: 'ID Línea' },
+            { key: 'ruta_comercial',   label: 'Ruta Comercial' },
+            { key: 'servicio',         label: 'Servicio' },
+            { key: 'tabla',            label: 'Tabla' },
+            { key: 'viaje_linea',      label: 'Viaje Línea' },
+            { key: 'id_viaje',         label: 'ID Viaje' },
+            { key: 'sentido',          label: 'Sentido' },
+            { key: 'vehiculo_real',    label: 'Vehículo Real' },
+            { key: 'hora_ini_teorica', label: 'Hora Ini. Teórica' },
+            { key: 'km_prog_ad',       label: 'Km Prog. AD' },
+            { key: 'conductor',        label: 'Conductor' },
+            { key: 'km_elim_eic',      label: 'Km Elim. EIC' },
+            { key: 'km_ejecutado',     label: 'Km Ejecutado' },
+            { key: 'offset_inicio',    label: 'Offset Inicio' },
+            { key: 'offset_fin',       label: 'Offset Fin' },
+            { key: 'km_revision',      label: 'Km Revisión' },
+            { key: 'motivo',           label: 'Motivo' },
+            { key: 'fecha_carga',      label: 'Fecha Carga', fmt: _fmtShortDateTime },
+            { key: 'componente',       label: 'Componente' },
+            { key: 'zona',             label: 'Zona' },
+            { key: 'cop',              label: 'COP' },
+        ];
+
+        function _buildReportesUI(cont) {
+            cont.innerHTML = [
+                '<section class="mon-panel" style="padding:1rem 1.1rem;min-width:0;overflow:hidden;">',
+                  '<div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem;">',
+                    '<div class="mon-field" style="min-width:240px;">',
+                      '<label for="repTipo" style="font-size:.72rem;font-weight:700;color:#3b546d;text-transform:uppercase;letter-spacing:.03em;">Tipo de reporte</label>',
+                      '<select id="repTipo" class="mon-select" style="min-width:240px;">',
+                        '<option value="">-- Seleccione un reporte --</option>',
+                        '<option value="sne-procesado">SNE Procesado</option>',
+                        '<option value="sne-gestionado">SNE Gestionado</option>',
+                      '</select>',
+                    '</div>',
+                    '<button onclick="monRepCargar()" class="mon-btn mon-btn--primary" id="repBtnConsultar">',
+                      '<i class="bi bi-search"></i> Consultar',
+                    '</button>',
+                    '<button onclick="monRepExportar()" class="mon-btn mon-btn--ghost" id="repBtnExportar">',
+                      '<i class="bi bi-file-earmark-spreadsheet"></i> Exportar XLSX',
+                    '</button>',
+                    '<span id="repContador" style="font-size:.72rem;color:#64748b;align-self:center;"></span>',
+                  '</div>',
+                  '<div id="repStatus" style="padding:1.4rem;text-align:center;border-radius:14px;background:#f8fbff;border:1px solid #dbe4f1;margin-bottom:0.75rem;">',
+                    '<i class="bi bi-file-earmark-bar-graph" style="font-size:1.8rem;color:#94a3b8;display:block;margin-bottom:0.5rem;"></i>',
+                    '<strong style="color:#475569;font-size:.82rem;">Seleccione un reporte</strong>',
+                    '<div style="font-size:.72rem;color:#94a3b8;margin-top:0.2rem;">Elija el tipo de reporte de la lista y presione Consultar.</div>',
+                  '</div>',
+                  '<div id="repTableWrap" style="display:none;width:100%;box-sizing:border-box;overflow:auto;border:1px solid #dde7f2;border-radius:14px;padding:0;background:linear-gradient(180deg,#f8fbff 0%,#f1f6fb 100%);max-height:540px;">',
+                    '<table id="repTable" class="mon-table" style="width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;">',
+                      '<thead id="repTableHead"></thead>',
+                      '<tbody id="repTableBody"></tbody>',
+                    '</table>',
+                  '</div>',
+                '</section>',
+            ].join('');
+        }
+
+        function _setRepStatus(kind, title, msg) {
+            var el = _q('repStatus');
+            if (!el) return;
+            var iconMap  = { loading: 'bi-hourglass-split', error: 'bi-exclamation-triangle', success: 'bi-check-circle-fill', info: 'bi-file-earmark-bar-graph' };
+            var colorMap = { loading: '#0d6efd', error: '#dc2626', success: '#16a34a', info: '#94a3b8' };
+            var icon  = iconMap[kind]  || iconMap.info;
+            var color = colorMap[kind] || colorMap.info;
+            el.style.display = '';
+            el.innerHTML =
+                '<i class="bi ' + icon + '" style="font-size:1.8rem;color:' + color + ';display:block;margin-bottom:0.5rem;"></i>'
+                + '<strong style="color:#475569;font-size:.82rem;">' + _esc(title) + '</strong>'
+                + '<div style="font-size:.72rem;color:#94a3b8;margin-top:0.2rem;">' + _esc(msg) + '</div>';
+        }
+
+        function _renderRepTable(rows, cols) {
+            var head = _q('repTableHead');
+            var body = _q('repTableBody');
+            var wrap = _q('repTableWrap');
+            var cnt  = _q('repContador');
+            if (!head || !body || !wrap) return;
+            if (cnt) cnt.textContent = rows.length ? rows.length.toLocaleString('es-CO') + ' registros' : '';
+            if (!rows.length) {
+                head.innerHTML = '';
+                body.innerHTML = '<tr><td colspan="' + cols.length + '" style="text-align:center;padding:1.2rem;color:#94a3b8;">Sin resultados para los filtros aplicados.</td></tr>';
+                wrap.style.display = 'block';
+                return;
+            }
+            head.innerHTML = '<tr>' + cols.map(function (c) { return '<th>' + _esc(c.label) + '</th>'; }).join('') + '</tr>';
+            body.innerHTML = rows.map(function (row) {
+                return '<tr>' + cols.map(function (c) {
+                    var v = row[c.key];
+                    var display = c.fmt ? c.fmt(v) : (v == null ? '' : v);
+                    return '<td>' + _esc(display) + '</td>';
+                }).join('') + '</tr>';
+            }).join('');
+            wrap.style.display = 'block';
+        }
+
+        window.monRepCargar = function () {
+            if (!_reportesBuilt) return;
+            var tipo = (_q('repTipo') || {}).value;
+            if (!tipo) {
+                _setRepStatus('info', 'Seleccione un reporte', 'Elija el tipo de reporte de la lista y presione Consultar.');
+                var wrap = _q('repTableWrap'); if (wrap) wrap.style.display = 'none';
+                return;
+            }
+            if (tipo === 'sne-gestionado') {
+                _setRepStatus('info', 'Próximamente', 'El reporte SNE Gestionado estará disponible en una próxima versión.');
+                var wrap = _q('repTableWrap'); if (wrap) wrap.style.display = 'none';
+                return;
+            }
+            // SNE Procesado
+            _setRepStatus('loading', 'Consultando...', 'Cargando datos del reporte SNE Procesado, por favor espere.');
+            var wrap = _q('repTableWrap'); if (wrap) wrap.style.display = 'none';
+            var btn = _q('repBtnConsultar');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="mon-spinner"></span> Consultando'; }
+            var p = _gp();
+            var qs = p.length ? '?' + p.join('&') : '';
+            _get(API + '/reportes/sne-procesado' + qs).then(function (j) {
+                if (!j.ok) {
+                    _setRepStatus('error', 'Error en la consulta', 'No fue posible cargar el reporte. Intente de nuevo.');
+                    return;
+                }
+                _repData = j.data || [];
+                if (_repData.length) {
+                    var el = _q('repStatus'); if (el) el.style.display = 'none';
+                } else {
+                    _setRepStatus('info', 'Sin resultados', 'La consulta fue válida pero no devolvió registros para los filtros aplicados.');
+                }
+                _renderRepTable(_repData, REP_COLS_SNE_PROCESADO);
+            }).catch(function () {
+                _setRepStatus('error', 'Error de conexión', 'No fue posible comunicarse con el servidor.');
+            }).finally(function () {
+                var btn = _q('repBtnConsultar');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-search"></i> Consultar'; }
+            });
+        };
+
+        window.monRepExportar = function () {
+            if (!_repData || !_repData.length) {
+                alert('No hay datos para exportar. Consulte primero un reporte.');
+                return;
+            }
+            var tipo = ((_q('repTipo') || {}).value) || 'reporte';
+            var cols = tipo === 'sne-procesado' ? REP_COLS_SNE_PROCESADO : [];
+            if (!cols.length) return;
+            try {
+                var wsData = [cols.map(function (c) { return c.label; })].concat(
+                    _repData.map(function (row) {
+                        return cols.map(function (c) {
+                            if (row[c.key] == null) return '';
+                            return c.fmt ? c.fmt(row[c.key]) : row[c.key];
+                        });
+                    })
+                );
+                var ws = XLSX.utils.aoa_to_sheet(wsData);
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+                XLSX.writeFile(wb, 'sne_' + tipo + '_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+            } catch (e) {
+                alert('Error al generar el archivo XLSX: ' + e.message);
+            }
+        };
+
+        function _loadReportes() {
+            var cont = _q('tab-reportes');
+            if (!cont) return;
+            if (!_reportesBuilt) {
+                _buildReportesUI(cont);
+                _reportesBuilt = true;
+            }
+            var tipo = (_q('repTipo') || {}).value;
+            if (tipo) window.monRepCargar();
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+        TAB 4 – PROCESAMIENTOS
+        ══════════════════════════════════════════════════════════════════ */
+
+        var _procBuilt = false;
+        var _procData  = null;
+
+        var _PROC_STATUS_META = {
+            ok:           { label: 'OK',           bg: '#16a34a', fg: '#ffffff' },
+            pendiente:    { label: 'Pendiente',     bg: '#d97706', fg: '#ffffff' },
+            error:        { label: 'Error',         bg: '#dc2626', fg: '#ffffff' },
+            sin_archivos: { label: 'Sin archivos',  bg: '#64748b', fg: '#ffffff' },
+        };
+
+        function _procStatusCell(estado, detailObj, tipo) {
+            if (!estado) {
+                return '<td class="proc-cell-empty" style="background:#f1f5f9;color:#94a3b8;text-align:center;font-size:.68rem;">—</td>';
+            }
+            var m = _PROC_STATUS_META[estado] || { label: estado, bg: '#94a3b8', fg: '#fff' };
+            var detail = detailObj ? JSON.stringify({ _tipo: tipo, _data: detailObj }) : '';
+            return '<td class="proc-cell" '
+                + 'style="background:' + m.bg + ';color:' + m.fg + ';text-align:center;font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap;padding:0.28rem 0.55rem;border-radius:6px;margin:2px;" '
+                + 'data-detail=\'' + detail.replace(/'/g, '&#39;') + '\' '
+                + 'onclick="_procToggleTip(event)">'
+                + m.label
+                + '</td>';
+        }
+
+        var _procActivCell = null;
+
+        window._procToggleTip = function(e) {
+            e.stopPropagation();
+            var cell = e.currentTarget;
+            var tip  = _q('procTooltip');
+
+            // Si el tooltip ya está abierto para esta misma celda, cerrarlo
+            if (_procActivCell === cell && tip.style.display !== 'none') {
+                tip.style.display = 'none';
+                _procActivCell = null;
+                return;
+            }
+            _procActivCell = cell;
+
+            var raw = cell.getAttribute('data-detail');
+            if (!raw) return;
+            var parsed;
+            try { parsed = JSON.parse(raw); } catch(ex) { return; }
+            var tipo = parsed._tipo;
+            var d    = parsed._data;
+            if (!d) return;
+
+            var rows = [];
+            if (tipo === 'pos') {
+                if (d.intentos        != null) rows.push(['Intentos',        d.intentos]);
+                if (d.ultima_ejecucion)        rows.push(['Última ejecución', d.ultima_ejecucion]);
+                if (d.duracion_seg    != null) rows.push(['Duración (seg)',   d.duracion_seg]);
+                if (d.archivos_total  != null) rows.push(['Archivos total',   d.archivos_total]);
+                if (d.archivos_ok     != null) rows.push(['Archivos OK',      d.archivos_ok]);
+                if (d.archivos_error  != null) rows.push(['Archivos error',   d.archivos_error]);
+                if (d.registros_pos   != null) rows.push(['Registros pos.',   Number(d.registros_pos).toLocaleString('es-CO')]);
+                if (d.filas_km        != null) rows.push(['Filas km',         Number(d.filas_km).toLocaleString('es-CO')]);
+                if (d.actualizado_en)          rows.push(['Actualizado en',   d.actualizado_en]);
+            } else {
+                if (d.ultima_ejecucion)        rows.push(['Última ejecución', d.ultima_ejecucion]);
+                if (d.duracion_seg    != null) rows.push(['Duración (seg)',   d.duracion_seg]);
+                if (d.archivos_total  != null) rows.push(['Archivos total',   d.archivos_total]);
+                if (d.archivos_ok     != null) rows.push(['Archivos OK',      d.archivos_ok]);
+                if (d.archivos_error  != null) rows.push(['Archivos error',   d.archivos_error]);
+                if (d.registros_proce != null) rows.push(['Registros proc.',  Number(d.registros_proce).toLocaleString('es-CO')]);
+                if (d.fecha_actualizacion)     rows.push(['Actualización',    d.fecha_actualizacion]);
+            }
+            if (!rows.length) return;
+
+            tip.innerHTML = rows.map(function(r) {
+                return '<div class="proc-tip-row"><span>' + _esc(r[0]) + '</span><strong>' + _esc(String(r[1])) + '</strong></div>';
+            }).join('');
+            tip.style.display = 'block';
+
+            // Posicionar junto a la celda (position:fixed → coordenadas viewport)
+            var rect = cell.getBoundingClientRect();
+            tip.style.left = '-9999px';
+            tip.style.top  = '-9999px';
+            tip.style.display = 'block';
+            var tipW = tip.offsetWidth  || 230;
+            var tipH = tip.offsetHeight || 180;
+            var left = rect.left;
+            var top  = rect.bottom + 6;
+            if (left + tipW > window.innerWidth - 8)  left = rect.right  - tipW;
+            if (left < 8) left = 8;
+            if (top  + tipH > window.innerHeight - 8) top  = rect.top - tipH - 6;
+            if (top  < 8) top  = 8;
+            tip.style.left = left + 'px';
+            tip.style.top  = top  + 'px';
+        }
+
+        document.addEventListener('click', function(e) {
+            var tip = _q('procTooltip');
+            if (tip && tip.style.display !== 'none' && !tip.contains(e.target)) {
+                tip.style.display = 'none';
+                _procActivCell = null;
+            }
+        });
+
+        function _buildProcUI(cont) {
+            var styleEl = document.createElement('style');
+            styleEl.textContent = [
+                '.proc-tbl-wrap{overflow-x:auto;border-radius:14px;border:1px solid #dde7f2;background:linear-gradient(180deg,#f8fbff,#f1f6fb);max-height:580px;}',
+                '.proc-tbl{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;}',
+                '.proc-tbl thead th{position:sticky;top:0;background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;font-size:.65rem;font-weight:700;text-transform:capitalize;letter-spacing:.01em;padding:.35rem .5rem;white-space:normal;word-break:break-word;max-width:90px;line-height:1.2;z-index:2;}',
+                '.proc-tbl thead th:first-child{left:0;z-index:3;}',
+                '.proc-tbl tbody td{padding:.32rem .5rem;vertical-align:middle;border-bottom:1px solid #e2e8f0;font-size:.72rem;}',
+                '.proc-tbl tbody tr:last-child td{border-bottom:none;}',
+                '.proc-tbl tbody tr:hover td{background:rgba(37,99,235,.04);}',
+                '.proc-tbl td.proc-fecha{position:sticky;left:0;background:#f8fbff;font-weight:600;color:#1e3a5f;font-size:.72rem;white-space:nowrap;z-index:1;border-right:1px solid #dde7f2;}',
+                '.proc-tbl tbody tr:hover td.proc-fecha{background:#eef4ff;}',
+                '.proc-cell{transition:opacity .15s;}',
+                '.proc-cell:hover{opacity:.85;}',
+                '#procTooltip{position:fixed;display:none;z-index:9999;background:#1e293b;color:#e2e8f0;border-radius:10px;padding:.6rem .8rem;min-width:220px;max-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.28);}',
+                '.proc-tip-row{display:flex;justify-content:space-between;gap:.5rem;font-size:.68rem;padding:.18rem 0;border-bottom:1px solid rgba(255,255,255,.08);}',
+                '.proc-tip-row:last-child{border-bottom:none;}',
+                '.proc-tip-row span{color:#94a3b8;flex:1;}',
+                '.proc-tip-row strong{color:#f1f5f9;text-align:right;}',
+            ].join('');
+            document.head.appendChild(styleEl);
+
+            var tip = document.createElement('div');
+            tip.id = 'procTooltip';
+            document.body.appendChild(tip);
+
+            cont.innerHTML = '<section class="mon-panel mon-panel--compact" style="padding:1rem 1.1rem;">'
+                + '<div class="mon-panel__header">'
+                + '<div class="mon-panel__title"><i class="bi bi-cpu"></i><span>Logs de Procesamientos</span></div>'
+                + '<div class="mon-panel__actions"><span id="procContador" class="mon-panel__meta"></span></div>'
+                + '</div>'
+                + '<div id="procStatus" style="padding:1.4rem;text-align:center;border-radius:14px;background:#f8fbff;border:1px solid #dbe4f1;margin-bottom:.75rem;">'
+                + '<i class="bi bi-cpu" style="font-size:1.8rem;color:#94a3b8;display:block;margin-bottom:.5rem;"></i>'
+                + '<strong style="color:#475569;font-size:.82rem;">Cargando procesamientos...</strong>'
+                + '</div>'
+                + '<div id="procTableWrap" class="proc-tbl-wrap" style="display:none;">'
+                + '<table id="procTable" class="proc-tbl">'
+                + '<thead id="procHead"></thead>'
+                + '<tbody id="procBody"></tbody>'
+                + '</table>'
+                + '</div>'
+                + '</section>';
+        }
+
+        function _renderProcTable(data) {
+            var reportes = data.reportes || [];
+            var rows     = data.rows     || [];
+            var status   = _q('procStatus');
+            var wrap     = _q('procTableWrap');
+            var head     = _q('procHead');
+            var body     = _q('procBody');
+            var cntEl    = _q('procContador');
+
+            if (!rows.length) {
+                if (status) {
+                    status.style.display = '';
+                    status.innerHTML = '<i class="bi bi-inbox" style="font-size:1.8rem;color:#94a3b8;display:block;margin-bottom:.5rem;"></i>'
+                        + '<strong style="color:#475569;font-size:.82rem;">Sin registros de procesamientos</strong>';
+                }
+                if (wrap) wrap.style.display = 'none';
+                return;
+            }
+
+            // Encabezado
+            var thHtml = '<tr>'
+                + '<th style="min-width:90px;">Fecha</th>'
+                + '<th style="min-width:110px;">Posicionamiento</th>'
+                + reportes.map(function(r) {
+                    return '<th style="min-width:110px;">' + _esc(r.nombre_reporte) + '</th>';
+                }).join('')
+                + '</tr>';
+
+            // Filas
+            var trHtml = rows.map(function(row) {
+                var pos = row.posicionamiento;
+                var posCell = _procStatusCell(pos ? pos.estado : null, pos, 'pos');
+                var repCells = reportes.map(function(rep) {
+                    var rd = (row.reportes || {})[String(rep.id_reporte)];
+                    return _procStatusCell(rd ? rd.estado : null, rd, 'rep');
+                }).join('');
+                return '<tr>'
+                    + '<td class="proc-fecha">' + _esc(row.fecha || '') + '</td>'
+                    + posCell
+                    + repCells
+                    + '</tr>';
+            }).join('');
+
+            if (head) head.innerHTML = thHtml;
+            if (body) body.innerHTML = trHtml;
+            if (cntEl) cntEl.textContent = rows.length.toLocaleString('es-CO') + ' fechas';
+            if (status) status.style.display = 'none';
+            if (wrap)   wrap.style.display = 'block';
+        }
+
+        function _loadProcesamientos(forceReload) {
+            var cont = _q('tab-procesamientos');
+            if (!cont) return;
+            if (!_procBuilt) {
+                _buildProcUI(cont);
+                _procBuilt = true;
+            }
+            if (_procData && !forceReload) {
+                _renderProcTable(_procData);
+                return;
+            }
+            var status = _q('procStatus');
+            var wrap   = _q('procTableWrap');
+            if (status) {
+                status.style.display = '';
+                status.innerHTML = '<i class="bi bi-hourglass-split" style="font-size:1.8rem;color:#0d6efd;display:block;margin-bottom:.5rem;"></i>'
+                    + '<strong style="color:#475569;font-size:.82rem;">Cargando procesamientos...</strong>'
+                    + '<div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem;">Consultando logs de workflows.</div>';
+            }
+            if (wrap) wrap.style.display = 'none';
+
+            _get(API + '/procesamientos').then(function(j) {
+                if (!j.ok) {
+                    if (status) {
+                        status.style.display = '';
+                        status.innerHTML = '<i class="bi bi-exclamation-triangle" style="font-size:1.8rem;color:#dc2626;display:block;margin-bottom:.5rem;"></i>'
+                            + '<strong style="color:#475569;font-size:.82rem;">Error al cargar procesamientos</strong>';
+                    }
+                    return;
+                }
+                _procData = j.data;
+                _renderProcTable(_procData);
+            }).catch(function() {
+                if (status) {
+                    status.style.display = '';
+                    status.innerHTML = '<i class="bi bi-wifi-off" style="font-size:1.8rem;color:#dc2626;display:block;margin-bottom:.5rem;"></i>'
+                        + '<strong style="color:#475569;font-size:.82rem;">Error de conexión</strong>';
+                }
+            });
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+        INICIALIZACIÓN
+        ══════════════════════════════════════════════════════════════════ */
+        document.addEventListener('DOMContentLoaded', function () {
+            _get(API + '/meta').then(function (j) {
+                if (j.ok && j.data) {
+                    var fi = j.data.primer_dia_mes || '', ff = j.data.ultima_fecha || '';
+                    _defaultFechaIni = fi;
+                    _defaultFechaFin = ff;
+                    _q('monFechaIni').value = fi;
+                    _q('monFechaFin').value = ff;
+                }
+                _syncDateRange(false);
+                _loadComponentes();
+                window.monLoadRutas();
+                _loadUsuarios();
+                _loadAsignaciones();
+            }).catch(function () {
+                var today = new Date();
+                _defaultFechaIni = _fmtDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+                _defaultFechaFin = _defaultFechaIni;
+                _q('monFechaIni').value = _defaultFechaIni;
+                _q('monFechaFin').value = _defaultFechaFin;
+                _syncDateRange(false);
+                _loadComponentes();
+                window.monLoadRutas();
+                _loadUsuarios();
+                _loadAsignaciones();
+            });
+        });
+
+    })();
+</script>
+
+{% endblock %}

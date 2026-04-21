@@ -67,7 +67,7 @@
         <div style="display:flex; align-items:center; gap:.5rem; font-size:.92rem; font-weight:700;">
         <i class="fa-solid fa-file-pen"></i> SNE · Plantillas de Notas de Objeción
         </div>
-        <div style="font-size:.75rem; opacity:.8;">Parametrización de textos automáticos por motivo de eliminación</div>
+        <div style="font-size:.75rem; opacity:.8;">Parametrización de textos automáticos por motivo de nota de objeción</div>
         <div style="margin-left:auto;">
         <a href="/sne_objecion" style="background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); border-radius:6px; padding:.28rem .75rem; font-size:.75rem; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
             <i class="bi bi-arrow-left"></i> Volver a Objeción
@@ -124,15 +124,14 @@
             <thead>
                 <tr>
                 <th class="th-navy" style="width:36px;">#</th>
-                <th class="th-navy">Motivo de Eliminación</th>
-                <th class="th-navy">Responsable</th>
+                <th class="th-navy">Motivo de Nota</th>
                 <th class="th-navy">Estado</th>
                 <th class="th-navy">Última versión</th>
                 <th class="th-navy" style="width:130px; text-align:center;">Acciones</th>
                 </tr>
             </thead>
             <tbody id="tbodyPlantillas">
-                <tr><td colspan="6" style="text-align:center; padding:28px; color:#94a3b8; font-size:11px;">Cargando…</td></tr>
+                <tr><td colspan="5" style="text-align:center; padding:28px; color:#94a3b8; font-size:11px;">Cargando…</td></tr>
             </tbody>
             </table>
         </div>
@@ -548,7 +547,7 @@
 
     var tbody = document.getElementById('tbodyPlantillas');
     if (!pagData.length) {
-        tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:#94a3b8;font-size:11px;">Sin resultados</td></tr>';
+        tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:#94a3b8;font-size:11px;">Sin resultados</td></tr>';
     } else {
         tbody.innerHTML = pagData.map(function(m,i){
         var idx    = inicio+i+1;
@@ -567,8 +566,7 @@
             : '';
         return '<tr>'
             +'<td style="color:#94a3b8;font-size:10px;">'+idx+'</td>'
-            +'<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(m.motivo_nombre)+'"><strong style="font-size:12px;">'+esc(m.motivo_nombre)+'</strong></td>'
-            +'<td style="font-size:11px;color:#475569;white-space:nowrap;">'+esc(m.responsable_nombre||'–')+'</td>'
+            +'<td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(m.motivo_nombre)+'"><strong style="font-size:12px;">'+esc(m.motivo_nombre)+'</strong></td>'
             +'<td style="white-space:nowrap;">'+badgeEstado+badgeHist+'</td>'
             +'<td style="font-size:11px;color:#64748b;">'+upd+'</td>'
             +'<td style="text-align:center;white-space:nowrap;">'+btnEditar+btnHist+'</td>'
