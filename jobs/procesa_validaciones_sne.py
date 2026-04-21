@@ -1017,6 +1017,8 @@ def _legacy_main_validaciones() -> None:
     soft_stop = False
     fecha_limite = datetime.now().date() - timedelta(days=1)
     soft_stop = False
+    fecha_limite = datetime.now().date() - timedelta(days=1)
+    soft_stop = False
 
     try:
         az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
@@ -1196,7 +1198,6 @@ def main() -> None:
         return
 
 
-    fecha_limite = datetime.now().date() - timedelta(days=1)
     logger_tail = ReportRunLogger()
     id_reporte_tail = logger_tail.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
     siguiente_fecha = logger_tail.get_next_fecha_to_process(id_reporte_tail, fecha_semilla)
