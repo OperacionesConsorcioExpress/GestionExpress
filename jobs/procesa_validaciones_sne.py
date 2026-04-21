@@ -33,7 +33,7 @@ from database.database_manager import get_db_connection
 # CONFIG
 # =============================================================================
 
-FECHA_SEMILLA_STR = "13/04/2026"   # dd/mm/yyyy
+FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
 AZURE_CONTAINER_ACTIVIDAD = "e02-transmitools"
@@ -1023,8 +1023,6 @@ def _legacy_main_validaciones() -> None:
         if registros_proce == 0:
             raise RuntimeError("No se generaron registros para cargar. Revisar cruce con sne.ics o disponibilidad de datos.")
 
-        _export_df_to_csv(df_final, fecha_nombre)
-
         print("\n" + "=" * 80)
         print("6) CARGANDO A POSTGRES sne.validaciones")
         print("=" * 80)
@@ -1114,8 +1112,6 @@ def main() -> None:
         df_final, fecha_nombre = builder.build(fecha_dt)
         registros_proce = int(len(df_final))
 
-        _export_df_to_csv(df_final, fecha_nombre)
-
         print("\n" + "=" * 80)
         print("6) CARGANDO A POSTGRES sne.validaciones")
         print("=" * 80)
@@ -1177,6 +1173,15 @@ def main() -> None:
     print("âœ… PROCESO COMPLETADO")
     print("=" * 80)
 
+
+    fecha_limite = datetime.now().date() - timedelta(days=1)
+    logger_tail = ReportRunLogger()
+    id_reporte_tail = logger_tail.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
+    siguiente_fecha = logger_tail.get_next_fecha_to_process(id_reporte_tail, fecha_semilla)
+    if siguiente_fecha <= fecha_limite:
+        print(f"Continuando con fecha pendiente: {siguiente_fecha.isoformat()}")
+        main()
+        return
 
 if __name__ == "__main__":
     main()
