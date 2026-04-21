@@ -688,6 +688,8 @@ def main() -> None:
     for fecha_proc in fechas_a_procesar:
         start_perf = time.perf_counter()
         fecha_dt = datetime.combine(fecha_proc, datetime.min.time())
+        fecha_limite = datetime.now().date() - timedelta(days=1)
+        soft_stop = False
 
         print("\n" + "=" * 80)
         print(f"FECHA A PROCESAR: {fecha_proc.isoformat()}")
@@ -728,6 +730,10 @@ def main() -> None:
             archivos_ok = 0
             archivos_error = 1
             print("ERROR en el proceso:", repr(e))
+            if fecha_dt.date() == fecha_limite and "no existe ics en azure" in str(e).lower():
+                print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+                soft_stop = True
+                return
             raise
         finally:
             end_ts = datetime.now()
@@ -757,6 +763,9 @@ def main() -> None:
                     conn_log.commit()
             except Exception as log_error:
                 print(f"No se pudo guardar el log: {repr(log_error)}")
+
+        if soft_stop:
+            return
 
 
 if __name__ == "__main__":
