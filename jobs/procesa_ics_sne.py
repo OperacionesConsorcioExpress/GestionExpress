@@ -1624,11 +1624,13 @@ def main() -> None:
     for fecha_to_process in fechas_a_procesar:
         start_perf = time.perf_counter()
         fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
+        fecha_limite = datetime.now().date() - timedelta(days=1)
         estado = "ok"
         archivos_total = 1
         archivos_ok = 1
         archivos_error = 0
         registros_proce = 0
+        soft_stop = False
 
         fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
 
@@ -1712,12 +1714,20 @@ def main() -> None:
             archivos_ok = 0
             archivos_error = 1
             print("? ERROR en el proceso:", repr(e))
+            if fecha_dt.date() == fecha_limite and _es_error_por_insumos_faltantes(e):
+                print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+                soft_stop = True
+                return
             raise
         except Exception as e:
             estado = "error"
             archivos_ok = 0
             archivos_error = 1
             print("? ERROR en el proceso:", repr(e))
+            if fecha_dt.date() == fecha_limite and _es_error_por_insumos_faltantes(e):
+                print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+                soft_stop = True
+                return
             raise
         finally:
             end_ts = datetime.now()
@@ -1757,6 +1767,9 @@ def main() -> None:
                 print(f"duracion_seg={duracion_seg} | registros_proce={registros_proce}")
             except Exception as log_error:
                 print(f"No se pudo guardar el log: {repr(log_error)}")
+
+        if soft_stop:
+            return
 
     print("\n" + "=" * 80)
     print("? PROCESO COMPLETADO")
