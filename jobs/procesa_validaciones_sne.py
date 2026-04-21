@@ -1015,6 +1015,8 @@ def _legacy_main_validaciones() -> None:
     registros_proce = 0
     fecha_limite = datetime.now().date() - timedelta(days=1)
     soft_stop = False
+    fecha_limite = datetime.now().date() - timedelta(days=1)
+    soft_stop = False
 
     try:
         az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
@@ -1142,12 +1144,20 @@ def main() -> None:
         archivos_ok = 0
         archivos_error = 1
         print("❌ ERROR en el proceso:", repr(e))
+        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún detallado" in str(e).lower() or "no se encontraron archivos de validaciones" in str(e).lower()):
+            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+            soft_stop = True
+            return
         raise
     except Exception as e:
         estado = "error"
         archivos_ok = 0
         archivos_error = 1
         print("âŒ ERROR en el proceso:", repr(e))
+        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún detallado" in str(e).lower() or "no se encontraron archivos de validaciones" in str(e).lower()):
+            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+            soft_stop = True
+            return
         raise
     finally:
         end_ts = datetime.now()
