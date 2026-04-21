@@ -54,61 +54,81 @@ def obtener_procesos_para_select():
 @checklist_router.get("/tipos_vehiculos")
 def obtener_tipos_vehiculos():
     gestion = GestionChecklist()
-    tipos = gestion.obtener_tipos_vehiculos()
-    return JSONResponse(content=tipos)
+    try:
+        tipos = gestion.obtener_tipos_vehiculos()
+        return JSONResponse(content=tipos)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.post("/vehiculos/crear")
 def crear_vehiculo(request: Request, data: dict):
     gestion = GestionChecklist()
-    resultado = gestion.crear_vehiculo(data)
-
-    # si vienen km_bases, guardarlos por placa
     try:
-        km_bases = data.get("km_bases")
-        if resultado.get("placa") and isinstance(km_bases, list) and len(km_bases) > 0:
-            gestion.upsert_km_base_batch_por_placa(resultado["placa"], km_bases)
-            # agregamos info auxiliar
-            resultado["km_bases_saved"] = len(km_bases)
-    except Exception as e:
-        # no rompemos el alta del vehículo si esto falla
-        resultado["km_bases_error"] = str(e)
+        resultado = gestion.crear_vehiculo(data)
 
-    return JSONResponse(content=resultado)
+        # si vienen km_bases, guardarlos por placa
+        try:
+            km_bases = data.get("km_bases")
+            if resultado.get("placa") and isinstance(km_bases, list) and len(km_bases) > 0:
+                gestion.upsert_km_base_batch_por_placa(resultado["placa"], km_bases)
+                # agregamos info auxiliar
+                resultado["km_bases_saved"] = len(km_bases)
+        except Exception as e:
+            # no rompemos el alta del vehículo si esto falla
+            resultado["km_bases_error"] = str(e)
+
+        return JSONResponse(content=resultado)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.get("/vehiculos")
 def obtener_vehiculos():
     gestion = GestionChecklist()
-    vehiculos = gestion.obtener_vehiculos()
-    return JSONResponse(content=vehiculos)
+    try:
+        vehiculos = gestion.obtener_vehiculos()
+        return JSONResponse(content=vehiculos)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.get("/vehiculos/{placa}")
 def obtener_vehiculo(placa: str):
     gestion = GestionChecklist()
-    vehiculo = gestion.obtener_vehiculo_por_placa(placa)
-    
-    if vehiculo:
-        return JSONResponse(content=vehiculo)
-    else:
-        return JSONResponse(content={"error": "Vehículo no encontrado"}, status_code=404)
+    try:
+        vehiculo = gestion.obtener_vehiculo_por_placa(placa)
+        if vehiculo:
+            return JSONResponse(content=vehiculo)
+        else:
+            return JSONResponse(content={"error": "Vehículo no encontrado"}, status_code=404)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.put("/vehiculos/actualizar/{placa}")
 def actualizar_vehiculo(placa: str, data: dict):
     gestion = GestionChecklist()
-    resultado = gestion.actualizar_vehiculo(placa, data)
-    return JSONResponse(content=resultado)
+    try:
+        resultado = gestion.actualizar_vehiculo(placa, data)
+        return JSONResponse(content=resultado)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.put("/vehiculos/inactivar/{placa}/{nuevo_estado}")
 def inactivar_vehiculo(placa: str, nuevo_estado: int):
     gestion = GestionChecklist()
-    resultado = gestion.inactivar_vehiculo(placa, nuevo_estado)
-    return JSONResponse(content=resultado)
+    try:
+        resultado = gestion.inactivar_vehiculo(placa, nuevo_estado)
+        return JSONResponse(content=resultado)
+    finally:
+        gestion.cerrar_conexion()
 
 # --- CONSULTA Y REGISTRO CHECKLIST ESTADO DEL VEHICULO ---
 @checklist_router.get("/vehiculos/buscar/{query}")
 def buscar_vehiculos(query: str, solo_moto: bool = Query(False)):
     gestion = GestionChecklist()
-    vehiculos = gestion.buscar_vehiculos(query, solo_moto=solo_moto)
-    return JSONResponse(content=vehiculos)
+    try:
+        vehiculos = gestion.buscar_vehiculos(query, solo_moto=solo_moto)
+        return JSONResponse(content=vehiculos)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.get("/documentos")
 def obtener_tipos_documentos():
@@ -124,99 +144,103 @@ def obtener_tipos_documentos():
 def obtener_componentes_por_placa(placa: str):
     """Obtiene los componentes para un vehículo según su placa"""
     gestion = GestionChecklist()
-    
-    # Obtener el vehículo por la placa
-    vehiculo = gestion.obtener_vehiculo_por_placa(placa)
-    
-    if not vehiculo:
-        print(f"🚨 ERROR: Vehículo con placa {placa} no encontrado en la BD.")
-        return JSONResponse(content={"error": "Vehículo no encontrado"}, status_code=404)
+    try:
+        # Obtener el vehículo por la placa
+        vehiculo = gestion.obtener_vehiculo_por_placa(placa)
 
-    id_tipo_vehiculo = vehiculo.get("id_tipo_vehiculo")
-    #print(f" ID Tipo de Vehículo encontrado: {id_tipo_vehiculo}")
+        if not vehiculo:
+            print(f"🚨 ERROR: Vehículo con placa {placa} no encontrado en la BD.")
+            return JSONResponse(content={"error": "Vehículo no encontrado"}, status_code=404)
 
-    if not id_tipo_vehiculo:
-        print(f"🚨 ERROR: Tipo de vehículo no encontrado para {placa}")
-        return JSONResponse(content={"error": "Tipo de vehículo no encontrado"}, status_code=400)
+        id_tipo_vehiculo = vehiculo.get("id_tipo_vehiculo")
+        #print(f" ID Tipo de Vehículo encontrado: {id_tipo_vehiculo}")
 
-    # Obtener los componentes por tipo de vehículo
-    componentes = gestion.obtener_componentes_por_tipo(id_tipo_vehiculo)
-    # print(f"🔍 Componentes obtenidos para tipo {id_tipo_vehiculo}: {componentes}")
+        if not id_tipo_vehiculo:
+            print(f"🚨 ERROR: Tipo de vehículo no encontrado para {placa}")
+            return JSONResponse(content={"error": "Tipo de vehículo no encontrado"}, status_code=400)
 
-    if not isinstance(componentes, list) or len(componentes) == 0:
-        print(f"🚨 ERROR: No hay componentes para el tipo de vehículo {id_tipo_vehiculo}")
-        return JSONResponse(content={"error": "No hay componentes para este tipo de vehículo"}, status_code=404)
+        # Obtener los componentes por tipo de vehículo
+        componentes = gestion.obtener_componentes_por_tipo(id_tipo_vehiculo)
+        # print(f"🔍 Componentes obtenidos para tipo {id_tipo_vehiculo}: {componentes}")
 
-    # Agrupar los componentes por grupo
-    componentes_agrupados = {}
-    for componente in componentes:
-        if not isinstance(componente, dict):
-            print(f"🚨 ERROR: Componente en formato incorrecto: {componente}")
-            return JSONResponse(content={"error": "Formato de componente incorrecto"}, status_code=500)
+        if not isinstance(componentes, list) or len(componentes) == 0:
+            print(f"🚨 ERROR: No hay componentes para el tipo de vehículo {id_tipo_vehiculo}")
+            return JSONResponse(content={"error": "No hay componentes para este tipo de vehículo"}, status_code=404)
 
-        grupo = componente["grupo"]
-        if grupo not in componentes_agrupados:
-            componentes_agrupados[grupo] = []
+        # Agrupar los componentes por grupo
+        componentes_agrupados = {}
+        for componente in componentes:
+            if not isinstance(componente, dict):
+                print(f"🚨 ERROR: Componente en formato incorrecto: {componente}")
+                return JSONResponse(content={"error": "Formato de componente incorrecto"}, status_code=500)
 
-        componentes_agrupados[grupo].append({
-            "id_componente": componente["id_componente"],
-            "posicion": componente["posicion"],
-            "componente": componente["componente"]
-        })
+            grupo = componente["grupo"]
+            if grupo not in componentes_agrupados:
+                componentes_agrupados[grupo] = []
 
-    # print(f" Componentes agrupados listos para envío: {componentes_agrupados}")
-    return JSONResponse(content=componentes_agrupados)
+            componentes_agrupados[grupo].append({
+                "id_componente": componente["id_componente"],
+                "posicion": componente["posicion"],
+                "componente": componente["componente"]
+            })
+
+        # print(f" Componentes agrupados listos para envío: {componentes_agrupados}")
+        return JSONResponse(content=componentes_agrupados)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.get("/vehiculos/checklist/{placa}")
 def obtener_checklist_vehiculo(placa: str):
     """Obtiene la información del vehículo y su checklist más reciente"""
     gestion = GestionChecklist()
+    try:
+        # 1. Buscar el vehículo
+        vehiculo = gestion.obtener_vehiculo_por_placa(placa)
+        if not vehiculo:
+            return JSONResponse(content={"error": "Vehículo no encontrado"}, status_code=404)
 
-    # 1. Buscar el vehículo
-    vehiculo = gestion.obtener_vehiculo_por_placa(placa)
-    if not vehiculo:
-        return JSONResponse(content={"error": "Vehículo no encontrado"}, status_code=404)
+        #print(f" Vehículo encontrado: {vehiculo}")
 
-    #print(f" Vehículo encontrado: {vehiculo}")
+        # 2. Obtener el último checklist registrado
+        checklist = gestion.obtener_ultimo_checklist(vehiculo["id_vehiculo"])
 
-    # 2. Obtener el último checklist registrado
-    checklist = gestion.obtener_ultimo_checklist(vehiculo["id_vehiculo"])
-    
-    # 3. Obtener documentos y detalles del checklist
-    documentos = gestion.obtener_documentos_checklist(checklist["id_checklist"]) if checklist else []
-    detalles = gestion.obtener_detalles_checklist(checklist["id_checklist"]) if checklist else []
+        # 3. Obtener documentos y detalles del checklist
+        documentos = gestion.obtener_documentos_checklist(checklist["id_checklist"]) if checklist else []
+        detalles = gestion.obtener_detalles_checklist(checklist["id_checklist"]) if checklist else []
 
-    # Validar que documentos y detalles no sean None
-    documentos = documentos if documentos is not None else []
-    detalles = detalles if detalles is not None else []
+        # Validar que documentos y detalles no sean None
+        documentos = documentos if documentos is not None else []
+        detalles = detalles if detalles is not None else []
 
-    #print(f" Documentos encontrados: {documentos}")
-    #print(f" Detalles encontrados: {detalles}")
+        #print(f" Documentos encontrados: {documentos}")
+        #print(f" Detalles encontrados: {detalles}")
 
-    # 4. Obtener los componentes del vehículo
-    componentes = gestion.obtener_componentes_por_tipo(vehiculo["id_tipo_vehiculo"])
+        # 4. Obtener los componentes del vehículo
+        componentes = gestion.obtener_componentes_por_tipo(vehiculo["id_tipo_vehiculo"])
 
-    # print(f"Componentes agrupados listos para envío: {componentes}")
+        # print(f"Componentes agrupados listos para envío: {componentes}")
 
-    # 5. Convertir valores `datetime` y `time` a `str`
-    def convertir_a_str(obj):
-        """Convierte datetime y time a string"""
-        if isinstance(obj, datetime):
-            return obj.strftime("%Y-%m-%d %H:%M:%S")
-        elif isinstance(obj, time):
-            return obj.strftime("%H:%M:%S")
-        return obj
+        # 5. Convertir valores `datetime` y `time` a `str`
+        def convertir_a_str(obj):
+            """Convierte datetime y time a string"""
+            if isinstance(obj, datetime):
+                return obj.strftime("%Y-%m-%d %H:%M:%S")
+            elif isinstance(obj, time):
+                return obj.strftime("%H:%M:%S")
+            return obj
 
-    if checklist:
-        checklist = {key: convertir_a_str(value) for key, value in checklist.items()}
+        if checklist:
+            checklist = {key: convertir_a_str(value) for key, value in checklist.items()}
 
-    return JSONResponse(content={
-        "vehiculo": vehiculo,
-        "checklist": checklist or {},
-        "documentos": documentos,
-        "detalles": detalles,
-        "componentes": componentes
-    })
+        return JSONResponse(content={
+            "vehiculo": vehiculo,
+            "checklist": checklist or {},
+            "documentos": documentos,
+            "detalles": detalles,
+            "componentes": componentes
+        })
+    finally:
+        gestion.cerrar_conexion()
 
 # --- GUARDAR CHECKLIST DEL VEHICULO ---
 class RegistroChecklist(BaseModel):
@@ -287,17 +311,23 @@ async def guardar_checklist(data: ChecklistRequest):
 def obtener_vehiculos_con_fallas(user_session: dict = Depends(get_user_session)):
     """Retorna vehículos con al menos una falla registrada en su checklist, filtrados por flota del usuario (si aplica)."""
     gestion = GestionChecklist()
-    uid = user_session.get("id") if user_session else None
-    vehiculos = gestion.obtener_vehiculos_con_fallas(user_id=uid)
-    return JSONResponse(content=vehiculos)
+    try:
+        uid = user_session.get("id") if user_session else None
+        vehiculos = gestion.obtener_vehiculos_con_fallas(user_id=uid)
+        return JSONResponse(content=vehiculos)
+    finally:
+        gestion.cerrar_conexion()
 
 @checklist_router.get("/fallas_vehiculo/{placa}")
 def obtener_detalles_falla_por_placa(placa: str, user_session: dict = Depends(get_user_session)):
     """Retorna todos los detalles de fallas por vehículo, restringido a la flota del usuario (si aplica)."""
     gestion = GestionChecklist()
-    uid = user_session.get("id") if user_session else None
-    data = gestion.obtener_detalle_falla_vehiculo(placa, user_id=uid)
-    return JSONResponse(content=data)
+    try:
+        uid = user_session.get("id") if user_session else None
+        data = gestion.obtener_detalle_falla_vehiculo(placa, user_id=uid)
+        return JSONResponse(content=data)
+    finally:
+        gestion.cerrar_conexion()
 
 # --- GENERACIÓN REPORTES ---
 @checklist_router.get("/reportes/filtros")
@@ -389,15 +419,18 @@ def exportar_reporte_fallas(
         raise HTTPException(status_code=400, detail="El rango no puede ser superior a 15 días.")
 
     gestion = GestionChecklist()
-    resultados = gestion.consultar_datos_reporte(
-        fecha_inicio=fecha_inicio,
-        fecha_fin=fecha_fin,
-        placa=placa or None,
-        tipo_vehiculo=tipo_vehiculo or None,
-        marca=marca or None,
-        estado=estado or None,
-        usuario=usuario or None
-    )
+    try:
+        resultados = gestion.consultar_datos_reporte(
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            placa=placa or None,
+            tipo_vehiculo=tipo_vehiculo or None,
+            marca=marca or None,
+            estado=estado or None,
+            usuario=usuario or None
+        )
+    finally:
+        gestion.cerrar_conexion()
 
     if not resultados:
         return JSONResponse(content={"error": "No hay datos para exportar"}, status_code=404)

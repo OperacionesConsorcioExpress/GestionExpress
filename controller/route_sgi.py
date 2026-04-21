@@ -3230,6 +3230,7 @@ def obtener_notificaciones(
             content={"success": False, "mensaje": "Sistema de notificaciones no disponible"}
         )
 
+    gestion_notif = None
     try:
         usuario = user_session.get('nombre', user_session.get('username', 'unknown'))
         #print(f"🔍 Usuario consultando notificaciones: '{usuario}' (de sesión: {user_session})")
@@ -3241,7 +3242,6 @@ def obtener_notificaciones(
             limite=limite
         )
         no_leidas = gestion_notif.contar_no_leidas(usuario)
-        gestion_notif.cerrar_conexion()
 
         #print(f"📊 Notificaciones encontradas: {len(notificaciones)} | No leídas: {no_leidas}")
 
@@ -3257,6 +3257,9 @@ def obtener_notificaciones(
             status_code=500,
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
+    finally:
+        if gestion_notif:
+            gestion_notif.cerrar_conexion()
 
 @router_sgi.post("/sgi/notificaciones/{notificacion_id}/marcar-leida")
 def marcar_notificacion_leida(
@@ -3277,11 +3280,10 @@ def marcar_notificacion_leida(
             content={"success": False, "mensaje": "Sistema de notificaciones no disponible"}
         )
 
+    gestion_notif = None
     try:
         gestion_notif = GestionNotificaciones()
         resultado = gestion_notif.marcar_como_leida(notificacion_id)
-        gestion_notif.cerrar_conexion()
-
         return JSONResponse(content=resultado)
 
     except Exception as e:
@@ -3290,6 +3292,9 @@ def marcar_notificacion_leida(
             status_code=500,
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
+    finally:
+        if gestion_notif:
+            gestion_notif.cerrar_conexion()
 
 @router_sgi.post("/sgi/notificaciones/marcar-todas-leidas")
 def marcar_todas_notificaciones_leidas(
@@ -3309,13 +3314,12 @@ def marcar_todas_notificaciones_leidas(
             content={"success": False, "mensaje": "Sistema de notificaciones no disponible"}
         )
 
+    gestion_notif = None
     try:
         usuario = user_session.get('nombre', user_session.get('username', 'unknown'))
 
         gestion_notif = GestionNotificaciones()
         resultado = gestion_notif.marcar_todas_como_leidas(usuario)
-        gestion_notif.cerrar_conexion()
-
         return JSONResponse(content=resultado)
 
     except Exception as e:
@@ -3324,6 +3328,9 @@ def marcar_todas_notificaciones_leidas(
             status_code=500,
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
+    finally:
+        if gestion_notif:
+            gestion_notif.cerrar_conexion()
 
 @router_sgi.delete("/sgi/notificaciones/{notificacion_id}")
 def eliminar_notificacion(
@@ -3344,13 +3351,12 @@ def eliminar_notificacion(
             content={"success": False, "mensaje": "Sistema de notificaciones no disponible"}
         )
 
+    gestion_notif = None
     try:
         usuario = user_session.get('nombre', user_session.get('username', 'unknown'))
 
         gestion_notif = GestionNotificaciones()
         resultado = gestion_notif.eliminar_notificacion(notificacion_id, usuario)
-        gestion_notif.cerrar_conexion()
-
         return JSONResponse(content=resultado)
 
     except Exception as e:
@@ -3359,6 +3365,9 @@ def eliminar_notificacion(
             status_code=500,
             content={"success": False, "mensaje": f"Error: {str(e)}"}
         )
+    finally:
+        if gestion_notif:
+            gestion_notif.cerrar_conexion()
 
 # ========================================================================================
 #                        EXPORTAR PENDIENTES SGI (TODOS LOS MÓDULOS)
