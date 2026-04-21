@@ -13,8 +13,8 @@ from azure.storage.blob import BlobServiceClient
 # ============================================================
 # 0) CONFIG AZURE BLOB
 # ============================================================
-CONTENEDOR = "transmitools"
-PREFIJO_BASE = "posicionamientos/"
+CONTENEDOR = "e02-transmitools"
+PREFIJO_BASE = "70_posicionamientos/"
 
 def obtener_cliente_contenedor():
     cadena_conexion = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -87,7 +87,8 @@ def carpeta_yyyymmdd(d: date) -> str:
     return d.strftime("%Y%m%d")
 
 def listar_parquets_por_carpeta(cliente_contenedor, carpeta_utc: str) -> pl.DataFrame:
-    prefijo = f"{PREFIJO_BASE}{carpeta_utc}/"
+    año = carpeta_utc[:4]  # YYYYMMDD → YYYY
+    prefijo = f"{año}/{PREFIJO_BASE}{carpeta_utc}/"
     filas = []
     for blob in cliente_contenedor.list_blobs(name_starts_with=prefijo):
         if blob.name.lower().endswith(".parquet"):
@@ -475,25 +476,26 @@ def obtener_ultima_fecha_procesada(cur) -> date | None:
 def obtener_carpetas_disponibles_en_blob(cliente_contenedor) -> list[date]:
     """
     Lista todas las carpetas con formato YYYYMMDD en Azure Blob Storage.
+    Estructura esperada: YYYY/70_posicionamientos/YYYYMMDD/archivo.parquet
     Retorna lista de dates ordenadas cronológicamente.
     """
     carpetas = set()
-    
-    # Listar todos los blobs en el contenedor con el prefijo base
-    for blob in cliente_contenedor.list_blobs(name_starts_with=PREFIJO_BASE):
-        # Extraer la carpeta (formato: posicionamientos/YYYYMMDD/archivo.parquet)
+    nombre_prefijo = PREFIJO_BASE.rstrip("/")  # "70_posicionamientos"
+
+    for blob in cliente_contenedor.list_blobs():
+        # Formato: YYYY/70_posicionamientos/YYYYMMDD/archivo.parquet
         partes = blob.name.split("/")
-        if len(partes) >= 2:
-            carpeta_str = partes[1]
-            # Validar que sea un formato YYYYMMDD válido (8 dígitos)
-            if carpeta_str.isdigit() and len(carpeta_str) == 8:
+        if len(partes) >= 3 and partes[1] == nombre_prefijo:
+            año_str = partes[0]
+            carpeta_str = partes[2]
+            if (año_str.isdigit() and len(año_str) == 4
+                    and carpeta_str.isdigit() and len(carpeta_str) == 8):
                 try:
                     d = datetime.strptime(carpeta_str, "%Y%m%d").date()
                     carpetas.add(d)
                 except ValueError:
                     continue
-    
-    # Retornar ordenadas cronológicamente
+
     return sorted(list(carpetas))
 
 def obtener_fechas_a_procesar(cur, cliente_contenedor, limite_dias: int) -> list[date]:
