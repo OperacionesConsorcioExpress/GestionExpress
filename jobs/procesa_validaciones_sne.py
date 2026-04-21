@@ -93,9 +93,9 @@ class DataIO:
 
         def _clean_col(c: str) -> str:
             s = str(c)
-            s = s.replace("\ufeff", "").replace("ï»¿", "").replace('"', "").strip()
+            s = s.replace("\ufeff", "").replace("Ã¯Â»Â¿", "").replace('"', "").strip()
             s = re.sub(r"^[\uFEFF\u200B\u200C\u200D\u2060]+", "", s).strip()
-            s = re.sub(r"^(ï»¿)+", "", s).strip()
+            s = re.sub(r"^(Ã¯Â»Â¿)+", "", s).strip()
             s = re.sub(r"\s+", " ", s).strip()
             return s
 
@@ -156,7 +156,7 @@ class TransformUtils:
     @staticmethod
     def fecha_key_robusta(serie: pd.Series, prefer_dayfirst: str = "auto") -> pd.Series:
         s = serie.copy()
-        s = s.astype(str).str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
+        s = s.astype(str).str.replace("\ufeff", "", regex=False).str.replace("Ã¯Â»Â¿", "", regex=False).str.strip()
         s = s.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
 
         s_num = pd.to_numeric(s, errors="coerce")
@@ -206,7 +206,7 @@ class TransformUtils:
 
     @staticmethod
     def fecha_para_nombre_archivo_dd_mm_yyyy(serie_fecha: pd.Series) -> str:
-        s = serie_fecha.astype(str).str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
+        s = serie_fecha.astype(str).str.replace("\ufeff", "", regex=False).str.replace("Ã¯Â»Â¿", "", regex=False).str.strip()
         dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
 
         if dt.notna().any():
@@ -218,8 +218,8 @@ class TransformUtils:
 
 def normalize_name(s: str) -> str:
     s = str(s).strip().lower()
-    s = s.replace("\ufeff", "").replace("ï»¿", "")
-    s = s.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u").replace("ñ", "n")
+    s = s.replace("\ufeff", "").replace("Ã¯Â»Â¿", "")
+    s = s.replace("Ã¡", "a").replace("Ã©", "e").replace("Ã­", "i").replace("Ã³", "o").replace("Ãº", "u").replace("Ã±", "n")
     s = re.sub(r"[^a-z0-9]+", "", s)
     return s
 
@@ -237,7 +237,7 @@ def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Opt
             return normalized[na]
 
     if required:
-        raise KeyError(f"No se encontró ninguna de estas columnas: {aliases}")
+        raise KeyError(f"No se encontrÃ³ ninguna de estas columnas: {aliases}")
     return None
 
 # =============================================================================
@@ -531,44 +531,45 @@ class ValidacionesBuilder:
         tmp_val = df_val.merge(
             df_det_con_idics[["IdICS", "Fecha_val_key", "IdLinea_key", "Vehiculo_key", "HoraIni_td", "HoraFin_td"]],
             on=["Fecha_val_key", "IdLinea_key", "Vehiculo_key"],
-            how="left",
+            how="inner"
         )
 
-        cond_val = (tmp_val["HoraTrx_td"] >= tmp_val["HoraIni_td"]) & (tmp_val["HoraTrx_td"] <= tmp_val["HoraFin_td"])
-        df_val_match = tmp_val[cond_val & tmp_val["IdICS"].notna()].copy()
+        mask_time = (
+            tmp_val["HoraTrx_td"].notna()
+            & tmp_val["HoraIni_td"].notna()
+            & tmp_val["HoraFin_td"].notna()
+            & (tmp_val["HoraTrx_td"] >= tmp_val["HoraIni_td"])
+            & (tmp_val["HoraTrx_td"] <= tmp_val["HoraFin_td"])
+        )
+        df_match = tmp_val.loc[mask_time].copy()
 
-        fecha_nombre = self.tu.fecha_para_nombre_archivo_dd_mm_yyyy(df_val["Fecha_registro"].astype(str))
+        c_fecha_base = pick_col(df_val, ["Fecha_registro"], required=False)
+        fecha_nombre = fecha.strftime("%d_%m_%Y")
 
-        out = pd.DataFrame({
-            "Id_ICS": self.tu.to_int64(df_val_match["IdICS"]),
-            "Fecha_Registro": df_val_match["Fecha_registro"],
-            "Linea": df_val_match["Linea"],
-            "Parada": df_val_match["Parada"],
-            "Vehiculo": df_val_match["Vehiculo"],
-            "Instante": df_val_match["Instante"],
-        })
-
-        out = out[out["Id_ICS"].notna()].copy()
-
-        out = out.drop_duplicates(
-            subset=["Id_ICS", "Fecha_Registro", "Linea", "Parada", "Vehiculo", "Instante"],
+        df_out = df_match[["IdICS", "Fecha_registro", "Linea", "Parada", "Vehiculo", "Instante"]].copy()
+        df_out = df_out.rename(columns={"IdICS": "Id_ICS"})
+        df_out = df_out.dropna(subset=["Id_ICS"]).copy()
+        df_out["Id_ICS"] = pd.to_numeric(df_out["Id_ICS"], errors="coerce").astype("Int64")
+        df_out = df_out.dropna(subset=["Id_ICS"]).copy()
+        df_out = df_out.drop_duplicates(
+            subset=["Id_ICS", "Fecha_registro", "Linea", "Parada", "Vehiculo", "Instante"],
             keep="first"
-        ).reset_index(drop=True)
+        ).copy()
 
-        print("\n✅ Tabla Validaciones construida:")
-        print(f"   Filas con Id_ICS: {len(out)}")
+        print("✅ Tabla Validaciones construida:")
+        print(f"   Filas con Id_ICS: {len(df_out)}")
         print(f"📌 Nombre lógico: VALIDACIONES_{fecha_nombre}")
 
-        return out, fecha_nombre
+        return df_out, fecha_nombre
 
 # =============================================================================
-# POSTGRES LOAD sne.validaciones
+# POSTGRES
 # =============================================================================
 
 class PostgresValidacionesLoader:
     DF_TO_DB = {
         "Id_ICS": "id_ics",
-        "Fecha_Registro": "fecha_registro",
+        "Fecha_registro": "fecha_registro",
         "Linea": "linea",
         "Parada": "parada",
         "Vehiculo": "vehiculo",
@@ -596,13 +597,13 @@ class PostgresValidacionesLoader:
 
     @staticmethod
     def _py(v):
-        if v is None:
-            return None
         try:
             if v is pd.NA:
                 return None
         except Exception:
             pass
+        if pd.isna(v):
+            return None
         if isinstance(v, np.generic):
             return v.item()
         if isinstance(v, float) and np.isnan(v):
@@ -1118,6 +1119,8 @@ def main() -> None:
     archivos_ok = 1
     archivos_error = 0
     registros_proce = 0
+    fecha_limite = datetime.now().date() - timedelta(days=1)
+    soft_stop = False
 
     try:
         az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
@@ -1186,13 +1189,13 @@ def main() -> None:
         )
 
         print(
-            f"ðŸ“Œ log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | "
+            f"📌 log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | "
             f"id_reporte={id_reporte} | fecha={fecha_dt.date()} | estado={estado}"
         )
-        print(f"â±ï¸ duraciÃ³n_seg={duracion_seg} | registros_proce={registros_proce}")
+        print(f"⏱️ duración_seg={duracion_seg} | registros_proce={registros_proce}")
 
     print("\n" + "=" * 80)
-    print("âœ… PROCESO COMPLETADO")
+    print("✅ PROCESO COMPLETADO")
     print("=" * 80)
     if soft_stop:
         return
