@@ -25,7 +25,7 @@ except Exception:
 # CONFIG
 # =============================================================================
 
-FECHA_SEMILLA_STR = "13/04/2026"  # dd/mm/yyyy
+FECHA_SEMILLA_STR = "01/04/2026"  # dd/mm/yyyy
 PROCESS_DATE_STR = ""
 
 AZURE_CONN_ENV = "AZURE_STORAGE_CONNECTION_STRING"
@@ -658,79 +658,105 @@ def _resolve_fecha_to_process(fecha_semilla: date) -> date:
         return logger.get_next_fecha_to_process(conn, id_reporte, fecha_semilla)
 
 
+def _fechas_a_procesar(fecha_semilla: date) -> List[date]:
+    fecha_inicio = _resolve_fecha_to_process(fecha_semilla)
+    if str(PROCESS_DATE_STR).strip():
+        return [fecha_inicio]
+
+    fecha_limite = datetime.now().date() - timedelta(days=1)
+    if fecha_inicio > fecha_limite:
+        return []
+
+    fechas: List[date] = []
+    cur = fecha_inicio
+    while cur <= fecha_limite:
+        fechas.append(cur)
+        cur += timedelta(days=1)
+    return fechas
+
+
 def main() -> None:
     load_dotenv()
-    start_perf = time.perf_counter()
-
     fecha_semilla = _parse_semilla()
-    fecha_proc = _resolve_fecha_to_process(fecha_semilla)
-    fecha_dt = datetime.combine(fecha_proc, datetime.min.time())
     conn_azure = _get_connection_string()
+    fechas_a_procesar = _fechas_a_procesar(fecha_semilla)
 
-    estado = "ok"
-    archivos_total = 1
-    archivos_ok = 1
-    archivos_error = 0
-    registros_proce = 0
+    if not fechas_a_procesar:
+        print("No hay fechas pendientes por procesar.")
+        return
 
-    try:
-        az_ics = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_name=AZURE_CONTAINER_ICS))
-        az_fms = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_name=AZURE_CONTAINER_FMS))
-
-        builder = BitacoraNotasBuilder(az_ics=az_ics, az_fms=az_fms)
-        df_final = builder.build(fecha_dt)
-        registros_proce = int(len(df_final))
-        if registros_proce == 0:
-            raise RuntimeError("No se generaron registros para cargar. Revisar cruce con sne.ics o disponibilidad de datos.")
+    for fecha_proc in fechas_a_procesar:
+        start_perf = time.perf_counter()
+        fecha_dt = datetime.combine(fecha_proc, datetime.min.time())
 
         print("\n" + "=" * 80)
-        print(f"4) CARGANDO A POSTGRES {PG_SCHEMA_NAME}.{PG_TABLE_NAME}")
+        print(f"FECHA A PROCESAR: {fecha_proc.isoformat()}")
         print("=" * 80)
 
-        with get_db_connection() as conn:
-            loader = PostgresBitacoraNotasLoader(
-                schema=PG_SCHEMA_NAME,
-                table=PG_TABLE_NAME,
-                batch_size=PG_BATCH_SIZE,
-            )
-            total = loader.insert_df(df_final, conn)
-            conn.commit()
-
-        print(f"{PG_SCHEMA_NAME}.{PG_TABLE_NAME}: {total} filas insertadas")
-    except Exception as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("ERROR en el proceso:", repr(e))
-        raise
-    finally:
-        end_ts = datetime.now()
-        duracion_seg = int(round(time.perf_counter() - start_perf))
-
-        print("\n" + "=" * 80)
-        print("5) GUARDANDO LOG EN log.procesa_report_sne")
-        print("=" * 80)
+        estado = "ok"
+        archivos_total = 1
+        archivos_ok = 1
+        archivos_error = 0
+        registros_proce = 0
 
         try:
-            logger = ReportRunLogger()
-            with get_db_connection() as conn_log:
-                id_reporte = logger.get_id_reporte(conn_log, NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
-                logger.write_log(
-                    conn_log,
-                    id_reporte=id_reporte,
-                    fecha_reporte_date=fecha_dt.date(),
-                    estado=estado,
-                    ultima_ejecucion_ts=end_ts,
-                    duracion_seg=duracion_seg,
-                    archivos_total=archivos_total,
-                    archivos_ok=archivos_ok,
-                    archivos_error=archivos_error,
-                    registros_proce=registros_proce,
-                    fecha_actualizacion_ts=end_ts,
+            az_ics = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_name=AZURE_CONTAINER_ICS))
+            az_fms = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_name=AZURE_CONTAINER_FMS))
+
+            builder = BitacoraNotasBuilder(az_ics=az_ics, az_fms=az_fms)
+            df_final = builder.build(fecha_dt)
+            registros_proce = int(len(df_final))
+            if registros_proce == 0:
+                raise RuntimeError("No se generaron registros para cargar. Revisar cruce con sne.ics o disponibilidad de datos.")
+
+            print("\n" + "=" * 80)
+            print(f"4) CARGANDO A POSTGRES {PG_SCHEMA_NAME}.{PG_TABLE_NAME}")
+            print("=" * 80)
+
+            with get_db_connection() as conn:
+                loader = PostgresBitacoraNotasLoader(
+                    schema=PG_SCHEMA_NAME,
+                    table=PG_TABLE_NAME,
+                    batch_size=PG_BATCH_SIZE,
                 )
-                conn_log.commit()
-        except Exception as log_error:
-            print(f"No se pudo guardar el log: {repr(log_error)}")
+                total = loader.insert_df(df_final, conn)
+                conn.commit()
+
+            print(f"{PG_SCHEMA_NAME}.{PG_TABLE_NAME}: {total} filas insertadas")
+        except Exception as e:
+            estado = "error"
+            archivos_ok = 0
+            archivos_error = 1
+            print("ERROR en el proceso:", repr(e))
+            raise
+        finally:
+            end_ts = datetime.now()
+            duracion_seg = int(round(time.perf_counter() - start_perf))
+
+            print("\n" + "=" * 80)
+            print("5) GUARDANDO LOG EN log.procesa_report_sne")
+            print("=" * 80)
+
+            try:
+                logger = ReportRunLogger()
+                with get_db_connection() as conn_log:
+                    id_reporte = logger.get_id_reporte(conn_log, NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
+                    logger.write_log(
+                        conn_log,
+                        id_reporte=id_reporte,
+                        fecha_reporte_date=fecha_dt.date(),
+                        estado=estado,
+                        ultima_ejecucion_ts=end_ts,
+                        duracion_seg=duracion_seg,
+                        archivos_total=archivos_total,
+                        archivos_ok=archivos_ok,
+                        archivos_error=archivos_error,
+                        registros_proce=registros_proce,
+                        fecha_actualizacion_ts=end_ts,
+                    )
+                    conn_log.commit()
+            except Exception as log_error:
+                print(f"No se pudo guardar el log: {repr(log_error)}")
 
 
 if __name__ == "__main__":
