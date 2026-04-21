@@ -27,7 +27,7 @@ except Exception:
 # =============================================================================
 
 # Si no existe un log OK previo, empezar desde esta fecha
-FECHA_SEMILLA_STR = "13/04/2026"   # dd/mm/yyyy
+FECHA_SEMILLA_STR = "01/04/2026"   # dd/mm/yyyy
 
 FILTRO_ZONA_TIPO = 3               # 1=ZN, 2=TR, 3=Ambas
 
@@ -1580,18 +1580,31 @@ def _resolve_fecha_to_process(fecha_semilla: date) -> date:
         return fecha_semilla
 
 
+def _fechas_a_procesar(fecha_semilla: date) -> List[date]:
+    fecha_inicio = _resolve_fecha_to_process(fecha_semilla)
+    if str(PROCESS_DATE_STR).strip() or _is_local_mode():
+        return [fecha_inicio]
+
+    fecha_limite = datetime.now().date() - timedelta(days=1)
+    if fecha_inicio > fecha_limite:
+        return []
+
+    fechas: List[date] = []
+    cur = fecha_inicio
+    while cur <= fecha_limite:
+        fechas.append(cur)
+        cur += timedelta(days=1)
+    return fechas
+
+
 def main() -> None:
     load_dotenv()
-    start_perf = time.perf_counter()
-
     fecha_semilla = _parse_semilla()
-    fecha_to_process = _resolve_fecha_to_process(fecha_semilla)
-    fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
-    estado = "ok"
-    archivos_total = 1
-    archivos_ok = 1
-    archivos_error = 0
-    registros_proce = 0
+    fechas_a_procesar = _fechas_a_procesar(fecha_semilla)
+
+    if not fechas_a_procesar:
+        print("No hay fechas pendientes por procesar.")
+        return
 
     meses_es = {
         1: "enero",
@@ -1608,133 +1621,142 @@ def main() -> None:
         12: "diciembre",
     }
 
-    fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
+    for fecha_to_process in fechas_a_procesar:
+        start_perf = time.perf_counter()
+        fecha_dt = datetime.combine(fecha_to_process, datetime.min.time())
+        estado = "ok"
+        archivos_total = 1
+        archivos_ok = 1
+        archivos_error = 0
+        registros_proce = 0
 
-    print("\n" + "=" * 80)
-    print(f"FECHA A PROCESAR: {fecha_to_process}")
-    print(f"FECHA EN TEXTO: {fecha_texto}")
-    print("=" * 80)
-
-    try:
-        az = None
-        az_ics = None
-        az_detallado = None
-        az_fms = None
-        if not _is_local_mode():
-            conn_azure = _get_connection_string()
-            az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
-            az_ics = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_ICS))
-            az_detallado = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_DETALLADO))
-            az_fms = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_FMS))
-
-        builder = SNEExportBuilder(az, az_ics, az_detallado, az_fms, filtro_zona_tipo=FILTRO_ZONA_TIPO)
-        df_final = builder.build(fecha_dt)
-
-        registros_proce = int(len(df_final))
-        duracion_seg = int(round(time.perf_counter() - start_perf))
+        fecha_texto = f"{fecha_to_process.day} de {meses_es[fecha_to_process.month]} de {fecha_to_process.year}"
 
         print("\n" + "=" * 80)
-        print("8) RESULTADO LISTO PARA CARGUE")
-        print("=" * 80)
-        print(f"Filas exportadas: {len(df_final)}")
-        print(f"duracion_seg={duracion_seg}")
-
-        if not ENABLE_POSTGRES_LOAD:
-            print("Cargue a Postgres desactivado temporalmente.")
-            return
-
-        with get_db_connection() as conn:
-            print("\n" + "=" * 80)
-            print("9) CARGANDO sne.ics")
-            print("=" * 80)
-
-            loader = PostgresLoader(
-                schema=PG_SCHEMA_NAME,
-                table=PG_TABLE_NAME,
-                batch_size=PG_BATCH_SIZE
-            )
-            total_ics = loader.insert_df(df_final, conn)
-            print(f"? sne.ics upsert: {total_ics} filas")
-
-            print("\n" + "=" * 80)
-            print("10) CARGANDO sne.gestion_sne")
-            print("=" * 80)
-
-            gestion_loader = GestionSNELoader(
-                schema=PG_SCHEMA_GESTION,
-                table=PG_TABLE_GESTION,
-                batch_size=PG_BATCH_SIZE,
-                revisor_default_int=GESTION_REVISOR_DEFAULT_INT,
-            )
-            total_gestion = gestion_loader.upsert_from_ics_ids(df_final, conn)
-            print(f"? sne.gestion_sne actualizado para {total_gestion} ids")
-
-            print("\n" + "=" * 80)
-            print("11) CARGANDO sne.ics_motivo_resp y cat?logo de motivos")
-            print("=" * 80)
-
-            motivo_resp_loader = IcsMotivoRespLoader(
-                schema_motivo_resp=PG_SCHEMA_MOTIVO_RESP,
-                table_motivo_resp=PG_TABLE_MOTIVO_RESP,
-                schema_motivos=PG_SCHEMA_MOTIVOS,
-                table_motivos=PG_TABLE_MOTIVOS,
-                batch_size=PG_BATCH_SIZE,
-                responsable_default=RESPONSABLE_DEFAULT,
-            )
-            total_motivo_resp = motivo_resp_loader.upsert_from_df(df_final, conn)
-            print(f"? sne.ics_motivo_resp upsert: {total_motivo_resp} filas")
-            conn.commit()
-
-    except SystemExit as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("? ERROR en el proceso:", repr(e))
-        raise
-    except Exception as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("? ERROR en el proceso:", repr(e))
-        raise
-    finally:
-        end_ts = datetime.now()
-        duracion_seg = int(round(time.perf_counter() - start_perf))
-
-        print("\n" + "=" * 80)
-        print("12) GUARDANDO LOG EN log.procesa_report_sne")
+        print(f"FECHA A PROCESAR: {fecha_to_process}")
+        print(f"FECHA EN TEXTO: {fecha_texto}")
         print("=" * 80)
 
         try:
-            logger = ReportRunLogger()
-            with get_db_connection() as conn_log:
-                id_reporte = logger.get_id_reporte(
-                    conn_log,
-                    NOMBRE_REPORTE_LOG,
-                    default_id=DEFAULT_ID_REPORTE,
-                )
-                logger.write_log(
-                    conn_log,
-                    id_reporte=id_reporte,
-                    fecha_reporte_date=fecha_dt.date(),
-                    estado=estado,
-                    ultima_ejecucion_ts=end_ts,
-                    duracion_seg=duracion_seg,
-                    archivos_total=archivos_total,
-                    archivos_ok=archivos_ok,
-                    archivos_error=archivos_error,
-                    registros_proce=registros_proce,
-                    fecha_actualizacion_ts=end_ts,
-                )
-                conn_log.commit()
+            az = None
+            az_ics = None
+            az_detallado = None
+            az_fms = None
+            if not _is_local_mode():
+                conn_azure = _get_connection_string()
+                az = AzureBlobReader(AzureConfig(connection_string=conn_azure))
+                az_ics = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_ICS))
+                az_detallado = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_DETALLADO))
+                az_fms = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_FMS))
 
-            print(
-                f"log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | "
-                f"id_reporte={id_reporte} | fecha={fecha_dt.date()} | estado={estado}"
-            )
-            print(f"duracion_seg={duracion_seg} | registros_proce={registros_proce}")
-        except Exception as log_error:
-            print(f"No se pudo guardar el log: {repr(log_error)}")
+            builder = SNEExportBuilder(az, az_ics, az_detallado, az_fms, filtro_zona_tipo=FILTRO_ZONA_TIPO)
+            df_final = builder.build(fecha_dt)
+
+            registros_proce = int(len(df_final))
+            duracion_seg = int(round(time.perf_counter() - start_perf))
+
+            print("\n" + "=" * 80)
+            print("8) RESULTADO LISTO PARA CARGUE")
+            print("=" * 80)
+            print(f"Filas exportadas: {len(df_final)}")
+            print(f"duracion_seg={duracion_seg}")
+
+            if not ENABLE_POSTGRES_LOAD:
+                print("Cargue a Postgres desactivado temporalmente.")
+                return
+
+            with get_db_connection() as conn:
+                print("\n" + "=" * 80)
+                print("9) CARGANDO sne.ics")
+                print("=" * 80)
+
+                loader = PostgresLoader(
+                    schema=PG_SCHEMA_NAME,
+                    table=PG_TABLE_NAME,
+                    batch_size=PG_BATCH_SIZE
+                )
+                total_ics = loader.insert_df(df_final, conn)
+                print(f"? sne.ics upsert: {total_ics} filas")
+
+                print("\n" + "=" * 80)
+                print("10) CARGANDO sne.gestion_sne")
+                print("=" * 80)
+
+                gestion_loader = GestionSNELoader(
+                    schema=PG_SCHEMA_GESTION,
+                    table=PG_TABLE_GESTION,
+                    batch_size=PG_BATCH_SIZE,
+                    revisor_default_int=GESTION_REVISOR_DEFAULT_INT,
+                )
+                total_gestion = gestion_loader.upsert_from_ics_ids(df_final, conn)
+                print(f"? sne.gestion_sne actualizado para {total_gestion} ids")
+
+                print("\n" + "=" * 80)
+                print("11) CARGANDO sne.ics_motivo_resp y cat?logo de motivos")
+                print("=" * 80)
+
+                motivo_resp_loader = IcsMotivoRespLoader(
+                    schema_motivo_resp=PG_SCHEMA_MOTIVO_RESP,
+                    table_motivo_resp=PG_TABLE_MOTIVO_RESP,
+                    schema_motivos=PG_SCHEMA_MOTIVOS,
+                    table_motivos=PG_TABLE_MOTIVOS,
+                    batch_size=PG_BATCH_SIZE,
+                    responsable_default=RESPONSABLE_DEFAULT,
+                )
+                total_motivo_resp = motivo_resp_loader.upsert_from_df(df_final, conn)
+                print(f"? sne.ics_motivo_resp upsert: {total_motivo_resp} filas")
+                conn.commit()
+
+        except SystemExit as e:
+            estado = "error"
+            archivos_ok = 0
+            archivos_error = 1
+            print("? ERROR en el proceso:", repr(e))
+            raise
+        except Exception as e:
+            estado = "error"
+            archivos_ok = 0
+            archivos_error = 1
+            print("? ERROR en el proceso:", repr(e))
+            raise
+        finally:
+            end_ts = datetime.now()
+            duracion_seg = int(round(time.perf_counter() - start_perf))
+
+            print("\n" + "=" * 80)
+            print("12) GUARDANDO LOG EN log.procesa_report_sne")
+            print("=" * 80)
+
+            try:
+                logger = ReportRunLogger()
+                with get_db_connection() as conn_log:
+                    id_reporte = logger.get_id_reporte(
+                        conn_log,
+                        NOMBRE_REPORTE_LOG,
+                        default_id=DEFAULT_ID_REPORTE,
+                    )
+                    logger.write_log(
+                        conn_log,
+                        id_reporte=id_reporte,
+                        fecha_reporte_date=fecha_dt.date(),
+                        estado=estado,
+                        ultima_ejecucion_ts=end_ts,
+                        duracion_seg=duracion_seg,
+                        archivos_total=archivos_total,
+                        archivos_ok=archivos_ok,
+                        archivos_error=archivos_error,
+                        registros_proce=registros_proce,
+                        fecha_actualizacion_ts=end_ts,
+                    )
+                    conn_log.commit()
+
+                print(
+                    f"log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | "
+                    f"id_reporte={id_reporte} | fecha={fecha_dt.date()} | estado={estado}"
+                )
+                print(f"duracion_seg={duracion_seg} | registros_proce={registros_proce}")
+            except Exception as log_error:
+                print(f"No se pudo guardar el log: {repr(log_error)}")
 
     print("\n" + "=" * 80)
     print("? PROCESO COMPLETADO")
