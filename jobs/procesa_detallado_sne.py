@@ -1069,6 +1069,8 @@ def main() -> None:
     archivos_ok = 1
     archivos_error = 0
     registros_proce = 0
+    fecha_limite = datetime.now().date() - timedelta(days=1)
+    soft_stop = False
 
     try:
         az = AzureBlobReader(AzureConfig(connection_string=conn_azure, container_actividad=AZURE_CONTAINER_ICS))
@@ -1099,12 +1101,20 @@ def main() -> None:
         archivos_ok = 0
         archivos_error = 1
         print("❌ ERROR en el proceso:", repr(e))
+        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún archivo de detallado" in str(e).lower()):
+            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+            soft_stop = True
+            return
         raise
     except Exception as e:
         estado = "error"
         archivos_ok = 0
         archivos_error = 1
         print("❌ ERROR en el proceso:", repr(e))
+        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún archivo de detallado" in str(e).lower()):
+            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+            soft_stop = True
+            return
         raise
     finally:
         end_ts = datetime.now()
@@ -1139,6 +1149,8 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("✅ PROCESO COMPLETADO")
     print("=" * 80)
+    if soft_stop:
+        return
 
     fecha_limite = datetime.now().date() - timedelta(days=1)
     logger_tail = ReportRunLogger()
