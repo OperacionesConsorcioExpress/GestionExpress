@@ -4,6 +4,7 @@ import os
 import re
 import csv
 import time
+import unicodedata
 from io import BytesIO
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
@@ -219,7 +220,7 @@ class TransformUtils:
 def normalize_name(s: str) -> str:
     s = str(s).strip().lower()
     s = s.replace("\ufeff", "").replace("Ã¯Â»Â¿", "")
-    s = s.replace("Ã¡", "a").replace("Ã©", "e").replace("Ã­", "i").replace("Ã³", "o").replace("Ãº", "u").replace("Ã±", "n")
+    s = "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
     s = re.sub(r"[^a-z0-9]+", "", s)
     return s
 
@@ -459,7 +460,7 @@ class ValidacionesBuilder:
         c_dia_trx = pick_col(df, ["Día Trx", "Dia Trx"], required=False)
         c_linea_sae = pick_col(df, ["Linea SAE", "ID Línea", "ID Linea"])
         c_parada = pick_col(df, ["Parada"])
-        c_vehiculo = pick_col(df, ["Vehiculo"])
+        c_vehiculo = pick_col(df, ["Vehículo", "Vehiculo"])
         c_hora_trx = pick_col(df, ["Hora Trx"])
         c_nombre_linea = pick_col(df, ["Nombre Linea", "Nombre Línea"], required=False)
 
@@ -531,60 +532,56 @@ class ValidacionesBuilder:
         tmp_val = df_val.merge(
             df_det_con_idics[["IdICS", "Fecha_val_key", "IdLinea_key", "Vehiculo_key", "HoraIni_td", "HoraFin_td"]],
             on=["Fecha_val_key", "IdLinea_key", "Vehiculo_key"],
-            how="inner"
+            how="left"
         )
-
-        mask_time = (
-            tmp_val["HoraTrx_td"].notna()
-            & tmp_val["HoraIni_td"].notna()
-            & tmp_val["HoraFin_td"].notna()
-            & (tmp_val["HoraTrx_td"] >= tmp_val["HoraIni_td"])
-            & (tmp_val["HoraTrx_td"] <= tmp_val["HoraFin_td"])
+        mask_hora = (
+            tmp_val["HoraTrx_td"].notna() &
+            tmp_val["HoraIni_td"].notna() &
+            tmp_val["HoraFin_td"].notna() &
+            (tmp_val["HoraTrx_td"] >= tmp_val["HoraIni_td"]) &
+            (tmp_val["HoraTrx_td"] <= tmp_val["HoraFin_td"])
         )
-        df_match = tmp_val.loc[mask_time].copy()
+        df_val_match = tmp_val[mask_hora].copy()
 
-        c_fecha_base = pick_col(df_val, ["Fecha_registro"], required=False)
+        out = pd.DataFrame({
+            "Id_ICS": pd.to_numeric(df_val_match["IdICS"], errors="coerce").astype("Int64"),
+            "Fecha_Registro": df_val_match["Fecha_registro"],
+            "Linea": df_val_match["Linea"],
+            "Parada": df_val_match["Parada"],
+            "Vehiculo": df_val_match["Vehiculo"],
+            "Instante": df_val_match["Instante"],
+        })
+
+        out = out.dropna(subset=["Id_ICS"]).copy()
+        out = out.drop_duplicates(
+            subset=["Id_ICS", "Fecha_Registro", "Linea", "Parada", "Vehiculo", "Instante"],
+            keep="first"
+        ).reset_index(drop=True)
+
         fecha_nombre = fecha.strftime("%d_%m_%Y")
 
-        df_out = df_match[["IdICS", "Fecha_registro", "Linea", "Parada", "Vehiculo", "Instante"]].copy()
-        df_out = df_out.rename(columns={"IdICS": "Id_ICS"})
-        df_out = df_out.dropna(subset=["Id_ICS"]).copy()
-        df_out["Id_ICS"] = pd.to_numeric(df_out["Id_ICS"], errors="coerce").astype("Int64")
-        df_out = df_out.dropna(subset=["Id_ICS"]).copy()
-        df_out = df_out.drop_duplicates(
-            subset=["Id_ICS", "Fecha_registro", "Linea", "Parada", "Vehiculo", "Instante"],
-            keep="first"
-        ).copy()
-
         print("✅ Tabla Validaciones construida:")
-        print(f"   Filas con Id_ICS: {len(df_out)}")
+        print(f"   Filas con Id_ICS: {len(out)}")
         print(f"📌 Nombre lógico: VALIDACIONES_{fecha_nombre}")
-
-        return df_out, fecha_nombre
+        return out, fecha_nombre
 
 # =============================================================================
-# POSTGRES
+# POSTGRES sne.validaciones
 # =============================================================================
 
 class PostgresValidacionesLoader:
     DF_TO_DB = {
         "Id_ICS": "id_ics",
-        "Fecha_registro": "fecha_registro",
+        "Fecha_Registro": "fecha_registro",
         "Linea": "linea",
         "Parada": "parada",
         "Vehiculo": "vehiculo",
         "Instante": "instante",
     }
 
-    def __init__(
-        self,
-        schema: str,
-        table: str,
-        batch_size: int = 5000,
-        schema_ics: str = PG_SCHEMA_ICS,
-        table_ics: str = PG_TABLE_ICS,
-        ics_id_column: str = PG_TABLE_ICS_ID_COLUMN,
-    ):
+    def __init__(self, schema: str, table: str, batch_size: int = 5000,
+                 schema_ics: str = PG_SCHEMA_ICS, table_ics: str = PG_TABLE_ICS,
+                 ics_id_column: str = PG_TABLE_ICS_ID_COLUMN):
         self.schema = schema
         self.table = table
         self.batch_size = batch_size
@@ -1158,7 +1155,7 @@ def main() -> None:
         estado = "error"
         archivos_ok = 0
         archivos_error = 1
-        print("âŒ ERROR en el proceso:", repr(e))
+        print("❌ ERROR en el proceso:", repr(e))
         if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún detallado" in str(e).lower() or "no se encontraron archivos de validaciones" in str(e).lower()):
             print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
             soft_stop = True
