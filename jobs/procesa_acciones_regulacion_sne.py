@@ -427,9 +427,11 @@ class AccionesRegulacionBuilder:
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
+        faltantes: List[str] = []
         for ruta, nombre in self._blob_paths_detallado(fecha):
             if not self.az_acciones.exists(ruta):
                 print(f"  ?? No existe: {nombre}")
+                faltantes.append(nombre)
                 continue
 
             df0 = DataIO.leer_csv_desde_bytes(self.az_acciones.read_bytes(ruta), dtype=str)
@@ -437,8 +439,9 @@ class AccionesRegulacionBuilder:
             frames.append(df0)
             print(f"  ? Cargado: {nombre} | filas={len(df0)}")
 
-        if not frames:
-            raise SystemExit("? No se encontraron archivos de Detallado para esa fecha")
+        if faltantes:
+            detalle = "\n".join([f"   - {n}" for n in faltantes])
+            raise SystemExit(f"Faltante de insumos: Detallado.\nArchivos faltantes:\n{detalle}")
 
         df = DataIO.limpiar_columnas(pd.concat(frames, ignore_index=True, sort=False))
         c_fecha = pick_col(df, ["Fecha"])
@@ -490,9 +493,11 @@ class AccionesRegulacionBuilder:
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
+        faltantes: List[str] = []
         for ruta, nombre in self._blob_paths_acciones_reg(fecha):
             if not self.az_acciones.exists(ruta):
                 print(f"  ?? No existe: {nombre}")
+                faltantes.append(nombre)
                 continue
 
             raw = self.az_acciones.read_bytes(ruta)
@@ -501,8 +506,9 @@ class AccionesRegulacionBuilder:
             frames.append(df0)
             print(f"  ? Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
-        if not frames:
-            raise SystemExit("? No se encontraron archivos de Acciones Regulaci?n para esa fecha.")
+        if faltantes:
+            detalle = "\n".join([f"   - {n}" for n in faltantes])
+            raise SystemExit(f"Faltante de insumos: Acciones Regulacion.\nArchivos faltantes:\n{detalle}")
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
@@ -974,6 +980,8 @@ class ReportRunLogger:
         if fecha_actualizacion_ts is None:
             fecha_actualizacion_ts = ultima_ejecucion_ts
 
+        estado_db = None if estado is None or str(estado).strip() == "" else str(estado).strip().lower()
+
         full_table = f'"{self.schema_log}"."{self.table_log}"'
 
         sql_select = f"""
@@ -1007,7 +1015,7 @@ class ReportRunLogger:
         values_insert = (
             id_reporte,
             fecha_reporte_date,
-            estado,
+            estado_db,
             ultima_ejecucion_ts,
             duracion_seg,
             archivos_total,
@@ -1030,7 +1038,7 @@ class ReportRunLogger:
                     cur.execute(
                         sql_update,
                         (
-                            estado,
+                            estado_db,
                             ultima_ejecucion_ts,
                             duracion_seg,
                             archivos_total,
@@ -1110,6 +1118,25 @@ def _export_df_to_csv(df: pd.DataFrame, fecha_nombre: str) -> Optional[str]:
     print(f"📤 Export CSV generado: {path}")
     return path
 
+
+def _format_fecha_visible(fecha: date) -> str:
+    return fecha.strftime("%d/%m/%Y")
+
+
+def _es_error_por_insumos_faltantes(exc: Exception) -> bool:
+    txt = str(exc).lower()
+    patrones = (
+        "faltante de insumos",
+        "no existe ics en azure",
+        "no se encontr? ning?n detallado",
+        "no se encontro ningun detallado",
+        "no se encontraron archivos de",
+        "no se encontr? ning?n archivo",
+        "no se encontro ningun archivo",
+    )
+    return any(p in txt for p in patrones)
+
+
 def main() -> None:
     start_perf = time.perf_counter()
 
@@ -1127,6 +1154,7 @@ def main() -> None:
 
     print("\n" + "=" * 80)
     print(f"FECHA A PROCESAR: {fecha_proc.isoformat()}")
+    print(f"FECHA A PROCESAR (VISIBLE): {_format_fecha_visible(fecha_proc)}")
     print(f"FECHA ARCHIVO: {fecha_proc.strftime('%d/%m/%Y')}")
     print("=" * 80)
 
@@ -1172,25 +1200,31 @@ def main() -> None:
         print(f"✅ {PG_SCHEMA_NAME}.{PG_TABLE_NAME} upsert: {total} filas")
 
     except SystemExit as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("âŒ ERROR en el proceso:", repr(e))
-        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontraron archivos de" in str(e).lower()):
-            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
-            soft_stop = True
-            return
-        raise
+            print("ERROR en el proceso:", repr(e))
+            if _es_error_por_insumos_faltantes(e):
+                estado = None
+                archivos_ok = 0
+                archivos_error = 0
+                print(f"FALTANTE DE INSUMOS. No se procesa la fecha {_format_fecha_visible(fecha_dt.date())}.")
+                soft_stop = True
+            else:
+                estado = "error"
+                archivos_ok = 0
+                archivos_error = 1
+                raise
     except Exception as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("❌ ERROR en el proceso:", repr(e))
-        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontraron archivos de" in str(e).lower()):
-            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
-            soft_stop = True
-            return
-        raise
+            print("ERROR en el proceso:", repr(e))
+            if _es_error_por_insumos_faltantes(e):
+                estado = None
+                archivos_ok = 0
+                archivos_error = 0
+                print(f"FALTANTE DE INSUMOS. No se procesa la fecha {_format_fecha_visible(fecha_dt.date())}.")
+                soft_stop = True
+            else:
+                estado = "error"
+                archivos_ok = 0
+                archivos_error = 1
+                raise
     finally:
         end_ts = datetime.now()
         duracion_seg = int(round(time.perf_counter() - start_perf))
@@ -1227,6 +1261,11 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("✅ PROCESO COMPLETADO")
     print("=" * 80)
+    if estado == "ok":
+        print(f"ULTIMA FECHA PROCESADA: {_format_fecha_visible(fecha_dt.date())}")
+    elif soft_stop:
+        print(f"ULTIMA FECHA NO PROCESADA POR FALTANTE DE INSUMOS: {_format_fecha_visible(fecha_dt.date())}")
+
     if soft_stop:
         return
 
