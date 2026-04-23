@@ -273,41 +273,38 @@ class BitacoraNotasBuilder:
         print(f"ICS listo para cruce | filas={len(out)}")
         return out
 
-    def _prefixes_detalle_notas(self, fecha: datetime) -> List[str]:
+    def _blob_paths_detalle_notas(self, fecha: datetime) -> List[Tuple[str, str]]:
         anio = fecha.strftime("%Y")
+        fecha_txt = fecha.strftime("%Y%m%d")
         return [
-            f"2_uq/{anio}/80_detalle_notas_zonal_uq/",
-            f"2_uq/{anio}/81_detalle_notas_troncal_uq/",
-            f"1_sc/{anio}/80_detalle_notas_zonal_sc/",
-            f"1_sc/{anio}/81_detalle_notas_troncal_sc/",
+            (f"2_uq/{anio}/80_detalle_notas_zonal_uq/{fecha_txt}_detalle_notas_zonal_uq.csv", f"{fecha_txt}_detalle_notas_zonal_uq.csv"),
+            (f"2_uq/{anio}/81_detalle_notas_troncal_uq/{fecha_txt}_detalle_notas_troncal_al_uq.csv", f"{fecha_txt}_detalle_notas_troncal_al_uq.csv"),
+            (f"1_sc/{anio}/80_detalle_notas_zonal_sc/{fecha_txt}_detalle_notas_zonal_sc.csv", f"{fecha_txt}_detalle_notas_zonal_sc.csv"),
+            (f"1_sc/{anio}/81_detalle_notas_troncal_sc/{fecha_txt}_detalle_notas_troncal_al_sc.csv", f"{fecha_txt}_detalle_notas_troncal_al_sc.csv"),
         ]
-
-    def _find_files_by_date(self, prefixes: List[str], fecha: datetime) -> List[str]:
-        fecha_yyyymmdd = fecha.strftime("%Y%m%d")
-        encontrados: List[str] = []
-        for prefix in prefixes:
-            blobs = self.az_fms.list_blob_paths(prefix)
-            encontrados.extend([b for b in blobs if os.path.basename(b).startswith(fecha_yyyymmdd)])
-        return sorted(set(encontrados))
 
     def load_detalle_notas(self, fecha: datetime) -> pd.DataFrame:
         print("\n" + "=" * 80)
         print("2) CARGANDO DETALLE DE NOTAS")
         print("=" * 80)
 
-        files = self._find_files_by_date(self._prefixes_detalle_notas(fecha), fecha)
-        if not files:
-            raise FileNotFoundError(
-                f"No se encontraron archivos de detalle de notas para {fecha.strftime('%Y-%m-%d')}"
-            )
+        files = self._blob_paths_detalle_notas(fecha)
 
         frames: List[pd.DataFrame] = []
-        for blob_path in files:
-            nombre = os.path.basename(blob_path)
+        faltantes: List[str] = []
+        for blob_path, nombre in files:
+            if not self.az_fms.exists(blob_path):
+                print(f"No existe: {nombre}")
+                faltantes.append(nombre)
+                continue
             df0 = self.io.leer_csv_desde_bytes(self.az_fms.read_bytes(blob_path), dtype=str)
             df0["__archivo_origen__"] = nombre
             frames.append(df0)
             print(f"Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
+
+        if faltantes:
+            detalle = "\n".join([f"   - {n}" for n in faltantes])
+            raise FileNotFoundError(f"Faltante de insumos: Detalle de Notas.\nArchivos faltantes:\n{detalle}")
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
@@ -592,6 +589,8 @@ class ReportRunLogger:
         if fecha_actualizacion_ts is None:
             fecha_actualizacion_ts = ultima_ejecucion_ts
 
+        estado_db = None if estado is None or str(estado).strip() == "" else str(estado).strip().lower()
+
         full_table = f'"{self.schema_log}"."{self.table_log}"'
         sql_upsert = f"""
             INSERT INTO {full_table}
@@ -614,7 +613,7 @@ class ReportRunLogger:
         values = (
             int(id_reporte),
             fecha_reporte_date,
-            str(estado).strip().lower(),
+            estado_db,
             ultima_ejecucion_ts,
             int(duracion_seg),
             int(archivos_total),
@@ -675,6 +674,25 @@ def _fechas_a_procesar(fecha_semilla: date) -> List[date]:
     return fechas
 
 
+
+def _format_fecha_visible(fecha: date) -> str:
+    return fecha.strftime("%d/%m/%Y")
+
+
+def _es_error_por_insumos_faltantes(exc: Exception) -> bool:
+    txt = str(exc).lower()
+    patrones = (
+        "faltante de insumos",
+        "no existe ics en azure",
+        "no se encontr? ning?n detallado",
+        "no se encontro ningun detallado",
+        "no se encontraron archivos de",
+        "no se encontr? ning?n archivo",
+        "no se encontro ningun archivo",
+    )
+    return any(p in txt for p in patrones)
+
+
 def main() -> None:
     load_dotenv()
     fecha_semilla = _parse_semilla()
@@ -693,6 +711,7 @@ def main() -> None:
 
         print("\n" + "=" * 80)
         print(f"FECHA A PROCESAR: {fecha_proc.isoformat()}")
+        print(f"FECHA A PROCESAR (VISIBLE): {_format_fecha_visible(fecha_proc)}")
         print("=" * 80)
 
         estado = "ok"
@@ -726,15 +745,18 @@ def main() -> None:
 
             print(f"{PG_SCHEMA_NAME}.{PG_TABLE_NAME}: {total} filas insertadas")
         except Exception as e:
-            estado = "error"
-            archivos_ok = 0
-            archivos_error = 1
             print("ERROR en el proceso:", repr(e))
-            if fecha_dt.date() == fecha_limite and "no existe ics en azure" in str(e).lower():
-                print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+            if _es_error_por_insumos_faltantes(e):
+                estado = None
+                archivos_ok = 0
+                archivos_error = 0
+                print(f"FALTANTE DE INSUMOS. No se procesa la fecha {_format_fecha_visible(fecha_dt.date())}.")
                 soft_stop = True
-                return
-            raise
+            else:
+                estado = "error"
+                archivos_ok = 0
+                archivos_error = 1
+                raise
         finally:
             end_ts = datetime.now()
             duracion_seg = int(round(time.perf_counter() - start_perf))
@@ -763,6 +785,11 @@ def main() -> None:
                     conn_log.commit()
             except Exception as log_error:
                 print(f"No se pudo guardar el log: {repr(log_error)}")
+
+        if estado == "ok":
+            print(f"ULTIMA FECHA PROCESADA: {_format_fecha_visible(fecha_dt.date())}")
+        elif soft_stop:
+            print(f"ULTIMA FECHA NO PROCESADA POR FALTANTE DE INSUMOS: {_format_fecha_visible(fecha_dt.date())}")
 
         if soft_stop:
             return
