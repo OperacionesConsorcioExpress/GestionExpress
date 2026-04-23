@@ -94,9 +94,9 @@ class DataIO:
 
         def _clean_col(c: str) -> str:
             s = str(c)
-            s = s.replace("\ufeff", "").replace("Ã¯Â»Â¿", "").replace('"', "").strip()
+            s = s.replace("\ufeff", "").replace("ï»¿", "").replace('"', "").strip()
             s = re.sub(r"^[\uFEFF\u200B\u200C\u200D\u2060]+", "", s).strip()
-            s = re.sub(r"^(Ã¯Â»Â¿)+", "", s).strip()
+            s = re.sub(r"^(ï»¿)+", "", s).strip()
             s = re.sub(r"\s+", " ", s).strip()
             return s
 
@@ -157,7 +157,7 @@ class TransformUtils:
     @staticmethod
     def fecha_key_robusta(serie: pd.Series, prefer_dayfirst: str = "auto") -> pd.Series:
         s = serie.copy()
-        s = s.astype(str).str.replace("\ufeff", "", regex=False).str.replace("Ã¯Â»Â¿", "", regex=False).str.strip()
+        s = s.astype(str).str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
         s = s.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
 
         s_num = pd.to_numeric(s, errors="coerce")
@@ -207,7 +207,7 @@ class TransformUtils:
 
     @staticmethod
     def fecha_para_nombre_archivo_dd_mm_yyyy(serie_fecha: pd.Series) -> str:
-        s = serie_fecha.astype(str).str.replace("\ufeff", "", regex=False).str.replace("Ã¯Â»Â¿", "", regex=False).str.strip()
+        s = serie_fecha.astype(str).str.replace("\ufeff", "", regex=False).str.replace("ï»¿", "", regex=False).str.strip()
         dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
 
         if dt.notna().any():
@@ -219,7 +219,7 @@ class TransformUtils:
 
 def normalize_name(s: str) -> str:
     s = str(s).strip().lower()
-    s = s.replace("\ufeff", "").replace("Ã¯Â»Â¿", "")
+    s = s.replace("\ufeff", "").replace("ï»¿", "")
     s = "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
     s = re.sub(r"[^a-z0-9]+", "", s)
     return s
@@ -238,7 +238,7 @@ def pick_col(df: pd.DataFrame, aliases: List[str], required: bool = True) -> Opt
             return normalized[na]
 
     if required:
-        raise KeyError(f"No se encontrÃ³ ninguna de estas columnas: {aliases}")
+        raise KeyError(f"No se encontró ninguna de estas columnas: {aliases}")
     return None
 
 # =============================================================================
@@ -374,17 +374,20 @@ class ValidacionesBuilder:
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
+        faltantes: List[str] = []
         for ruta, nombre in self._blob_paths_detallado(fecha):
             if not self.az.exists("detallado", ruta):
                 print(f"  ⚠️ No existe: {nombre}")
+                faltantes.append(nombre)
                 continue
 
             df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes("detallado", ruta), dtype=str)
             frames.append(df0)
             print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
-        if not frames:
-            raise SystemExit("❌ No se encontró ningún Detallado para esa fecha.")
+        if faltantes:
+            detalle = "\n".join([f"   - {n}" for n in faltantes])
+            raise SystemExit(f"Faltante de insumos: Detallado.\nArchivos faltantes:\n{detalle}")
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
@@ -438,17 +441,20 @@ class ValidacionesBuilder:
         print("=" * 80)
 
         frames: List[pd.DataFrame] = []
+        faltantes: List[str] = []
         for ruta, nombre in self._blob_paths_validaciones(fecha):
             if not self.az.exists("validaciones", ruta):
                 print(f"  ⚠️ No existe: {nombre}")
+                faltantes.append(nombre)
                 continue
 
             df0 = self.io.leer_csv_desde_bytes(self.az.read_bytes("validaciones", ruta), dtype=str)
             frames.append(df0)
             print(f"  ✅ Cargado: {nombre} | filas={len(df0)} cols={len(df0.columns)}")
 
-        if not frames:
-            raise SystemExit("❌ No se encontraron archivos de Validaciones para esa fecha.")
+        if faltantes:
+            detalle = "\n".join([f"   - {n}" for n in faltantes])
+            raise SystemExit(f"Faltante de insumos: Validaciones.\nArchivos faltantes:\n{detalle}")
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
@@ -532,19 +538,16 @@ class ValidacionesBuilder:
         tmp_val = df_val.merge(
             df_det_con_idics[["IdICS", "Fecha_val_key", "IdLinea_key", "Vehiculo_key", "HoraIni_td", "HoraFin_td"]],
             on=["Fecha_val_key", "IdLinea_key", "Vehiculo_key"],
-            how="left"
+            how="left",
         )
-        mask_hora = (
-            tmp_val["HoraTrx_td"].notna() &
-            tmp_val["HoraIni_td"].notna() &
-            tmp_val["HoraFin_td"].notna() &
-            (tmp_val["HoraTrx_td"] >= tmp_val["HoraIni_td"]) &
-            (tmp_val["HoraTrx_td"] <= tmp_val["HoraFin_td"])
-        )
-        df_val_match = tmp_val[mask_hora].copy()
+
+        cond_val = (tmp_val["HoraTrx_td"] >= tmp_val["HoraIni_td"]) & (tmp_val["HoraTrx_td"] <= tmp_val["HoraFin_td"])
+        df_val_match = tmp_val[cond_val & tmp_val["IdICS"].notna()].copy()
+
+        fecha_nombre = self.tu.fecha_para_nombre_archivo_dd_mm_yyyy(df_val["Fecha_registro"].astype(str))
 
         out = pd.DataFrame({
-            "Id_ICS": pd.to_numeric(df_val_match["IdICS"], errors="coerce").astype("Int64"),
+            "Id_ICS": self.tu.to_int64(df_val_match["IdICS"]),
             "Fecha_Registro": df_val_match["Fecha_registro"],
             "Linea": df_val_match["Linea"],
             "Parada": df_val_match["Parada"],
@@ -552,21 +555,21 @@ class ValidacionesBuilder:
             "Instante": df_val_match["Instante"],
         })
 
-        out = out.dropna(subset=["Id_ICS"]).copy()
+        out = out[out["Id_ICS"].notna()].copy()
+
         out = out.drop_duplicates(
             subset=["Id_ICS", "Fecha_Registro", "Linea", "Parada", "Vehiculo", "Instante"],
             keep="first"
         ).reset_index(drop=True)
 
-        fecha_nombre = fecha.strftime("%d_%m_%Y")
-
-        print("✅ Tabla Validaciones construida:")
+        print("\n✅ Tabla Validaciones construida:")
         print(f"   Filas con Id_ICS: {len(out)}")
         print(f"📌 Nombre lógico: VALIDACIONES_{fecha_nombre}")
+
         return out, fecha_nombre
 
 # =============================================================================
-# POSTGRES sne.validaciones
+# POSTGRES LOAD sne.validaciones
 # =============================================================================
 
 class PostgresValidacionesLoader:
@@ -579,9 +582,15 @@ class PostgresValidacionesLoader:
         "Instante": "instante",
     }
 
-    def __init__(self, schema: str, table: str, batch_size: int = 5000,
-                 schema_ics: str = PG_SCHEMA_ICS, table_ics: str = PG_TABLE_ICS,
-                 ics_id_column: str = PG_TABLE_ICS_ID_COLUMN):
+    def __init__(
+        self,
+        schema: str,
+        table: str,
+        batch_size: int = 5000,
+        schema_ics: str = PG_SCHEMA_ICS,
+        table_ics: str = PG_TABLE_ICS,
+        ics_id_column: str = PG_TABLE_ICS_ID_COLUMN,
+    ):
         self.schema = schema
         self.table = table
         self.batch_size = batch_size
@@ -594,13 +603,13 @@ class PostgresValidacionesLoader:
 
     @staticmethod
     def _py(v):
+        if v is None:
+            return None
         try:
             if v is pd.NA:
                 return None
         except Exception:
             pass
-        if pd.isna(v):
-            return None
         if isinstance(v, np.generic):
             return v.item()
         if isinstance(v, float) and np.isnan(v):
@@ -859,6 +868,8 @@ class ReportRunLogger:
         if fecha_actualizacion_ts is None:
             fecha_actualizacion_ts = ultima_ejecucion_ts
 
+        estado_db = None if estado is None or str(estado).strip() == "" else str(estado).strip().lower()
+
         full_table = f'"{self.schema_log}"."{self.table_log}"'
 
         sql_select = f"""
@@ -892,7 +903,7 @@ class ReportRunLogger:
         values_insert = (
             id_reporte,
             fecha_reporte_date,
-            estado,
+            estado_db,
             ultima_ejecucion_ts,
             duracion_seg,
             archivos_total,
@@ -915,7 +926,7 @@ class ReportRunLogger:
                     cur.execute(
                         sql_update,
                         (
-                            estado,
+                            estado_db,
                             ultima_ejecucion_ts,
                             duracion_seg,
                             archivos_total,
@@ -1043,25 +1054,31 @@ def _legacy_main_validaciones() -> None:
         print(f"✅ sne.validaciones upsert: {total} filas")
 
     except SystemExit as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("❌ ERROR en el proceso:", repr(e))
-        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún detallado" in str(e).lower() or "no se encontraron archivos de validaciones" in str(e).lower()):
-            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
-            soft_stop = True
-            return
-        raise
+            print("ERROR en el proceso:", repr(e))
+            if _es_error_por_insumos_faltantes(e):
+                estado = None
+                archivos_ok = 0
+                archivos_error = 0
+                print(f"FALTANTE DE INSUMOS. No se procesa la fecha {_format_fecha_visible(fecha_dt.date())}.")
+                soft_stop = True
+            else:
+                estado = "error"
+                archivos_ok = 0
+                archivos_error = 1
+                raise
     except Exception as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("❌ ERROR en el proceso:", repr(e))
-        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún detallado" in str(e).lower() or "no se encontraron archivos de validaciones" in str(e).lower()):
-            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
-            soft_stop = True
-            return
-        raise
+            print("ERROR en el proceso:", repr(e))
+            if _es_error_por_insumos_faltantes(e):
+                estado = None
+                archivos_ok = 0
+                archivos_error = 0
+                print(f"FALTANTE DE INSUMOS. No se procesa la fecha {_format_fecha_visible(fecha_dt.date())}.")
+                soft_stop = True
+            else:
+                estado = "error"
+                archivos_ok = 0
+                archivos_error = 1
+                raise
     finally:
         end_ts = datetime.now()
         duracion_seg = int(round(time.perf_counter() - start_perf))
@@ -1096,6 +1113,25 @@ def _legacy_main_validaciones() -> None:
     print("✅ PROCESO COMPLETADO")
     print("=" * 80)
 
+
+def _format_fecha_visible(fecha: date) -> str:
+    return fecha.strftime("%d/%m/%Y")
+
+
+def _es_error_por_insumos_faltantes(exc: Exception) -> bool:
+    txt = str(exc).lower()
+    patrones = (
+        "faltante de insumos",
+        "no existe ics en azure",
+        "no se encontr? ning?n detallado",
+        "no se encontro ningun detallado",
+        "no se encontraron archivos de",
+        "no se encontr? ning?n archivo",
+        "no se encontro ningun archivo",
+    )
+    return any(p in txt for p in patrones)
+
+
 def main() -> None:
     start_perf = time.perf_counter()
 
@@ -1110,6 +1146,11 @@ def main() -> None:
     id_reporte_seed = logger_seed.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
     fecha_proc = logger_seed.get_next_fecha_to_process(id_reporte_seed, fecha_semilla)
     fecha_dt = datetime.combine(fecha_proc, datetime.min.time())
+
+    print("\n" + "=" * 80)
+    print(f"FECHA A PROCESAR: {fecha_proc.isoformat()}")
+    print(f"FECHA A PROCESAR (VISIBLE): {_format_fecha_visible(fecha_proc)}")
+    print("=" * 80)
 
     estado = "ok"
     archivos_total = 1
@@ -1139,28 +1180,34 @@ def main() -> None:
             ics_id_column=PG_TABLE_ICS_ID_COLUMN,
         )
         total = loader.insert_df(df_final)
-        print(f"âœ… sne.validaciones upsert: {total} filas")
+        print(f"Upsert sne.validaciones: {total} filas")
 
     except SystemExit as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("❌ ERROR en el proceso:", repr(e))
-        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún detallado" in str(e).lower() or "no se encontraron archivos de validaciones" in str(e).lower()):
-            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+        print("ERROR en el proceso:", repr(e))
+        if _es_error_por_insumos_faltantes(e):
+            estado = None
+            archivos_ok = 0
+            archivos_error = 0
+            print(f"FALTANTE DE INSUMOS. No se procesa la fecha {_format_fecha_visible(fecha_dt.date())}.")
             soft_stop = True
-            return
-        raise
+        else:
+            estado = "error"
+            archivos_ok = 0
+            archivos_error = 1
+            raise
     except Exception as e:
-        estado = "error"
-        archivos_ok = 0
-        archivos_error = 1
-        print("❌ ERROR en el proceso:", repr(e))
-        if fecha_dt.date() == fecha_limite and ("no existe ics en azure" in str(e).lower() or "no se encontró ningún detallado" in str(e).lower() or "no se encontraron archivos de validaciones" in str(e).lower()):
-            print(f"Se detiene sin fallo duro: aún no hay insumos para {fecha_dt.date()}.")
+        print("ERROR en el proceso:", repr(e))
+        if _es_error_por_insumos_faltantes(e):
+            estado = None
+            archivos_ok = 0
+            archivos_error = 0
+            print(f"FALTANTE DE INSUMOS. No se procesa la fecha {_format_fecha_visible(fecha_dt.date())}.")
             soft_stop = True
-            return
-        raise
+        else:
+            estado = "error"
+            archivos_ok = 0
+            archivos_error = 1
+            raise
     finally:
         end_ts = datetime.now()
         duracion_seg = int(round(time.perf_counter() - start_perf))
@@ -1170,7 +1217,7 @@ def main() -> None:
         print("=" * 80)
 
         logger = ReportRunLogger()
-        id_reporte = logger.get_id_reporte("Tabla Validaciones", default_id=8)
+        id_reporte = logger.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
 
         logger.write_log(
             id_reporte=id_reporte,
@@ -1186,17 +1233,21 @@ def main() -> None:
         )
 
         print(
-            f"📌 log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | "
+            f"log: {PG_SCHEMA_LOG}.{PG_TABLE_LOG} | "
             f"id_reporte={id_reporte} | fecha={fecha_dt.date()} | estado={estado}"
         )
-        print(f"⏱️ duración_seg={duracion_seg} | registros_proce={registros_proce}")
+        print(f"duracion_seg={duracion_seg} | registros_proce={registros_proce}")
 
     print("\n" + "=" * 80)
-    print("✅ PROCESO COMPLETADO")
+    print("PROCESO COMPLETADO")
     print("=" * 80)
+    if estado == "ok":
+        print(f"ULTIMA FECHA PROCESADA: {_format_fecha_visible(fecha_dt.date())}")
+    elif soft_stop:
+        print(f"ULTIMA FECHA NO PROCESADA POR FALTANTE DE INSUMOS: {_format_fecha_visible(fecha_dt.date())}")
+
     if soft_stop:
         return
-
 
     logger_tail = ReportRunLogger()
     id_reporte_tail = logger_tail.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
