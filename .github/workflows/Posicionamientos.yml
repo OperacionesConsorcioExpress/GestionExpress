@@ -2,8 +2,8 @@ name: Proceso Posicionamientos (Blob -> PostgreSQL)
 
 on:
   schedule:
-    # 5:00 AM Bogotá (UTC-5) = 10:00 UTC
-    - cron: "0 10 * * *"
+    # 9:00 AM Bogotá (UTC-5) = 14:00 UTC
+    - cron: "0 14 * * *"
   
   # Permite ejecución manual desde GitHub UI
   workflow_dispatch:
