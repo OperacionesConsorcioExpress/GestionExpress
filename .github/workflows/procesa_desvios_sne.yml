@@ -1,8 +1,8 @@
-﻿name: Proceso Desvios SNE (Azure -> PostgreSQL)
+name: Proceso Desvios SNE (Azure -> PostgreSQL)
 
 on:
   schedule:
-    - cron: "0 8 * * *"
+    - cron: "30 15 * * *"
   workflow_dispatch:
 
 jobs:
