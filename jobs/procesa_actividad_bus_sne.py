@@ -1062,6 +1062,22 @@ def _get_connection_string() -> str:
         return CONNECTION_STRING_LOCAL
     raise SystemExit(f"❌ Falta connection string. Usa env {AZURE_CONN_ENV}.")
 
+
+
+def _get_max_fecha_ics() -> Optional[date]:
+    sql = 'SELECT MAX("fecha") AS max_fecha FROM "sne"."ics"'
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            row = cur.fetchone()
+
+    max_fecha = row[0] if row else None
+    if max_fecha is None:
+        return None
+    if isinstance(max_fecha, datetime):
+        max_fecha = max_fecha.date()
+    return max_fecha
+
 def _test_pg_connection() -> None:
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -1120,11 +1136,20 @@ def main() -> None:
     logger_seed = ReportRunLogger()
     id_reporte_seed = logger_seed.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
     fecha_proc = logger_seed.get_next_fecha_to_process(id_reporte_seed, fecha_semilla)
+    fecha_max_ics = _get_max_fecha_ics()
+    if fecha_max_ics is None:
+        print("No hay fechas disponibles en sne.ics. Se detiene el proceso.")
+        return
+    fecha_limite = min(datetime.now().date() - timedelta(days=1), fecha_max_ics)
+    if fecha_proc > fecha_limite:
+        print(f"No hay fechas pendientes por procesar hasta la fecha maxima de sne.ics: {_format_fecha_visible(fecha_max_ics)}")
+        return
     fecha_dt = datetime.combine(fecha_proc, datetime.min.time())
 
     print("\n" + "=" * 80)
     print(f"FECHA A PROCESAR: {fecha_proc.isoformat()}")
     print(f"FECHA A PROCESAR (VISIBLE): {_format_fecha_visible(fecha_proc)}")
+    print(f"FECHA MAXIMA DISPONIBLE EN sne.ics: {_format_fecha_visible(fecha_max_ics)}")
     print("=" * 80)
 
     estado = "ok"
@@ -1132,7 +1157,6 @@ def main() -> None:
     archivos_ok = 1
     archivos_error = 0
     registros_proce = 0
-    fecha_limite = datetime.now().date() - timedelta(days=1)
     soft_stop = False
 
     try:
@@ -1235,7 +1259,6 @@ def main() -> None:
     if soft_stop:
         return
 
-    fecha_limite = datetime.now().date() - timedelta(days=1)
     logger_tail = ReportRunLogger()
     id_reporte_tail = logger_tail.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
     siguiente_fecha = logger_tail.get_next_fecha_to_process(id_reporte_tail, fecha_semilla)
