@@ -560,6 +560,7 @@ class ReportRunLogger:
             FROM {full_table}
             WHERE "id_reporte" = %s
               AND LOWER(TRIM(COALESCE("estado", ''))) = 'ok'
+              AND COALESCE("registros_proce", 0) > 0
         """
         with conn.cursor() as cur:
             cur.execute(sql, (id_reporte,))
@@ -657,12 +658,29 @@ def _resolve_fecha_to_process(fecha_semilla: date) -> date:
         return logger.get_next_fecha_to_process(conn, id_reporte, fecha_semilla)
 
 
+def _get_max_fecha_ics() -> Optional[date]:
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute('SELECT MAX("fecha") AS max_fecha FROM "sne"."ics"')
+            row = cur.fetchone()
+
+    max_fecha = row[0] if row else None
+    if max_fecha is None:
+        return None
+    if isinstance(max_fecha, datetime):
+        max_fecha = max_fecha.date()
+    return max_fecha
+
+
 def _fechas_a_procesar(fecha_semilla: date) -> List[date]:
     fecha_inicio = _resolve_fecha_to_process(fecha_semilla)
+    fecha_max_ics = _get_max_fecha_ics()
+    if fecha_max_ics is None:
+        return []
     if str(PROCESS_DATE_STR).strip():
-        return [fecha_inicio]
+        return [fecha_inicio] if fecha_inicio <= fecha_max_ics else []
 
-    fecha_limite = datetime.now().date() - timedelta(days=1)
+    fecha_limite = min(datetime.now().date() - timedelta(days=1), fecha_max_ics)
     if fecha_inicio > fecha_limite:
         return []
 
@@ -699,8 +717,12 @@ def main() -> None:
     conn_azure = _get_connection_string()
     fechas_a_procesar = _fechas_a_procesar(fecha_semilla)
 
+    fecha_max_ics = _get_max_fecha_ics()
     if not fechas_a_procesar:
-        print("No hay fechas pendientes por procesar.")
+        if fecha_max_ics is None:
+            print("No hay fechas disponibles en sne.ics. Se detiene el proceso.")
+        else:
+            print(f"No hay fechas pendientes por procesar hasta la fecha maxima de sne.ics: {_format_fecha_visible(fecha_max_ics)}")
         return
 
     for fecha_proc in fechas_a_procesar:
