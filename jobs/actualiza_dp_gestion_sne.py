@@ -22,6 +22,14 @@ except Exception:  # pragma: no cover - optional in server runtimes
     load_dotenv = None
 
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+for import_path in (REPO_ROOT, SCRIPT_DIR):
+    import_path_text = str(import_path)
+    if import_path_text not in sys.path:
+        sys.path.insert(0, import_path_text)
+
+
 DEFAULT_CONTAINER = "e02-transmitools"
 DEFAULT_SCHEMA = "sne"
 DEFAULT_TABLE = "gestion_sne"
@@ -497,7 +505,7 @@ def auto_load_local_connection_constants() -> None:
     )
     has_postgres = any(
         os.environ.get(name, "").strip()
-        for name in ("POSTGRES_CONN_STRING", "POSTGRES_CONN_STRING_LOCAL", "DATABASE_URL", "PGHOST")
+        for name in ("POSTGRES_CONN_STRING", "POSTGRES_CONN_STRING_LOCAL", "DATABASE_URL", "DATABASE_PATH", "PGHOST")
     )
     if has_azure and has_postgres:
         return
@@ -536,6 +544,7 @@ def open_db_connection():
         os.environ.get("POSTGRES_CONN_STRING", "").strip()
         or os.environ.get("POSTGRES_CONN_STRING_LOCAL", "").strip()
         or os.environ.get("DATABASE_URL", "").strip()
+        or os.environ.get("DATABASE_PATH", "").strip()
     )
     hostaddr = os.environ.get("PGHOSTADDR", "").strip() or os.environ.get("POSTGRES_HOSTADDR", "").strip()
     connect_timeout = int(os.environ.get("PGCONNECT_TIMEOUT", "20"))
