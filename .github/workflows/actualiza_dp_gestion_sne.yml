@@ -52,6 +52,7 @@ jobs:
           DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
           DB_POOL_MIN: ${{ secrets.DB_POOL_MIN }}
           DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
+          PYTHONPATH: ${{ github.workspace }}
           PGCONNECT_TIMEOUT: "30"
           AZURE_CONNECT_TIMEOUT: "20"
           AZURE_READ_TIMEOUT: "120"
