@@ -1,0 +1,68 @@
+name: Actualiza DP Gestion SNE (Azure -> PostgreSQL)
+
+on:
+  schedule:
+    # 4:00 p.m. Colombia (UTC-5) = 21:00 UTC
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+
+jobs:
+  actualiza_dp_gestion_sne:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Actualizar pip
+        run: python -m pip install --upgrade pip
+
+      - name: Instalar dependencias
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt --no-cache-dir
+          fi
+          if [ -f requirements_actualiza_dp.txt ]; then
+            pip install -r requirements_actualiza_dp.txt --no-cache-dir
+          fi
+
+      - name: Verificar script jobs/actualiza_dp_gestion_sne.py
+        run: |
+          if [ ! -f "jobs/actualiza_dp_gestion_sne.py" ]; then
+            echo "No se encontro jobs/actualiza_dp_gestion_sne.py"
+            ls -la
+            ls -la jobs || true
+            exit 1
+          fi
+
+      - name: Ejecutar actualizacion DP Gestion SNE
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          POSTGRES_CONN_STRING: ${{ secrets.POSTGRES_CONN_STRING }}
+          POSTGRES_HOSTADDR: ${{ secrets.POSTGRES_HOSTADDR }}
+          DATABASE_PATH: ${{ secrets.DATABASE_PATH }}
+          DB_POOL_MIN: ${{ secrets.DB_POOL_MIN }}
+          DB_POOL_MAX: ${{ secrets.DB_POOL_MAX }}
+          PGCONNECT_TIMEOUT: "30"
+          AZURE_CONNECT_TIMEOUT: "20"
+          AZURE_READ_TIMEOUT: "120"
+          AZURE_LIST_TIMEOUT: "60"
+          AZURE_QUERY_TIMEOUT: "180"
+          AZURE_DOWNLOAD_TIMEOUT: "600"
+          AZURE_EXISTS_TIMEOUT: "30"
+        run: |
+          python --version
+          python "jobs/actualiza_dp_gestion_sne.py" --source azure --start-year 2026
+
+      - name: Mostrar link del error
+        if: failure()
+        run: echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
