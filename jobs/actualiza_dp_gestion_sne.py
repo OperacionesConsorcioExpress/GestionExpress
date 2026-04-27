@@ -608,8 +608,7 @@ def load_pending_from_db(conn, schema: str, table: str) -> dict[str, PendingIcs]
             "fecha_inicio_dp",
             "fecha_cierre_dp"
         FROM "{schema}"."{table}"
-        WHERE "estado_asignacion" = 1
-          AND COALESCE(lower("fase_dp_actual"::text), '') <> 'cerrado'
+        WHERE COALESCE(lower("fase_dp_actual"::text), '') <> 'cerrado'
     """
     with conn.cursor() as cur:
         cur.execute(sql)
@@ -814,7 +813,6 @@ def apply_updates(conn, schema: str, table: str, updates: list[IcsUpdate], batch
             phase_rank
         )
         WHERE g."id_ics"::text = v.id_ics::text
-          AND g."estado_asignacion" = 1
           AND (
                 CASE lower(COALESCE(g."fase_dp_actual"::text, ''))
                     WHEN 'cerrado' THEN 5
@@ -842,7 +840,6 @@ def apply_updates(conn, schema: str, table: str, updates: list[IcsUpdate], batch
             phase_rank
         )
         WHERE g."id_ics"::text = v.id_ics::text
-          AND g."estado_asignacion" = 1
           AND v.phase_rank::int = 5
     """
     total = 0
@@ -981,7 +978,7 @@ def main() -> int:
     print(f"Fuente: {args.source} | años: {years[0]}-{years[-1]}")
 
     if not pending:
-        print("No hay registros pendientes con estado_asignacion = 1.")
+        print("No hay registros pendientes por actualizar.")
         return 0
 
     date_from = None if args.no_date_window else parse_iso_date(args.date_from)
