@@ -789,6 +789,7 @@ class PostgresAccionesRegulacionLoader:
 
         d = d.drop_duplicates(
             subset=[
+                "id_ics",
                 "fecha", "instante", "linea", "tabla",
                 "numero_fms_bus", "id_accion", "descripcion_accion",
                 "parametros", "motivo", "reversada_por"
@@ -866,6 +867,7 @@ class PostgresAccionesRegulacionLoader:
             INSERT INTO {full_table} ({col_sql})
             VALUES %s
             ON CONFLICT (
+                "id_ics",
                 "fecha",
                 "instante",
                 "linea",
@@ -894,6 +896,7 @@ class PostgresAccionesRegulacionLoader:
 
                     chunk = chunk.drop_duplicates(
                         subset=[
+                            "id_ics",
                             "fecha", "instante", "linea", "tabla",
                             "numero_fms_bus", "id_accion", "descripcion_accion",
                             "parametros", "motivo", "reversada_por"
