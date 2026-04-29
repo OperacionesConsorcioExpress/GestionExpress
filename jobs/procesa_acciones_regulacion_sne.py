@@ -291,10 +291,11 @@ class MatchRule:
     action_name: str
     join_keys: Tuple[str, ...]
     needs_viaje_ini: bool = False
+    allow_multi_idics: bool = False
 
 
 RULES = (
-    MatchRule("Desvios", ("Fecha", "Linea")),
+    MatchRule("Desvios", ("Fecha", "Linea"), allow_multi_idics=True),
     MatchRule("Desfase Instantaneo", ("Fecha", "Linea")),
     MatchRule("Retomar Viajes", ("Fecha", "Linea", "Tabla")),
     MatchRule("Sobrepasar Bus", ("Fecha", "Linea", "Tabla")),
@@ -625,6 +626,15 @@ class AccionesRegulacionBuilder:
         for rule in RULES:
             acciones_rule = acciones[acciones["Descripcion_Accion"] == rule.action_name]
             matched = self.match_rule(primary, acciones, rule)
+            if not matched.empty and not rule.allow_multi_idics:
+                matched = matched.drop_duplicates(
+                    subset=[
+                        "Fecha", "Instante", "Linea", "Tabla",
+                        "Numero_FMS_Bus", "Id_Accion", "Descripcion_Accion",
+                        "Parametros", "Motivo", "Reversada_Por"
+                    ],
+                    keep="first"
+                ).reset_index(drop=True)
             print(
                 f"  {rule.action_name}: acciones={len(acciones_rule)} | cruces={len(matched)} | "
                 f"id_ics={matched['Id_ICS'].nunique() if not matched.empty else 0}"
