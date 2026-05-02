@@ -10,15 +10,20 @@ from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional, Dict
 
+import sys
+
+CURRENT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = CURRENT_DIR.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import numpy as np
 import pandas as pd
 from azure.storage.blob import BlobServiceClient
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
-try:
-    from database.database_manager import get_db_connection
-
+from database.database_manager import get_db_connection
 
 
 # =============================================================================
