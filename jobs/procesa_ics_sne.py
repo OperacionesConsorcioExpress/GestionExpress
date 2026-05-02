@@ -18,8 +18,7 @@ from dotenv import load_dotenv
 
 try:
     from database.database_manager import get_db_connection
-except Exception:
-    from database_manager import get_db_connection
+
 
 
 # =============================================================================
