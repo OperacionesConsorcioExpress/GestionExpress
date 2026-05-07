@@ -15,6 +15,7 @@ from azure.storage.blob import BlobServiceClient
 # ============================================================
 CONTENEDOR = "e02-transmitools"
 PREFIJO_BASE = "70_posicionamientos/"
+FECHA_SEMILLA = date(2026, 5, 1)  # No procesar fechas anteriores a este día
 
 def obtener_cliente_contenedor():
     cadena_conexion = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -48,12 +49,12 @@ MAPEO_COLUMNAS = {
     "vehregistrnum": "movil_bus",
     "longitud": "longitud",
     "latitud": "latitud",
-    "routeoffsetvalue": "offset",
+    "routeoffsetvalue": "posicion",
     "nextnodeid": "id_sig_nodo",
     "nodeid": "id_nodo",
     "servtripseq": "secuencia_viaje",
     "sectionid": "id_seccion",
-    "sectionoffsetvalue": "posicion",
+    "sectionoffsetvalue": "offset",
 }
 
 R_TIERRA_M = 6371000.0 # Radio promedio de la Tierra en metros
@@ -516,15 +517,20 @@ def obtener_fechas_a_procesar(cur, cliente_contenedor, limite_dias: int) -> list
         print("⚠️  No hay carpetas disponibles en Azure Blob Storage")
         return []
     
-    # 3. Filtrar carpetas que no han sido procesadas
-    if ultima_procesada:
-        # Si hay última procesada, tomar carpetas posteriores a esa fecha
-        fechas_pendientes = [f for f in carpetas_blob if f > ultima_procesada]
-        print(f"ℹ️  Última fecha procesada: {ultima_procesada}")
+    # 3. Determinar el piso efectivo de procesamiento:
+    #    - Si el log tiene una fecha posterior a la semilla, continuar desde ahí.
+    #    - En cualquier otro caso (sin log o log anterior a la semilla), arrancar desde FECHA_SEMILLA.
+    if ultima_procesada and ultima_procesada >= FECHA_SEMILLA:
+        piso = ultima_procesada
+        print(f"ℹ️  Última fecha procesada: {ultima_procesada} (posterior a semilla {FECHA_SEMILLA})")
     else:
-        # Si no hay ninguna procesada, tomar todas desde la más antigua
-        fechas_pendientes = carpetas_blob
-        print(f"ℹ️  Primera ejecución - procesando desde: {carpetas_blob[0] if carpetas_blob else 'N/A'}")
+        piso = FECHA_SEMILLA - timedelta(days=1)
+        if ultima_procesada:
+            print(f"ℹ️  Última fecha procesada ({ultima_procesada}) es anterior a la semilla; arrancando desde {FECHA_SEMILLA}")
+        else:
+            print(f"ℹ️  Sin historial en el log; arrancando desde la semilla: {FECHA_SEMILLA}")
+
+    fechas_pendientes = [f for f in carpetas_blob if f > piso]
     
     # 4. Tomar solo las primeras N fechas
     fechas_a_procesar = fechas_pendientes[:limite_dias]

@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from database.database_manager import get_db_connection
 
 
+
 # =============================================================================
 # CONFIG
 # =============================================================================
@@ -850,8 +851,8 @@ class SNEExportBuilder:
         )
         km_revision = pd.Series(km_revision_raw, index=df.index, dtype="float64").clip(lower=0).round(3)
 
+        km_elim_eic = (kme.fillna(0) + dsa.fillna(0) + dnr.fillna(0)).round(3)
         km_elim_acc = (dsa.fillna(0) - dau.fillna(0)).clip(lower=0)
-        km_elim_eic = (kme.fillna(0) + km_elim_acc.fillna(0) + dnr.fillna(0)).round(3)
         off_fin_calc = (kmp.fillna(0) - off_fin_original.fillna(0)).clip(lower=0)
         km_f2 = (off_ini.fillna(0) + off_fin_calc.fillna(0) - kme.fillna(0)).clip(lower=0)
 
