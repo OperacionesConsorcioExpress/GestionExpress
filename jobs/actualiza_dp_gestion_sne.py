@@ -756,6 +756,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--container", default=DEFAULT_CONTAINER)
     parser.add_argument("--schema", default=DEFAULT_SCHEMA)
     parser.add_argument("--table", default=DEFAULT_TABLE)
+    parser.add_argument(
+        "--source",
+        default="azure",
+        help="Parámetro legado mantenido por compatibilidad con workflows antiguos. Actualmente solo se soporta Azure.",
+    )
     parser.add_argument("--start-year", type=int, default=DEFAULT_START_YEAR)
     parser.add_argument("--end-year", type=int, default=datetime.now().year)
     parser.add_argument("--batch-size", type=int, default=5000)
