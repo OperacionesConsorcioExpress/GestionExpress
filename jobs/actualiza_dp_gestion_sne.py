@@ -34,6 +34,14 @@ DEFAULT_SCHEMA = "sne"
 DEFAULT_TABLE = "gestion_sne"
 DEFAULT_START_YEAR = 2026
 AZURE_QUERY_CHUNK_SIZE = 100
+DEFAULT_POSTGRES_HOST = "serverdbceinfop.postgres.database.azure.com"
+DEFAULT_POSTGRES_HOSTADDR = "172.172.54.159"
+AZURE_CONNECT_TIMEOUT = int(os.environ.get("AZURE_CONNECT_TIMEOUT", "20"))
+AZURE_READ_TIMEOUT = int(os.environ.get("AZURE_READ_TIMEOUT", "120"))
+AZURE_LIST_TIMEOUT = int(os.environ.get("AZURE_LIST_TIMEOUT", "60"))
+AZURE_QUERY_TIMEOUT = int(os.environ.get("AZURE_QUERY_TIMEOUT", "180"))
+AZURE_DOWNLOAD_TIMEOUT = int(os.environ.get("AZURE_DOWNLOAD_TIMEOUT", "600"))
+AZURE_EXISTS_TIMEOUT = int(os.environ.get("AZURE_EXISTS_TIMEOUT", "30"))
 
 PHASE_RANK = {
     "": 0,
@@ -112,6 +120,21 @@ def normalize_id(value) -> str:
     except InvalidOperation:
         pass
     return text
+
+
+def clear_dead_local_proxy() -> None:
+    dead_proxy_markers = ("127.0.0.1:9", "localhost:9")
+    for name in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ):
+        value = os.environ.get(name, "")
+        if any(marker in value for marker in dead_proxy_markers):
+            os.environ.pop(name, None)
 
 
 def parse_decimal(value) -> Decimal | None:
@@ -251,7 +274,13 @@ class AzureSource(BaseSource):
             from azure.storage.blob import BlobServiceClient
         except Exception as exc:  # pragma: no cover - depends on runtime
             raise SystemExit("Falta instalar azure-storage-blob.") from exc
-        self.service = BlobServiceClient.from_connection_string(connection_string)
+        clear_dead_local_proxy()
+        self.service = BlobServiceClient.from_connection_string(
+            connection_string,
+            connection_timeout=AZURE_CONNECT_TIMEOUT,
+            read_timeout=AZURE_READ_TIMEOUT,
+            retry_total=0,
+        )
         self.container = self.service.get_container_client(container)
         self.date_from = date_from
         self.date_to = date_to
@@ -259,7 +288,10 @@ class AzureSource(BaseSource):
     def _list_files(self, prefix: str) -> list[SourceFile]:
         files: list[SourceFile] = []
         print(f"Listando Azure: {prefix}", flush=True)
-        blobs = retry_azure(lambda: list(self.container.list_blobs(name_starts_with=prefix)), f"listar {prefix}")
+        blobs = retry_azure(
+            lambda: list(self.container.list_blobs(name_starts_with=prefix, timeout=AZURE_LIST_TIMEOUT)),
+            f"listar {prefix}",
+        )
         for blob in blobs:
             if not blob.name or blob.name.endswith("/") or not blob.name.lower().endswith(".csv"):
                 continue
@@ -304,7 +336,12 @@ class AzureSource(BaseSource):
 
     def exists(self, path: str) -> bool:
         try:
-            retry_azure(lambda: self.container.get_blob_client(path).get_blob_properties(), f"validar {path}", attempts=2, delay_seconds=2)
+            retry_azure(
+                lambda: self.container.get_blob_client(path).get_blob_properties(timeout=AZURE_EXISTS_TIMEOUT),
+                f"validar {path}",
+                attempts=2,
+                delay_seconds=2,
+            )
             return True
         except Exception:
             return False
@@ -313,7 +350,7 @@ class AzureSource(BaseSource):
         print(f"Leyendo Azure: {path}", flush=True)
         return retry_azure(
             lambda: self.container.get_blob_client(path).download_blob(
-                timeout=600,
+                timeout=AZURE_DOWNLOAD_TIMEOUT,
                 max_concurrency=8,
                 validate_content=False,
             ).readall(),
@@ -350,7 +387,7 @@ class AzureSource(BaseSource):
                     query,
                     blob_format=input_format,
                     output_format=output_format,
-                    timeout=180,
+                    timeout=AZURE_QUERY_TIMEOUT,
                 ).readall(),
                 f"query {path}",
             )
@@ -400,7 +437,11 @@ def sql_literal(value: str) -> str:
 
 
 def get_azure_connection_string() -> str:
-    for env_name in ("AZURE_STORAGE_CONNECTION_STRING", "AZURE_CONN_STRING_DATOSCENTROINFORMACION"):
+    for env_name in (
+        "AZURE_STORAGE_CONNECTION_STRING",
+        "AZURE_CONN_STRING_DATOSCENTROINFORMACION",
+        "CONNECTION_STRING_LOCAL",
+    ):
         value = os.environ.get(env_name, "").strip()
         if value:
             return value
@@ -420,10 +461,17 @@ def open_db_connection():
 
     database_url = (
         os.environ.get("POSTGRES_CONN_STRING", "").strip()
+        or os.environ.get("POSTGRES_CONN_STRING_LOCAL", "").strip()
         or os.environ.get("DATABASE_URL", "").strip()
+        or os.environ.get("DATABASE_PATH", "").strip()
     )
+    hostaddr = os.environ.get("PGHOSTADDR", "").strip() or os.environ.get("POSTGRES_HOSTADDR", "").strip()
     connect_timeout = int(os.environ.get("PGCONNECT_TIMEOUT", "20"))
     if database_url:
+        if not hostaddr and DEFAULT_POSTGRES_HOST in database_url:
+            hostaddr = DEFAULT_POSTGRES_HOSTADDR
+        if hostaddr:
+            return psycopg2.connect(database_url, hostaddr=hostaddr, connect_timeout=connect_timeout)
         return psycopg2.connect(database_url, connect_timeout=connect_timeout)
     else:
         required = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]
@@ -440,6 +488,7 @@ def open_db_connection():
             user=os.environ["PGUSER"],
             password=os.environ["PGPASSWORD"],
             sslmode=os.environ.get("PGSSLMODE", "prefer"),
+            hostaddr=hostaddr or None,
             connect_timeout=connect_timeout,
         )
 
