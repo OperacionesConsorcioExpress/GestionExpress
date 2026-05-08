@@ -564,13 +564,24 @@ class ActividadBusBuilder:
         c_posicion = pick_col(df, ["Posición", "Posicion"])
 
         out = df.copy()
+        out["__matriz_row__"] = np.arange(len(out), dtype="int64")
         out["IdLinea_key_m"] = pd.to_numeric(out[c_id_linea], errors="coerce").astype("Int64")
         out["IdRuta_key_m"] = pd.to_numeric(out[c_id_ruta], errors="coerce").astype("Int64")
         out["NodoPrefix_key"] = self.tu.extraer_prefijo_nodo(out[c_nombre_nodo])
         out["Distancia"] = pd.to_numeric(out[c_posicion], errors="coerce").astype("Int64")
 
-        out = out[["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key", "Distancia"]].copy()
-        out = out.drop_duplicates(subset=["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key"], keep="first")
+        out = out[["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key", "Distancia", "__matriz_row__"]].copy()
+        out = out.sort_values(
+            by=["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key", "Distancia", "__matriz_row__"],
+            ascending=[True, True, True, True, True],
+            na_position="last",
+        ).reset_index(drop=True)
+        out["NodoOccurrence_key_m"] = (
+            out.groupby(["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key"], dropna=False)
+            .cumcount()
+            .astype("Int64")
+        )
+        out = out.drop(columns=["__matriz_row__"])
 
         print(f"✅ Matriz cargada: filas útiles={len(out)}")
         return out
@@ -604,16 +615,39 @@ class ActividadBusBuilder:
             print("7) CRUCE ACTIVIDAD BUS ↔ MATRIZ (DISTANCIA)")
             print("=" * 80)
 
+            df_merge["__actividad_row__"] = np.arange(len(df_merge), dtype="int64")
             df_merge["IdLinea_key"] = pd.to_numeric(df_merge["Id_Linea"], errors="coerce").astype("Int64")
             df_merge["IdRuta_key"] = pd.to_numeric(df_merge["Id_Ruta"], errors="coerce").astype("Int64")
             df_merge["NodoPrefix_key"] = self.tu.extraer_prefijo_nodo(df_merge["Nombre_Nodo"])
+            df_merge = df_merge.sort_values(
+                by=[
+                    "Fecha",
+                    "Servicio_key",
+                    "Coche_key",
+                    "Viaje_key",
+                    "Id_Viaje",
+                    "NodoPrefix_key",
+                    "__actividad_row__",
+                ],
+                ascending=[True, True, True, True, True, True, True],
+                na_position="last",
+            ).reset_index(drop=True)
+            df_merge["NodoOccurrence_key"] = (
+                df_merge.groupby(
+                    ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "NodoPrefix_key"],
+                    dropna=False,
+                )
+                .cumcount()
+                .astype("Int64")
+            )
 
             df_merge = df_merge.merge(
                 df_matriz,
-                left_on=["IdLinea_key", "IdRuta_key", "NodoPrefix_key"],
-                right_on=["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key"],
+                left_on=["IdLinea_key", "IdRuta_key", "NodoPrefix_key", "NodoOccurrence_key"],
+                right_on=["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key", "NodoOccurrence_key_m"],
                 how="left"
             )
+            df_merge = df_merge.sort_values(by="__actividad_row__", ascending=True, na_position="last").reset_index(drop=True)
 
             print(f"✅ Distancia asignada a {df_merge['Distancia'].notna().sum()} filas")
         else:
