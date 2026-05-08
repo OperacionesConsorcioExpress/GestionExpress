@@ -3,13 +3,10 @@ from __future__ import annotations
 import argparse
 import csv
 import io
-import ast
-import json
 import os
 import re
 import sys
 import time
-from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -21,28 +18,22 @@ try:
 except Exception:  # pragma: no cover - optional in server runtimes
     load_dotenv = None
 
+CURRENT_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
+ROOT_DIR = CURRENT_DIR.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent
-for import_path in (REPO_ROOT, SCRIPT_DIR):
-    import_path_text = str(import_path)
-    if import_path_text not in sys.path:
-        sys.path.insert(0, import_path_text)
+try:
+    from database.database_manager import get_db_connection  # type: ignore
+except Exception:
+    get_db_connection = None
 
 
 DEFAULT_CONTAINER = "e02-transmitools"
 DEFAULT_SCHEMA = "sne"
 DEFAULT_TABLE = "gestion_sne"
 DEFAULT_START_YEAR = 2026
-DEFAULT_POSTGRES_HOST = "serverdbceinfop.postgres.database.azure.com"
-DEFAULT_POSTGRES_HOSTADDR = "172.172.54.159"
 AZURE_QUERY_CHUNK_SIZE = 100
-AZURE_CONNECT_TIMEOUT = int(os.environ.get("AZURE_CONNECT_TIMEOUT", "20"))
-AZURE_READ_TIMEOUT = int(os.environ.get("AZURE_READ_TIMEOUT", "120"))
-AZURE_LIST_TIMEOUT = int(os.environ.get("AZURE_LIST_TIMEOUT", "60"))
-AZURE_QUERY_TIMEOUT = int(os.environ.get("AZURE_QUERY_TIMEOUT", "180"))
-AZURE_DOWNLOAD_TIMEOUT = int(os.environ.get("AZURE_DOWNLOAD_TIMEOUT", "600"))
-AZURE_EXISTS_TIMEOUT = int(os.environ.get("AZURE_EXISTS_TIMEOUT", "30"))
 
 PHASE_RANK = {
     "": 0,
@@ -121,21 +112,6 @@ def normalize_id(value) -> str:
     except InvalidOperation:
         pass
     return text
-
-
-def clear_dead_local_proxy() -> None:
-    dead_proxy_markers = ("127.0.0.1:9", "localhost:9")
-    for name in (
-        "HTTP_PROXY",
-        "HTTPS_PROXY",
-        "ALL_PROXY",
-        "http_proxy",
-        "https_proxy",
-        "all_proxy",
-    ):
-        value = os.environ.get(name, "")
-        if any(marker in value for marker in dead_proxy_markers):
-            os.environ.pop(name, None)
 
 
 def parse_decimal(value) -> Decimal | None:
@@ -221,24 +197,6 @@ def blob_date_from_name(path: str) -> date | None:
     return None
 
 
-def iter_dates(start: date, end: date) -> Iterator[date]:
-    current = start
-    while current <= end:
-        yield current
-        current += timedelta(days=1)
-
-
-def iter_month_starts(start: date, end: date) -> Iterator[date]:
-    current = date(start.year, start.month, 1)
-    last = date(end.year, end.month, 1)
-    while current <= last:
-        yield current
-        if current.month == 12:
-            current = date(current.year + 1, 1, 1)
-        else:
-            current = date(current.year, current.month + 1, 1)
-
-
 class BaseSource:
     def list_stage_files(self, years: list[int]) -> dict[int, list[SourceFile]]:
         raise NotImplementedError
@@ -293,13 +251,7 @@ class AzureSource(BaseSource):
             from azure.storage.blob import BlobServiceClient
         except Exception as exc:  # pragma: no cover - depends on runtime
             raise SystemExit("Falta instalar azure-storage-blob.") from exc
-        clear_dead_local_proxy()
-        self.service = BlobServiceClient.from_connection_string(
-            connection_string,
-            connection_timeout=AZURE_CONNECT_TIMEOUT,
-            read_timeout=AZURE_READ_TIMEOUT,
-            retry_total=0,
-        )
+        self.service = BlobServiceClient.from_connection_string(connection_string)
         self.container = self.service.get_container_client(container)
         self.date_from = date_from
         self.date_to = date_to
@@ -307,10 +259,7 @@ class AzureSource(BaseSource):
     def _list_files(self, prefix: str) -> list[SourceFile]:
         files: list[SourceFile] = []
         print(f"Listando Azure: {prefix}", flush=True)
-        blobs = retry_azure(
-            lambda: list(self.container.list_blobs(name_starts_with=prefix, timeout=AZURE_LIST_TIMEOUT)),
-            f"listar {prefix}",
-        )
+        blobs = retry_azure(lambda: list(self.container.list_blobs(name_starts_with=prefix)), f"listar {prefix}")
         for blob in blobs:
             if not blob.name or blob.name.endswith("/") or not blob.name.lower().endswith(".csv"):
                 continue
@@ -321,18 +270,13 @@ class AzureSource(BaseSource):
         out = {1: [], 2: [], 3: [], 4: []}
         if self.date_from and self.date_to:
             folders = {1: "10_etapa1", 2: "20_etapa2", 3: "30_etapa3", 4: "40_etapa4"}
-            allowed_years = set(years)
-            for file_date in iter_dates(self.date_from, self.date_to):
-                if file_date.year not in allowed_years:
-                    continue
+            for year in years:
                 for stage, folder in folders.items():
-                    path = (
-                        f"{file_date.year}/11_ics_offline/10_ics_etapas/{folder}/"
-                        f"{file_date:%Y%m%d}_ics_smartoperator_etapa{stage}.csv"
-                    )
-                    if self.exists(path):
-                        last_modified = datetime.combine(file_date, datetime.min.time())
-                        out[stage].append(SourceFile(path, stage, last_modified))
+                    prefix = f"{year}/11_ics_offline/10_ics_etapas/{folder}/"
+                    for file_info in self._list_files(prefix):
+                        file_date = blob_date_from_name(file_info.path)
+                        if file_date and self.date_from <= file_date <= self.date_to:
+                            out[stage].append(file_info)
             return out
         for year in years:
             prefix = f"{year}/11_ics_offline/10_ics_etapas/"
@@ -344,14 +288,14 @@ class AzureSource(BaseSource):
     def list_closed_files(self, years: list[int]) -> list[SourceFile]:
         files: list[SourceFile] = []
         if self.date_from and self.date_to:
-            allowed_years = set(years)
-            for file_month in iter_month_starts(self.date_from, self.date_to):
-                if file_month.year not in allowed_years:
-                    continue
-                path = f"{file_month.year}/10_ics/20_ics_cerrado/{file_month:%Y%m}_so_ics_cerrado.csv"
-                if self.exists(path):
-                    last_modified = datetime.combine(file_month, datetime.min.time())
-                    files.append(SourceFile(path, None, last_modified))
+            start_month = date(self.date_from.year, self.date_from.month, 1)
+            end_month = date(self.date_to.year, self.date_to.month, 1)
+            for year in years:
+                prefix = f"{year}/10_ics/20_ics_cerrado/"
+                for file_info in self._list_files(prefix):
+                    file_month = blob_date_from_name(file_info.path)
+                    if file_month and start_month <= file_month <= end_month:
+                        files.append(file_info)
             return files
         for year in years:
             prefix = f"{year}/10_ics/20_ics_cerrado/"
@@ -360,19 +304,16 @@ class AzureSource(BaseSource):
 
     def exists(self, path: str) -> bool:
         try:
-            from azure.core.exceptions import ResourceNotFoundError
-            self.container.get_blob_client(path).get_blob_properties(timeout=AZURE_EXISTS_TIMEOUT)
+            retry_azure(lambda: self.container.get_blob_client(path).get_blob_properties(), f"validar {path}", attempts=2, delay_seconds=2)
             return True
-        except ResourceNotFoundError:
-            return False
         except Exception:
-            raise
+            return False
 
     def read_bytes(self, path: str) -> bytes:
         print(f"Leyendo Azure: {path}", flush=True)
         return retry_azure(
             lambda: self.container.get_blob_client(path).download_blob(
-                timeout=AZURE_DOWNLOAD_TIMEOUT,
+                timeout=600,
                 max_concurrency=8,
                 validate_content=False,
             ).readall(),
@@ -409,7 +350,7 @@ class AzureSource(BaseSource):
                     query,
                     blob_format=input_format,
                     output_format=output_format,
-                    timeout=AZURE_QUERY_TIMEOUT,
+                    timeout=180,
                 ).readall(),
                 f"query {path}",
             )
@@ -459,7 +400,7 @@ def sql_literal(value: str) -> str:
 
 
 def get_azure_connection_string() -> str:
-    for env_name in ("AZURE_STORAGE_CONNECTION_STRING", "AZURE_CONN_STRING_DATOSCENTROINFORMACION", "CONNECTION_STRING_LOCAL"):
+    for env_name in ("AZURE_STORAGE_CONNECTION_STRING", "AZURE_CONN_STRING_DATOSCENTROINFORMACION"):
         value = os.environ.get(env_name, "").strip()
         if value:
             return value
@@ -468,72 +409,9 @@ def get_azure_connection_string() -> str:
         "o AZURE_CONN_STRING_DATOSCENTROINFORMACION."
     )
 
-
-def load_connection_constants_from_notebook(path: Path) -> None:
-    if not path.exists():
-        raise SystemExit(f"No existe el notebook de conexiones: {path}")
-    notebook = json.loads(path.read_text(encoding="utf-8"))
-    source = "\n".join(
-        "".join(cell.get("source", []))
-        for cell in notebook.get("cells", [])
-        if cell.get("cell_type") == "code"
-    )
-    module = ast.parse(source)
-    constants: dict[str, str] = {}
-    for node in module.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        for target in node.targets:
-            if isinstance(target, ast.Name) and target.id in {"CONNECTION_STRING_LOCAL", "POSTGRES_CONN_STRING_LOCAL"}:
-                try:
-                    constants[target.id] = ast.literal_eval(node.value)
-                except Exception:
-                    pass
-
-    azure_conn = constants.get("CONNECTION_STRING_LOCAL", "").strip()
-    pg_conn = constants.get("POSTGRES_CONN_STRING_LOCAL", "").strip()
-    if azure_conn and not os.environ.get("AZURE_STORAGE_CONNECTION_STRING"):
-        os.environ["AZURE_STORAGE_CONNECTION_STRING"] = azure_conn
-    if pg_conn and not os.environ.get("POSTGRES_CONN_STRING"):
-        os.environ["POSTGRES_CONN_STRING"] = pg_conn
-
-
-def auto_load_local_connection_constants() -> None:
-    has_azure = any(
-        os.environ.get(name, "").strip()
-        for name in ("AZURE_STORAGE_CONNECTION_STRING", "AZURE_CONN_STRING_DATOSCENTROINFORMACION", "CONNECTION_STRING_LOCAL")
-    )
-    has_postgres = any(
-        os.environ.get(name, "").strip()
-        for name in ("POSTGRES_CONN_STRING", "POSTGRES_CONN_STRING_LOCAL", "DATABASE_URL", "DATABASE_PATH", "PGHOST")
-    )
-    if has_azure and has_postgres:
-        return
-
-    for notebook_path in (
-        Path(__file__).with_name("Pruebas desvios.ipynb"),
-        Path(__file__).resolve().parent.parent / "Pruebas desvios.ipynb",
-        Path.cwd() / "Pruebas desvios.ipynb",
-    ):
-        if notebook_path.exists():
-            load_connection_constants_from_notebook(notebook_path)
-            return
-
-
-@contextmanager
 def open_db_connection():
-    try:
-        from database.database_manager import get_db_connection  # type: ignore
-    except Exception:
-        try:
-            from database_manager import get_db_connection  # type: ignore
-        except Exception:
-            get_db_connection = None
-
     if get_db_connection is not None:
-        with get_db_connection() as conn:
-            yield conn
-        return
+        return get_db_connection()
 
     try:
         import psycopg2
@@ -542,19 +420,11 @@ def open_db_connection():
 
     database_url = (
         os.environ.get("POSTGRES_CONN_STRING", "").strip()
-        or os.environ.get("POSTGRES_CONN_STRING_LOCAL", "").strip()
         or os.environ.get("DATABASE_URL", "").strip()
-        or os.environ.get("DATABASE_PATH", "").strip()
     )
-    hostaddr = os.environ.get("PGHOSTADDR", "").strip() or os.environ.get("POSTGRES_HOSTADDR", "").strip()
     connect_timeout = int(os.environ.get("PGCONNECT_TIMEOUT", "20"))
     if database_url:
-        if not hostaddr and DEFAULT_POSTGRES_HOST in database_url:
-            hostaddr = DEFAULT_POSTGRES_HOSTADDR
-        if hostaddr:
-            conn = psycopg2.connect(database_url, hostaddr=hostaddr, connect_timeout=connect_timeout)
-        else:
-            conn = psycopg2.connect(database_url, connect_timeout=connect_timeout)
+        return psycopg2.connect(database_url, connect_timeout=connect_timeout)
     else:
         required = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]
         missing = [name for name in required if not os.environ.get(name)]
@@ -563,21 +433,15 @@ def open_db_connection():
                 "No encontré database_manager ni variables de Postgres. "
                 f"Faltan: {', '.join(missing)}. También puedes usar DATABASE_URL."
             )
-        conn = psycopg2.connect(
+        return psycopg2.connect(
             host=os.environ["PGHOST"],
             port=int(os.environ.get("PGPORT", "5432")),
             dbname=os.environ["PGDATABASE"],
             user=os.environ["PGUSER"],
             password=os.environ["PGPASSWORD"],
             sslmode=os.environ.get("PGSSLMODE", "prefer"),
-            hostaddr=hostaddr or None,
             connect_timeout=connect_timeout,
         )
-
-    try:
-        yield conn
-    finally:
-        conn.close()
 
 
 def validate_gestion_columns(conn, schema: str, table: str) -> None:
@@ -798,13 +662,17 @@ def apply_updates(conn, schema: str, table: str, updates: list[IcsUpdate], batch
         raise SystemExit("Falta psycopg2.extras.execute_values.") from exc
 
     full_table = f'"{schema}"."{table}"'
-    base_sql = f"""
+    sql = f"""
         UPDATE {full_table} AS g
         SET
             "procesa_dp" = 1,
             "fase_dp_actual" = v.fase_dp_actual::text,
             "estado_dp_actual" = v.estado_dp_actual::text,
-            "fecha_cambio_dp" = v.fecha_cambio_dp::timestamp
+            "fecha_cambio_dp" = v.fecha_cambio_dp::timestamp,
+            "km_aceptado" = CASE
+                WHEN v.phase_rank::int = 5 THEN NULLIF(v.km_aceptado::text, '')::numeric
+                ELSE g."km_aceptado"
+            END
         FROM (VALUES %s) AS v(
             id_ics,
             fase_dp_actual,
@@ -830,21 +698,6 @@ def apply_updates(conn, schema: str, table: str, updates: list[IcsUpdate], batch
                 END
           ) < v.phase_rank::int
     """
-    km_sql = f"""
-        UPDATE {full_table} AS g
-        SET "km_aceptado" = NULLIF(v.km_aceptado::text, '')::numeric
-        FROM (VALUES %s) AS v(
-            id_ics,
-            fase_dp_actual,
-            estado_dp_actual,
-            fecha_cambio_dp,
-            km_aceptado,
-            phase_rank
-        )
-        WHERE g."id_ics"::text = v.id_ics::text
-          AND g."estado_asignacion" = 1
-          AND v.phase_rank::int = 5
-    """
     total = 0
     with conn.cursor() as cur:
         for start in range(0, len(updates), batch_size):
@@ -860,36 +713,10 @@ def apply_updates(conn, schema: str, table: str, updates: list[IcsUpdate], batch
                 )
                 for item in chunk
             ]
-            execute_values(cur, base_sql, records, page_size=len(records))
+            execute_values(cur, sql, records, page_size=len(records))
             total += cur.rowcount
-            execute_values(cur, km_sql, records, page_size=len(records))
     return total
 
-
-def write_report(output_dir: Path, updates: list[IcsUpdate], prefix: str) -> Path:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = output_dir / f"{prefix}_{timestamp}.csv"
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow([
-            "id_ics",
-            "fase_dp_actual",
-            "estado_dp_actual",
-            "fecha_cambio_dp",
-            "km_aceptado",
-            "source_path",
-        ])
-        for item in updates:
-            writer.writerow([
-                item.id_ics,
-                item.fase_dp_actual,
-                item.estado_dp_actual,
-                item.fecha_cambio_dp.isoformat(sep=" ", timespec="seconds"),
-                "" if item.km_aceptado is None else str(item.km_aceptado),
-                item.source_path,
-            ])
-    return path
 
 
 def parse_iso_date(value: str) -> date | None:
@@ -924,28 +751,22 @@ def derive_date_window(
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Actualiza sne.gestion_sne con fase/estado DP usando CSV de ICS en Azure o en carpeta local."
+        description="Actualiza sne.gestion_sne con fase/estado DP usando CSV de ICS en Azure."
     )
-    parser.add_argument("--source", choices=["azure", "local"], default="azure")
-    parser.add_argument("--local-root", default=str(Path.cwd()))
     parser.add_argument("--container", default=DEFAULT_CONTAINER)
     parser.add_argument("--schema", default=DEFAULT_SCHEMA)
     parser.add_argument("--table", default=DEFAULT_TABLE)
     parser.add_argument("--start-year", type=int, default=DEFAULT_START_YEAR)
     parser.add_argument("--end-year", type=int, default=datetime.now().year)
     parser.add_argument("--batch-size", type=int, default=5000)
-    parser.add_argument("--output-dir", default=str(Path.cwd() / "outputs" / "dp_gestion_sne"))
-    parser.add_argument("--connections-notebook", default="", help="Notebook local con CONNECTION_STRING_LOCAL y POSTGRES_CONN_STRING_LOCAL para pruebas.")
-    parser.add_argument("--pg-hostaddr", default="", help="IP hostaddr de Postgres para ambientes donde DNS local no resuelve el hostname.")
     parser.add_argument("--date-from", default="", help="Fecha inicial YYYY-MM-DD para generar rutas Azure por fecha.")
     parser.add_argument("--date-to", default="", help="Fecha final YYYY-MM-DD para generar rutas Azure por fecha.")
-    parser.add_argument("--no-date-window", action="store_true", help="Desactiva ventana por fecha y lista todos los blobs del año.")
-    parser.add_argument("--date-window-days-before", type=int, default=2, help="Días antes de la fecha mínima DP para iniciar búsqueda Azure.")
+    parser.add_argument("--no-date-window", action="store_true", help="Desactiva ventana por fecha y lista todos los blobs del a?o.")
+    parser.add_argument("--date-window-days-before", type=int, default=2, help="D?as antes de la fecha m?nima DP para iniciar b?squeda Azure.")
     parser.add_argument("--pending-id", action="append", default=[], help="ID manual para pruebas. Formato opcional: id:fase")
     parser.add_argument("--pending-ids-file", default="", help="CSV/TXT con id_ics y fase_dp_actual opcional.")
     parser.add_argument("--limit-pending", type=int, default=0, help="Limita cantidad de pendientes para prueba.")
-    parser.add_argument("--apply", action="store_true", help="Compatibilidad: la carga real ya es el comportamiento por defecto.")
-    parser.add_argument("--dry-run", action="store_true", help="Solo genera reporte; no actualiza Postgres.")
+    parser.add_argument("--dry-run", action="store_true", help="Solo valida y no actualiza Postgres.")
     return parser
 
 
@@ -954,12 +775,6 @@ def main() -> int:
         load_dotenv()
 
     args = build_arg_parser().parse_args()
-    if args.connections_notebook:
-        load_connection_constants_from_notebook(Path(args.connections_notebook))
-    else:
-        auto_load_local_connection_constants()
-    if args.pg_hostaddr:
-        os.environ["PGHOSTADDR"] = args.pg_hostaddr
     years = list(range(args.start_year, args.end_year + 1))
     run_timestamp = datetime.now()
 
@@ -978,7 +793,7 @@ def main() -> int:
         pending = dict(list(pending.items())[:args.limit_pending])
 
     print(f"Pendientes a buscar: {len(pending):,}")
-    print(f"Fuente: {args.source} | años: {years[0]}-{years[-1]}")
+    print(f"Fuente: azure | años: {years[0]}-{years[-1]}")
 
     if not pending:
         print("No hay registros pendientes con estado_asignacion = 1.")
@@ -986,7 +801,7 @@ def main() -> int:
 
     date_from = None if args.no_date_window else parse_iso_date(args.date_from)
     date_to = None if args.no_date_window else parse_iso_date(args.date_to)
-    if args.source == "azure" and not args.no_date_window:
+    if not args.no_date_window:
         date_from, date_to = derive_date_window(
             pending,
             run_timestamp,
@@ -999,15 +814,10 @@ def main() -> int:
         else:
             print("Ventana Azure por fecha no disponible; se listarán blobs por prefijo anual.")
 
-    if args.source == "azure":
-        source: BaseSource = AzureSource(get_azure_connection_string(), args.container, date_from=date_from, date_to=date_to)
-    else:
-        source = LocalSource(Path(args.local_root))
+    source: BaseSource = AzureSource(get_azure_connection_string(), args.container, date_from=date_from, date_to=date_to)
 
     updates_by_id = find_updates(source, pending, years, run_timestamp)
     updates = sorted(updates_by_id.values(), key=lambda item: (item.phase_rank, item.id_ics))
-    apply_changes = not args.dry_run
-    report_path = write_report(Path(args.output_dir), updates, "applied_dp_updates" if apply_changes else "dry_run_dp_updates")
 
     counts: dict[tuple[str, str], int] = {}
     for item in updates:
@@ -1017,9 +827,7 @@ def main() -> int:
     print(f"Encontrados para actualizar: {len(updates):,}")
     for (fase, estado), count in sorted(counts.items(), key=lambda kv: (phase_rank(kv[0][0]), kv[0][1])):
         print(f"  {fase} | {estado}: {count:,}")
-    print(f"Reporte: {report_path}")
-
-    if not apply_changes:
+    if args.dry_run:
         print("Dry-run: no se actualizó Postgres. Ejecuta sin --dry-run para guardar cambios.")
         return 0
 
