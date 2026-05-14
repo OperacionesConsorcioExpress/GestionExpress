@@ -398,6 +398,9 @@ class ValidacionesBuilder:
         c_hora_ini_real = pick_col(df, ["Hora Ini Real Cabecera"], required=False)
         c_hora_ini_ref = pick_col(df, ["Hora Ini Referencia"], required=False)
         c_hora_fin_real = pick_col(df, ["Hora Fin Real"], required=False)
+        c_hora_ini_teorica = pick_col(df, ["Hora Ini Teorica", "Hora Ini TeÃ³rica"], required=False)
+        c_dur_ref = pick_col(df, ["DurRef"], required=False)
+        c_dur_teor = pick_col(df, ["DurTeor"], required=False)
 
         c_servicio = pick_col(df, ["Servicio"])
         c_tabla = pick_col(df, ["Tabla"])
@@ -416,14 +419,56 @@ class ValidacionesBuilder:
         out["HoraIniReal_td"] = pd.to_timedelta(out[c_hora_ini_real].astype(str), errors="coerce") if c_hora_ini_real else pd.NaT
         out["HoraFinReal_td"] = pd.to_timedelta(out[c_hora_fin_real].astype(str), errors="coerce") if c_hora_fin_real else pd.NaT
         out["HoraIniRef_td"] = pd.to_timedelta(out[c_hora_ini_ref].astype(str), errors="coerce") if c_hora_ini_ref else pd.NaT
+        out["HoraIniTeor_td"] = pd.to_timedelta(out[c_hora_ini_teorica].astype(str), errors="coerce") if c_hora_ini_teorica else pd.NaT
+        out["DurRef_td"] = pd.to_timedelta(out[c_dur_ref].astype(str), errors="coerce") if c_dur_ref else pd.NaT
+        out["DurTeor_td"] = pd.to_timedelta(out[c_dur_teor].astype(str), errors="coerce") if c_dur_teor else pd.NaT
 
         out["HoraIni_td"] = out["HoraIniReal_td"].fillna(out["HoraIniRef_td"])
-        out["HoraFin_td"] = out["HoraFinReal_td"]
+        out["HoraFinEstRef_td"] = out["HoraIniRef_td"] + out["DurRef_td"]
+        out["HoraFinEstTeor_td"] = out["HoraIniTeor_td"] + out["DurTeor_td"]
+        out["HoraFinEstimada_td"] = out["HoraFinEstRef_td"].fillna(out["HoraFinEstTeor_td"])
+        out["HoraFinFallback_td"] = out["HoraIni_td"] + pd.to_timedelta("1:00:00")
 
         out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst=True)
         out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
         out["Coche_key"] = self.tu.to_int64(out[c_tabla])
         out["Viaje_key"] = self.tu.to_int64(out[c_viaje_linea])
+
+        out = out.sort_values(
+            by=["Fecha_val_key", "Vehiculo_key", "HoraIni_td", "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"],
+            ascending=[True, True, True, True, True, True, True],
+            na_position="last",
+        ).reset_index(drop=True)
+
+        out["SiguienteHoraIniVeh_td"] = out.groupby(
+            ["Fecha_val_key", "Vehiculo_key"], dropna=False
+        )["HoraIni_td"].shift(-1)
+        out["HoraFinGap_td"] = out["SiguienteHoraIniVeh_td"] - pd.to_timedelta("0:00:01")
+
+        out["HoraFin_td"] = out["HoraFinReal_td"]
+        missing_fin = out["HoraFin_td"].isna()
+        if missing_fin.any():
+            gap_candidate = out["HoraFinGap_td"].where(out["HoraFinGap_td"] >= out["HoraIni_td"])
+            est_candidate = out["HoraFinEstimada_td"].where(out["HoraFinEstimada_td"] >= out["HoraIni_td"])
+
+            both = missing_fin & gap_candidate.notna() & est_candidate.notna()
+            if both.any():
+                out.loc[both, "HoraFin_td"] = np.minimum(
+                    gap_candidate.loc[both].to_numpy(dtype="timedelta64[ns]"),
+                    est_candidate.loc[both].to_numpy(dtype="timedelta64[ns]"),
+                )
+
+            only_gap = missing_fin & gap_candidate.notna() & est_candidate.isna()
+            if only_gap.any():
+                out.loc[only_gap, "HoraFin_td"] = gap_candidate.loc[only_gap]
+
+            only_est = missing_fin & gap_candidate.isna() & est_candidate.notna()
+            if only_est.any():
+                out.loc[only_est, "HoraFin_td"] = est_candidate.loc[only_est]
+
+            fallback = missing_fin & out["HoraFin_td"].isna()
+            if fallback.any():
+                out.loc[fallback, "HoraFin_td"] = out.loc[fallback, "HoraFinFallback_td"]
 
         keep = [
             "Fecha_val_key", "IdLinea_key", "Vehiculo_key",
