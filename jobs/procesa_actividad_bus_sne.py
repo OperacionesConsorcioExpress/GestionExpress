@@ -773,23 +773,22 @@ class PostgresActividadBusLoader:
         return dt.date()
 
     @staticmethod
-    def _parse_time_to_time(v):
+    def _normalize_operational_time_text(v):
         if v is None:
             return None
         s = str(v).strip()
         if s == "":
             return None
-
-        if re.match(r"^\d{1,2}:\d{2}$", s):
-            s = f"{s}:00"
-
-        if not re.match(r"^\d{1,2}:\d{2}:\d{2}$", s):
+        s = re.sub(r"\s+", "", s)
+        m = re.match(r"^(\d{1,3}):(\d{2})(?::(\d{2}))?$", s)
+        if not m:
             return None
-
-        try:
-            return datetime.strptime(s, "%H:%M:%S").time()
-        except Exception:
+        hh = int(m.group(1))
+        mm = int(m.group(2))
+        ss = int(m.group(3) or "0")
+        if mm > 59 or ss > 59:
             return None
+        return f"{hh:02d}:{mm:02d}:{ss:02d}"
 
     def _prepare_df_for_db(self, df: pd.DataFrame) -> pd.DataFrame:
         missing = [c for c in self.DF_TO_DB.keys() if c not in df.columns]
@@ -802,7 +801,7 @@ class PostgresActividadBusLoader:
         d["fecha"] = d["fecha"].apply(self._parse_fecha_to_date)
 
         for c in ["hora_teorica", "hora_referencia", "hora_llegada", "hora_salida"]:
-            d[c] = d[c].apply(self._parse_time_to_time)
+            d[c] = d[c].apply(self._normalize_operational_time_text)
 
         d["id_ics"] = pd.to_numeric(d["id_ics"], errors="coerce")
         d["distancia"] = pd.to_numeric(d["distancia"], errors="coerce")
