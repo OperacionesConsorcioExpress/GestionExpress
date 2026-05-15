@@ -622,33 +622,56 @@ class AccionesRegulacionBuilder:
         print("=" * 80)
         acciones = self.load_acciones_reg(fecha)
 
-        frames: List[pd.DataFrame] = []
-        for rule in RULES:
-            acciones_rule = acciones[acciones["Descripcion_Accion"] == rule.action_name]
-            matched = self.match_rule(primary, acciones, rule)
-            if not matched.empty and not rule.allow_multi_idics:
-                matched = matched.drop_duplicates(
-                    subset=[
-                        "Fecha", "Instante", "Linea", "Tabla",
-                        "Numero_FMS_Bus", "Id_Accion", "Descripcion_Accion",
-                        "Parametros", "Motivo", "Reversada_Por"
-                    ],
-                    keep="first"
-                ).reset_index(drop=True)
-            print(
-                f"  {rule.action_name}: acciones={len(acciones_rule)} | cruces={len(matched)} | "
-                f"id_ics={matched['Id_ICS'].nunique() if not matched.empty else 0}"
-            )
-            if not matched.empty:
-                frames.append(matched)
+        primary_linea = (
+            primary[["Id_ICS", "Fecha", "Linea"]]
+            .copy()
+            .dropna(subset=["Id_ICS", "Fecha", "Linea"])
+        )
+        primary_linea["Linea"] = primary_linea["Linea"].astype("string").str.strip()
+        primary_linea = primary_linea.drop_duplicates(
+            subset=["Id_ICS", "Fecha", "Linea"],
+            keep="first"
+        ).reset_index(drop=True)
 
-        if not frames:
+        acciones_linea = acciones.copy().dropna(subset=["Fecha", "Linea"])
+        acciones_linea["Linea"] = acciones_linea["Linea"].astype("string").str.strip()
+
+        print(
+            f"  Base ICS por Fecha+Linea: filas={len(primary_linea)} | "
+            f"id_ics={primary_linea['Id_ICS'].nunique() if not primary_linea.empty else 0}"
+        )
+        print(
+            f"  Acciones origen por Fecha+Linea: filas={len(acciones_linea)} | "
+            f"acciones={acciones_linea['Descripcion_Accion'].nunique() if not acciones_linea.empty else 0}"
+        )
+
+        merged = primary_linea.merge(
+            acciones_linea,
+            on=["Fecha", "Linea"],
+            how="inner",
+            suffixes=("_det", "_ar")
+        )
+
+        if merged.empty:
             df_final = pd.DataFrame(columns=[
                 "Id_ICS", "Fecha", "Instante", "Linea", "Tabla", "Numero_FMS_Bus",
                 "Id_Accion", "Descripcion_Accion", "Parametros", "Motivo", "Reversada_Por"
             ])
         else:
-            df_final = pd.concat(frames, ignore_index=True).drop_duplicates(
+            df_final = pd.DataFrame({
+                "Id_ICS": merged["Id_ICS"].astype("Int64"),
+                "Fecha": merged["Fecha"],
+                "Instante": merged["Instante"],
+                "Linea": merged["Linea"],
+                "Tabla": merged["Tabla"],
+                "Numero_FMS_Bus": merged["Numero_FMS_Bus"],
+                "Id_Accion": merged["Id_Accion"],
+                "Descripcion_Accion": merged["Descripcion_Accion"],
+                "Parametros": merged["Parametros"],
+                "Motivo": merged["Motivo"],
+                "Reversada_Por": merged["Reversada_Por"],
+            })
+            df_final = df_final.drop_duplicates(
                 subset=[
                     "Id_ICS", "Fecha", "Instante", "Linea", "Tabla",
                     "Numero_FMS_Bus", "Id_Accion", "Descripcion_Accion",
@@ -656,6 +679,15 @@ class AccionesRegulacionBuilder:
                 ],
                 keep="first"
             ).reset_index(drop=True)
+
+            resumen = (
+                df_final.groupby("Descripcion_Accion", dropna=False)["Id_ICS"]
+                .agg(["count", "nunique"])
+                .sort_values("count", ascending=False)
+            )
+            print("  Resumen por acción (filas / id_ics):")
+            for accion, row in resumen.iterrows():
+                print(f"    {accion}: filas={int(row['count'])} | id_ics={int(row['nunique'])}")
 
         fecha_nombre = fecha.strftime("%d_%m_%Y")
         print("\n? Tabla Acciones Regulaci?n construida:")
