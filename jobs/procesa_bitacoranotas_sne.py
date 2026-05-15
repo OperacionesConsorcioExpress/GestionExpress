@@ -323,7 +323,6 @@ class BitacoraNotasBuilder:
         df = self.io.limpiar_columnas(df)
 
         c_fecha = pick_col(df, ["Fecha"])
-        c_tipo_nota = pick_col(df, ["Tipo Nota", "Tipo de Nota"])
         c_id_linea = pick_col(df, ["Id de linea", "Id de línea", "Id linea", "Id línea"])
 
         out = df.copy()
@@ -332,23 +331,10 @@ class BitacoraNotasBuilder:
             errors="coerce",
             dayfirst=True,
         ).dt.date
-        out["tipo_nota_norm"] = normalize_text_upper(out[c_tipo_nota])
         out["linea"] = to_int64(out[c_id_linea])
-
-        mapa_tipo = {
-            "INTERRUPCION DE SERVICIO ZONAL": "INTERRUPCION DE SERVICIO ZONAL",
-            "NOVEDADES KILOMETRAJE": "NOVEDADES KILOMETRAJE",
-            "NOVEDADES SIRCI": "NOVEDADES SIRCI",
-            "NOVEDADES VEHICULOS ZONALES": "NOVEDADES VEHICULOS ZONALES",
-            "NOVEDADES VEHÍCULOS ZONALES": "NOVEDADES VEHICULOS ZONALES",
-            "NOVEDADES VEHICULOS TRONCALES": "NOVEDADES VEHICULOS TRONCALES",
-            "NOVEDADES VEHÍCULOS TRONCALES": "NOVEDADES VEHICULOS TRONCALES",
-        }
-        out["tipo_nota_norm2"] = out["tipo_nota_norm"].replace(mapa_tipo)
-        out = out[out["tipo_nota_norm2"].isin(TIPOS_NOTA_VALIDOS)].copy()
         out = out.dropna(subset=["fecha", "linea"]).copy()
 
-        print(f"Detalle notas filtrado por tipo | filas={len(out)}")
+        print(f"Detalle notas listo sin filtro de tipo | filas={len(out)}")
         return out
 
     def build(self, fecha: datetime) -> pd.DataFrame:
