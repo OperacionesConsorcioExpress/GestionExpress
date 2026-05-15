@@ -362,6 +362,7 @@ class ViajeStatBuilder:
         c_event_datetime = pick_col(df, ["EVENT_DATETIME"])
         c_start_datetime = pick_col(df, ["START_DATETIME"])
         c_end_datetime = pick_col(df, ["END_DATETIME"])
+        c_end_route_id = pick_col(df, ["END_ROUTE_ID", "End Route Id"], required=False)
         c_accum_trip_dist = pick_col(df, ["ACCUM_TRIP_DIST"], required=False)
         c_loc_type_cd = pick_col(df, ["LOC_TYPE_CD"])
         c_veh_registr_num = pick_col(df, ["VEH_REGISTR_NUM"], required=False)
@@ -404,6 +405,10 @@ class ViajeStatBuilder:
             errors="coerce"
         )
 
+        out["Id_Acciones"] = (
+            out[c_end_route_id].astype("string").str.strip()
+            if c_end_route_id else pd.Series([pd.NA] * len(out), dtype="string")
+        )
         out["Distancia"] = self.tu.to_numeric(out[c_accum_trip_dist]) if c_accum_trip_dist else np.nan
         out["Estado_Localizacion"] = out[c_loc_type_cd].astype("string").str.strip()
         out["Vehiculo"] = out[c_veh_registr_num].astype("string").str.strip() if c_veh_registr_num else pd.NA
@@ -411,7 +416,7 @@ class ViajeStatBuilder:
         keep = [
             "Fecha_key", "Servicio_key", "IdViaje_key",
             "Fecha", "Servicio", "Id_Viaje", "Instante", "IniTime", "EndTime",
-            "Distancia", "Estado_Localizacion", "Vehiculo"
+            "Id_Acciones", "Distancia", "Estado_Localizacion", "Vehiculo"
         ]
         out = out[keep].copy()
 
@@ -442,6 +447,7 @@ class ViajeStatBuilder:
             "Instante": df_merge["Instante"],
             "IniTime": df_merge["IniTime"],
             "EndTime": df_merge["EndTime"],
+            "Id_Acciones": df_merge["Id_Acciones"],
             "Distancia": df_merge["Distancia"],
             "Estado_Localizacion": df_merge["Estado_Localizacion"],
             "Vehiculo": df_merge["Vehiculo"],
@@ -476,6 +482,7 @@ class PostgresViajeStatLoader:
         "Instante": "instante",
         "IniTime": "initime",
         "EndTime": "endtime",
+        "Id_Acciones": "id_acciones",
         "Distancia": "distancia",
         "Estado_Localizacion": "estado_localizacion",
         "Vehiculo": "vehiculo",
@@ -549,7 +556,7 @@ class PostgresViajeStatLoader:
         d["id_ics"] = pd.to_numeric(d["id_ics"], errors="coerce")
         d["distancia"] = pd.to_numeric(d["distancia"], errors="coerce")
 
-        for c in ["servicio", "id_viaje", "estado_localizacion", "vehiculo"]:
+        for c in ["servicio", "id_viaje", "id_acciones", "estado_localizacion", "vehiculo"]:
             d[c] = d[c].astype("string")
 
         d = d[d["id_ics"].notna()].copy()
@@ -643,7 +650,8 @@ class PostgresViajeStatLoader:
                 "vehiculo"
             )
             DO UPDATE SET
-                "distancia" = EXCLUDED."distancia"
+                "distancia" = EXCLUDED."distancia",
+                "id_acciones" = EXCLUDED."id_acciones"
         """
 
         total = 0
