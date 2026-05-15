@@ -374,6 +374,7 @@ class DesviosBuilder:
         c_motive_id = pick_col(df, ["MOTIVE_ID", "Motive Id", "MOTIVO", "MOTIVE"])
         c_line_id = pick_col(df, ["LINE_ID", "Line Id", "LINEA", "LINE"])
         c_veh_registr_num = pick_col(df, ["VEH_REGISTR_NUM", "Veh Registr Num", "VEHICLE", "VEHICULO"])
+        c_drive_ctrl_seq = pick_col(df, ["DRIVE_CTRL_SEQ", "Drive Ctrl Seq"], required=False)
         c_start_route_offset = pick_col(df, ["START_ROUTE_OFFSET_VALUE", "Start Route Offset Value"])
         c_end_route_offset = pick_col(df, ["END_ROUTE_OFFSET_VALUE", "End Route Offset Value"])
         c_detur_dist = pick_col(df, ["DETUR_DIST", "Detur Dist"])
@@ -401,6 +402,10 @@ class DesviosBuilder:
         out["Motivo"] = out[c_motive_id].astype("string").str.strip()
         out["Linea"] = out[c_line_id].astype("string").str.strip()
         out["Vehiculo"] = out[c_veh_registr_num].astype("string").str.strip()
+        out["Id_Acciones"] = (
+            out[c_drive_ctrl_seq].astype("string").str.strip()
+            if c_drive_ctrl_seq else pd.Series([pd.NA] * len(out), dtype="string")
+        )
         out["OffsetIni"] = self.tu.to_numeric(out[c_start_route_offset])
         out["OffsetFin"] = self.tu.to_numeric(out[c_end_route_offset])
         out["DstEstimada"] = self.tu.to_numeric(out[c_detur_dist])
@@ -409,7 +414,7 @@ class DesviosBuilder:
         keep = [
             "Fecha_key", "Servicio_key", "IdViaje_key",
             "Fecha", "Servicio", "IdViaje", "Motivo", "Linea",
-            "Vehiculo", "OffsetIni", "OffsetFin", "DstEstimada", "DstMuestreo"
+            "Vehiculo", "Id_Acciones", "OffsetIni", "OffsetFin", "DstEstimada", "DstMuestreo"
         ]
         out = out[keep].copy()
 
@@ -440,6 +445,7 @@ class DesviosBuilder:
             "Motivo": df_merge["Motivo"],
             "Linea": df_merge["Linea"],
             "Vehiculo": df_merge["Vehiculo"],
+            "Id_Acciones": df_merge["Id_Acciones"],
             "OffsetIni": df_merge["OffsetIni"],
             "OffsetFin": df_merge["OffsetFin"],
             "DstEstimada": df_merge["DstEstimada"],
@@ -476,6 +482,7 @@ class PostgresDesviosLoader:
         "Motivo": "motivo",
         "Linea": "linea",
         "Vehiculo": "vehiculo",
+        "Id_Acciones": "id_acciones",
         "OffsetIni": "offsetini",
         "OffsetFin": "offsetfin",
         "DstEstimada": "dstestimada",
@@ -550,7 +557,7 @@ class PostgresDesviosLoader:
         d["dstestimada"] = pd.to_numeric(d["dstestimada"], errors="coerce")
         d["dstmuestreo"] = pd.to_numeric(d["dstmuestreo"], errors="coerce")
 
-        for c in ["servicio", "idviaje", "motivo", "linea", "vehiculo"]:
+        for c in ["servicio", "idviaje", "motivo", "linea", "vehiculo", "id_acciones"]:
             d[c] = d[c].astype("string")
 
         d = d[d["id_ics"].notna()].copy()
@@ -647,7 +654,8 @@ class PostgresDesviosLoader:
                 "dstmuestreo"
             )
             DO UPDATE SET
-                "motivo" = EXCLUDED."motivo"
+                "motivo" = EXCLUDED."motivo",
+                "id_acciones" = EXCLUDED."id_acciones"
         """
 
         total = 0
