@@ -14,11 +14,17 @@ import pandas as pd
 from azure.storage.blob import BlobServiceClient
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
+import sys
+from pathlib import Path
 
-try:
-    from database.database_manager import get_db_connection
-except Exception:
-    from database_manager import get_db_connection
+load_dotenv()
+
+CURRENT_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
+ROOT_DIR = CURRENT_DIR.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from database.database_manager import get_db_connection
 
 
 # =============================================================================
