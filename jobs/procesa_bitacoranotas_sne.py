@@ -5,17 +5,9 @@ import re
 import csv
 import time
 from io import BytesIO
-from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
-from typing import List, Tuple, Optional, Dict
-
-import sys
-
-CURRENT_DIR = Path(__file__).resolve().parent
-ROOT_DIR = CURRENT_DIR.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -23,8 +15,10 @@ from azure.storage.blob import BlobServiceClient
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
-from database.database_manager import get_db_connection
-
+try:
+    from database.database_manager import get_db_connection
+except Exception:
+    from database_manager import get_db_connection
 
 
 # =============================================================================
@@ -268,13 +262,26 @@ class BitacoraNotasBuilder:
         df = self.io.leer_csv_desde_bytes(self.az_ics.read_bytes(ruta), dtype=str)
         print(f"ICS cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
 
+        c_fecha = pick_col(df, ["Fecha Viaje", "Fecha"])
         c_linea = pick_col(df, ["Linea SAE", "Linea", "Línea SAE"])
         c_idics = pick_col(df, ["IdICS"])
 
         out = df.copy()
+        out["fecha"] = pd.to_datetime(
+            pd.Series(out[c_fecha], copy=False).astype(str),
+            errors="coerce",
+            format="%Y-%m-%d",
+        ).dt.date
+        mask_fecha_na = pd.Series(out["fecha"]).isna()
+        if mask_fecha_na.any():
+            out.loc[mask_fecha_na, "fecha"] = pd.to_datetime(
+                pd.Series(out.loc[mask_fecha_na, c_fecha], copy=False).astype(str),
+                errors="coerce",
+                dayfirst=True,
+            ).dt.date
         out["linea"] = to_int64(out[c_linea])
         out["id_ics"] = to_int64(out[c_idics])
-        out = out[["id_ics", "linea"]].dropna(subset=["linea", "id_ics"]).drop_duplicates().copy()
+        out = out[["id_ics", "fecha", "linea"]].dropna(subset=["fecha", "linea", "id_ics"]).drop_duplicates().copy()
 
         print(f"ICS listo para cruce | filas={len(out)}")
         return out
@@ -315,10 +322,16 @@ class BitacoraNotasBuilder:
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
+        c_fecha = pick_col(df, ["Fecha"])
         c_tipo_nota = pick_col(df, ["Tipo Nota", "Tipo de Nota"])
         c_id_linea = pick_col(df, ["Id de linea", "Id de línea", "Id linea", "Id línea"])
 
         out = df.copy()
+        out["fecha"] = pd.to_datetime(
+            pd.Series(out[c_fecha], copy=False).astype(str),
+            errors="coerce",
+            dayfirst=True,
+        ).dt.date
         out["tipo_nota_norm"] = normalize_text_upper(out[c_tipo_nota])
         out["linea"] = to_int64(out[c_id_linea])
 
@@ -333,7 +346,7 @@ class BitacoraNotasBuilder:
         }
         out["tipo_nota_norm2"] = out["tipo_nota_norm"].replace(mapa_tipo)
         out = out[out["tipo_nota_norm2"].isin(TIPOS_NOTA_VALIDOS)].copy()
-        out = out.dropna(subset=["linea"]).copy()
+        out = out.dropna(subset=["fecha", "linea"]).copy()
 
         print(f"Detalle notas filtrado por tipo | filas={len(out)}")
         return out
@@ -346,7 +359,7 @@ class BitacoraNotasBuilder:
         print("3) CRUZANDO ICS VS DETALLE NOTAS")
         print("=" * 80)
 
-        df_merge = df_notas.merge(df_ics, on="linea", how="inner")
+        df_merge = df_notas.merge(df_ics, on=["fecha", "linea"], how="inner")
 
         c_fecha = pick_col(df_merge, ["Fecha"])
         c_concesion = pick_col(df_merge, ["Concesion", "Concesión"])
