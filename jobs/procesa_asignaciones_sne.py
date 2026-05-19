@@ -212,6 +212,11 @@ class TransformUtils:
         return num.astype("Int64").astype(str)
 
     @staticmethod
+    def vehicle_digits_key(series: pd.Series) -> pd.Series:
+        num = pd.to_numeric(series, errors="coerce").astype("Int64")
+        return num.astype("string")
+
+    @staticmethod
     def to_datetime_yyyymmdd_hhmmss(series: pd.Series) -> pd.Series:
         s = series.astype(str).str.strip()
         s = s.replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
@@ -429,13 +434,20 @@ class AsignacionesBuilder:
             out[c_vehiculo_real].astype(str).str.replace(r"\D", "", regex=True),
             errors="coerce"
         ).astype("Int64")
-        out["Vehiculo_key"] = veh_real_num.astype("Int64").astype(str)
+        veh_real_txt = out[c_vehiculo_real].astype("string").fillna("").str.strip().str.upper()
+        out["Vehiculo_key"] = veh_real_num.astype("string")
+
+        # En alimentacion algunos vehiculos vienen como N0xxx/D0xxx en detallado,
+        # mientras que el archivo de asignaciones los reporta como 14xxx.
+        mask_nd0 = veh_real_txt.str.match(r"^[ND]0\d{3}$", na=False)
+        out["Vehiculo_key_14"] = pd.Series(pd.NA, index=out.index, dtype="string")
+        out.loc[mask_nd0, "Vehiculo_key_14"] = "14" + veh_real_txt.str.replace(r"\D", "", regex=True).str[-3:]
 
         out["Servicio_exc_key"] = out[c_servicio].astype(str).str.strip().str.upper()
 
         keep = [
             "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key",
-            "Fecha_val_key", "Vehiculo_key", "Servicio_exc_key"
+            "Fecha_val_key", "Vehiculo_key", "Vehiculo_key_14", "Servicio_exc_key"
         ]
         out = out[keep].copy()
 
@@ -488,7 +500,8 @@ class AsignacionesBuilder:
 
         out["Servicio_exc_key"] = out[c_veh_serv_id].astype(str).str.strip().str.upper()
 
-        out["Vehiculo_key"] = self.tu.normalize_vehicle_key(out[c_veh_registr_num])
+        out["Vehiculo_key_raw"] = self.tu.vehicle_digits_key(out[c_veh_registr_num])
+        out["Vehiculo_key_legacy"] = self.tu.normalize_vehicle_key(out[c_veh_registr_num])
 
         out["Fecha"] = pd.to_datetime(
             out[c_apply_date].astype(str).str.strip(),
@@ -508,7 +521,7 @@ class AsignacionesBuilder:
         out["StatusIni"] = out[c_assign_type_cd].astype("string").str.strip()
 
         keep = [
-            "Fecha_val_key", "Servicio_exc_key", "Vehiculo_key",
+            "Fecha_val_key", "Servicio_exc_key", "Vehiculo_key_raw", "Vehiculo_key_legacy",
             "Fecha", "Servicio", "Vehiculo", "HoraAsig", "HoraFin", "Status", "StatusIni"
         ]
         out = out[keep].copy()
@@ -538,9 +551,39 @@ class AsignacionesBuilder:
         print("5) CRUCE ASIGNACIONES ↔ DETALLADO+ICS")
         print("=" * 80)
 
-        df_merge = df_asig.merge(
-            df_det_con_idics[["IdICS", "Fecha_val_key", "Servicio_exc_key", "Vehiculo_key"]],
-            on=["Fecha_val_key", "Servicio_exc_key", "Vehiculo_key"],
+        det_match_base = df_det_con_idics[
+            ["IdICS", "Fecha_val_key", "Servicio_exc_key", "Vehiculo_key", "Vehiculo_key_14"]
+        ].copy()
+
+        det_match_primary = det_match_base[
+            ["IdICS", "Fecha_val_key", "Servicio_exc_key", "Vehiculo_key"]
+        ].rename(columns={"Vehiculo_key": "Vehiculo_match_key"})
+
+        det_match_fallback = det_match_base[
+            det_match_base["Vehiculo_key_14"].notna()
+        ][
+            ["IdICS", "Fecha_val_key", "Servicio_exc_key", "Vehiculo_key_14"]
+        ].rename(columns={"Vehiculo_key_14": "Vehiculo_match_key"})
+
+        det_match = pd.concat([det_match_primary, det_match_fallback], ignore_index=True)
+        det_match = det_match.dropna(subset=["Vehiculo_match_key"]).drop_duplicates()
+
+        asig_match_primary = df_asig.copy()
+        asig_match_primary["Vehiculo_match_key"] = asig_match_primary["Vehiculo_key_raw"]
+
+        asig_match_legacy = df_asig.copy()
+        asig_match_legacy["Vehiculo_match_key"] = asig_match_legacy["Vehiculo_key_legacy"]
+        asig_match_legacy = asig_match_legacy[
+            asig_match_legacy["Vehiculo_key_legacy"].notna() &
+            (asig_match_legacy["Vehiculo_key_legacy"] != asig_match_legacy["Vehiculo_key_raw"])
+        ].copy()
+
+        df_asig_match = pd.concat([asig_match_primary, asig_match_legacy], ignore_index=True)
+        df_asig_match = df_asig_match.dropna(subset=["Vehiculo_match_key"]).drop_duplicates()
+
+        df_merge = df_asig_match.merge(
+            det_match,
+            on=["Fecha_val_key", "Servicio_exc_key", "Vehiculo_match_key"],
             how="left"
         )
 
