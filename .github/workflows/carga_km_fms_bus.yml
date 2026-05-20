@@ -1,0 +1,296 @@
+name: Carga KM FMS Bus (Blob -> PostgreSQL)
+
+on:
+  schedule:
+    # 10:00 AM Bogotá (UTC-5) = 15:00 UTC
+    - cron: "0 15 * * *"
+
+  # Permite ejecución manual desde GitHub UI
+  workflow_dispatch:
+    inputs:
+      dias_procesar:
+        description: "Días pendientes a procesar"
+        required: false
+        default: "2"
+        type: string
+      modo_verbose:
+        description: "Modo verbose (0=no, 1=sí)"
+        required: false
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "1"
+
+jobs:
+  carga_km_fms_bus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    steps:
+      # ==========================================
+      # 1. CHECKOUT DEL REPOSITORIO
+      # ==========================================
+      - name: 📦 Checkout repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ==========================================
+      # 2. CONFIGURAR PYTHON 3.12
+      # ==========================================
+      - name: 🐍 Setup Python 3.12.4
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.4"
+          cache: "pip"
+
+      # ==========================================
+      # 3. VERIFICAR VERSIÓN DE PYTHON
+      # ==========================================
+      - name: 🔍 Verificar Python
+        run: |
+          python --version
+          python -c "import sys; print(f'Python {sys.version}')"
+          if [[ "$(python -c 'import sys; print(sys.version_info[:2])')" != "(3, 12)" ]]; then
+            echo "❌ ERROR: Se requiere Python 3.12"
+            exit 1
+          fi
+          echo "✅ Python 3.12 confirmado"
+
+      # ==========================================
+      # 4. ACTUALIZAR PIP
+      # ==========================================
+      - name: ⬆️ Actualizar pip
+        run: |
+          python -m pip install --upgrade pip
+          pip --version
+
+      # ==========================================
+      # 5. INSTALAR DEPENDENCIAS CRÍTICAS PRIMERO
+      # ==========================================
+      - name: 📦 Instalar dependencias críticas
+        run: |
+          echo "📦 Instalando dependencias críticas para carga KM FMS..."
+
+          pip install pandas==2.2.3
+          pip install openpyxl==3.1.5
+          pip install psycopg2-binary==2.9.10
+          pip install azure-storage-blob==12.28.0
+
+          echo "✅ Dependencias críticas instaladas"
+
+      # ==========================================
+      # 6. INSTALAR RESTO DE DEPENDENCIAS
+      # ==========================================
+      - name: 📚 Instalar requirements.txt
+        run: |
+          echo "📦 Instalando resto de dependencias..."
+          echo ""
+
+          python3 << 'PYTHON_SCRIPT'
+          import sys
+
+          def detectar_y_convertir_encoding():
+              encodings_a_probar = [
+                  'utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',
+                  'latin-1', 'cp1252', 'iso-8859-1',
+              ]
+              for encoding in encodings_a_probar:
+                  try:
+                      with open('requirements.txt', 'r', encoding=encoding) as f:
+                          contenido = f.read()
+                      print(f"✅ Detectado encoding: {encoding}")
+                      return contenido
+                  except (UnicodeDecodeError, LookupError):
+                      continue
+              print("⚠️  Usando fallback UTF-16LE con errors='replace'")
+              with open('requirements.txt', 'rb') as f:
+                  raw = f.read()
+              return raw.decode('utf-16-le', errors='replace')
+
+          def limpiar_linea(linea):
+              linea = ''.join(char for char in linea if ord(char) >= 32 or char in '\n\t\r')
+              return linea.strip()
+
+          def extraer_nombre_paquete(linea):
+              for sep in ['==', '>=', '<=', '!=', '<', '>', '[']:
+                  if sep in linea:
+                      linea = linea.split(sep)[0]
+              return linea.strip().lower()
+
+          instalados = {
+              'pandas', 'openpyxl',
+              'psycopg2-binary', 'psycopg2',
+              'azure-storage-blob'
+          }
+
+          try:
+              print("🔍 Detectando encoding de requirements.txt...")
+              contenido = detectar_y_convertir_encoding()
+
+              print("📝 Convirtiendo requirements.txt a UTF-8...")
+              with open('requirements.txt', 'w', encoding='utf-8') as f:
+                  f.write(contenido)
+              print("✅ requirements.txt convertido a UTF-8")
+
+              print("🔄 Filtrando dependencias duplicadas...")
+              with open('requirements.txt', 'r', encoding='utf-8') as f:
+                  lineas = f.readlines()
+
+              lineas_filtradas = []
+              lineas_descartadas = []
+
+              for linea in lineas:
+                  linea_limpia = limpiar_linea(linea)
+                  if not linea_limpia or linea_limpia.startswith('#'):
+                      if linea_limpia.startswith('#'):
+                          lineas_filtradas.append(linea_limpia)
+                      continue
+                  pkg_name = extraer_nombre_paquete(linea_limpia)
+                  if pkg_name in instalados:
+                      lineas_descartadas.append(f"  ⊘ {linea_limpia}")
+                      continue
+                  lineas_filtradas.append(linea_limpia)
+
+              print(f"📝 Escribiendo requirements_temp.txt...")
+              with open('requirements_temp.txt', 'w', encoding='utf-8') as out:
+                  for linea in lineas_filtradas:
+                      if linea.strip() and not linea.startswith('#'):
+                          out.write(linea + '\n')
+
+              count_temp = len([l for l in lineas_filtradas if l.strip() and not l.startswith('#')])
+              print(f"\n📊 Resumen:")
+              print(f"  Total de líneas: {len(lineas)}")
+              print(f"  Paquetes a instalar: {count_temp}")
+              print(f"  Paquetes descartados: {len(lineas_descartadas)}")
+              print(f"\n✅ requirements_temp.txt generado correctamente")
+
+          except Exception as e:
+              print(f"❌ Error: {e}")
+              import traceback
+              traceback.print_exc()
+              sys.exit(1)
+          PYTHON_SCRIPT
+
+          echo ""
+
+          if [ -f requirements_temp.txt ]; then
+              num_lineas=$(wc -l < requirements_temp.txt)
+              if [ "$num_lineas" -gt 0 ]; then
+                  echo "📦 Instalando ${num_lineas} paquetes adicionales..."
+                  pip install -r requirements_temp.txt --no-cache-dir
+                  echo "✅ Paquetes instalados exitosamente"
+              else
+                  echo "ℹ️  No hay paquetes adicionales para instalar"
+              fi
+          else
+              echo "❌ Error: requirements_temp.txt no se generó"
+              exit 1
+          fi
+
+      # ==========================================
+      # 7. VERIFICAR INSTALACIÓN
+      # ==========================================
+      - name: 🔍 Verificar paquetes críticos
+        run: |
+          echo "🔍 Verificando paquetes instalados..."
+
+          python -c "import pandas as pd; print(f'✅ Pandas: {pd.__version__}')"
+          python -c "import openpyxl; print(f'✅ openpyxl: {openpyxl.__version__}')"
+          python -c "import psycopg2; print(f'✅ psycopg2: {psycopg2.__version__}')"
+          python -c "from azure.storage.blob import BlobServiceClient; print('✅ Azure Blob Storage')"
+
+          echo ""
+          echo "📦 Paquetes instalados (resumen):"
+          pip list | grep -E "(pandas|openpyxl|psycopg2|azure)" || echo "No hay coincidencias"
+
+      # ==========================================
+      # 8. EJECUTAR PROCESO KM FMS BUS
+      # ==========================================
+      - name: 🚀 Ejecutar job carga KM FMS Bus
+        env:
+          DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+
+          FMS_LIMITE_DIAS: ${{ github.event.inputs.dias_procesar || '2' }}
+          FMS_VERBOSE: ${{ github.event.inputs.modo_verbose || '0' }}
+
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔄 Iniciando carga de KM FMS Bus"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📅 Días a procesar: ${FMS_LIMITE_DIAS}"
+          echo "🔊 Modo verbose: ${FMS_VERBOSE}"
+          echo "👤 Ejecutado por: ${GITHUB_ACTOR}"
+          echo "🐍 Python: $(python --version)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          python -c "
+          import os
+          from jobs.carga_km_fms_bus import ejecutar_job_km_fms
+
+          limite_dias = int(os.getenv('FMS_LIMITE_DIAS', '2'))
+          modo_verbose = os.getenv('FMS_VERBOSE', '0') == '1'
+
+          print(f'✅ Módulo importado correctamente')
+          print(f'   Días a procesar: {limite_dias}')
+          print(f'   Modo verbose: {modo_verbose}')
+          print()
+
+          ejecutar_job_km_fms(limite_dias=limite_dias, verbose=modo_verbose)
+          "
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Proceso completado exitosamente"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ==========================================
+      # 9. NOTIFICACIÓN EN CASO DE ERROR
+      # ==========================================
+      - name: 📧 Notificar error
+        if: failure()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "❌ ERROR: El proceso de carga KM FMS Bus falló"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔗 Ver detalles en:"
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ==========================================
+      # 10. GUARDAR LOGS
+      # ==========================================
+      - name: 💾 Guardar logs de ejecución
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-km-fms-bus-${{ github.run_number }}
+          path: |
+            *.log
+            logs/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # ==========================================
+      # 11. RESUMEN DE EJECUCIÓN
+      # ==========================================
+      - name: 📊 Resumen de ejecución
+        if: success()
+        run: |
+          echo "### ✅ Ejecución Exitosa - Carga KM FMS Bus" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuración:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐍 Python: $(python --version)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 Pandas: $(python -c 'import pandas; print(pandas.__version__)')" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 openpyxl: $(python -c 'import openpyxl; print(openpyxl.__version__)')" >> $GITHUB_STEP_SUMMARY
+          echo "- 📅 Días procesados: ${FMS_LIMITE_DIAS}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔊 Modo verbose: ${FMS_VERBOSE}" >> $GITHUB_STEP_SUMMARY
+          echo "- 👤 Ejecutado por: ${GITHUB_ACTOR}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🕐 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
