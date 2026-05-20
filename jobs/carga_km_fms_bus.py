@@ -130,6 +130,16 @@ def transformar_datos(df_raw: pd.DataFrame, dia: date, verbose: bool = False) ->
     if verbose:
         print(f"    Filas para la fecha {dia}: {df.shape[0]:,} (otras fechas descartadas: {antes - df.shape[0]:,})")
 
+    # Agregar km por (fecha, vehiculo_real) — un vehículo puede tener varios tipos de
+    # servicio (ALIMENTADOR, URBANO, COMPLEMENTARIO…) y la tabla solo guarda el total.
+    antes = df.shape[0]
+    df = (
+        df.groupby(["fecha", "vehiculo_real"], as_index=False)["km_ejecutado"]
+        .sum()
+    )
+    if verbose and df.shape[0] < antes:
+        print(f"    Después de agrupar (SUM km): {df.shape[0]:,} filas (combinadas: {antes - df.shape[0]:,})")
+
     return df.reset_index(drop=True)
 
 
