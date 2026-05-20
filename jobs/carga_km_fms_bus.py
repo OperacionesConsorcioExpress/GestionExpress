@@ -79,30 +79,56 @@ def leer_excel_blob(cliente_contenedor, ruta_blob: str) -> pd.DataFrame:
     return df
 
 
-def transformar_datos(df_raw: pd.DataFrame) -> pd.DataFrame:
+def transformar_datos(df_raw: pd.DataFrame, dia: date, verbose: bool = False) -> pd.DataFrame:
     """
-    Selecciona las columnas requeridas y normaliza tipos.
+    Selecciona las columnas requeridas, normaliza tipos y filtra por fecha objetivo.
     Solo se persisten: Fecha, Vehículo Real, Km Ejecutado.
     """
-    requeridas = [COL_FECHA, COL_VEHICULO, COL_KM]
-    faltantes = [c for c in requeridas if c not in df_raw.columns]
-    if faltantes:
-        raise ValueError(
-            f"Columnas faltantes en '{HOJA_EXCEL}': {faltantes}. "
-            f"Disponibles: {list(df_raw.columns)}"
-        )
+    if verbose:
+        print(f"    Columnas en el Excel: {list(df_raw.columns)}")
+        print(f"    Total filas brutas: {df_raw.shape[0]:,}")
 
-    df = df_raw[requeridas].copy()
+    # Buscar columnas de forma flexible (ignorando mayúsculas/espacios extra)
+    col_map = {c.strip(): c for c in df_raw.columns}
+    requeridas_raw = {}
+    for buscado, alias in [(COL_FECHA, "fecha"), (COL_VEHICULO, "vehiculo_real"), (COL_KM, "km_ejecutado")]:
+        encontrada = col_map.get(buscado)
+        if encontrada is None:
+            # búsqueda case-insensitive como fallback
+            encontrada = next((c for c in df_raw.columns if c.strip().lower() == buscado.lower()), None)
+        if encontrada is None:
+            raise ValueError(
+                f"Columna '{buscado}' no encontrada en '{HOJA_EXCEL}'. "
+                f"Disponibles: {list(df_raw.columns)}"
+            )
+        requeridas_raw[alias] = encontrada
+
+    df = df_raw[[requeridas_raw["fecha"], requeridas_raw["vehiculo_real"], requeridas_raw["km_ejecutado"]]].copy()
     df.columns = ["fecha", "vehiculo_real", "km_ejecutado"]
 
-    df["fecha"]        = pd.to_datetime(df["fecha"], errors="coerce").dt.date
+    # Convertir tipos → Python nativos para compatibilidad psycopg2
+    df["fecha"]         = pd.to_datetime(df["fecha"], errors="coerce").dt.date
     df["vehiculo_real"] = df["vehiculo_real"].astype(str).str.strip()
-    df["km_ejecutado"] = pd.to_numeric(df["km_ejecutado"], errors="coerce")
+    df["km_ejecutado"]  = pd.to_numeric(df["km_ejecutado"], errors="coerce")
 
-    # Eliminar filas con datos críticos nulos o vacíos
+    if verbose:
+        print(f"    Filas después de convertir tipos: {df.shape[0]:,}")
+        fechas_unicas = df["fecha"].dropna().unique()
+        print(f"    Fechas únicas en el archivo: {sorted(str(f) for f in fechas_unicas)}")
+
+    # Eliminar filas con valores nulos en columnas críticas
+    antes = df.shape[0]
     df = df.dropna(subset=["fecha", "vehiculo_real", "km_ejecutado"])
     df = df[df["vehiculo_real"].str.len() > 0]
     df = df[~df["vehiculo_real"].str.lower().isin(["nan", "none", ""])]
+    if verbose:
+        print(f"    Filas después de limpiar nulos: {df.shape[0]:,} (descartadas: {antes - df.shape[0]:,})")
+
+    # Filtrar solo la fecha objetivo (el Excel puede tener datos de todo el mes)
+    antes = df.shape[0]
+    df = df[df["fecha"] == dia]
+    if verbose:
+        print(f"    Filas para la fecha {dia}: {df.shape[0]:,} (otras fechas descartadas: {antes - df.shape[0]:,})")
 
     return df.reset_index(drop=True)
 
@@ -251,10 +277,16 @@ def marcar_resultado(
 def cargar_a_postgresql(df: pd.DataFrame, dia: date, page_size: int = 5000):
     """
     DELETE del día + INSERT/UPSERT por lotes.
+    Usa tipos Python nativos para garantizar compatibilidad con psycopg2.
     """
+    # Convertir explícitamente a tipos Python nativos (evita errores con numpy.float64)
     filas = [
-        (row["fecha"], row["vehiculo_real"], row["km_ejecutado"])
-        for _, row in df.iterrows()
+        (
+            rec["fecha"],                                                    # datetime.date
+            str(rec["vehiculo_real"]).strip(),                               # str
+            float(rec["km_ejecutado"]) if pd.notna(rec["km_ejecutado"]) else None,  # float | None
+        )
+        for rec in df.to_dict("records")
     ]
 
     sql_delete = f"DELETE FROM {PG_SCHEMA}.{PG_TABLE} WHERE fecha = %s;"
@@ -285,12 +317,11 @@ def procesar_dia(
         print(f"    Ruta blob: {ruta}")
 
     df_raw = leer_excel_blob(cliente_contenedor, ruta)
-    df = transformar_datos(df_raw)
+    print(f"    Excel descargado: {df_raw.shape[0]:,} filas brutas, {df_raw.shape[1]} columnas")
 
-    if verbose:
-        print(
-            f"    Excel leído: {df_raw.shape[0]} filas → {df.shape[0]} filas válidas"
-        )
+    df = transformar_datos(df_raw, dia, verbose=verbose)
+
+    print(f"    Filas válidas para {dia}: {df.shape[0]:,}")
 
     meta = {
         "archivos_total": 1,
