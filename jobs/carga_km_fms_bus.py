@@ -183,39 +183,65 @@ def obtener_ultima_fecha_procesada(cur) -> date | None:
     return row[0] if row else None
 
 
+def obtener_fechas_con_error(cur) -> set[date]:
+    """Retorna las fechas marcadas como 'error' desde la semilla hacia adelante."""
+    cur.execute("""
+        SELECT fecha
+        FROM log.procesa_km_fms_bus
+        WHERE estado = 'error'
+          AND fecha >= %s
+        ORDER BY fecha;
+    """, (FECHA_SEMILLA,))
+    return {row[0] for row in cur.fetchall()}
+
+
 def obtener_fechas_a_procesar(
     cur, cliente_contenedor, limite_dias: int
 ) -> list[date]:
     """
-    Determina qué fechas procesar comparando el log con los archivos disponibles en Blob.
+    Determina qué fechas procesar:
+    1. Fechas con estado 'error' (reintento) desde la semilla.
+    2. Fechas nuevas (posteriores a la última fecha con 'ok').
+    Ambas combinadas y ordenadas, tomando las primeras N = limite_dias.
     """
-    ultima = obtener_ultima_fecha_procesada(cur)
+    ultima   = obtener_ultima_fecha_procesada(cur)
+    en_error = obtener_fechas_con_error(cur)
     fechas_blob = listar_fechas_disponibles(cliente_contenedor)
 
     if not fechas_blob:
         print("⚠️  No hay archivos disponibles en Azure Blob Storage")
         return []
 
+    blob_set = set(fechas_blob)
+
+    # ── Fechas a REINTENTAR (estado error y archivo disponible en blob) ───
+    fechas_error_con_blob = sorted(en_error & blob_set)
+
+    # ── Fechas NUEVAS (después del último ok) ────────────────────────────
     if ultima and ultima >= FECHA_SEMILLA:
         piso = ultima
-        print(f"ℹ️  Última fecha procesada: {ultima} (posterior a semilla {FECHA_SEMILLA})")
+        print(f"ℹ️  Última fecha procesada OK: {ultima}")
     else:
         piso = FECHA_SEMILLA - timedelta(days=1)
         if ultima:
-            print(
-                f"ℹ️  Última procesada ({ultima}) anterior a semilla; "
-                f"arrancando desde {FECHA_SEMILLA}"
-            )
+            print(f"ℹ️  Última procesada ({ultima}) anterior a semilla; arrancando desde {FECHA_SEMILLA}")
         else:
             print(f"ℹ️  Sin historial en el log; arrancando desde semilla: {FECHA_SEMILLA}")
 
-    pendientes = [f for f in fechas_blob if f > piso]
-    fechas = pendientes[:limite_dias]
+    fechas_nuevas = [f for f in fechas_blob if f > piso]
+
+    # ── Unión: errores primero, luego nuevas (sin duplicados) ────────────
+    ya_incluidas = set(fechas_error_con_blob)
+    cola = fechas_error_con_blob + [f for f in fechas_nuevas if f not in ya_incluidas]
+    fechas = sorted(cola)[:limite_dias]
+
+    if en_error & blob_set:
+        print(f"🔁 Fechas a REINTENTAR (error previo): {[f.strftime('%Y-%m-%d') for f in fechas_error_con_blob]}")
 
     if fechas:
         print(f"✅ Fechas a procesar: {[f.strftime('%Y-%m-%d') for f in fechas]}")
     else:
-        print("ℹ️  No hay fechas nuevas a procesar")
+        print("ℹ️  No hay fechas nuevas ni reintentos pendientes")
 
     return fechas
 
