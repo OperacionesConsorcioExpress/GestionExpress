@@ -42,7 +42,6 @@ MAPEO_COLUMNAS = {
     "driverregistrnum": "operador",
     "lineid": "id_linea",
     "routeid": "id_sublinea",
-    "lineservid": "id_viaje",
     "loctypecd": "estado_localizacion",
     "driverservid": "servcond",
     "vehservid": "servbus",
@@ -52,7 +51,7 @@ MAPEO_COLUMNAS = {
     "routeoffsetvalue": "posicion",
     "nextnodeid": "id_sig_nodo",
     "nodeid": "id_nodo",
-    "servtripseq": "secuencia_viaje",
+    "servtripseq": "id_viaje",
     "sectionid": "id_seccion",
     "sectionoffsetvalue": "offset",
 }
