@@ -66,7 +66,11 @@ PG_TABLE_LOG = "procesa_report_sne"
 PG_BATCH_SIZE = 5000
 NOMBRE_REPORTE_LOG = "Tabla Actividad bus"
 DEFAULT_ID_REPORTE = 5
-DELETE_EXISTING_FOR_DATE = False
+# La llave del upsert contiene varias columnas que pueden venir nulas
+# (evento, horas de llegada/salida). En Postgres esas filas no colisionan
+# como se espera, así que al reprocesar una fecha se pueden duplicar.
+# Para actividad_bus preferimos recarga limpia por fecha antes del insert.
+DELETE_EXISTING_FOR_DATE = True
 
 EXPORT_CSV_ENABLED = False
 EXPORT_CSV_DIR = r"C:\Users\analista.centroinf3\OneDrive - Grupo Express\Juan Buitrago\Exportes"
@@ -571,6 +575,13 @@ class ActividadBusBuilder:
         out["Distancia"] = pd.to_numeric(out[c_posicion], errors="coerce").astype("Int64")
 
         out = out[["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key", "Distancia", "__matriz_row__"]].copy()
+        # Hay fechas/rutas donde la matriz llega duplicada exacta dos veces.
+        # Si no depuramos esas repeticiones, el cumcount de la matriz se desfasa
+        # y la última aparición de un nodo circular puede volver a caer en distancia 0.
+        out = out.drop_duplicates(
+            subset=["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key", "Distancia"],
+            keep="first",
+        ).copy()
         out = out.sort_values(
             by=["IdLinea_key_m", "IdRuta_key_m", "NodoPrefix_key", "Distancia", "__matriz_row__"],
             ascending=[True, True, True, True, True],
