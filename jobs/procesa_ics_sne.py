@@ -456,7 +456,7 @@ class SNEExportBuilder:
 
         c_fecha = pick_col(df, ["Fecha Viaje"])
         c_serv = pick_col(df, ["Servicio"])
-        c_linea = pick_col(df, ["Linea SAE", "Línea SAE"])
+        c_linea = pick_col(df, ["Linea SAE", "Línea SAE", "Linea FMS", "Línea FMS"])
         c_coche = pick_col(df, ["Coche"])
         c_viaje_linea = pick_col(df, ["ViajeLinea", "Viaje Línea"])
         c_id_viaje = pick_col(df, ["IdViaje", "Id Viaje"])
