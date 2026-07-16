@@ -269,7 +269,7 @@ class BitacoraNotasBuilder:
         print(f"ICS cargado: {nombre} | filas={len(df)} cols={len(df.columns)}")
 
         c_fecha = pick_col(df, ["Fecha Viaje", "Fecha"])
-        c_linea = pick_col(df, ["Linea SAE", "Linea", "Línea SAE"])
+        c_linea = pick_col(df, ["Linea SAE", "Linea", "Línea SAE", "Linea FMS", "Línea FMS"])
         c_idics = pick_col(df, ["IdICS"])
 
         out = df.copy()
