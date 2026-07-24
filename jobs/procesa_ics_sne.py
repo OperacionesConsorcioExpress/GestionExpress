@@ -941,6 +941,20 @@ class SNEExportBuilder:
             motivo.loc[mask_revision_al] = "Revision Alimentacion Acciones de Regulacion"
             print(f"DEBUG ajuste AL aplicado en {int(mask_revision_al.sum())} filas")
 
+        # --- AJUSTE ZONAL: Revision Acciones de Regulacion (> 8 km) ---
+        km_revision_zn = (dsa.fillna(0) - dau.fillna(0)).clip(lower=0).round(3)
+        mask_revision_zn = (
+            concesion_upper.isin(["SAN CRISTOBAL ZN", "USAQUEN ZN"])
+            & (~plan_txt.eq("sustituido"))
+            & kmr.notna()
+            & (kmr.abs() < tol_eq)
+            & (km_revision_zn > 8)
+        )
+        if mask_revision_zn.any():
+            kmr.loc[mask_revision_zn] = km_revision_zn.loc[mask_revision_zn]
+            motivo.loc[mask_revision_zn] = "Revision Acciones de Regulacion Zonal"
+            print(f"DEBUG ajuste ZN aplicado en {int(mask_revision_zn.sum())} filas")
+
         motivo = motivo.map(clean_motivo)
 
         hora_teo = df["Hora_Teo_raw"].astype("string").fillna("").str.strip()
