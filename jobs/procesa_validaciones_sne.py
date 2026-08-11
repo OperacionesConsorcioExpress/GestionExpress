@@ -971,6 +971,22 @@ class ReportRunLogger:
                 row = cur.fetchone()
 
                 if row and str(row[0]).strip().lower() == "ok":
+                    # Ya existe un registro OK; forzar UPDATE para reflejar nueva métrica
+                    cur.execute(
+                        sql_update,
+                        (
+                            estado_db,
+                            ultima_ejecucion_ts,
+                            duracion_seg,
+                            archivos_total,
+                            archivos_ok,
+                            archivos_error,
+                            registros_proce,
+                            fecha_actualizacion_ts,
+                            id_reporte,
+                            fecha_reporte_date,
+                        )
+                    )
                     conn.commit()
                     return
 
