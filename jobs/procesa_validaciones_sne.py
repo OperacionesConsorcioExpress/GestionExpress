@@ -406,6 +406,11 @@ class ValidacionesBuilder:
         c_tabla = pick_col(df, ["Tabla"])
         c_viaje_linea = pick_col(df, ["Viaje Línea", "Viaje Linea"])
 
+        # Limpiar \u200b (Zero-Width Space) de columnas de hora
+        for c in [c_hora_ini_real, c_hora_ini_ref, c_hora_fin_real, c_hora_ini_teorica, c_dur_ref, c_dur_teor]:
+            if c:
+                df[c] = df[c].astype(str).str.replace("\u200b", "", regex=False).str.strip()
+
         out = df.copy()
         out["Fecha_val_key"] = pd.to_datetime(
             out[c_fecha].astype(str).str.replace("\ufeff", "", regex=False).str.strip(),
