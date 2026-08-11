@@ -409,9 +409,15 @@ class ValidacionesBuilder:
         c_viaje_linea = pick_col(df, ["Viaje Línea", "Viaje Linea"])
 
         # Limpiar \u200b (Zero-Width Space) de columnas de hora
+        # El CSV puede leerse como latin-1, convirtiendo \u200b en \u00e2\x80\x8b (mojibake)
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
         for c in [c_hora_ini_real, c_hora_ini_ref, c_hora_fin_real, c_hora_ini_teorica, c_dur_ref, c_dur_teor]:
             if c:
-                df[c] = df[c].astype(str).str.replace("\u200b", "", regex=False).str.strip()
+                df[c] = df[c].astype(str)
+                df[c] = df[c].str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
 
         out = df.copy()
         out["Fecha_val_key"] = pd.to_datetime(
