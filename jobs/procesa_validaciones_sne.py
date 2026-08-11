@@ -48,6 +48,8 @@ CONNECTION_STRING_LOCAL = (
     "EndpointSuffix=core.windows.net"
 )
 
+PROCESS_DATE_STR = ""  # dd/mm/yyyy. Si tiene valor, fuerza procesar SOLO esta fecha.
+
 # -------------------------------
 # POSTGRES
 # -------------------------------
@@ -1210,7 +1212,17 @@ def main() -> None:
 
     logger_seed = ReportRunLogger()
     id_reporte_seed = logger_seed.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
-    fecha_proc = logger_seed.get_next_fecha_to_process(id_reporte_seed, fecha_semilla)
+
+    if str(PROCESS_DATE_STR).strip():
+        try:
+            fecha_proc = datetime.strptime(str(PROCESS_DATE_STR).strip(), "%d/%m/%Y").date()
+            print("\n" + "=" * 80)
+            print(f"PROCESS_DATE_STR activo: forzando fecha {fecha_proc}")
+            print("=" * 80)
+        except ValueError:
+            raise SystemExit("PROCESS_DATE_STR debe estar en formato dd/mm/yyyy.")
+    else:
+        fecha_proc = logger_seed.get_next_fecha_to_process(id_reporte_seed, fecha_semilla)
     fecha_max_ics = _get_max_fecha_ics()
     if fecha_max_ics is None:
         print("No hay fechas disponibles en sne.ics. Se detiene el proceso.")
@@ -1321,6 +1333,9 @@ def main() -> None:
         print(f"ULTIMA FECHA NO PROCESADA POR FALTANTE DE INSUMOS: {_format_fecha_visible(fecha_dt.date())}")
 
     if soft_stop:
+        return
+
+    if str(PROCESS_DATE_STR).strip():
         return
 
     logger_tail = ReportRunLogger()
