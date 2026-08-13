@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import os
@@ -357,16 +356,18 @@ class ValidacionesBuilder:
         c_servicio = pick_col(df, ["Servicio"])
         c_coche = pick_col(df, ["Coche"])
         c_viaje_linea = pick_col(df, ["ViajeLinea", "Viaje Línea"])
+        c_id_viaje = pick_col(df, ["IdViaje", "Id Viaje"])
 
         out = df.copy()
         out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst="auto")
         out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
         out["Coche_key"] = self.tu.to_int64(out[c_coche])
         out["Viaje_key"] = self.tu.to_int64(out[c_viaje_linea])
+        out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
         out["IdICS"] = self.tu.to_int64(out[c_idics])
 
-        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdICS"]].copy()
-        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], keep="first")
+        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key", "IdICS"]].copy()
+        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"], keep="first")
 
         print(f"✅ ICS cargado: {nombre} | filas útiles={len(out)}")
         return out
@@ -408,6 +409,7 @@ class ValidacionesBuilder:
         c_servicio = pick_col(df, ["Servicio"])
         c_tabla = pick_col(df, ["Tabla"])
         c_viaje_linea = pick_col(df, ["Viaje Línea", "Viaje Linea"])
+        c_id_viaje = pick_col(df, ["Id Viaje", "Id Viaje "])
 
         # Limpiar \u200b (Zero-Width Space) de columnas de hora
         # El CSV puede leerse como latin-1, convirtiendo \u200b en \u00e2\x80\x8b (mojibake)
@@ -447,6 +449,7 @@ class ValidacionesBuilder:
         out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
         out["Coche_key"] = self.tu.to_int64(out[c_tabla])
         out["Viaje_key"] = self.tu.to_int64(out[c_viaje_linea])
+        out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
 
         out = out.sort_values(
             by=["Fecha_val_key", "Vehiculo_key", "HoraIni_td", "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"],
@@ -487,7 +490,7 @@ class ValidacionesBuilder:
         keep = [
             "Fecha_val_key", "IdLinea_key", "Vehiculo_key",
             "HoraIni_td", "HoraFin_td",
-            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"
+            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"
         ]
         out = out[keep].copy()
 
@@ -583,7 +586,7 @@ class ValidacionesBuilder:
         print("4) CRUCE DETALLADO ↔ ICS")
         print("=" * 80)
 
-        merge_keys = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"]
+        merge_keys = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"]
         df_det_con_idics = df_det.merge(
             df_ics[["IdICS"] + merge_keys],
             on=merge_keys,
@@ -1364,6 +1367,11 @@ def main() -> None:
     logger_tail = ReportRunLogger()
     id_reporte_tail = logger_tail.get_id_reporte(NOMBRE_REPORTE_LOG, default_id=DEFAULT_ID_REPORTE)
     siguiente_fecha = logger_tail.get_next_fecha_to_process(id_reporte_tail, fecha_semilla)
+    # Never recurse on the same date. A failed date remains retryable on the
+    # next workflow invocation, but must not create an in-process infinite loop.
+    if siguiente_fecha <= fecha_proc:
+        print(f"Fecha pendiente {siguiente_fecha} no es posterior a la procesada {fecha_proc}. Se detiene.")
+        return
     if siguiente_fecha <= fecha_limite:
         print(f"Continuando con fecha pendiente: {siguiente_fecha.isoformat()}")
         main()
