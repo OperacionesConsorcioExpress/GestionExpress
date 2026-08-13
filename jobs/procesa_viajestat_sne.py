@@ -353,6 +353,16 @@ class ViajeStatBuilder:
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
+        # Limpiar \u200b (Zero-Width Space) y mojibake de columnas
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
+
+
         print("📋 Columnas detectadas en ViajeStat:")
         print(list(df.columns))
 
