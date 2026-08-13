@@ -388,8 +388,8 @@ class ActividadBusBuilder:
         out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
         out["IdICS"] = self.tu.to_int64(out[c_idics])
 
-        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdICS"]].copy()
-        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], keep="first")
+        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key", "IdICS"]].copy()
+        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"], keep="first")
 
         print(f"✅ ICS cargado: {nombre} | filas útiles={len(out)}")
         return out
@@ -419,19 +419,30 @@ class ActividadBusBuilder:
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
+        # Limpiar \u200b (Zero-Width Space) y mojibake de columnas
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
+
         c_fecha = pick_col(df, ["Fecha"])
         c_servicio = pick_col(df, ["Servicio"])
         c_tabla = pick_col(df, ["Tabla"])
         c_viaje_linea = pick_col(df, ["Viaje Línea", "Viaje Linea", "Viaje LÃ­nea"])
+        c_id_viaje = pick_col(df, ["Id Viaje", "Id Viaje "])
 
         out = df.copy()
         out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst=True)
         out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
         out["Coche_key"] = self.tu.to_int64(out[c_tabla])
         out["Viaje_key"] = self.tu.to_int64(out[c_viaje_linea])
+        out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
 
-        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"]].copy()
-        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], keep="first")
+        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"]].copy()
+        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"], keep="first")
 
         print(f"✅ Detallado cargado: filas útiles={len(out)}")
         return out
@@ -478,6 +489,14 @@ class ActividadBusBuilder:
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
+
         c_fecha = pick_col(df, ["Fecha"])
         c_id_linea = pick_col(df, ["Id Línea", "Id Linea", "Id LÃ­nea"])
         c_id_ruta = pick_col(df, ["Id Ruta"], required=False)
@@ -502,6 +521,7 @@ class ActividadBusBuilder:
         out["Servicio_key"] = out[c_servicio_bus].astype(str).str.strip().str.upper()
         out["Coche_key"] = self.tu.to_int64(out[c_tabla])
         out["Viaje_key"] = self.tu.to_int64(out[c_viaje_linea])
+        out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
 
         out["Fecha"] = pd.to_datetime(out[c_fecha], errors="coerce", dayfirst=True).dt.date
         out["Id_Linea"] = out[c_id_linea].astype("string").str.strip()
@@ -522,7 +542,7 @@ class ActividadBusBuilder:
         out["Lista_Acciones_Regulatorias"] = out[c_lista_acc_reg].astype("string").str.strip() if c_lista_acc_reg else pd.NA
 
         keep = [
-            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key",
+            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key",
             "Fecha", "Id_Linea", "Id_Ruta", "Tabla", "Viaje_Linea", "Id_Viaje",
             "Nombre_Nodo", "Servicio_Bus", "Numero_FMS_Bus", "Conductor",
             "Nombre_Conductor", "Evento", "Hora_Teorica", "Hora_Referencia",
@@ -561,6 +581,14 @@ class ActividadBusBuilder:
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
+
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
 
         c_id_linea = pick_col(df, ["Id Línea", "Id Linea", "Id LÃ­nea"])
         c_id_ruta = pick_col(df, ["Id Ruta"])
@@ -607,8 +635,25 @@ class ActividadBusBuilder:
         print("5) CRUCE DETALLADO ↔ ICS")
         print("=" * 80)
 
-        merge_keys = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"]
+        merge_keys = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"]
         df_det_con_idics = df_det.merge(df_ics, on=merge_keys, how="left")
+
+        # Respaldo: viajes cuyo IdViaje no coincide entre Detallado e ICS.
+        # Se cruza con 4 llaves (sin IdViaje) para no perderlos.
+        mask_falta = df_det_con_idics["IdICS"].isna()
+        if mask_falta.any():
+            merge_keys4 = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"]
+            fallback = df_det_con_idics.loc[mask_falta, merge_keys].merge(
+                df_ics[["IdICS"] + merge_keys4].drop_duplicates(subset=merge_keys4, keep="first"),
+                on=merge_keys4,
+                how="left"
+            )
+            fallback = fallback.drop_duplicates(subset=merge_keys, keep="first")
+            idx_orig = df_det_con_idics.index[mask_falta]
+            df_det_con_idics.loc[mask_falta, "IdICS"] = fallback.set_index(merge_keys).reindex(
+                df_det_con_idics.loc[mask_falta, merge_keys].set_index(merge_keys).index
+            )["IdICS"].values
+
         df_det_con_idics = df_det_con_idics.drop_duplicates(subset=merge_keys, keep="first")
 
         print("\n" + "=" * 80)
