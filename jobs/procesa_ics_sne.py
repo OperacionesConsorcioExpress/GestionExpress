@@ -609,8 +609,8 @@ class SNEExportBuilder:
         out["Id_Viaje"] = self.tu.to_int64(out[c_id_viaje])
         out["Sentido"] = out[c_sentido].astype("string").fillna("").str.strip() if c_sentido else pd.NA
         out["Vehiculo_Real"] = out[c_veh_real].astype("string").fillna("").str.strip() if c_veh_real else pd.NA
-        out["Hora_Teo_raw"] = out[c_hora_teo].astype("string").fillna("").str.strip() if c_hora_teo else ""
-        out["Hora_Ref_raw"] = out[c_hora_ref].astype("string").fillna("").str.strip() if c_hora_ref else ""
+        out["Hora_Teo_raw"] = out[c_hora_teo].astype("string").fillna("").replace({"nan": "", "None": ""}).str.strip() if c_hora_teo else ""
+        out["Hora_Ref_raw"] = out[c_hora_ref].astype("string").fillna("").replace({"nan": "", "None": ""}).str.strip() if c_hora_ref else ""
         out["Conductor"] = out[c_conductor] if c_conductor else pd.NA
 
         out["KmProgAd_km"] = self.tu.metros_a_km(out[c_kmprog])
