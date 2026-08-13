@@ -553,6 +553,15 @@ class SNEExportBuilder:
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
+        # Limpiar \u200b (Zero-Width Space) y mojibake de columnas numericas y de hora
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        cols_to_clean = [c for c in df.columns if any(t in str(c) for t in ['Km','Dist','Offset','Hora','Dur','Planif','Eliminado','Motivo','Sentido','Vehiculo','Conductor','Concesion'])]
+        for c in cols_to_clean:
+            df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+            df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+            df[c] = df[c].str.replace('\ufeff', '', regex=False)
+            df[c] = df[c].str.strip()
+
         c_fecha = pick_col(df, ["Fecha"])
         c_concesion = pick_col(df, ["Concesión", "Concesion", "ConcesiÃ³n"])
         c_planificado = pick_col(df, ["Planificado"], required=False)
@@ -592,7 +601,7 @@ class SNEExportBuilder:
 
         out["Fecha"] = pd.to_datetime(out[c_fecha], errors="coerce", dayfirst=True).dt.date
         out["Concesion_raw"] = out[c_concesion].astype("string").fillna("").str.strip()
-        out["Planificado_raw"] = out[c_planificado].astype("string").fillna("").str.strip() if c_planificado else ""
+        out["Planificado_raw"] = out[c_planificado].astype("string").fillna("").replace({"nan": "", "None": ""}).str.strip() if c_planificado else ""
         out["Servicio"] = out[c_servicio].astype("string").fillna("").str.strip()
         out["Linea"] = self.tu.to_int64(out[c_linea])
         out["Tabla"] = self.tu.to_int64(out[c_tabla])
@@ -613,8 +622,11 @@ class SNEExportBuilder:
         out["OffsetInicio_km"] = self.tu.metros_a_km(out[c_offset_ini])
         out["OffsetFin_km"] = self.tu.metros_a_km(out[c_offset_fin])
 
-        out["Eliminado_raw"] = out[c_eliminado].astype("string").fillna("").str.strip() if c_eliminado else ""
-        out["Motivo_original"] = out[c_motivo].astype("string").fillna("").str.strip() if c_motivo else ""
+        out["Eliminado_raw"] = out[c_eliminado].astype("string").fillna("").replace({"nan": "", "None": ""}).str.strip() if c_eliminado else ""
+        out["Motivo_original"] = (
+            out[c_motivo].astype("string").fillna("").replace({"nan": "", "None": ""}).str.strip()
+            if c_motivo else ""
+        )
 
         out["Categoria_Ejecucion"] = np.where(
             out["KmProgAd_km"].notna() & out["KmEjecutado_km"].notna() &
@@ -941,14 +953,14 @@ class SNEExportBuilder:
             motivo.loc[mask_revision_al] = "Revision Alimentacion Acciones de Regulacion"
             print(f"DEBUG ajuste AL aplicado en {int(mask_revision_al.sum())} filas")
 
-        # --- AJUSTE ZONAL: Revision Acciones de Regulacion (> 8 km) ---
+        # --- AJUSTE ZONAL: Revision Acciones de Regulacion (> 4 km) ---
         km_revision_zn = (dsa.fillna(0) - dau.fillna(0)).clip(lower=0).round(3)
         mask_revision_zn = (
             concesion_upper.isin(["SAN CRISTOBAL ZN", "USAQUEN ZN"])
             & (~plan_txt.eq("sustituido"))
             & kmr.notna()
             & (kmr.abs() < tol_eq)
-            & (km_revision_zn > 3)
+            & (km_revision_zn > 4)
         )
         if mask_revision_zn.any():
             kmr.loc[mask_revision_zn] = km_revision_zn.loc[mask_revision_zn]
