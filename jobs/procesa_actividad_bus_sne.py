@@ -524,7 +524,7 @@ class ActividadBusBuilder:
         out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
 
         out["Fecha"] = pd.to_datetime(out[c_fecha], errors="coerce", dayfirst=True).dt.date
-        out["Id_Linea"] = out[c_id_linea].astype("string").str.strip()
+        out["Id_Linea"] = out[c_id_linea].astype("string").replace({"nan": "", "None": ""}).str.strip()
         out["Id_Ruta"] = out[c_id_ruta].astype("string").str.strip() if c_id_ruta else pd.NA
         out["Tabla"] = out[c_tabla].astype("string").str.strip()
         out["Viaje_Linea"] = out[c_viaje_linea].astype("string").str.strip()
@@ -704,6 +704,41 @@ class ActividadBusBuilder:
                 how="left"
             )
             df_merge = df_merge.sort_values(by="__actividad_row__", ascending=True, na_position="last").reset_index(drop=True)
+
+            # Fallback seguro: paradas sin cruce exacto (ruta ausente de la matriz).
+            # Solo se rellena si, dentro de la MISMA linea, la parada tiene una
+            # unica distancia entre todas sus rutas. Si hay varias distintas, se
+            # deja NULL para no inventar un valor incorrecto.
+            mask_sin_dist = df_merge["Distancia"].isna()
+            if mask_sin_dist.any():
+                fb_g = (
+                    df_matriz[["IdLinea_key_m", "NodoPrefix_key", "Distancia"]]
+                    .dropna(subset=["Distancia"])
+                    .groupby(["IdLinea_key_m", "NodoPrefix_key"], dropna=False)["Distancia"]
+                    .nunique()
+                    .reset_index(name="n_dist")
+                )
+                unicas = fb_g[fb_g["n_dist"] == 1].copy()
+                if not unicas.empty:
+                    unicas = unicas.rename(columns={"IdLinea_key_m": "IdLinea_key"})
+                    fb_vals = df_matriz[
+                        ["IdLinea_key_m", "NodoPrefix_key", "Distancia"]
+                    ].dropna(subset=["Distancia"]).drop_duplicates(
+                        subset=["IdLinea_key_m", "NodoPrefix_key", "Distancia"]
+                    ).merge(
+                        unicas[["IdLinea_key", "NodoPrefix_key"]],
+                        left_on=["IdLinea_key_m", "NodoPrefix_key"],
+                        right_on=["IdLinea_key", "NodoPrefix_key"],
+                        how="inner"
+                    )[["IdLinea_key", "NodoPrefix_key", "Distancia"]].rename(
+                        columns={"Distancia": "Distancia_fb"}
+                    )
+                    fallback = df_merge.loc[mask_sin_dist, ["IdLinea_key", "NodoPrefix_key"]].merge(
+                        fb_vals, on=["IdLinea_key", "NodoPrefix_key"], how="left"
+                    )
+                    df_merge.loc[mask_sin_dist, "Distancia"] = fallback["Distancia_fb"].values
+                    n_rellenadas = fallback["Distancia_fb"].notna().sum()
+                    print(f"   Fallback distancia: {n_rellenadas} filas rellenadas (valor único por línea+parada)")
 
             print(f"✅ Distancia asignada a {df_merge['Distancia'].notna().sum()} filas")
         else:
