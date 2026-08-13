@@ -385,8 +385,8 @@ class DetalladoBuilder:
         out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
         out["IdICS"] = self.tu.to_int64(out[c_idics])
 
-        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdICS"]].copy()
-        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], keep="first")
+        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key", "IdICS"]].copy()
+        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"], keep="first")
 
         print(f"✅ ICS cargado: {nombre} | filas útiles={len(out)}")
         return out
@@ -415,6 +415,16 @@ class DetalladoBuilder:
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
+
+        # Limpiar \u200b (Zero-Width Space) y mojibake de columnas
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
+
 
         print("📋 Columnas detectadas en Detallado:")
         print(list(df.columns))
@@ -454,6 +464,7 @@ class DetalladoBuilder:
         out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
         out["Coche_key"] = self.tu.to_int64(out[c_tabla])
         out["Viaje_key"] = self.tu.to_int64(out[c_viaje_linea])
+        out["IdViaje_key"] = self.tu.to_int64(out[c_id_viaje])
 
         out["Fecha"] = pd.to_datetime(out[c_fecha], errors="coerce", dayfirst=True).dt.date
         out["Servicio"] = out[c_servicio].astype("string").str.strip()
@@ -486,7 +497,7 @@ class DetalladoBuilder:
         out["KmEjecutado"] = self.tu.metros_a_km(out[c_kmejecutado]) if c_kmejecutado else np.nan
 
         keep = [
-            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key",
+            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key",
             "Fecha", "Servicio", "Id_Viaje", "Viaje_Linea", "Id_Linea",
             "Sentido", "Tabla", "Planificado", "Eliminado", "EstMotivoElim",
             "Descripcion_Motivo_Elim", "Vehiculo_Real", "Conductor",
@@ -509,7 +520,7 @@ class DetalladoBuilder:
         print("3) CRUCE DETALLADO ↔ ICS")
         print("=" * 80)
 
-        merge_keys = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"]
+        merge_keys = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"]
         df_merge = df_det.merge(
             df_ics[["IdICS"] + merge_keys],
             on=merge_keys,
