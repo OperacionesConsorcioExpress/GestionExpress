@@ -406,7 +406,8 @@ class AccionesRegulacionBuilder:
         c_fecha = pick_col(df, ["Fecha Viaje"])
         c_serv = pick_col(df, ["Servicio"])
         c_coche = pick_col(df, ["Coche"])
-        c_viaje = pick_col(df, ["ViajeLinea", "Viaje L?nea"])
+        c_viaje = pick_col(df, ["ViajeLinea", "Viaje Línea"])
+        c_id_viaje = pick_col(df, ["IdViaje", "Id Viaje"])
         c_idics = pick_col(df, ["IdICS"])
 
         out = pd.DataFrame({
@@ -417,7 +418,8 @@ class AccionesRegulacionBuilder:
             "Servicio_key": df[c_serv].astype(str).str.strip().str.upper(),
             "Coche_key": self.tu.to_int64(df[c_coche]),
             "Viaje_key": self.tu.to_int64(df[c_viaje]),
-        }).drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], keep="first")
+            "IdViaje_key": self.tu.to_int64(df[c_id_viaje]),
+        }).drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"], keep="first")
 
         print(f"? ICS cargado: {nombre} | filas ?tiles={len(out)}")
         return out
@@ -447,9 +449,10 @@ class AccionesRegulacionBuilder:
         df = DataIO.limpiar_columnas(pd.concat(frames, ignore_index=True, sort=False))
         c_fecha = pick_col(df, ["Fecha"])
         c_serv = pick_col(df, ["Servicio"])
-        c_id_linea = pick_col(df, ["Id L?nea", "Id Linea"])
+        c_id_linea = pick_col(df, ["Id Línea", "Id Linea"])
         c_tabla = pick_col(df, ["Tabla"])
-        c_viaje = pick_col(df, ["Viaje L?nea", "Viaje Linea"])
+        c_viaje = pick_col(df, ["Viaje Línea", "Viaje Linea"])
+        c_id_viaje = pick_col(df, ["Id Viaje", "Id Viaje "])
 
         out = pd.DataFrame({
             "Fecha": pd.to_datetime(df[c_fecha], errors="coerce", dayfirst=True).dt.date,
@@ -457,6 +460,7 @@ class AccionesRegulacionBuilder:
             "Servicio_key": df[c_serv].astype(str).str.strip().str.upper(),
             "Coche_key": self.tu.to_int64(df[c_tabla]),
             "Viaje_key": self.tu.to_int64(df[c_viaje]),
+            "IdViaje_key": self.tu.to_int64(df[c_id_viaje]),
             "Linea": df[c_id_linea].astype("string").str.strip(),
             "Id_Linea": self.tu.to_int64(df[c_id_linea]),
             "Tabla": df[c_tabla].astype("string").str.strip(),
@@ -471,7 +475,7 @@ class AccionesRegulacionBuilder:
         ics = self.load_ics(fecha)
         primary = detallado.merge(
             ics,
-            on=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"],
+            on=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"],
             how="left"
         )
         primary = primary[primary["Id_ICS"].notna()].copy()
@@ -513,6 +517,16 @@ class AccionesRegulacionBuilder:
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
+
+        # Limpiar \u200b (Zero-Width Space) y mojibake de columnas
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
+
 
         print("?? Columnas detectadas en Acciones Regulaci?n:")
         print(list(df.columns))
