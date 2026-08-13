@@ -370,16 +370,18 @@ class TablaAccionesBuilder:
         c_servicio = pick_col(df, ["Servicio"])
         c_coche = pick_col(df, ["Coche"])
         c_viaje_linea = pick_col(df, ["ViajeLinea", "Viaje Línea"])
+        c_id_viaje = pick_col(df, ["IdViaje", "Id Viaje"])
 
         out = df.copy()
         out["Fecha_key"] = self.tu.fecha_key_robusta(out[c_fecha], prefer_dayfirst="auto")
         out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
         out["Coche_key"] = pd.to_numeric(out[c_coche], errors="coerce").astype("Int64")
         out["Viaje_key"] = pd.to_numeric(out[c_viaje_linea], errors="coerce").astype("Int64")
+        out["IdViaje_key"] = pd.to_numeric(out[c_id_viaje], errors="coerce").astype("Int64")
         out["IdICS"] = self.tu.to_int64(out[c_idics])
 
-        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdICS"]].copy()
-        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"], keep="first")
+        out = out[["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key", "IdICS"]].copy()
+        out = out.drop_duplicates(subset=["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"], keep="first")
 
         print(f"✅ ICS cargado: {nombre} | filas útiles={len(out)}")
         return out
@@ -409,6 +411,16 @@ class TablaAccionesBuilder:
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
 
+        # Limpiar \u200b (Zero-Width Space) y mojibake de columnas
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
+
+
         print("📋 Columnas detectadas en Detallado:")
         print(list(df.columns))
 
@@ -416,6 +428,7 @@ class TablaAccionesBuilder:
         c_servicio = pick_col(df, ["Servicio"])
         c_tabla = pick_col(df, ["Tabla"])
         c_viaje_linea = pick_col(df, ["Viaje Línea", "Viaje Linea", "Viaje Línea "])
+        c_id_viaje = pick_col(df, ["Id Viaje", "Id Viaje "])
         c_vehiculo_real = pick_col(df, ["Vehículo Real", "Vehiculo Real", "Vehículo Real "], required=False)
 
         if c_vehiculo_real is None:
@@ -426,6 +439,7 @@ class TablaAccionesBuilder:
         out["Servicio_key"] = out[c_servicio].astype(str).str.strip().str.upper()
         out["Coche_key"] = pd.to_numeric(out[c_tabla], errors="coerce").astype("Int64")
         out["Viaje_key"] = pd.to_numeric(out[c_viaje_linea], errors="coerce").astype("Int64")
+        out["IdViaje_key"] = pd.to_numeric(out[c_id_viaje], errors="coerce").astype("Int64")
 
         out["Fecha_exc_key"] = pd.to_datetime(
             out[c_fecha].astype(str).str.replace("\ufeff", "", regex=False).str.strip(),
@@ -442,7 +456,7 @@ class TablaAccionesBuilder:
         out["Servicio_exc_key"] = out[c_servicio].astype(str).str.strip().str.upper()
 
         keep = [
-            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key",
+            "Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key",
             "Fecha_exc_key", "Vehiculo_key", "Servicio_exc_key"
         ]
         out = out[keep].copy()
@@ -474,6 +488,16 @@ class TablaAccionesBuilder:
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
+
+        # Limpiar \u200b (Zero-Width Space) y mojibake de columnas
+        ZWSP_MOJIBake = '\u00e2\x80\x8b'
+        for c in df.columns:
+            if df[c].dtype == 'object' or str(df[c].dtype) == 'string':
+                df[c] = df[c].astype(str).str.replace('\u200b', '', regex=False)
+                df[c] = df[c].str.replace(ZWSP_MOJIBake, '', regex=False)
+                df[c] = df[c].str.replace('\ufeff', '', regex=False)
+                df[c] = df[c].str.strip()
+
 
         print("📋 Columnas detectadas en Tabla_Acciones:")
         print(list(df.columns))
@@ -538,7 +562,7 @@ class TablaAccionesBuilder:
         print("4) CRUCE DETALLADO ↔ ICS")
         print("=" * 80)
 
-        merge_keys_det = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key"]
+        merge_keys_det = ["Fecha_key", "Servicio_key", "Coche_key", "Viaje_key", "IdViaje_key"]
         df_det_con_idics = df_det.merge(
             df_ics[["IdICS"] + merge_keys_det],
             on=merge_keys_det,
