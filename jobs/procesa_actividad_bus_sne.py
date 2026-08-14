@@ -101,6 +101,43 @@ class DataIO:
         return df
 
     @staticmethod
+    def coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+        """Unifica columnas que son la misma pero llegaron con distinto encoding
+        (ej. 'Id Línea' vs 'Id Línea' mojibake) tras un pd.concat de varios archivos.
+        Rellena los vacíos de la primera con los valores de las demás y elimina las
+        columnas repetidas, para que pick_col no elija la columna equivocada."""
+        if df is None or df.empty:
+            return df
+
+        df = df.copy()
+        grupos = {}
+        orden = []
+        for c in df.columns:
+            norm = normalize_name(str(c).strip())
+            if norm not in grupos:
+                grupos[norm] = []
+                orden.append(norm)
+            grupos[norm].append(c)
+
+        eliminar = []
+        for norm in orden:
+            cols = grupos[norm]
+            if len(cols) <= 1:
+                continue
+            base = cols[0]
+            for extra in cols[1:]:
+                vacio = (
+                    df[base].isna()
+                    | (df[base].astype(str).str.strip().str.lower().isin(["", "nan", "<na>", "none"]))
+                )
+                df.loc[vacio, base] = df.loc[vacio, extra]
+                eliminar.append(extra)
+
+        if eliminar:
+            df = df.drop(columns=eliminar)
+        return df
+
+    @staticmethod
     def _sniff_sep(sample_text: str, default: str = ",") -> str:
         try:
             dialect = csv.Sniffer().sniff(sample_text, delimiters=[",", ";", "\t", "|"])
@@ -418,6 +455,7 @@ class ActividadBusBuilder:
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
+        df = self.io.coalesce_duplicate_columns(df)
 
         # Limpiar \u200b (Zero-Width Space) y mojibake de columnas
         ZWSP_MOJIBake = '\u00e2\x80\x8b'
@@ -488,6 +526,7 @@ class ActividadBusBuilder:
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
+        df = self.io.coalesce_duplicate_columns(df)
 
         ZWSP_MOJIBake = '\u00e2\x80\x8b'
         for c in df.columns:
@@ -581,6 +620,7 @@ class ActividadBusBuilder:
 
         df = pd.concat(frames, ignore_index=True, sort=False)
         df = self.io.limpiar_columnas(df)
+        df = self.io.coalesce_duplicate_columns(df)
 
         ZWSP_MOJIBake = '\u00e2\x80\x8b'
         for c in df.columns:
@@ -898,10 +938,10 @@ class PostgresActividadBusLoader:
         d["distancia"] = pd.to_numeric(d["distancia"], errors="coerce")
 
         for c in ["id_linea", "tabla", "viaje_linea", "id_viaje", "numero_fms_bus", "conductor"]:
-            d[c] = d[c].astype("string")
+            d[c] = d[c].astype("string").replace({"nan": pd.NA, "None": pd.NA})
 
         for c in ["nombre_nodo", "servicio_bus", "nombre_conductor", "evento", "lista_acciones_regulatorias"]:
-            d[c] = d[c].astype("string")
+            d[c] = d[c].astype("string").replace({"nan": pd.NA, "None": pd.NA})
 
         d = d[d["id_ics"].notna()].copy()
         return d
