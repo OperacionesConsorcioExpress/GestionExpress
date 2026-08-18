@@ -57,8 +57,19 @@ def _prioridad_grupo_fila(row: Dict[str, Any]) -> Optional[int]:
 def fechas_disponibles(
     _user: dict = Depends(require_session),
 ) -> JSONResponse:
-    with RegistroSNE() as db:
-        fechas = db.fechas_disponibles()
+    try:
+        with RegistroSNE() as db:
+            fechas = db.fechas_disponibles()
+    except Exception:
+        log.exception("No fue posible cargar fechas disponibles SNE")
+        return JSONResponse(
+            content={
+                "ok": False,
+                "fechas": [],
+                "warning": "No fue posible cargar fechas disponibles. Se usara la fecha local o guardada.",
+            },
+            status_code=200,
+        )
     return JSONResponse(content={"ok": True, "fechas": fechas})
 
 
@@ -142,6 +153,31 @@ def desasignar_revisor_manual(
     return JSONResponse(content={"ok": True, "data": data})
 
 
+@router_sne_asignacion.patch("/api/asignaciones/reasignar")
+def reasignar_revisor_asignado(
+    body: Dict[str, Any] = Body(...),
+    _user: dict = Depends(require_session),
+) -> JSONResponse:
+    ids_ics = body.get("ids_ics", [])
+    revisor_user_id = body.get("revisor_user_id")
+    origen = body.get("origen", "tabla_menu_reassign")
+    try:
+        with RegistroSNE() as db:
+            data = db.reasignar_revisor_asignado(
+                ids_ics=ids_ics,
+                revisor_user_id=revisor_user_id,
+                usuario_asigna_id=_user.get("id"),
+                usuario_actualiza=_user.get("username", "sistema"),
+                origen=str(origen or "tabla_menu_reassign"),
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception:
+        log.exception("Error reasignando revisor SNE")
+        raise HTTPException(status_code=500, detail="No fue posible reasignar el revisor")
+    return JSONResponse(content={"ok": True, "data": data})
+
+
 @router_sne_asignacion.post("/api/asignaciones/ejecutar")
 def ejecutar_asignacion(
     body: Dict[str, Any] = Body(...),
@@ -196,7 +232,7 @@ def revertir_asignacion(
 def tabla_ics(
     req: Request,
     pagina: int = Query(1, ge=1),
-    tamano: int = Query(50, ge=1, le=200),
+    tamano: int = Query(50, ge=1, le=1000),
     vista: str = Query("pendientes"),
     id_ejecucion: Optional[str] = Query(None),
     # Filtros texto
@@ -204,6 +240,7 @@ def tabla_ics(
     fecha: Optional[str] = Query(None),
     id_linea: Optional[str] = Query(None),
     ruta_comercial: Optional[str] = Query(None),
+    cop: Optional[str] = Query(None),
     vehiculo_real: Optional[str] = Query(None),
     conductor: Optional[str] = Query(None),
     motivos: Optional[str] = Query(None),
@@ -273,6 +310,7 @@ def tabla_ics(
                 fecha=fecha or None,
                 id_linea=id_linea or None,
                 ruta_comercial=ruta_comercial or None,
+                cop=cop or None,
                 vehiculo_real=vehiculo_real or None,
                 conductor=conductor or None,
                 motivos_filter=motivos or None,

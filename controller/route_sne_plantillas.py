@@ -1,9 +1,12 @@
+import logging
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from starlette.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
 from pydantic import BaseModel, Field, validator
 from model.gestion_sne_plantillas import GestionSnePlantillas
+
+logger = logging.getLogger("route_sne_plantillas")
 
 router_sne_plantillas = APIRouter()
 templates = Jinja2Templates(directory="./view")
@@ -171,6 +174,7 @@ def guardar_plantilla(payload: PlantillaIn, req: Request):
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
+            logger.exception("Error al guardar plantilla — id_motivo=%s usuario=%s", payload.id_motivo, usuario_id)
             raise HTTPException(status_code=500, detail=str(e))
 
 @router_sne_plantillas.delete("/api/sne/plantillas/{id_plantilla}")

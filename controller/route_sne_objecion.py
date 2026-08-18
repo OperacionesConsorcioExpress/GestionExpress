@@ -8,6 +8,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, JSONResponse, St
 from typing import Optional
 from pydantic import BaseModel
 from model.gestion_sne_objecion import GestionSneObjecion
+from model.gestion_sne_monitor import GestionSneMonitor
 from model.gestion_usuarios import HandleDB
 
 _TZ_BOGOTA = ZoneInfo("America/Bogota")
@@ -18,6 +19,8 @@ def _calc_estado_objecion_desc(estado_objecion, fecha_cierre_dp_str: str) -> str
         return "Objetado"
     if estado_objecion == 2:
         return "Vencido"
+    if estado_objecion == 3:
+        return "Manejo Interno"
     if estado_objecion == 0 or estado_objecion is None:
         fecha_cierre = None
         if fecha_cierre_dp_str:
@@ -43,6 +46,13 @@ def require_session(req: Request):
     if not user:
         raise HTTPException(status_code=401, detail="Sesion no valida")
     return user
+
+def _resolve_uid(user_session: dict, revisor_id: Optional[int]) -> int:
+    """Si el usuario logueado tiene rol 1 o 5 y se provee revisor_id, usa ese revisor.
+    De lo contrario, usa el usuario de sesión. El guardado siempre usa el usuario de sesión."""
+    if revisor_id and user_session.get("rol") in [1, 5]:
+        return revisor_id
+    return user_session.get("id")
 
 # =====================================================================
 # HTML: VISTA PRINCIPAL
@@ -115,11 +125,13 @@ def filtros_ultima_fecha(user_session: dict = Depends(require_session)):
 @router_sne_objecion.get("/api/filtros/ics")
 def filtros_ics(
     fecha: Optional[str] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """
     Retorna lista de id_ics unicos para la fecha dada,
-    filtrados por los que tiene asignados el usuario logueado.
+    filtrados por los que tiene asignados el usuario logueado (o el revisor
+    seleccionado si el usuario tiene rol 1 o 5).
 
     Response:
     {
@@ -127,7 +139,7 @@ def filtros_ics(
         "data": [103338422, 103338426, ...]
     }
     """
-    usuario_id = user_session.get("id")
+    usuario_id = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         if not fecha:
             fecha = db.ultima_fecha_ics()
@@ -212,6 +224,43 @@ def filtros_rutas(
         data = db.listar_rutas_por_cop(id_cop=id_cop, zona=zona)
     return {"ok": True, "data": [dict(r) for r in data]}
 
+@router_sne_objecion.get("/api/filtros/rutas_en_datos")
+def filtros_rutas_en_datos(
+    tab: str = Query("revisar", regex="^(revisar|revisados|validar)$"),
+    fecha: Optional[str] = None,
+    id_ics: Optional[int] = None,
+    id_cop: Optional[int] = None,
+    zona: Optional[str] = None,
+    componente: Optional[str] = None,
+    revisor_id: Optional[int] = None,
+    user_session: dict = Depends(require_session),
+):
+    """
+    Rutas únicas presentes en los registros de objeción visibles para el usuario.
+    Permite poblar el select RUTA de forma independiente (sin requerir COP).
+
+    Response:
+    {
+        "ok": true,
+        "data": [
+            {"id_linea": 10177, "ruta_comercial": "RUTA 177"},
+            ...
+        ]
+    }
+    """
+    usuario_id = _resolve_uid(user_session, revisor_id)
+    with GestionSneObjecion() as db:
+        data = db.listar_rutas_en_datos(
+            usuario_id=usuario_id,
+            fecha=fecha,
+            id_ics=id_ics,
+            id_cop=id_cop,
+            zona=zona,
+            componente=componente,
+            tab=tab,
+        )
+    return {"ok": True, "data": [dict(r) for r in data]}
+
 @router_sne_objecion.get("/api/filtros/responsables")
 def filtros_responsables(
     tab: str = Query("revisar", regex="^(revisar|revisados|validar)$"),
@@ -222,11 +271,12 @@ def filtros_responsables(
     id_cop: Optional[int] = None,
     zona: Optional[str] = None,
     componente: Optional[str] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """
     Retorna responsables realmente vinculados a los ICS visibles
-    por medio de sne.ics_motivo_resp.
+    por medio de sne.ics_motivo_resp. Acepta revisor_id para roles 1 y 5.
 
     Response:
     {
@@ -237,7 +287,7 @@ def filtros_responsables(
         ]
     }
     """
-    usuario_id = user_session.get("id")
+    usuario_id = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         data = db.listar_responsables(
             usuario_id=usuario_id,
@@ -251,6 +301,28 @@ def filtros_responsables(
             tab=tab,
         )
     return {"ok": True, "data": [dict(r) for r in data]}
+
+@router_sne_objecion.get("/api/filtros/revisores")
+def filtros_revisores(user_session: dict = Depends(require_session)):
+    """
+    Retorna usuarios activos (estado=1) de public.usuarios para el selector
+    'Buscar Revisores'. Solo accesible con sesión activa; la UI restringe la
+    visibilidad a roles 1 y 5.
+
+    Response:
+    {
+        "ok": true,
+        "data": [{"id": 1, "display": "1022353193 – SERGIO ESTEBAN HINCAPIE SILVA"}, ...]
+    }
+    """
+    rows = usuarios_db.fetch_all(
+        "SELECT id, nombres, apellidos, username FROM public.usuarios WHERE estado = 1 ORDER BY username ASC"
+    )
+    data = [
+        {"id": r[0], "display": f"{r[3]} – {r[1]} {r[2]}"}
+        for r in rows
+    ]
+    return {"ok": True, "data": data}
 
 @router_sne_objecion.get("/api/filtros/todos-responsables")
 def filtros_todos_responsables(user_session: dict = Depends(require_session)):
@@ -312,12 +384,14 @@ def motivos_responsables_ics(
 @router_sne_objecion.get("/api/estadisticas")
 def estadisticas(
     fecha: Optional[str] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """
-    Estadisticas de los ICS asignados al usuario logueado.
+    Estadisticas de los ICS asignados al usuario logueado (o al revisor
+    seleccionado si el usuario tiene rol 1 o 5).
     """
-    usuario_id = user_session.get("id")
+    usuario_id = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         stats = db.estadisticas_usuario(usuario_id=usuario_id, fecha=fecha)
     return {"ok": True, "data": dict(stats) if stats else {}}
@@ -339,13 +413,29 @@ def mapa_posicionamientos(
     Retorna posicionamientos GPS para un bus en una fecha y rango de horas.
     Se usa en el mapa del modal de gestión.
     """
-    # Asegurar segundos en las horas recibidas desde el front (HH:MM -> HH:MM:SS)
+    from datetime import date as _date, timedelta as _timedelta
+
     def _pad_hora(h: str, fin: bool = False) -> str:
+        """Asegura formato HH:MM:SS."""
         parts = h.split(':')
         if len(parts) == 2:
             return h + (':59' if fin else ':00')
         return h
-    
+
+    def _resolver_hora_extendida(fecha_str: str, hora_str: str):
+        """Convierte horas >= 24 (p.ej. 24:08:59 → día+1 00:08:59)."""
+        parts = hora_str.split(':')
+        hh = int(parts[0])
+        mm = int(parts[1]) if len(parts) > 1 else 0
+        ss = int(parts[2]) if len(parts) > 2 else 0
+        if hh >= 24:
+            dias_extra = hh // 24
+            hh_norm = hh % 24
+            fecha_ajustada = (_date.fromisoformat(fecha_str) + _timedelta(days=dias_extra)).isoformat()
+            hora_ajustada = f"{hh_norm:02d}:{mm:02d}:{ss:02d}"
+            return fecha_ajustada, hora_ajustada
+        return fecha_str, hora_str
+
     with GestionSneObjecion() as db:
         fecha_base = fecha or db.ultima_fecha_ics()
         fecha_ini = fecha_ini or fecha_base
@@ -354,13 +444,20 @@ def mapa_posicionamientos(
         if fecha_ini and fecha_fin and fecha_ini > fecha_fin:
             fecha_ini, fecha_fin = fecha_fin, fecha_ini
 
+        hora_ini_norm = _pad_hora(hora_ini, fin=False)
+        hora_fin_norm = _pad_hora(hora_fin, fin=True)
+
+        # Resolver horas extendidas (>= 24h) para evitar DatetimeFieldOverflow en PostgreSQL
+        fecha_ini, hora_ini_norm = _resolver_hora_extendida(fecha_ini, hora_ini_norm)
+        fecha_fin, hora_fin_norm = _resolver_hora_extendida(fecha_fin, hora_fin_norm)
+
         data = db.listar_posicionamientos(
             movil_bus=bus.strip().upper(),
             fecha=fecha_base,
             fecha_ini=fecha_ini,
             fecha_fin=fecha_fin,
-            hora_ini=_pad_hora(hora_ini, fin=False),
-            hora_fin=_pad_hora(hora_fin, fin=True),
+            hora_ini=hora_ini_norm,
+            hora_fin=hora_fin_norm,
         )
         
     return {
@@ -372,6 +469,40 @@ def mapa_posicionamientos(
         "total": len(data),
         "data": [dict(r) for r in data],
     }
+
+# =====================================================================
+# API: MONITOR TRANSMITOOLS
+# =====================================================================
+@router_sne_objecion.get("/api/transmitools")
+def listar_transmitools(
+    fecha: Optional[str] = None,
+    id_ics: Optional[int] = None,
+    id_linea: Optional[int] = None,
+    id_concesion: Optional[int] = None,
+    id_cop: Optional[int] = None,
+    zona: Optional[str] = None,
+    componente: Optional[str] = None,
+    revisor_id: Optional[int] = None,
+    user_session: dict = Depends(require_session),
+):
+    """
+    Retorna los ICS gestionados por el usuario (estado_asignacion=1, estado_objecion=1)
+    con su estado_transmitools para el monitor de envíos a Transmitools.
+    Acepta revisor_id para roles 1 y 5.
+    """
+    usuario_id = _resolve_uid(user_session, revisor_id)
+    with GestionSneObjecion() as db:
+        registros = db.listar_transmitools_por_usuario(
+            usuario_id=usuario_id,
+            fecha=fecha,
+            id_ics=id_ics,
+            id_linea=id_linea,
+            id_concesion=id_concesion,
+            id_cop=id_cop,
+            zona=zona,
+            componente=componente,
+        )
+    return {"ok": True, "data": [dict(r) for r in registros]}
 
 # =====================================================================
 # API: LISTADO DE REGISTROS ICS POR TAB
@@ -391,17 +522,19 @@ def listar_registros(
     orden: Optional[str] = None,
     pagina: int = Query(1, ge=1),
     tamano: int = Query(50, ge=1, le=500),
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """
-    Retorna los registros ICS asignados al usuario logueado segun el tab activo.
+    Retorna los registros ICS asignados al usuario logueado (o al revisor
+    seleccionado si el usuario tiene rol 1 o 5) segun el tab activo.
 
     Tabs:
         - revisar   -> asignados pendientes de revision (revisor > 0, estado_asignacion=1)
         - revisados -> ya revisados (estado_asignacion=2)
         - validar   -> con objecion pendiente de validar (estado_objecion=1)
     """
-    usuario_id = user_session.get("id")
+    usuario_id = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         registros, total = db.listar_ics_por_usuario(
             usuario_id=usuario_id,
@@ -431,13 +564,14 @@ def listar_registros(
 @router_sne_objecion.get("/api/registros/{id_ics}")
 def detalle_registro(
     id_ics: int,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """
     Retorna el detalle completo de un ICS para el modal de revision.
-    Solo accesible si el ICS esta asignado al usuario logueado.
+    Para roles 1 y 5, acepta revisor_id para ver ICS de otro revisor.
     """
-    usuario_id = user_session.get("id")
+    usuario_id = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         detalle = db.obtener_detalle_ics(id_ics=id_ics, usuario_id=usuario_id)
     if not detalle:
@@ -544,6 +678,8 @@ class ObjecionCompletaPayload(BaseModel):
     id_accion:           Optional[int]   = None
     id_justificacion:    Optional[int]   = None
     nota_objecion:       Optional[str]   = None
+    ticket_sirci:        Optional[str]   = None   # solo motivo nota "SIRCI con ticket" (id=20)
+    novedad_ticket:      Optional[str]   = None   # solo motivo nota "SIRCI con ticket" (id=20)
     tiempo_objecion_seg: Optional[int]   = None
     pdf_base64:          Optional[str]   = None   # PDF generado en frontend, codificado en base64
 
@@ -589,6 +725,8 @@ def guardar_objecion_completa(
                 nota_objecion=payload.nota_objecion,
                 tiempo_objecion_seg=payload.tiempo_objecion_seg,
                 ruta_reporte=ruta_reporte,
+                ticket_sirci=(payload.ticket_sirci or "").strip()[:10] or None,
+                novedad_ticket=(payload.novedad_ticket or "").strip() or None,
             )
         return {"ok": True, "msg": "Objeción guardada correctamente", "ruta_reporte": ruta_reporte}
     except ValueError as e:
@@ -612,6 +750,55 @@ def detalle_objecion_guardada(
     with GestionSneObjecion() as db:
         detalle = db.obtener_detalle_objecion_guardada(id_ics=id_ics)
     return {"ok": True, "data": dict(detalle) if detalle else None}
+
+# =====================================================================
+# API: ELIMINAR OBJECIÓN GUARDADA
+# DELETE /sne/api/registros/{id_ics}/objecion
+# =====================================================================
+@router_sne_objecion.delete("/api/registros/{id_ics}/objecion")
+def eliminar_objecion(
+    id_ics: int,
+    user_session: dict = Depends(require_session),
+):
+    """
+    Elimina la objeción de un ICS. Solo permitido si fecha_cierre_dp >= ahora (Bogotá).
+    1. Elimina el registro de sne.objecion_guardada.
+    2. Borra el PDF del blob storage.
+    3. Actualiza sne.gestion_sne: estado_objecion=0, usuario_objeta=NULL, fecha_hora_objecion=NULL.
+    """
+    try:
+        with GestionSneObjecion() as db:
+            db.cursor.execute(
+                "SELECT fecha_cierre_dp FROM sne.gestion_sne WHERE id_ics = %s",
+                (id_ics,),
+            )
+            row = db.cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"ICS {id_ics} no encontrado")
+
+            fcp = row.get("fecha_cierre_dp")
+            ahora = datetime.now(_TZ_BOGOTA)
+            if fcp is not None:
+                fcp_tz = fcp.replace(tzinfo=_TZ_BOGOTA) if fcp.tzinfo is None else fcp
+                if fcp_tz < ahora:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="No se puede eliminar: la Fecha Fin DP ya venció.",
+                    )
+
+            ruta_reporte = db.eliminar_objecion(id_ics=id_ics)
+
+            if ruta_reporte:
+                try:
+                    db.eliminar_blob_objecion(ruta_reporte)
+                except Exception as e:
+                    print(f"[SNE] Error eliminando blob {ruta_reporte}: {e}")
+
+        return {"ok": True, "msg": "Objeción eliminada correctamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar objeción: {str(e)}")
 
 # =====================================================================
 # API: SERVIR PDF INFORME OBJECIÓN DESDE BLOB STORAGE
@@ -654,14 +841,15 @@ def servir_informe_objecion(
 # =====================================================================
 @router_sne_objecion.get("/api/dashboard/registros")
 def dashboard_registros(
-    fecha_ini: Optional[str] = None,
-    fecha_fin: Optional[str] = None,
-    id_linea:  Optional[int] = None,
-    id_cop:    Optional[int] = None,
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """Conteo diario de IDs Asignados vs Revisados para gráfica de líneas."""
-    uid = user_session.get("id")
+    uid = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         rows = db.dashboard_comportamiento_registros(uid, fecha_ini, fecha_fin, id_linea, id_cop)
     result = []
@@ -674,14 +862,15 @@ def dashboard_registros(
 
 @router_sne_objecion.get("/api/dashboard/kilometros")
 def dashboard_kilometros(
-    fecha_ini: Optional[str] = None,
-    fecha_fin: Optional[str] = None,
-    id_linea:  Optional[int] = None,
-    id_cop:    Optional[int] = None,
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """Suma diaria de km_revision vs km_objetado para gráfica de líneas."""
-    uid = user_session.get("id")
+    uid = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         rows = db.dashboard_comportamiento_km(uid, fecha_ini, fecha_fin, id_linea, id_cop)
     result = []
@@ -694,28 +883,30 @@ def dashboard_kilometros(
 
 @router_sne_objecion.get("/api/dashboard/motivos")
 def dashboard_motivos(
-    fecha_ini: Optional[str] = None,
-    fecha_fin: Optional[str] = None,
-    id_linea:  Optional[int] = None,
-    id_cop:    Optional[int] = None,
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """Distribución de km_revision por motivo y por responsable para polar area."""
-    uid = user_session.get("id")
+    uid = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         data = db.dashboard_distribucion_motivos(uid, fecha_ini, fecha_fin, id_linea, id_cop)
     return {"ok": True, "data": data}
 
 @router_sne_objecion.get("/api/dashboard/rutas")
 def dashboard_rutas(
-    fecha_ini: Optional[str] = None,
-    fecha_fin: Optional[str] = None,
-    id_linea:  Optional[int] = None,
-    id_cop:    Optional[int] = None,
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """Datos por año/mes/ruta para scatter chart y tabla detalle."""
-    uid = user_session.get("id")
+    uid = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         rows = db.dashboard_por_ruta(uid, fecha_ini, fecha_fin, id_linea, id_cop)
     result = []
@@ -724,33 +915,141 @@ def dashboard_rutas(
         v  = int(r["ids_revisados"] or 0)
         kr = float(r["km_revision"] or 0)
         ko = float(r["km_objetado"] or 0)
+        ka = float(r["km_aceptado"] or 0)
         result.append({
             "anio": r["anio"], "mes": r["mes"], "ruta_comercial": r["ruta_comercial"],
             "ids_asignados": a, "ids_revisados": v,
             "pct_cump_ids": round(v / a * 100, 1) if a else 0.0,
             "km_revision": round(kr, 3), "km_objetado": round(ko, 3),
             "pct_cump_km": round(ko / kr * 100, 1) if kr else 0.0,
+            "km_aceptado": round(ka, 3),
+            "pct_exito": round(ka / ko * 100, 1) if ko else 0.0,
+        })
+    return {"ok": True, "data": result}
+
+@router_sne_objecion.get("/api/dashboard/kilometros-aceptados")
+def dashboard_kilometros_aceptados(
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    revisor_id: Optional[int] = None,
+    user_session: dict = Depends(require_session),
+):
+    """Suma diaria de km_objetado vs km_aceptado."""
+    uid = _resolve_uid(user_session, revisor_id)
+    with GestionSneObjecion() as db:
+        rows = db.dashboard_comportamiento_km_aceptado(uid, fecha_ini, fecha_fin, id_linea, id_cop)
+    result = []
+    for r in rows:
+        ko = float(r["km_objetado"] or 0)
+        ka = float(r["km_aceptado"] or 0)
+        result.append({
+            "fecha": r["fecha"],
+            "km_objetado": round(ko, 3),
+            "km_aceptado": round(ka, 3),
+            "pct_cump": round(ka / ko * 100, 1) if ko else 0.0,
+        })
+    return {"ok": True, "data": result}
+
+@router_sne_objecion.get("/api/dashboard/exito-objecion")
+def dashboard_exito_objecion(
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    revisor_id: Optional[int] = None,
+    user_session: dict = Depends(require_session),
+):
+    """Suma diaria de km_revision vs km_aceptado para Éxito de Objeción Contundente."""
+    uid = _resolve_uid(user_session, revisor_id)
+    with GestionSneObjecion() as db:
+        rows = db.dashboard_exito_objecion(uid, fecha_ini, fecha_fin, id_linea, id_cop)
+    result = []
+    for r in rows:
+        kr = float(r["km_revision"] or 0)
+        ka = float(r["km_aceptado"] or 0)
+        result.append({
+            "fecha": r["fecha"],
+            "km_revision": round(kr, 3),
+            "km_aceptado": round(ka, 3),
+            "pct_cump": round(ka / kr * 100, 1) if kr else 0.0,
+        })
+    return {"ok": True, "data": result}
+
+@router_sne_objecion.get("/api/dashboard/estimacion-ingresos")
+def dashboard_estimacion_ingresos(
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    revisor_id: Optional[int] = None,
+    user_session: dict = Depends(require_session),
+):
+    """Estimación diaria de ingresos: $$ km_objetado y $$ km_aceptado × tarifa por bus y fecha."""
+    uid = _resolve_uid(user_session, revisor_id)
+    with GestionSneObjecion() as db:
+        rows = db.dashboard_estimacion_ingresos(uid, fecha_ini, fecha_fin, id_linea, id_cop)
+    result = []
+    for r in rows:
+        io = float(r["ingresos_objetado"] or 0)
+        ia = float(r["ingresos_aceptado"] or 0)
+        result.append({
+            "fecha": r["fecha"],
+            "ingresos_objetado": round(io, 0),
+            "ingresos_aceptado": round(ia, 0),
+            "pct_cump": round(ia / io * 100, 1) if io else 0.0,
         })
     return {"ok": True, "data": result}
 
 @router_sne_objecion.get("/api/dashboard/meta")
 def dashboard_meta(
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """Última fecha con asignaciones del usuario y primer día de ese mes (defaults dashboard)."""
-    uid = user_session.get("id")
+    uid = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         data = db.dashboard_meta_fechas(uid)
     return {"ok": True, "data": data}
 
+# =====================================================================
+# API: REPORTE SNE GESTIONADO (filtrado por revisor = usuario logueado)
+# =====================================================================
+@router_sne_objecion.get("/api/reporte/sne-gestionado")
+def reporte_sne_gestionado_usuario(
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    id_linea:   Optional[int] = None,
+    id_cop:     Optional[int] = None,
+    zona:       Optional[str] = None,
+    componente: Optional[str] = None,
+    revisor_id: Optional[int] = None,
+    user_session: dict = Depends(require_session),
+):
+    """
+    Reporte SNE Gestionado filtrado al usuario logueado (gs.revisor = usuario_id).
+    Mismo contenido que el reporte global del monitor pero acotado al revisor en sesión.
+    """
+    usuario_id = _resolve_uid(user_session, revisor_id)
+    with GestionSneMonitor() as db:
+        rows = db.reporte_sne_gestionado(
+            fecha_ini=fecha_ini, fecha_fin=fecha_fin,
+            id_linea=id_linea, id_cop=id_cop,
+            zona=zona, componente=componente,
+            revisor_id=usuario_id,
+        )
+    return {"ok": True, "total": len(rows), "data": rows}
+
 @router_sne_objecion.get("/api/dashboard/rutas-filtro")
 def dashboard_rutas_filtro(
-    fecha_ini: Optional[str] = None,
-    fecha_fin: Optional[str] = None,
+    fecha_ini:  Optional[str] = None,
+    fecha_fin:  Optional[str] = None,
+    revisor_id: Optional[int] = None,
     user_session: dict = Depends(require_session),
 ):
     """Rutas comerciales disponibles para el usuario en el rango dado (select del dashboard)."""
-    uid = user_session.get("id")
+    uid = _resolve_uid(user_session, revisor_id)
     with GestionSneObjecion() as db:
         rows = db.dashboard_rutas_disponibles(uid, fecha_ini, fecha_fin)
     return {"ok": True, "data": rows}

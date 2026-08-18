@@ -1,5 +1,7 @@
 import os
-from fastapi import APIRouter, Request, Form, Depends, HTTPException
+import json
+import tempfile
+from fastapi import APIRouter, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import List, Optional
@@ -8,9 +10,11 @@ from werkzeug.security import generate_password_hash
 # Importar modelos y controladores necesarios
 from lib.cambiar_contrasena import cambiar_contrasena_post
 from lib.pantallas_menu import get_pantallas_menu
-from model.gestion_usuarios import GestionUsuarios, HandleDB, CargueLicenciasBI, Cargue_Roles_Blob_Storage
+from model.gestion_usuarios import GestionUsuarios, HandleDB, CargueLicenciasBI, Cargue_Roles_Blob_Storage, DesactivarRetirados
 from model.gestion_roles_powerbi import ModeloRolesPowerBI
+from model.gestion_roles_bi import ModeloRolesBi
 from model.gestion_checklist import Proceso_flota_asistencia
+from model.gestion_estado_bitacora_mtto import ConfiguracionUsuarioBitacora
 
 # ─────────────────────────────────────────────
 # Configuración
@@ -63,19 +67,29 @@ def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
     roles_powerbi_raw = modelo_pbi.obtener_todos_roles()  # [(id, nombre, ids_csv, estado)]
     roles_powerbi = [(r[0], r[1]) for r in roles_powerbi_raw if r[3] == 1]
 
+    # >>> : listar roles Business Intelligence activos (id, nombre)
+    roles_bi_raw = ModeloRolesBi().obtener_todos_roles()   # [(id, nombre, graficas_csv, estado)]
+    roles_bi = [(r[0], r[1]) for r in roles_bi_raw if r[3] == 1]
+
     # >>> : listar procesos y subprocesos asignados a la flota de asistencia técnica (Checklist y Preoperacionales)
     gestor_flota = Proceso_flota_asistencia()
     procesos = gestor_flota.listar_procesos()   # [(id, proceso, subproceso)]
     gestor_flota.close()
 
+    # >>> : COP disponibles para la Bitácora de Mantenimiento (cascada componente/zona/COP)
+    with ConfiguracionUsuarioBitacora() as cfg:
+        cops_bitacora = cfg.arbol_cops()
+
     return templates.TemplateResponse("registrarse.html", {
-        "request": req,
+        "request":      req,
         "user_session": user_session,
-        "roles": roles,
+        "roles":        roles,
         "roles_storage": roles_storage,
-        "usuarios": usuarios,
+        "usuarios":     usuarios,
         "roles_powerbi": roles_powerbi,
-        "procesos": procesos,  
+        "roles_bi":     roles_bi,
+        "procesos":     procesos,
+        "cops_bitacora": cops_bitacora,
     })
 
 @router_usuarios.get("/registrarse/{user_id}/datos")
@@ -88,38 +102,51 @@ async def get_user_data(user_id: int):
     gestor_flota = Proceso_flota_asistencia()
     procesos_ids = gestor_flota.obtener_ids_procesos_usuario(user_id)  # 👈
     gestor_flota.close()
+
+    # >>> : parametrización del módulo de Bitácora de Mantenimiento
+    with ConfiguracionUsuarioBitacora() as cfg:
+        config_bitacora = cfg.configuracion_usuario(user_id)
     
     return JSONResponse(content={
-        "id": user["id"],
-        "nombres": user["nombres"],
-        "apellidos": user["apellidos"],
-        "username": user["username"],
-        "rol": user["rol"],
-        "estado": user["estado"],
-        "rol_storage": user["rol_storage"],
-        "rol_powerbi": user.get("rol_powerbi", 0),
-        "procesos_asignados": procesos_ids, # Flota de asistencia técnica (Checklist y Preoperacionales)
+        "id":               user["id"],
+        "nombres":          user["nombres"],
+        "apellidos":        user["apellidos"],
+        "username":         user["username"],
+        "rol":              user["rol"],
+        "estado":           user["estado"],
+        "rol_storage":      user["rol_storage"],
+        "rol_powerbi":      user.get("rol_powerbi", 0),
+        "rol_bi":           user.get("rol_bi", 0),
+        "procesos_asignados": procesos_ids,
+        "cops_bitacora": config_bitacora["cops"],
+        "permite_fecha_retroactiva": config_bitacora["permite_fecha_retroactiva"],
     })
 
 @router_usuarios.post("/registrarse", response_class=HTMLResponse)
 def registrarse_post(req: Request, nombres: str = Form(...), apellidos: str = Form(...),
                     username: str = Form(...), rol: int = Form(...),
-                    rol_storage: int = Form(...), rol_powerbi: int = Form(0), password_user: str = Form(...), 
-                    procesos_asignados: List[int] = Form(default=[]), user_session: dict = Depends(get_user_session)):
+                    rol_storage: int = Form(...), rol_powerbi: int = Form(0),
+                    rol_bi: int = Form(0), password_user: str = Form(...),
+                    procesos_asignados: List[int] = Form(default=[]),
+                    cops_bitacora: List[int] = Form(default=[]),
+                    permite_fecha_retroactiva: int = Form(0),
+                    user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
-    
-    # Si no se selecciona un rol de storage o powerbi, guardar "0"
+
+    # Si no se selecciona un rol, guardar 0
     rol_storage = rol_storage if rol_storage != 0 else 0
     rol_powerbi = rol_powerbi if rol_powerbi != 0 else 0
+    rol_bi      = rol_bi      if rol_bi      != 0 else 0
 
     data_user = {
-        "nombres": nombres,
-        "apellidos": apellidos,
-        "username": username,
-        "rol": rol,
-        "rol_storage": rol_storage,
-        "rol_powerbi": rol_powerbi,
+        "nombres":      nombres,
+        "apellidos":    apellidos,
+        "username":     username,
+        "rol":          rol,
+        "rol_storage":  rol_storage,
+        "rol_powerbi":  rol_powerbi,
+        "rol_bi":       rol_bi,
         "password_user": password_user,
         "estado": 1
     }
@@ -134,6 +161,12 @@ def registrarse_post(req: Request, nombres: str = Form(...), apellidos: str = Fo
         if user_id:
             gestor_flota.reemplazar_asignaciones(user_id, procesos_asignados or [])
         gestor_flota.close()
+
+        # Parametrización del módulo de Bitácora de Mantenimiento
+        if user_id:
+            with ConfiguracionUsuarioBitacora() as cfg:
+                cfg.reemplazar_cops(user_id, cops_bitacora or [])
+                cfg.guardar_config(user_id, bool(permite_fecha_retroactiva))
         # Establecer una cookie con el mensaje de éxito
         response = RedirectResponse(url="/registrarse", status_code=303)
         response.set_cookie(key="success_message", value="Usuario creado correctamente.", max_age=5)
@@ -168,10 +201,23 @@ async def editar_usuario(id: int, request: Request, user_data: dict = Depends(ge
         # Verificamos si se seleccionó un rol de powerbi
         rol_powerbi = form_data_dict.get("rol_powerbi", "0")
         form_data_dict["rol_powerbi"] = int(rol_powerbi) if rol_powerbi != "0" else 0
-        
+
+        # Verificamos si se seleccionó un rol de Business Intelligence
+        rol_bi = form_data_dict.get("rol_bi", "0")
+        form_data_dict["rol_bi"] = int(rol_bi) if rol_bi != "0" else 0
+
         # procesos_asignados[] (puede venir vacío = No Asignar)
         procesos_asignados = form_data.getlist("procesos_asignados[]") if hasattr(form_data, "getlist") else []
         procesos_asignados = [int(x) for x in procesos_asignados] if procesos_asignados else []
+
+        # cops_bitacora[] (puede venir vacío = sin COP asignados)
+        cops_bitacora = form_data.getlist("cops_bitacora[]") if hasattr(form_data, "getlist") else []
+        cops_bitacora = [int(x) for x in cops_bitacora] if cops_bitacora else []
+        permite_retro = str(form_data.get("permite_fecha_retroactiva", "0")) in ("1", "on", "true")
+
+        # Estos campos no pertenecen a la tabla usuarios
+        form_data_dict.pop("cops_bitacora[]", None)
+        form_data_dict.pop("permite_fecha_retroactiva", None)
 
         # Llama a la función para actualizar el usuario en la base de datos
         db.update_user(id, form_data_dict)
@@ -180,6 +226,11 @@ async def editar_usuario(id: int, request: Request, user_data: dict = Depends(ge
         gestor_flota = Proceso_flota_asistencia()
         gestor_flota.reemplazar_asignaciones(id, procesos_asignados)
         gestor_flota.close()
+
+        # Parametrización del módulo de Bitácora de Mantenimiento
+        with ConfiguracionUsuarioBitacora() as cfg:
+            cfg.reemplazar_cops(id, cops_bitacora)
+            cfg.guardar_config(id, permite_retro)
         
         # Crear respuesta de redirección con una cookie que contenga el mensaje de éxito
         response = RedirectResponse(url="/registrarse", status_code=303)
@@ -197,18 +248,26 @@ async def editar_usuario(id: int, request: Request, user_data: dict = Depends(ge
 async def inactivate_user(id: int, request: Request, user_data: dict = Depends(get_user_session)):
     try:
         db.inactivate_user(id)
-
-        # Crear respuesta de redirección con una cookie que contenga el mensaje de éxito
         response = RedirectResponse(url="/registrarse", status_code=303)
         response.set_cookie(key="success_message", value="Usuario inactivado correctamente.", max_age=5)
         return response
-        
     except Exception as e:
-        return templates.TemplateResponse("registrarse.html", {
-            "request": request,
-            "user_session": user_data,
-            "error_message": f"Error al inactivar el usuario: {str(e)}"
-        })
+        response = RedirectResponse(url="/registrarse", status_code=303)
+        response.set_cookie(key="error_message", value=f"Error al inactivar: {str(e)}", max_age=5)
+        return response
+
+
+@router_usuarios.post("/registrarse/{id}/activar")
+async def activate_user(id: int, request: Request, user_data: dict = Depends(get_user_session)):
+    try:
+        db.activate_user(id)
+        response = RedirectResponse(url="/registrarse", status_code=303)
+        response.set_cookie(key="success_message", value="Usuario activado correctamente.", max_age=5)
+        return response
+    except Exception as e:
+        response = RedirectResponse(url="/registrarse", status_code=303)
+        response.set_cookie(key="error_message", value=f"Error al activar: {str(e)}", max_age=5)
+        return response
 
 @router_usuarios.get("/pantallas_permitidas", response_class=JSONResponse)
 def obtener_pantallas_permitidas(req: Request, user_session: dict = Depends(get_user_session)):
@@ -225,6 +284,56 @@ def obtener_pantallas_permitidas(req: Request, user_session: dict = Depends(get_
         return JSONResponse({"error": "No hay pantallas asignadas para el rol"}, status_code=404)
 
     return JSONResponse({"pantallas": pantallas_permitidas}, status_code=200)
+
+# =====================================================================
+# CARGA MASIVA DE PERSONAL RETIRADO
+# =====================================================================
+@router_usuarios.post("/cargar_retirados")
+async def cargar_retirados(
+    request: Request,
+    file: UploadFile = File(...),
+    user_session: dict = Depends(get_user_session),
+):
+    """
+    Recibe un Excel con columna CEDULA, busca esas cédulas en la tabla
+    public.usuarios y pone estado = 0 a los que se encuentren activos.
+    """
+    if not user_session:
+        return JSONResponse({"error": "Sesión no válida. Inicie sesión."}, status_code=401)
+
+    if not file.filename.endswith(".xlsx"):
+        return JSONResponse({"error": "El archivo debe ser .xlsx"}, status_code=400)
+
+    # Guardar el archivo en un temporal y procesarlo
+    try:
+        contenido = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(contenido)
+            ruta_tmp = tmp.name
+
+        resultado = DesactivarRetirados().procesar(ruta_tmp)
+
+        desactivados   = resultado["desactivados"]
+        no_encontrados = resultado["no_encontrados"]
+        total          = resultado["total_cedulas"]
+
+        return JSONResponse({
+            "total_cedulas":    total,
+            "desactivados":     len(desactivados),
+            "no_encontrados":   len(no_encontrados),
+            "lista_desactivados":   desactivados,
+            "lista_no_encontrados": no_encontrados,
+        })
+
+    except ValueError as ve:
+        return JSONResponse({"error": str(ve)}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": f"Error al procesar el archivo: {str(e)}"}, status_code=500)
+    finally:
+        try:
+            os.remove(ruta_tmp)
+        except Exception:
+            pass
 
 # =====================================================================
 # CAMBIO DE CONTRASEÑA POR EL USUARIO LOGUEADO
@@ -370,6 +479,7 @@ def get_roles_storage(req: Request, user_session: dict = Depends(get_user_sessio
 
     # Obtener roles storage desde la base de datos
     roles_storage = storage_db.get_all_roles_storage()
+    resumen_acciones = storage_db.get_resumen_acciones_por_rol()
 
     # Verificar si hay un mensaje de éxito o error en la URL
     success_message = None
@@ -386,39 +496,42 @@ def get_roles_storage(req: Request, user_session: dict = Depends(get_user_sessio
         "user_session": user_session,
         "containers": contenedores_disponibles,
         "roles_storage": roles_storage,
+        "resumen_acciones": resumen_acciones,
         "success_message": success_message,
         "error_message": error_message
     })
+
+def _parsear_permisos_json(permisos_json: str) -> dict:
+    """Parsea y valida el JSON {contenedor: {ver,editar,descargar,eliminar,cargar}} enviado por el formulario."""
+    try:
+        permisos = json.loads(permisos_json) if permisos_json else {}
+    except (TypeError, ValueError):
+        raise ValueError("El formato de permisos enviado no es válido")
+    if not isinstance(permisos, dict) or not permisos:
+        raise ValueError("Debe seleccionar al menos un contenedor")
+    return permisos
 
 # Crear nuevo rol de storage
 @router_usuarios.post("/roles_storage", response_class=HTMLResponse)
 async def add_role_storage(
     req: Request,
     role_storage_name: str = Form(...),
-    containers: list = Form(...),
-    accion_ver: Optional[str] = Form(None),
-    accion_editar: Optional[str] = Form(None),
-    accion_descargar: Optional[str] = Form(None),
-    accion_eliminar: Optional[str] = Form(None),
-    accion_cargar: Optional[str] = Form(None),
+    permisos_json: str = Form(...),
 ):
     try:
         # Validaciones
         if not role_storage_name.strip():
             return RedirectResponse(url="/roles_storage?error=Debe ingresar un nombre para el rol", status_code=303)
 
-        if not containers or len(containers) == 0:
-            return RedirectResponse(url="/roles_storage?error=Debe seleccionar al menos un contenedor", status_code=303)
+        try:
+            permisos_por_contenedor = _parsear_permisos_json(permisos_json)
+        except ValueError as e:
+            return RedirectResponse(url=f"/roles_storage?error={str(e)}", status_code=303)
 
         # Inserta el nuevo rol en la base de datos
         storage_db.insert_roles_storage({
             "nombre_rol_storage": role_storage_name,
-            "contenedores_asignados": containers,
-            "accion_ver": accion_ver == "on",
-            "accion_editar": accion_editar == "on",
-            "accion_descargar": accion_descargar == "on",
-            "accion_eliminar": accion_eliminar == "on",
-            "accion_cargar": accion_cargar == "on",
+            "permisos_por_contenedor": permisos_por_contenedor,
         })
 
         return RedirectResponse(url="/roles_storage?success=1", status_code=303)
@@ -443,30 +556,20 @@ async def update_role_storage(
     req: Request,
     role_storage_id: int,
     role_storage_name: str = Form(...),
-    containers: list = Form(...),
-    accion_ver: Optional[str] = Form(None),
-    accion_editar: Optional[str] = Form(None),
-    accion_descargar: Optional[str] = Form(None),
-    accion_eliminar: Optional[str] = Form(None),
-    accion_cargar: Optional[str] = Form(None),
+    permisos_json: str = Form(...),
 ):
     try:
         # Validaciones
         if not role_storage_name.strip():
             return RedirectResponse(url="/roles_storage?error=Debe ingresar un nombre para el rol", status_code=303)
 
-        if not containers or len(containers) == 0:
-            return RedirectResponse(url="/roles_storage?error=Debe seleccionar al menos un contenedor", status_code=303)
+        try:
+            permisos_por_contenedor = _parsear_permisos_json(permisos_json)
+        except ValueError as e:
+            return RedirectResponse(url=f"/roles_storage?error={str(e)}", status_code=303)
 
         # Actualizar el rol en la base de datos
-        storage_db.update_role_storage(
-            role_storage_id, role_storage_name, containers,
-            accion_ver=accion_ver == "on",
-            accion_editar=accion_editar == "on",
-            accion_descargar=accion_descargar == "on",
-            accion_eliminar=accion_eliminar == "on",
-            accion_cargar=accion_cargar == "on",
-        )
+        storage_db.update_role_storage(role_storage_id, role_storage_name, permisos_por_contenedor)
 
         return RedirectResponse(url="/roles_storage?success=2", status_code=303)
 

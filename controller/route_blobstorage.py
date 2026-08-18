@@ -37,18 +37,34 @@ def get_containers(req: Request, user_session: dict = Depends(get_user_session))
         )
 
     allowed_containers = container_model.get_allowed_containers(user_rol_storage)
-    acciones_permitidas = container_model.get_acciones_permitidas(user_rol_storage)
+    acciones_por_contenedor = container_model.get_acciones_permitidas_todos(user_rol_storage)
+
+    # Agregado: ¿algún contenedor asignado permite esta acción? Decide si se
+    # renderiza el scaffold estático (zona de carga, botones masivos); el
+    # gating fino por contenedor lo hace el JS en el cliente.
+    acciones_keys = ("ver", "editar", "descargar", "eliminar", "cargar")
+    acciones_alguno = {
+        k: any(acciones.get(k) for acciones in acciones_por_contenedor.values())
+        for k in acciones_keys
+    }
+
     context = {
-        "request":            req,
-        "user_session":       user_session,
-        "containers":         allowed_containers,
-        "acciones_permitidas": acciones_permitidas,
+        "request":               req,
+        "user_session":          user_session,
+        "containers":            allowed_containers,
+        "acciones_por_contenedor": acciones_por_contenedor,
+        "acciones_alguno":       acciones_alguno,
     }
     return templates.TemplateResponse("containers.html", context)
 
+ROLES_STORAGE_PUEDEN_CREAR_CONTENEDOR = (1, 2)
+
 @router_blobstorage.post("/containers")
-async def create_container(data: dict):
-    """Crea un nuevo contenedor en Azure Blob Storage."""
+async def create_container(data: dict, user_session: dict = Depends(get_user_session)):
+    """Crea un nuevo contenedor en Azure Blob Storage. Restringido a id_rol_storage 1 y 2."""
+    user_rol_storage = (user_session or {}).get("rol_storage")
+    if user_rol_storage not in ROLES_STORAGE_PUEDEN_CREAR_CONTENEDOR:
+        raise HTTPException(status_code=403, detail="No tiene permiso para crear contenedores")
     name = data.get("name")
     if not name:
         raise HTTPException(status_code=400, detail="El nombre del contenedor es requerido")
@@ -100,7 +116,7 @@ async def upload_file(req: Request, container_name: str, path: str = "",
                       user_session: dict = Depends(get_user_session)):
     """Sube un archivo al contenedor. Invalida el caché automáticamente."""
     user_rol_storage = (user_session or {}).get("rol_storage")
-    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    acciones = container_model.get_acciones_permitidas(user_rol_storage, container_name)
     if not acciones.get("cargar"):
         raise HTTPException(status_code=403, detail="No tiene permiso para cargar archivos")
     try:
@@ -125,7 +141,7 @@ def download_file(req: Request, container_name: str, file_path: str,
         para mostrar la barra de progreso real
     """
     user_rol_storage = (user_session or {}).get("rol_storage")
-    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    acciones = container_model.get_acciones_permitidas(user_rol_storage, container_name)
     if not acciones.get("descargar"):
         raise HTTPException(status_code=403, detail="No tiene permiso para descargar archivos")
     try:
@@ -152,7 +168,7 @@ def delete_file(req: Request, container_name: str, file_name: str,
                 user_session: dict = Depends(get_user_session)):
     """Elimina un archivo del contenedor. Invalida el caché automáticamente."""
     user_rol_storage = (user_session or {}).get("rol_storage")
-    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    acciones = container_model.get_acciones_permitidas(user_rol_storage, container_name)
     if not acciones.get("eliminar"):
         raise HTTPException(status_code=403, detail="No tiene permiso para eliminar archivos")
     try:
@@ -178,7 +194,7 @@ def preview_excel(
     El browser NUNCA descarga el binario completo — solo recibe JSON.
     """
     user_rol_storage = (user_session or {}).get("rol_storage")
-    acciones = container_model.get_acciones_permitidas(user_rol_storage)
+    acciones = container_model.get_acciones_permitidas(user_rol_storage, container_name)
     if not acciones.get("ver"):
         raise HTTPException(status_code=403, detail="No tiene permiso para visualizar archivos")
     try:
@@ -196,3 +212,60 @@ def invalidate_cache(container_name: str):
     """
     container_model._cache_invalidate(container_name)
     return {"message": f"Caché del contenedor '{container_name}' invalidado"}
+
+@router_blobstorage.get("/containers/{container_name}/browse")
+def browse_prefix(container_name: str, prefix: str = ""):
+    """
+    Lista solo los hijos directos de un prefijo (un nivel del árbol).
+    Usado por el frontend para la navegación lazy — evita cargar todo el contenedor.
+    """
+    try:
+        result = container_model.browse_prefix(container_name, prefix)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router_blobstorage.get("/containers/{container_name}/blobs/{blob_path:path}/preview-csv")
+def preview_csv(
+    req: Request,
+    container_name: str,
+    blob_path: str,
+    page:  int = 1,
+    limit: int = 300,
+    user_session: dict = Depends(get_user_session),
+):
+    """Preview paginado de archivos CSV. Retorna filas como JSON sin descargar el binario al browser."""
+    user_rol_storage = (user_session or {}).get("rol_storage")
+    acciones = container_model.get_acciones_permitidas(user_rol_storage, container_name)
+    if not acciones.get("ver"):
+        raise HTTPException(status_code=403, detail="No tiene permiso para visualizar archivos")
+    try:
+        decoded_path = unquote(blob_path)
+        result = container_model.preview_csv(container_name, decoded_path, page, limit)
+        return JSONResponse(content=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router_blobstorage.post("/containers/{container_name}/blobs/{blob_path:path}/save-table")
+async def save_table(
+    req: Request,
+    container_name: str,
+    blob_path: str,
+    user_session: dict = Depends(get_user_session),
+):
+    """
+    Guarda una tabla editada (xlsx o csv) enviada como JSON desde el frontend.
+    Body: { sheets: [{name, headers, rows}] }
+    """
+    user_rol_storage = (user_session or {}).get("rol_storage")
+    acciones = container_model.get_acciones_permitidas(user_rol_storage, container_name)
+    if not acciones.get("editar"):
+        raise HTTPException(status_code=403, detail="No tiene permiso para editar archivos")
+    try:
+        body        = await req.json()
+        sheets      = body.get("sheets", [])
+        decoded_path = unquote(blob_path)
+        container_model.save_table(container_name, decoded_path, sheets)
+        return {"message": f"Archivo '{decoded_path}' guardado exitosamente"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
