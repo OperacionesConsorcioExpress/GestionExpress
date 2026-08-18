@@ -4,98 +4,170 @@
 
 {% block head %}
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 <style>
-    @keyframes spinA        { to{transform:rotate(360deg);} }
-    @keyframes progressAnim { 0%{opacity:.35}50%{opacity:1}100%{opacity:.35} }
-    @keyframes slideInToast { from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)} }
+    @keyframes spinA {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes progressAnim {
+        0% {
+            opacity: .35
+        }
+
+        50% {
+            opacity: 1
+        }
+
+        100% {
+            opacity: .35
+        }
+    }
+
+    @keyframes slideInToast {
+        from {
+            opacity: 0;
+            transform: translateX(28px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0)
+        }
+    }
 
     /* ── Scrollbar contenedores y árbol ── */
     #containerList::-webkit-scrollbar,
-    #fileTree::-webkit-scrollbar { width:5px; }
+    #fileTree::-webkit-scrollbar {
+        width: 5px;
+    }
+
     #containerList::-webkit-scrollbar-track,
-    #fileTree::-webkit-scrollbar-track { background:transparent; }
+    #fileTree::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
     #containerList::-webkit-scrollbar-thumb,
-    #fileTree::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+    #fileTree::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 
-    <!-- ═══════════════════════════════════════
+<!-- ═══════════════════════════════════════
         OVERLAY DE CARGA + BOTÓN CANCELAR
     ═══════════════════════════════════════ -->
-    <div id="loadingOverlay" style="display:none; position:fixed; inset:0; background:rgba(248,249,250,0.9); backdrop-filter:blur(4px); z-index:2000; justify-content:center; align-items:center; flex-direction:column; gap:16px;">
-    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:28px 36px; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.1); min-width:300px; max-width:360px; width:90%;">
+<div id="loadingOverlay"
+    style="display:none; position:fixed; inset:0; background:rgba(248,249,250,0.9); backdrop-filter:blur(4px); z-index:2000; justify-content:center; align-items:center; flex-direction:column; gap:16px;">
+    <div
+        style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:28px 36px; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.1); min-width:300px; max-width:360px; width:90%;">
         <div style="position:relative; width:52px; height:52px; margin:0 auto 14px;">
-        <div style="position:absolute; inset:0; border:4px solid #e2e8f0; border-top-color:#0d6efd; border-radius:50%; animation:spinA 0.75s linear infinite;"></div>
-        <div style="position:absolute; inset:8px; border:3px solid #e2e8f0; border-bottom-color:#0b5ed7; border-radius:50%; animation:spinA 1.1s linear infinite reverse;"></div>
+            <div
+                style="position:absolute; inset:0; border:4px solid #e2e8f0; border-top-color:#0d6efd; border-radius:50%; animation:spinA 0.75s linear infinite;">
+            </div>
+            <div
+                style="position:absolute; inset:8px; border:3px solid #e2e8f0; border-bottom-color:#0b5ed7; border-radius:50%; animation:spinA 1.1s linear infinite reverse;">
+            </div>
         </div>
-        <p id="loaderMsg" style="margin:0 0 3px; font-family:'Century Gothic',Arial,sans-serif; font-size:13px; font-weight:700; color:#0d6efd; letter-spacing:1.5px;">PROCESANDO...</p>
-        <p id="loaderSub" style="margin:0 0 12px; font-size:11px; color:#94a3b8; font-family:'Century Gothic',Arial,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Por favor espere</p>
+        <p id="loaderMsg"
+            style="margin:0 0 3px; font-family:'Century Gothic',Arial,sans-serif; font-size:13px; font-weight:700; color:#0d6efd; letter-spacing:1.5px;">
+            PROCESANDO...</p>
+        <p id="loaderSub"
+            style="margin:0 0 12px; font-size:11px; color:#94a3b8; font-family:'Century Gothic',Arial,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            Por favor espere</p>
         <!-- Barra de progreso de descarga -->
         <div id="dlProgressWrap" style="display:none; width:100%; margin-bottom:12px;">
-        <div style="background:#e2e8f0; border-radius:6px; height:8px; overflow:hidden; margin-bottom:5px;">
-            <div id="dlProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg,#0d6efd,#0dcaf0); border-radius:6px; transition:width 0.2s ease;"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:10px; color:#64748b; font-family:'Century Gothic',Arial,sans-serif;">
-            <span id="dlProgressPct" style="font-weight:700; color:#0d6efd;">0%</span>
-            <span id="dlProgressBytes">— / —</span>
-        </div>
+            <div style="background:#e2e8f0; border-radius:6px; height:8px; overflow:hidden; margin-bottom:5px;">
+                <div id="dlProgressBar"
+                    style="height:100%; width:0%; background:linear-gradient(90deg,#0d6efd,#0dcaf0); border-radius:6px; transition:width 0.2s ease;">
+                </div>
+            </div>
+            <div
+                style="display:flex; justify-content:space-between; font-size:10px; color:#64748b; font-family:'Century Gothic',Arial,sans-serif;">
+                <span id="dlProgressPct" style="font-weight:700; color:#0d6efd;">0%</span>
+                <span id="dlProgressBytes">— / —</span>
+            </div>
         </div>
         <button id="btnCancelarCarga" onclick="cancelarOperacion()"
-        style="background:#fff; border:1px solid #dc3545; color:#dc3545; border-radius:7px; padding:6px 20px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"
-        onmouseover="this.style.background='#fff5f5'" onmouseout="this.style.background='#fff'">
-        <i class="bi bi-x-circle"></i> Cancelar y volver
+            style="background:#fff; border:1px solid #dc3545; color:#dc3545; border-radius:7px; padding:6px 20px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"
+            onmouseover="this.style.background='#fff5f5'" onmouseout="this.style.background='#fff'">
+            <i class="bi bi-x-circle"></i> Cancelar y volver
         </button>
     </div>
-    </div>
+</div>
 
-    <!-- ═══════════════════════════════════════
+<!-- ═══════════════════════════════════════
         TOASTS
     ═══════════════════════════════════════ -->
-    <div id="toastContainer" style="position:fixed; bottom:20px; right:20px; z-index:3000; display:flex; flex-direction:column; gap:7px;"></div>
+<div id="toastContainer"
+    style="position:fixed; bottom:20px; right:20px; z-index:3000; display:flex; flex-direction:column; gap:7px;"></div>
 
-    <!-- ═══════════════════════════════════════
+<!-- ═══════════════════════════════════════
         MODAL PROPIEDADES
     ═══════════════════════════════════════ -->
-    <div id="propsModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2500; justify-content:center; align-items:center;">
-    <div style="background:#fff; border-radius:12px; width:430px; max-width:95vw; box-shadow:0 20px 50px rgba(0,0,0,0.2); overflow:hidden; font-family:'Century Gothic',Arial,sans-serif;">
-        <div style="background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; padding:0.6rem 1rem; display:flex; align-items:center; justify-content:space-between;">
-        <span style="font-size:0.88rem; font-weight:700;"><i class="bi bi-file-earmark-text"></i>&nbsp;Propiedades del Archivo</span>
-        <button onclick="cerrarModal()" style="background:rgba(255,255,255,0.2); border:none; border-radius:6px; color:#fff; width:26px; height:26px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center;">&times;</button>
+<div id="propsModal"
+    style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2500; justify-content:center; align-items:center;">
+    <div
+        style="background:#fff; border-radius:12px; width:430px; max-width:95vw; box-shadow:0 20px 50px rgba(0,0,0,0.2); overflow:hidden; font-family:'Century Gothic',Arial,sans-serif;">
+        <div
+            style="background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; padding:0.6rem 1rem; display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:0.88rem; font-weight:700;"><i class="bi bi-file-earmark-text"></i>&nbsp;Propiedades
+                del Archivo</span>
+            <button onclick="cerrarModal()"
+                style="background:rgba(255,255,255,0.2); border:none; border-radius:6px; color:#fff; width:26px; height:26px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center;">&times;</button>
         </div>
         <div id="propsBody" style="padding:1rem;"></div>
     </div>
-    </div>
+</div>
 
-    <!-- ═══════════════════════════════════════
+<!-- ═══════════════════════════════════════
         MENÚ CONTEXTUAL
     ═══════════════════════════════════════ -->
-    <div id="contextMenu" style="display:none; position:fixed; z-index:3000; background:#fff; border:1px solid #cbd5e1; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.14); min-width:190px; overflow:hidden; font-family:'Century Gothic',Arial,sans-serif;">
-    <div style="padding:5px 12px; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#94a3b8; border-bottom:1px solid #f1f5f9;">Opciones de carpeta</div>
-    <div id="ctxSetPath"    style="padding:8px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; color:#334155;" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''"><i class="bi bi-folder2-open" style="color:#0d6efd;"></i>Marcar ruta de carga</div>
-    <div id="ctxExpandAll"  style="padding:8px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; color:#334155;" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''"><i class="bi bi-arrows-expand" style="color:#0d6efd;"></i>Expandir todo</div>
-    <div id="ctxCollapseAll" style="padding:8px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; color:#334155;" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''"><i class="bi bi-arrows-collapse" style="color:#0d6efd;"></i>Colapsar todo</div>
-    </div>
+<div id="contextMenu"
+    style="display:none; position:fixed; z-index:3000; background:#fff; border:1px solid #cbd5e1; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.14); min-width:190px; overflow:hidden; font-family:'Century Gothic',Arial,sans-serif;">
+    <div
+        style="padding:5px 12px; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#94a3b8; border-bottom:1px solid #f1f5f9;">
+        Opciones de carpeta</div>
+    <div id="ctxSetPath"
+        style="padding:8px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; color:#334155;"
+        onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''"><i
+            class="bi bi-folder2-open" style="color:#0d6efd;"></i>Marcar ruta de carga</div>
+    <div id="ctxExpandAll"
+        style="padding:8px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; color:#334155;"
+        onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''"><i
+            class="bi bi-arrows-expand" style="color:#0d6efd;"></i>Expandir todo</div>
+    <div id="ctxCollapseAll"
+        style="padding:8px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; color:#334155;"
+        onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''"><i
+            class="bi bi-arrows-collapse" style="color:#0d6efd;"></i>Colapsar todo</div>
+</div>
 
-    <!-- ═══════════════════════════════════════
+<!-- ═══════════════════════════════════════
         PÁGINA PRINCIPAL
     ═══════════════════════════════════════ -->
-    <div style="padding:0.6rem 0.8rem; background:#f8f9fa; min-height:100vh; font-family:'Century Gothic',Arial,sans-serif;">
+<div
+    style="padding:0.6rem 0.8rem; background:#f8f9fa; min-height:100vh; font-family:'Century Gothic',Arial,sans-serif;">
 
     <!-- ENCABEZADO -->
-    <div style="background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; padding:0.55rem 1rem; border-radius:6px; box-shadow:0 2px 8px rgba(13,110,253,0.2); margin-bottom:0.7rem; display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;">
+    <div
+        style="background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; padding:0.55rem 1rem; border-radius:6px; box-shadow:0 2px 8px rgba(13,110,253,0.2); margin-bottom:0.7rem; display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;">
         <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.92rem; font-weight:700; flex-shrink:0;">
-        <i class="bi bi-cloud-fill"></i>&nbsp;Azure Blob Storage
+            <i class="bi bi-cloud-fill"></i>&nbsp;Azure Blob Storage
         </div>
         <div style="font-size:0.78rem; opacity:0.88; flex-shrink:0;">Gestión de archivos y contenedores</div>
         <div style="display:flex; gap:1.2rem; align-items:center; font-size:0.78rem; margin-left:auto; flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:0.3rem;"><i class="bi bi-database"></i>Contenedores:&nbsp;<strong>{{ containers|length }}</strong></span>
-        <span style="display:flex;align-items:center;gap:0.3rem;"><i class="bi bi-files"></i>Archivos:&nbsp;<strong id="statFiles">—</strong></span>
-        <span style="display:flex;align-items:center;gap:0.3rem;"><i class="bi bi-check2-square"></i>Seleccionados:&nbsp;<strong id="statSelected">0</strong></span>
-        <span style="display:flex;align-items:center;gap:0.3rem;"><i class="bi bi-person-circle"></i>&nbsp;{{ user_session.nombres }} {{ user_session.apellidos }}</span>
+            <span style="display:flex;align-items:center;gap:0.3rem;"><i
+                    class="bi bi-database"></i>Contenedores:&nbsp;<strong>{{ containers|length }}</strong></span>
+            <span style="display:flex;align-items:center;gap:0.3rem;"><i
+                    class="bi bi-check2-square"></i>Seleccionados:&nbsp;<strong id="statSelected">0</strong></span>
+            <span style="display:flex;align-items:center;gap:0.3rem;"><i class="bi bi-person-circle"></i>&nbsp;{{
+                user_session.nombres }} {{ user_session.apellidos }}</span>
         </div>
     </div>
 
@@ -106,61 +178,76 @@
             COLUMNA IZQ: CONTENEDORES
         ═══════════════════════════════ -->
         <div style="display:flex; flex-direction:column; gap:0.6rem; overflow:hidden;">
-        <div style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; display:flex; flex-direction:column; flex:1; overflow:hidden;">
+            <div
+                style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; display:flex; flex-direction:column; flex:1; overflow:hidden;">
 
-            <!-- Cabecera panel -->
-            <div style="padding:0.5rem 0.75rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#fafafa; border-radius:8px 8px 0 0; flex-shrink:0;">
-            <span style="font-size:0.8rem; font-weight:700; color:#1e293b;"><i class="bi bi-database" style="color:#0d6efd;"></i>&nbsp;Contenedores</span>
-            <span style="font-size:10px; background:#f0f7ff; border:1px solid #bfdbfe; color:#0d6efd; border-radius:10px; padding:1px 7px; font-weight:700;">{{ containers|length }}</span>
-            </div>
-
-            <!-- Buscador -->
-            <div style="padding:0.4rem 0.6rem; border-bottom:1px solid #f1f5f9; flex-shrink:0;">
-            <div style="position:relative;">
-                <i class="bi bi-search" style="position:absolute; left:8px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:11px; pointer-events:none;"></i>
-                <input id="containerSearch" type="text" placeholder="Filtrar contenedores..."
-                style="width:100%; padding:5px 8px 5px 26px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; outline:none; color:#334155; background:#fff;"
-                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
-            </div>
-            </div>
-
-            <!-- Lista contenedores con tooltip -->
-            <div id="containerList" style="flex:1; overflow-y:auto; padding:0.3rem 0.4rem;">
-            {% if containers %}
-                {% for container in containers %}
-                <div class="container-item" data-container="{{ container }}" title="{{ container }}"
-                style="display:flex; align-items:center; gap:6px; padding:5px 7px; border-radius:6px; cursor:pointer; border:1px solid transparent; margin-bottom:1px; min-width:0; position:relative;"
-                onmouseover="if(!this.classList.contains('active-container'))this.style.background='#f0f7ff'"
-                onmouseout="if(!this.classList.contains('active-container'))this.style.background=''">
-                <!-- Icono -->
-                <div style="width:22px; height:22px; border-radius:4px; background:#f0f7ff; border:1px solid #dbeafe; display:flex; align-items:center; justify-content:center; font-size:11px; color:#0d6efd; flex-shrink:0;">
-                    <i class="bi bi-database"></i>
+                <!-- Cabecera panel -->
+                <div
+                    style="padding:0.5rem 0.75rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#fafafa; border-radius:8px 8px 0 0; flex-shrink:0;">
+                    <span style="font-size:0.8rem; font-weight:700; color:#1e293b;"><i class="bi bi-database"
+                            style="color:#0d6efd;"></i>&nbsp;Contenedores</span>
+                    <span
+                        style="font-size:10px; background:#f0f7ff; border:1px solid #bfdbfe; color:#0d6efd; border-radius:10px; padding:1px 7px; font-weight:700;">{{
+                        containers|length }}</span>
                 </div>
-                <!-- Nombre — una sola línea con ellipsis, tooltip nativo en el title del padre -->
-                <span style="flex:1; min-width:0; font-size:11px; font-weight:600; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ container }}</span>
-                <!-- Badge archivos -->
-                <span class="ci-badge" style="font-size:9.5px; font-weight:700; color:#0d6efd; background:#f0f7ff; border:1px solid #bfdbfe; border-radius:8px; padding:1px 5px; flex-shrink:0; white-space:nowrap;">—</span>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div style="padding:20px; text-align:center; font-size:12px; color:#94a3b8;">
-                <i class="bi bi-lock" style="font-size:26px; display:block; margin-bottom:8px; color:#cbd5e1;"></i>Sin contenedores asignados.
-                </div>
-            {% endif %}
-            </div>
 
-            <!-- Crear contenedor -->
-            <div style="padding:0.5rem 0.6rem; border-top:1px solid #f1f5f9; background:#fafafa; border-radius:0 0 8px 8px; flex-shrink:0;">
-            <input id="newContainerName" type="text" placeholder="nombre-nuevo-contenedor"
-                style="width:100%; padding:5px 9px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; outline:none; margin-bottom:5px; color:#334155; background:#fff;"
-                onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
-            <button id="createContainerBtn"
-                style="width:100%; padding:6px; background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; border:none; border-radius:6px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer;"
-                onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
-                <i class="bi bi-plus-lg"></i>&nbsp;Crear Contenedor
-            </button>
+                <!-- Buscador -->
+                <div style="padding:0.4rem 0.6rem; border-bottom:1px solid #f1f5f9; flex-shrink:0;">
+                    <div style="position:relative;">
+                        <i class="bi bi-search"
+                            style="position:absolute; left:8px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:11px; pointer-events:none;"></i>
+                        <input id="containerSearch" type="text" placeholder="Filtrar contenedores..."
+                            style="width:100%; padding:5px 8px 5px 26px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; outline:none; color:#334155; background:#fff;"
+                            onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                </div>
+
+                <!-- Lista contenedores con tooltip -->
+                <div id="containerList" style="flex:1; overflow-y:auto; padding:0.3rem 0.4rem;">
+                    {% if containers %}
+                    {% for container in containers %}
+                    <div class="container-item" data-container="{{ container }}" title="{{ container }}"
+                        style="display:flex; align-items:center; gap:6px; padding:5px 7px; border-radius:6px; cursor:pointer; border:1px solid transparent; margin-bottom:1px; min-width:0; position:relative;"
+                        onmouseover="if(!this.classList.contains('active-container'))this.style.background='#f0f7ff'"
+                        onmouseout="if(!this.classList.contains('active-container'))this.style.background=''">
+                        <!-- Icono -->
+                        <div
+                            style="width:22px; height:22px; border-radius:4px; background:#f0f7ff; border:1px solid #dbeafe; display:flex; align-items:center; justify-content:center; font-size:11px; color:#0d6efd; flex-shrink:0;">
+                            <i class="bi bi-database"></i>
+                        </div>
+                        <!-- Nombre — una sola línea con ellipsis, tooltip nativo en el title del padre -->
+                        <span
+                            style="flex:1; min-width:0; font-size:11px; font-weight:600; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{
+                            container }}</span>
+                        <!-- Badge archivos -->
+                        <span class="ci-badge"
+                            style="font-size:9.5px; font-weight:700; color:#0d6efd; background:#f0f7ff; border:1px solid #bfdbfe; border-radius:8px; padding:1px 5px; flex-shrink:0; white-space:nowrap;">—</span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div style="padding:20px; text-align:center; font-size:12px; color:#94a3b8;">
+                        <i class="bi bi-lock"
+                            style="font-size:26px; display:block; margin-bottom:8px; color:#cbd5e1;"></i>Sin
+                        contenedores asignados.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Crear contenedor (solo id_rol_storage 1 y 2) -->
+                {% if user_session.rol_storage in (1, 2) %}
+                <div
+                    style="padding:0.5rem 0.6rem; border-top:1px solid #f1f5f9; background:#fafafa; border-radius:0 0 8px 8px; flex-shrink:0;">
+                    <input id="newContainerName" type="text" placeholder="nombre-nuevo-contenedor"
+                        style="width:100%; padding:5px 9px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; outline:none; margin-bottom:5px; color:#334155; background:#fff;"
+                        onfocus="this.style.borderColor='#0d6efd'" onblur="this.style.borderColor='#e2e8f0'">
+                    <button id="createContainerBtn"
+                        style="width:100%; padding:6px; background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; border:none; border-radius:6px; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer;"
+                        onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
+                        <i class="bi bi-plus-lg"></i>&nbsp;Crear Contenedor
+                    </button>
+                </div>
+                {% endif %}
             </div>
-        </div>
         </div>
 
         <!-- ═══════════════════════════════
@@ -168,964 +255,2163 @@
         ═══════════════════════════════ -->
         <div style="display:flex; flex-direction:column; gap:0.6rem; overflow:hidden;">
 
-        <!-- Toolbar -->
-        <div style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; padding:0.45rem 0.75rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; flex-shrink:0;">
-            <div style="display:flex; align-items:center; gap:5px; font-size:13px; font-weight:700; color:#334155; min-width:0; overflow:hidden;">
-            <i class="bi bi-cloud" style="color:#94a3b8; font-size:12px; flex-shrink:0;"></i>
-            <span style="color:#94a3b8; flex-shrink:0;">/</span>
-            <span id="breadcrumbContainer" style="color:#0d6efd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Sin contenedor</span>
-            </div>
-            <div style="display:flex; gap:5px; align-items:center; flex-shrink:0;">
-            <button id="btnRefresh" disabled
-                style="display:flex;align-items:center;gap:4px;padding:4px 11px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:600;cursor:pointer;color:#64748b;"
-                onmouseover="if(!this.disabled){this.style.borderColor='#0d6efd';this.style.color='#0d6efd';}"
-                onmouseout="if(!this.disabled){this.style.borderColor='#e2e8f0';this.style.color='#64748b';}">
-                <i class="bi bi-arrow-clockwise"></i>&nbsp;Refrescar
-            </button>
-            {% if acciones_permitidas.descargar %}
-            <button id="downloadSelectedBtn" disabled
-                style="display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:6px;border:none;background:#198754;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:700;cursor:pointer;color:#fff;opacity:0.45;"
-                onmouseover="if(!this.disabled)this.style.background='#157347'" onmouseout="if(!this.disabled)this.style.background='#198754'">
-                <i class="bi bi-download"></i>&nbsp;Descargar (<span id="dlCount">0</span>)
-            </button>
-            {% endif %}
-            </div>
-        </div>
-
-        <!-- Panel árbol -->
-        <div style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0;">
-
-            <!-- Cabecera columnas -->
-            <div id="fileTreeHeader" style="display:none; padding:4px 10px; border-bottom:1px solid #f1f5f9; background:#fafafa; flex-shrink:0;">
-            <div style="display:grid; grid-template-columns:16px 16px 1fr 80px 148px 116px; gap:6px; align-items:center; font-size:10px; letter-spacing:1.8px; text-transform:uppercase; color:#94a3b8; font-weight:700;">
-                <div></div><div></div>
-                <div>Nombre</div><div>Tamaño</div><div>Modificado (COL)</div><div style="text-align:center;">Acciones</div>
-            </div>
-            </div>
-
-            <!-- Árbol scrolleable -->
-            <div id="fileTree" style="flex:1; overflow-y:auto; padding:0.4rem 0.6rem; min-height:0;">
-            <div id="emptyState" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:30px 0;text-align:center;">
-                <i class="bi bi-cloud" style="font-size:44px; color:#cbd5e1;"></i>
-                <p style="margin:0; font-size:13px; font-weight:600; color:#64748b;">Selecciona un contenedor</p>
-                <small style="font-size:11px; color:#94a3b8;">Haz clic en un contenedor para explorar su contenido</small>
-            </div>
-            </div>
-        </div>
-
-        <!-- Zona de carga -->
-        {% if acciones_permitidas.cargar %}
-        <div style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; padding:0.55rem 0.75rem; flex-shrink:0;">
-
-            <!-- Ruta actual -->
-            <div style="display:flex; align-items:center; gap:7px; margin-bottom:7px; font-size:12px;">
-            <i class="bi bi-geo-alt-fill" style="color:#0d6efd; flex-shrink:0;"></i>
-            <span style="color:#64748b; font-weight:600; flex-shrink:0;">Ruta:</span>
-            <span id="currentUploadPathDisplay" style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 9px;color:#0d6efd;font-weight:700;flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/ (raíz)</span>
-            <button onclick="limpiarRutaCarga()" title="Limpiar ruta"
-                style="width:24px;height:24px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:13px;color:#64748b;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
-                onmouseover="this.style.borderColor='#dc3545';this.style.color='#dc3545'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#64748b'">
-                <i class="bi bi-x"></i>
-            </button>
+            <!-- Toolbar -->
+            <div
+                style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; padding:0.45rem 0.75rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; flex-shrink:0;">
+                <div
+                    style="display:flex; align-items:center; gap:5px; font-size:13px; font-weight:700; color:#334155; min-width:0; overflow:hidden;">
+                    <i class="bi bi-cloud" style="color:#94a3b8; font-size:12px; flex-shrink:0;"></i>
+                    <span style="color:#94a3b8; flex-shrink:0;">/</span>
+                    <span id="breadcrumbContainer"
+                        style="color:#0d6efd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Sin
+                        contenedor</span>
+                </div>
+                <div style="display:flex; gap:5px; align-items:center; flex-shrink:0;">
+                    <button id="btnRefresh" disabled
+                        style="display:flex;align-items:center;gap:4px;padding:4px 11px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:600;cursor:pointer;color:#64748b;"
+                        onmouseover="if(!this.disabled){this.style.borderColor='#0d6efd';this.style.color='#0d6efd';}"
+                        onmouseout="if(!this.disabled){this.style.borderColor='#e2e8f0';this.style.color='#64748b';}">
+                        <i class="bi bi-arrow-clockwise"></i>&nbsp;Refrescar
+                    </button>
+                    {% if acciones_alguno.descargar %}
+                    <button id="downloadSelectedBtn" disabled
+                        style="display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:6px;border:none;background:#198754;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:700;cursor:pointer;color:#fff;opacity:0.45;"
+                        onmouseover="if(!this.disabled)this.style.background='#157347'"
+                        onmouseout="if(!this.disabled)this.style.background='#198754'">
+                        <i class="bi bi-download"></i>&nbsp;Descargar (<span id="dlCount">0</span>)
+                    </button>
+                    {% endif %}
+                    {% if acciones_alguno.eliminar %}
+                    <button id="deleteSelectedBtn" disabled
+                        style="display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:6px;border:none;background:#dc3545;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:700;cursor:pointer;color:#fff;opacity:0.45;"
+                        onmouseover="if(!this.disabled)this.style.background='#bb2d3b'"
+                        onmouseout="if(!this.disabled)this.style.background='#dc3545'">
+                        <i class="bi bi-trash"></i>&nbsp;Eliminar (<span id="delCount">0</span>)
+                    </button>
+                    {% endif %}
+                </div>
             </div>
 
-            <!-- Drop zone compacto -->
-            <div id="dropZone" style="border:2px dashed #bfdbfe;border-radius:7px;padding:12px 16px;display:flex;align-items:center;gap:14px;background:#f8faff;cursor:pointer;">
-            <i class="bi bi-cloud-upload" style="font-size:28px; color:#0d6efd; flex-shrink:0;"></i>
-            <div style="flex:1; min-width:0;">
-                <p style="margin:0 0 2px; font-size:12px; font-weight:700; color:#334155;">Arrastra archivos aquí o haz clic en el botón</p>
-                <p style="margin:0; font-size:11px; color:#94a3b8;">Doble clic / clic derecho en carpeta para seleccionar ruta de carga</p>
-            </div>
-            <button id="selectFilesBtn"
-                style="background:#fff;border:1px solid #0d6efd;color:#0d6efd;border-radius:6px;padding:5px 14px;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;"
-                onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='#fff'">
-                <i class="bi bi-folder2-open"></i>&nbsp;Seleccionar
-            </button>
-            <input type="file" id="fileUpload" multiple hidden>
+            <!-- Panel árbol -->
+            <div
+                style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0;">
+
+                <!-- Cabecera columnas -->
+                <div id="fileTreeHeader"
+                    style="display:none; padding:4px 10px; border-bottom:1px solid #f1f5f9; background:#fafafa; flex-shrink:0;">
+                    <div
+                        style="display:grid; grid-template-columns:16px 16px 1fr 80px 148px 116px; gap:6px; align-items:center; font-size:10px; letter-spacing:1.8px; text-transform:uppercase; color:#94a3b8; font-weight:700;">
+                        <div></div>
+                        <div></div>
+                        <div>Nombre</div>
+                        <div>Tamaño</div>
+                        <div>Modificado (COL)</div>
+                        <div style="text-align:center;">Acciones</div>
+                    </div>
+                </div>
+
+                <!-- Árbol scrolleable -->
+                <div id="fileTree" style="flex:1; overflow-y:auto; padding:0.4rem 0.6rem; min-height:0;">
+                    <div id="emptyState"
+                        style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:30px 0;text-align:center;">
+                        <i class="bi bi-cloud" style="font-size:44px; color:#cbd5e1;"></i>
+                        <p style="margin:0; font-size:13px; font-weight:600; color:#64748b;">Selecciona un contenedor
+                        </p>
+                        <small style="font-size:11px; color:#94a3b8;">Haz clic en un contenedor para explorar su
+                            contenido</small>
+                    </div>
+                </div>
             </div>
 
-            <!-- Barra progreso -->
-            <div id="uploadProgress" style="display:none; margin-top:6px; background:#e2e8f0; border-radius:6px; height:4px; overflow:hidden;">
-            <div style="height:100%; background:linear-gradient(90deg,#0d6efd,#0dcaf0); animation:progressAnim 1.4s ease-in-out infinite;"></div>
+            <!-- Zona de carga -->
+            {% if acciones_alguno.cargar %}
+            <div id="uploadZoneWrap"
+                style="background:#fff; border-radius:8px; box-shadow:0 1px 5px rgba(0,0,0,0.07); border:1px solid #e2e8f0; padding:0.55rem 0.75rem; flex-shrink:0;">
+
+                <!-- Ruta actual -->
+                <div style="display:flex; align-items:center; gap:7px; margin-bottom:7px; font-size:12px;">
+                    <i class="bi bi-geo-alt-fill" style="color:#0d6efd; flex-shrink:0;"></i>
+                    <span style="color:#64748b; font-weight:600; flex-shrink:0;">Ruta:</span>
+                    <span id="currentUploadPathDisplay"
+                        style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 9px;color:#0d6efd;font-weight:700;flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/
+                        (raíz)</span>
+                    <button onclick="limpiarRutaCarga()" title="Limpiar ruta"
+                        style="width:24px;height:24px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:13px;color:#64748b;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
+                        onmouseover="this.style.borderColor='#dc3545';this.style.color='#dc3545'"
+                        onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#64748b'">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+
+                <!-- Drop zone compacto -->
+                <div id="dropZone"
+                    style="border:2px dashed #bfdbfe;border-radius:7px;padding:12px 16px;display:flex;align-items:center;gap:14px;background:#f8faff;cursor:pointer;">
+                    <i class="bi bi-cloud-upload" style="font-size:28px; color:#0d6efd; flex-shrink:0;"></i>
+                    <div style="flex:1; min-width:0;">
+                        <p style="margin:0 0 2px; font-size:12px; font-weight:700; color:#334155;">Arrastra archivos
+                            aquí o haz clic en el botón</p>
+                        <p style="margin:0; font-size:11px; color:#94a3b8;">Doble clic / clic derecho en carpeta para
+                            seleccionar ruta de carga</p>
+                    </div>
+                    <button id="selectFilesBtn"
+                        style="background:#fff;border:1px solid #0d6efd;color:#0d6efd;border-radius:6px;padding:5px 14px;font-size:12px;font-family:'Century Gothic',Arial,sans-serif;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;"
+                        onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='#fff'">
+                        <i class="bi bi-folder2-open"></i>&nbsp;Seleccionar
+                    </button>
+                    <input type="file" id="fileUpload" multiple hidden>
+                </div>
+
+                <!-- Barra progreso -->
+                <div id="uploadProgress"
+                    style="display:none; margin-top:6px; background:#e2e8f0; border-radius:6px; height:4px; overflow:hidden;">
+                    <div
+                        style="height:100%; background:linear-gradient(90deg,#0d6efd,#0dcaf0); animation:progressAnim 1.4s ease-in-out infinite;">
+                    </div>
+                </div>
             </div>
-        </div>
-        {% endif %}{# fin zona de carga #}
+            {% endif %}{# fin zona de carga #}
 
         </div><!-- fin columna der -->
     </div><!-- fin grid -->
-    </div><!-- fin página -->
+</div><!-- fin página -->
 
-    <!-- ═══════════════════════════════════════
+<!-- ═══════════════════════════════════════
         MODAL VISOR DE ARCHIVOS
     ═══════════════════════════════════════ -->
-    <div id="viewerModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2500; justify-content:center; align-items:center;">
-    <div style="background:#fff; border-radius:12px; width:min(92vw,900px); max-height:92vh; box-shadow:0 20px 50px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; font-family:'Century Gothic',Arial,sans-serif;">
-        <div style="background:linear-gradient(135deg,#059669 0%,#047857 100%); color:#fff; padding:0.6rem 1rem; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
-        <span style="font-size:0.88rem; font-weight:700;"><i class="bi bi-eye"></i>&nbsp;<span id="viewerTitle">Visor</span></span>
-        <button onclick="cerrarVisor()" style="background:rgba(255,255,255,0.2); border:none; border-radius:6px; color:#fff; width:26px; height:26px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center;">&times;</button>
-        </div>
-        <div id="viewerBody" style="flex:1; overflow:auto; padding:0; min-height:0;"></div>
-    </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════
-        MODAL EDITOR EXCEL (SheetJS)
-    ═══════════════════════════════════════ -->
-    <div id="editorModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2500; justify-content:center; align-items:center;">
-    <div style="background:#fff; border-radius:12px; width:min(98vw,1200px); max-height:96vh; box-shadow:0 20px 50px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; font-family:'Century Gothic',Arial,sans-serif;">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%); color:#fff; padding:0.6rem 1rem; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
-        <span style="font-size:0.88rem; font-weight:700;"><i class="bi bi-file-earmark-excel"></i>&nbsp;<span id="editorTitle">Editor Excel</span></span>
-        <button onclick="cerrarEditor()" style="background:rgba(255,255,255,0.2); border:none; border-radius:6px; color:#fff; width:26px; height:26px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center;">&times;</button>
-        </div>
-        <!-- Tabs de hojas -->
-        <div id="editorSheetTabs" style="display:flex; gap:2px; padding:6px 10px 0; background:#f8f9fa; border-bottom:1px solid #e2e8f0; flex-shrink:0; overflow-x:auto;"></div>
-        <!-- Tabla editable -->
-        <div style="flex:1; overflow:auto; min-height:0; padding:0;">
-        <div id="editorTableWrap" style="min-width:100%; padding:10px;">
-            <div id="editorLoading" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;">
-            <i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando archivo...
+<div id="viewerModal" class="sheet-modal-overlay" style="display:none;">
+    <div class="sheet-modal sheet-modal--viewer">
+        <div class="sheet-modal__header sheet-modal__header--viewer">
+            <div class="sheet-modal__title-wrap">
+                <div class="sheet-modal__icon"><i class="bi bi-eye"></i></div>
+                <div class="sheet-modal__title-block">
+                    <span class="sheet-modal__eyebrow">Vista previa de archivo</span>
+                    <span class="sheet-modal__title" id="viewerTitle">Visor</span>
+                </div>
+            </div>
+            <div class="sheet-modal__header-actions">
+                <button id="viewerDownloadBtn" type="button" class="sheet-action-btn sheet-action-btn--ghost"
+                    style="display:none;">
+                    <i class="bi bi-download"></i><span>Descargar</span>
+                </button>
+                <button type="button" class="sheet-close-btn" onclick="cerrarVisor()">&times;</button>
             </div>
         </div>
+        <div class="sheet-modal__toolbar">
+            <div class="sheet-modal__meta">
+                <span class="sheet-meta-chip" id="viewerFileTypeChip">Archivo</span>
+                <span class="sheet-meta-chip" id="viewerSheetChip">1 hoja</span>
+                <span class="sheet-meta-chip" id="viewerRowsChip">0 filas</span>
+                <span class="sheet-meta-chip" id="viewerColsChip">0 columnas</span>
+            </div>
+            <div class="sheet-modal__hint"></div>
         </div>
-        <!-- Footer -->
-        <div style="padding:8px 14px; background:#f8f9fa; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
-        <span id="editorStatus" style="font-size:11px; color:#64748b; font-style:italic;">Listo</span>
-        <div style="display:flex; gap:8px;">
-            <button onclick="cerrarEditor()" style="padding:5px 16px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; color:#64748b; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">Cancelar</button>
-            <button id="editorSaveBtn" disabled style="padding:5px 18px; border:none; border-radius:6px; background:linear-gradient(135deg,#d97706,#b45309); color:#fff; font-size:12px; font-family:'Century Gothic',Arial,sans-serif; font-weight:700; cursor:pointer; opacity:0.5;" onmouseover="if(!this.disabled)this.style.opacity='0.88'" onmouseout="if(!this.disabled)this.style.opacity='1'"><i class="bi bi-cloud-upload"></i>&nbsp;Guardar en Blob Storage</button>
-        </div>
+        <div id="viewerSheetTabs" class="sheet-tabs" style="display:none;"></div>
+        <div id="viewerBody" class="sheet-modal__body"></div>
+        <div class="sheet-modal__footer">
+            <span id="viewerStatus" class="sheet-status-text">Listo</span>
+            <span class="sheet-status-text">Modal optimizado para `.xlsx` y `.csv`</span>
         </div>
     </div>
-    </div>
+</div>
 
-    <!-- ═══════════════════════════════════════
+<!-- ═══════════════════════════════════════
+        MODAL EDITOR (Tabulator)
+    ═══════════════════════════════════════ -->
+<div id="editorModal" class="sheet-modal-overlay" style="display:none;">
+    <div class="sheet-modal sheet-modal--editor">
+        <div class="sheet-modal__header sheet-modal__header--editor">
+            <div class="sheet-modal__title-wrap">
+                <div class="sheet-modal__icon"><i class="bi bi-table"></i></div>
+                <div class="sheet-modal__title-block">
+                    <span class="sheet-modal__eyebrow">Edicion tabular en Blob Storage</span>
+                    <span class="sheet-modal__title" id="editorTitle">Editor</span>
+                </div>
+            </div>
+            <div class="sheet-modal__header-actions">
+                <button type="button" class="sheet-close-btn" onclick="cerrarEditor()">&times;</button>
+            </div>
+        </div>
+        <div class="sheet-modal__toolbar">
+            <div class="sheet-modal__meta">
+                <span class="sheet-meta-chip sheet-meta-chip--editor" id="editorModeChip">Edicion habilitada</span>
+                <span class="sheet-meta-chip" id="editorSheetChip">1 hoja</span>
+                <span class="sheet-meta-chip" id="editorRowsChip">0 filas</span>
+                <span class="sheet-meta-chip" id="editorColsChip">0 columnas</span>
+                <span class="sheet-meta-chip sheet-meta-chip--soft" id="editorDirtyChip">Sin cambios</span>
+            </div>
+            <div class="sheet-modal__hint"></div>
+        </div>
+        <div id="editorSheetTabs" class="sheet-tabs"></div>
+        <div class="sheet-modal__body">
+            <div class="sheet-grid-shell sheet-grid-shell--editor">
+                <div id="editorTableMount"></div>
+            </div>
+        </div>
+        <div class="sheet-modal__footer">
+            <span id="editorStatus" class="sheet-status-text">Listo</span>
+            <div class="sheet-footer-actions">
+                <button type="button" class="sheet-secondary-btn" onclick="cerrarEditor()">Cancelar</button>
+                <button id="editorSaveBtn" type="button" class="sheet-primary-btn" disabled><i
+                        class="bi bi-cloud-upload"></i>&nbsp;Guardar en Blob Storage</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabulator CSS -->
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.4.0/dist/css/tabulator_modern.min.css">
+<style>
+    .sheet-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.64);
+        backdrop-filter: blur(8px);
+        z-index: 2500;
+        justify-content: center;
+        align-items: center;
+        padding: 18px;
+    }
+
+    .sheet-modal {
+        background: #fff;
+        border-radius: 20px;
+        width: min(98vw, 1520px);
+        max-height: 96vh;
+        box-shadow: 0 28px 70px rgba(15, 23, 42, 0.3);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        font-family: 'Century Gothic', Arial, sans-serif;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .sheet-modal--viewer {
+        width: min(98vw, 1500px);
+    }
+
+    .sheet-modal--editor {
+        width: min(99vw, 1620px);
+    }
+
+    .sheet-modal__header {
+        color: #fff;
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-shrink: 0;
+    }
+
+    .sheet-modal__header--viewer {
+        background: linear-gradient(135deg, #0f766e 0%, #047857 55%, #065f46 100%);
+    }
+
+    .sheet-modal__header--editor {
+        background: linear-gradient(135deg, #92400e 0%, #b45309 52%, #ea580c 100%);
+    }
+
+    .sheet-modal__title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .sheet-modal__icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.05rem;
+        background: rgba(255, 255, 255, 0.16);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+    }
+
+    .sheet-modal__title-block {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .sheet-modal__eyebrow {
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.86;
+    }
+
+    .sheet-modal__title {
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: min(76vw, 920px);
+    }
+
+    .sheet-modal__header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .sheet-action-btn,
+    .sheet-close-btn,
+    .sheet-primary-btn,
+    .sheet-secondary-btn {
+        font-family: 'Century Gothic', Arial, sans-serif;
+        cursor: pointer;
+        transition: all .16s ease;
+    }
+
+    .sheet-action-btn {
+        border: none;
+        border-radius: 10px;
+        padding: 9px 12px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+
+    .sheet-action-btn--ghost {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.16);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+    }
+
+    .sheet-action-btn--ghost:hover {
+        background: rgba(255, 255, 255, 0.24);
+    }
+
+    .sheet-close-btn {
+        border: none;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        font-size: 1.15rem;
+        line-height: 1;
+    }
+
+    .sheet-close-btn:hover {
+        background: rgba(255, 255, 255, 0.28);
+    }
+
+    .sheet-modal__toolbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 12px 16px 10px;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid #e2e8f0;
+        flex-wrap: wrap;
+    }
+
+    .sheet-modal__meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .sheet-meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #dbe6f1;
+        color: #334155;
+        font-size: 0.7rem;
+        font-weight: 700;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+
+    .sheet-meta-chip--soft {
+        color: #475569;
+        background: #eef6ff;
+        border-color: #dbeafe;
+    }
+
+    .sheet-meta-chip--editor {
+        background: #fff7ed;
+        border-color: #fed7aa;
+        color: #9a3412;
+    }
+
+    .sheet-meta-chip--dirty {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #b91c1c;
+    }
+
+    .sheet-modal__hint {
+        font-size: 0.72rem;
+        color: #64748b;
+        text-align: right;
+    }
+
+    .sheet-modal__hint:empty {
+        display: none;
+    }
+
+    .sheet-tabs {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        padding: 10px 14px 0;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        overflow-x: auto;
+        flex-shrink: 0;
+        min-height: 48px;
+    }
+
+    .sheet-tabs:empty {
+        display: none;
+    }
+
+    .sheet-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid #dbe6f1;
+        border-bottom: 2px solid transparent;
+        border-radius: 12px 12px 0 0;
+        background: #e2e8f0;
+        color: #475569;
+        padding: 7px 14px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all .16s ease;
+    }
+
+    .sheet-tab:hover {
+        background: #dbeafe;
+        color: #0f172a;
+    }
+
+    .sheet-tab--active {
+        background: #fff;
+        color: #0f172a;
+        border-bottom-color: #0ea5a4;
+        box-shadow: 0 -2px 10px rgba(14, 165, 164, 0.08);
+    }
+
+    #editorSheetTabs .sheet-tab--active {
+        border-bottom-color: #ea580c;
+        box-shadow: 0 -2px 10px rgba(234, 88, 12, 0.1);
+    }
+
+    .sheet-modal__body {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        scrollbar-gutter: stable both-edges;
+    }
+
+    .sheet-grid-shell {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sheet-grid-shell--compact {
+        padding: 12px;
+        overflow: hidden;
+    }
+
+    .sheet-grid-shell--editor {
+        overflow: hidden;
+    }
+
+    .sheet-tabulator-card {
+        background: #fff;
+        border: 1px solid #dbe6f1;
+        border-radius: 16px;
+        box-shadow: 0 10px 32px rgba(15, 23, 42, 0.08);
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .sheet-tabulator-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+        border-bottom: 1px solid #e2e8f0;
+        flex-wrap: wrap;
+    }
+
+    .sheet-tabulator-toolbar__title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .sheet-tabulator-toolbar__subtitle {
+        font-size: 0.7rem;
+        color: #64748b;
+        margin-top: 2px;
+    }
+
+    .sheet-tabulator-toolbar__legend {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .sheet-tabulator-toolbar__legend span {
+        font-size: 0.68rem;
+        color: #475569;
+        background: #fff;
+        border: 1px solid #dbe6f1;
+        border-radius: 999px;
+        padding: 4px 8px;
+    }
+
+    #editorTableMount {
+        height: 100%;
+        min-height: 0;
+    }
+
+    .sheet-tabulator-stage {
+        position: relative;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .sheet-tabulator-host {
+        width: 100%;
+        min-width: 0;
+        min-height: 320px;
+    }
+
+    .sheet-table-loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(248, 250, 252, 0.88);
+        backdrop-filter: blur(2px);
+        z-index: 12;
+        transition: opacity .18s ease;
+    }
+
+    .sheet-table-loading[hidden] {
+        display: none;
+    }
+
+    .sheet-table-loading__box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 20px;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid #dbe6f1;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        font-size: .74rem;
+        color: #475569;
+        font-weight: 700;
+    }
+
+    .sheet-empty-state,
+    .sheet-error-state,
+    .sheet-loading-state {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        text-align: center;
+        padding: 32px 18px;
+        color: #64748b;
+    }
+
+    .sheet-error-state {
+        color: #b91c1c;
+    }
+
+    .sheet-empty-state i,
+    .sheet-error-state i,
+    .sheet-loading-state i {
+        font-size: 1.65rem;
+    }
+
+    .sheet-loading-spinner {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 3px solid #dbeafe;
+        border-top-color: #0ea5a4;
+        animation: spinA .75s linear infinite;
+    }
+
+    .sheet-modal__footer {
+        padding: 10px 16px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+    }
+
+    .sheet-status-text {
+        font-size: 0.72rem;
+        color: #64748b;
+    }
+
+    .sheet-footer-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .sheet-secondary-btn {
+        padding: 9px 16px;
+        border: 1px solid #dbe6f1;
+        border-radius: 10px;
+        background: #fff;
+        color: #475569;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .sheet-secondary-btn:hover {
+        background: #f8fafc;
+    }
+
+    .sheet-primary-btn {
+        padding: 9px 18px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #d97706, #c2410c);
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        box-shadow: 0 10px 18px rgba(217, 119, 6, 0.18);
+    }
+
+    .sheet-primary-btn:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+
+    .sheet-primary-btn:not(:disabled):hover {
+        transform: translateY(-1px);
+    }
+
+    .sheet-grid-shell::-webkit-scrollbar,
+    .sheet-tabs::-webkit-scrollbar,
+    .sheet-modal__body::-webkit-scrollbar {
+        height: 14px;
+        width: 14px;
+    }
+
+    .sheet-grid-shell::-webkit-scrollbar-thumb,
+    .sheet-tabs::-webkit-scrollbar-thumb,
+    .sheet-modal__body::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 999px;
+        border: 3px solid transparent;
+        background-clip: padding-box;
+    }
+
+    .sheet-grid-shell::-webkit-scrollbar-track,
+    .sheet-tabs::-webkit-scrollbar-track,
+    .sheet-modal__body::-webkit-scrollbar-track {
+        background: #dbeafe;
+        border-radius: 999px;
+    }
+
+    .sheet-modal .tabulator {
+        font-size: 0.72rem !important;
+        border: none !important;
+        background: #fff !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-tableholder {
+        overflow: auto !important;
+        scrollbar-gutter: stable both-edges;
+    }
+
+    .sheet-modal .tabulator .tabulator-header {
+        border-bottom: 1px solid #dbe6f1 !important;
+        background: #16324f !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-header .tabulator-col {
+        background: #16324f !important;
+        color: #fff !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+        font-size: 0.67rem !important;
+        font-weight: 700 !important;
+        min-height: 48px !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-header .tabulator-col:hover {
+        background: #0f2944 !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+        padding: 3px 6px 4px !important;
+        min-height: 48px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        gap: 3px !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-header .tabulator-col .tabulator-col-title {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        line-height: 1.08 !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-header .tabulator-col .tabulator-col-sorter,
+    .sheet-modal .tabulator .tabulator-header .tabulator-col .tabulator-col-sorter .tabulator-arrow {
+        color: rgba(255, 255, 255, 0.78) !important;
+        border-color: rgba(255, 255, 255, 0.78) !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-header .tabulator-frozen {
+        background: #16324f !important;
+    }
+
+    .sheet-modal .tabulator-row:nth-child(even) {
+        background: #f8fbff !important;
+    }
+
+    .sheet-modal .tabulator-row:hover {
+        background: #e8f3ff !important;
+    }
+
+    .sheet-modal .tabulator-row.tabulator-selected {
+        background: #d1fae5 !important;
+        color: #052e2b !important;
+    }
+
+    .sheet-modal .tabulator-cell {
+        padding: 4px 7px !important;
+        font-size: 0.7rem !important;
+        border-right: 1px solid #edf2f7 !important;
+        border-bottom: 1px solid #edf2f7 !important;
+        color: #334155 !important;
+    }
+
+    .sheet-modal .tabulator-cell.tabulator-editing {
+        outline: 2px solid rgba(249, 115, 22, 0.18) !important;
+        background: #fff7ed !important;
+    }
+
+    .sheet-modal .tabulator-cell.sheet-cell--rownum {
+        background: #f8fafc !important;
+        color: #475569 !important;
+        font-weight: 700 !important;
+        border-right: 1px solid #dbe6f1 !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-footer {
+        background: #f8fafc !important;
+        border-top: 1px solid #e2e8f0 !important;
+        font-size: 0.68rem !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-tableholder::-webkit-scrollbar {
+        height: 16px;
+        width: 16px;
+    }
+
+    .sheet-modal .tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 999px;
+        border: 3px solid transparent;
+        background-clip: padding-box;
+    }
+
+    .sheet-modal .tabulator .tabulator-tableholder::-webkit-scrollbar-track {
+        background: #dbeafe;
+        border-radius: 999px;
+    }
+
+    .sheet-modal .tabulator .tabulator-footer .tabulator-page {
+        border: 1px solid #dbe6f1 !important;
+        border-radius: 6px !important;
+        background: #fff !important;
+        padding: 2px 8px !important;
+    }
+
+    .sheet-modal .tabulator .tabulator-footer .tabulator-page.active {
+        background: #0ea5a4 !important;
+        color: #fff !important;
+        border-color: #0ea5a4 !important;
+    }
+
+    #editorModal .tabulator .tabulator-footer .tabulator-page.active {
+        background: #ea580c !important;
+        border-color: #ea580c !important;
+    }
+
+    .sheet-modal .tabulator-header-filter {
+        margin-top: 2px !important;
+        min-height: 21px !important;
+        height: 21px !important;
+        overflow: hidden !important;
+    }
+
+    .sheet-modal .tabulator-header-filter input {
+        width: 100% !important;
+        min-height: 21px !important;
+        height: 21px !important;
+        margin: 0 !important;
+        padding: 1px 6px !important;
+        border-radius: 5px !important;
+        border: 1px solid rgba(255, 255, 255, 0.25) !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        font-size: 0.64rem !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+    }
+
+    .sheet-modal .tabulator-col-resize-handle {
+        background: rgba(255, 255, 255, 0.2) !important;
+    }
+
+    .sheet-modal .tabulator-tooltip {
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%) !important;
+        color: #f8fafc !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        padding: 0.48rem 0.72rem !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28) !important;
+        font-size: 0.7rem !important;
+        max-width: 360px !important;
+        word-break: break-word !important;
+    }
+
+    @media (max-width: 900px) {
+        .sheet-modal-overlay {
+            padding: 10px;
+        }
+
+        .sheet-modal {
+            width: 100%;
+            max-height: 98vh;
+            border-radius: 16px;
+        }
+
+        .sheet-modal__title {
+            max-width: 52vw;
+            font-size: 0.9rem;
+        }
+
+        .sheet-modal__hint {
+            width: 100%;
+            text-align: left;
+        }
+
+        .sheet-tabulator-toolbar {
+            padding: 10px 12px;
+        }
+
+        .sheet-tabulator-host {
+            min-height: 420px;
+        }
+
+        .sheet-footer-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+    }
+</style>
+
+<!-- ═══════════════════════════════════════
         JAVASCRIPT
     ═══════════════════════════════════════ -->
-    <script>
-    /* ── ACCIONES PERMITIDAS POR ROL (inyectadas desde el backend) ── */
-    var ACCIONES = {
-        ver:       {{ acciones_permitidas.ver | lower }},
-        editar:    {{ acciones_permitidas.editar | lower }},
-        descargar: {{ acciones_permitidas.descargar | lower }},
-        eliminar:  {{ acciones_permitidas.eliminar | lower }},
-        cargar:    {{ acciones_permitidas.cargar | lower }}
-    };
-    </script>
-    <script>
+<script type="application/json" id="acciones-permitidas-data">{{ acciones_por_contenedor | tojson }}</script>
+<script>
+    var ACCIONES_POR_CONTENEDOR = JSON.parse(document.getElementById('acciones-permitidas-data').textContent);
+    var ACCIONES_VACIAS = { ver: false, editar: false, descargar: false, eliminar: false, cargar: false };
+    var ACCIONES = ACCIONES_VACIAS;
+</script>
+<!-- Tabulator JS -->
+<script src="https://unpkg.com/tabulator-tables@6.4.0/dist/js/tabulator.min.js"></script>
+<script>
     (function () {
 
-    /* ── ESTADO ── */
-    var currentContainer   = '';
-    var currentUploadPath  = '';
-    var selectedFiles      = [];
-    var selectedFolderPath = null;
-    var metadataCache      = {};   // cache: container -> { "ruta/archivo": {size, last_modified} }
-    var currentAbortCtrl   = null; // AbortController activo
+        /* ── ESTADO ── */
+        var currentContainer = '';
+        var currentUploadPath = '';
+        var selectedFiles = [];
+        var selectedFolderPath = null;
+        var currentAbortCtrl = null;
 
-    /* ── OVERLAY / CANCEL ── */
-    function showLoading(msg, sub) {
-        document.getElementById('loaderMsg').textContent = (msg||'PROCESANDO...').toUpperCase();
-        document.getElementById('loaderSub').textContent = sub||'Por favor espere';
-        document.getElementById('loadingOverlay').style.display = 'flex';
-    }
-    function hideLoading() {
-        document.getElementById('loadingOverlay').style.display = 'none';
-        currentAbortCtrl = null;
-    }
-    window.cancelarOperacion = function () {
-        if (currentAbortCtrl) { try { currentAbortCtrl.abort(); } catch(e){} }
-        hideLoading();
-        // Restaurar estado visual del árbol si estaba vacío
-        var ft = document.getElementById('fileTree');
-        if (!ft.querySelector('.file-row-item') && !ft.querySelector('.folder-row-item')) {
-        ft.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:30px 0;text-align:center;"><i class="bi bi-x-circle" style="font-size:44px;color:#fca5a5;"></i><p style="margin:0;font-size:13px;font-weight:600;color:#64748b;">Consulta cancelada</p><small style="font-size:11px;color:#94a3b8;">Selecciona un contenedor para intentar de nuevo</small></div>';
-        document.getElementById('fileTreeHeader').style.display = 'none';
+        /* Sin contenedor seleccionado todavía: ocultar acciones hasta elegir uno */
+        document.addEventListener('DOMContentLoaded', function () { aplicarAccionesUI(); });
+        if (document.readyState !== 'loading') aplicarAccionesUI();
+
+        /* ── OVERLAY / CANCEL ── */
+        function showLoading(msg, sub) {
+            document.getElementById('loaderMsg').textContent = (msg || 'PROCESANDO...').toUpperCase();
+            document.getElementById('loaderSub').textContent = sub || 'Por favor espere';
+            document.getElementById('loadingOverlay').style.display = 'flex';
         }
-        toast('Operación cancelada', 'info');
-    };
-
-    /* ── TOAST ── */
-    function toast(msg, type) {
-        type = type||'info';
-        var c={success:'#198754',error:'#dc3545',info:'#0d6efd'};
-        var ic={success:'bi-check-circle-fill',error:'bi-x-circle-fill',info:'bi-info-circle-fill'};
-        var el=document.createElement('div');
-        el.style.cssText='display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid '+c[type]+';border-radius:8px;padding:9px 13px;font-size:12px;color:#334155;min-width:230px;max-width:320px;box-shadow:0 4px 14px rgba(0,0,0,0.1);animation:slideInToast .22s ease;font-family:Century Gothic,Arial,sans-serif;';
-        el.innerHTML='<i class="bi '+ic[type]+'" style="color:'+c[type]+';font-size:14px;flex-shrink:0;"></i><span>'+msg+'</span>';
-        document.getElementById('toastContainer').appendChild(el);
-        setTimeout(function(){el.remove();},4000);
-    }
-
-    function updateDlBtn() {
-        var btn=document.getElementById('downloadSelectedBtn'), n=selectedFiles.length;
-        var dlCount=document.getElementById('dlCount');
-        if(dlCount) dlCount.textContent=n;
-        document.getElementById('statSelected').textContent=n;
-        if(btn){btn.disabled=(n===0);btn.style.opacity=n>0?'1':'0.45';}
-    }
-    var _uploadPathDisplay=document.getElementById('currentUploadPathDisplay');
-    window.limpiarRutaCarga=function(){
-        currentUploadPath='';
-        if(_uploadPathDisplay) _uploadPathDisplay.textContent='/ (raíz)';
-        document.querySelectorAll('.upload-target-row').forEach(function(r){r.style.background='';r.classList.remove('upload-target-row');});
-    };
-    window.cerrarModal=function(){document.getElementById('propsModal').style.display='none';};
-
-    /* ── ICONO POR EXTENSIÓN ── */
-    function fileIcon(name){
-        var ext=(name.split('.').pop()||'').toLowerCase();
-        var im={pdf:'bi-file-earmark-pdf',xlsx:'bi-file-earmark-excel',xls:'bi-file-earmark-excel',docx:'bi-file-earmark-word',doc:'bi-file-earmark-word',pptx:'bi-file-earmark-ppt',ppt:'bi-file-earmark-ppt',zip:'bi-file-earmark-zip',rar:'bi-file-earmark-zip',jpg:'bi-file-earmark-image',jpeg:'bi-file-earmark-image',png:'bi-file-earmark-image',gif:'bi-file-earmark-image',mp4:'bi-file-earmark-play',avi:'bi-file-earmark-play',mp3:'bi-file-earmark-music',csv:'bi-filetype-csv',json:'bi-filetype-json',xml:'bi-filetype-xml',py:'bi-filetype-py',js:'bi-filetype-js',txt:'bi-file-earmark-text'};
-        var cm={pdf:'#dc3545',xlsx:'#198754',xls:'#198754',docx:'#0d6efd',doc:'#0d6efd',pptx:'#fd7e14',ppt:'#fd7e14',zip:'#6f42c1',rar:'#6f42c1',jpg:'#0dcaf0',jpeg:'#0dcaf0',png:'#0dcaf0',gif:'#0dcaf0',mp4:'#d63384',avi:'#d63384',mp3:'#9c27b0',csv:'#20c997',json:'#fd7e14',xml:'#fd7e14',py:'#0d6efd',js:'#ffc107'};
-        return '<i class="bi '+(im[ext]||'bi-file-earmark')+'" style="color:'+(cm[ext]||'#64748b')+';font-size:13px;"></i>';
-    }
-
-    /* ── FORMATO TAMAÑO ── */
-    function fmtSize(bytes){
-        if(!bytes||bytes===0)return'—';
-        var u=['B','KB','MB','GB','TB'];
-        var i=Math.floor(Math.log(bytes)/Math.log(1024));
-        return(bytes/Math.pow(1024,i)).toFixed(1)+' '+u[i];
-    }
-
-    /* ── FORMATO FECHA + HORA (Colombia UTC-5) ── */
-    function fmtDate(d){
-        if(!d)return'—';
-        try{
-        var dt=new Date(d);
-        var fecha=dt.toLocaleDateString('es-CO',{timeZone:'America/Bogota',day:'2-digit',month:'short',year:'2-digit'});
-        var hora=dt.toLocaleTimeString('es-CO',{timeZone:'America/Bogota',hour:'2-digit',minute:'2-digit',hour12:false});
-        return fecha+' '+hora;
-        }catch(e){return'—';}
-    }
-
-    /* ── CONTEO ÁRBOL ── */
-    function countNodes(obj){
-        var f=0,d=0;
-        (function w(n){for(var k in n){if(n[k]===null)f++;else{d++;w(n[k]);}}})(obj);
-        return{files:f,folders:d};
-    }
-
-    /* ── CONSTRUIR ÁRBOL ──
-        meta: objeto { "ruta/completa": {size, last_modified} } o null
-    */
-    function buildTree(container, files, basePath, meta){
-        basePath=basePath||''; meta=meta||{};
-        var folders=[],filesOnly=[];
-        for(var k in files){if(files[k]===null)filesOnly.push(k);else folders.push([k,files[k]]);}
-        folders.sort(function(a,b){return a[0].localeCompare(b[0]);});
-        filesOnly.sort(function(a,b){return a.localeCompare(b);});
-
-        /* CARPETAS */
-        folders.forEach(function(entry){
-        var name=entry[0],sub=entry[1];
-        var fp=basePath?(basePath+'/'+name):name;
-        var sc=Object.keys(sub).length;
-        var wrap=document.createElement('div');
-        var row=document.createElement('div');
-        row.className='folder-row-item';
-        row.dataset.path=fp;
-        row.style.cssText='display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;border:1px solid transparent;margin-bottom:2px;user-select:none;';
-        row.innerHTML=
-            '<i class="bi bi-chevron-right folder-chevron" style="font-size:10px;color:#94a3b8;transition:transform 0.18s;flex-shrink:0;"></i>'+
-            '<i class="bi bi-folder-fill folder-ico" style="color:#f59e0b;font-size:13px;flex-shrink:0;"></i>'+
-            '<span style="font-size:12px;font-weight:700;color:#1e293b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+fp+'">'+name+'</span>'+
-            '<span style="font-size:10px;color:#94a3b8;background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:1px 5px;flex-shrink:0;">'+sc+'</span>';
-
-        var childDiv=document.createElement('div');
-        childDiv.style.cssText='padding-left:18px;display:none;';
-
-        /* toggle */
-        row.addEventListener('click',function(){
-            var open=childDiv.style.display==='none';
-            childDiv.style.display=open?'block':'none';
-            row.querySelector('.folder-chevron').style.transform=open?'rotate(90deg)':'';
-            var fi=row.querySelector('.folder-ico');
-            if(open){row.style.background='#f0f7ff';fi.className='bi bi-folder2-open folder-ico';}
-            else{row.style.background='';fi.className='bi bi-folder-fill folder-ico';}
-            fi.style.cssText='color:#f59e0b;font-size:13px;flex-shrink:0;';
-        });
-        row.addEventListener('mouseover',function(){if(!row.classList.contains('upload-target-row')&&childDiv.style.display==='none')row.style.background='#f8fafc';});
-        row.addEventListener('mouseout', function(){if(!row.classList.contains('upload-target-row')&&childDiv.style.display==='none')row.style.background='';});
-        /* dblclick */
-        row.addEventListener('dblclick',function(e){
-            e.stopPropagation();
-            document.querySelectorAll('.upload-target-row').forEach(function(r){r.style.background='';r.classList.remove('upload-target-row');});
-            row.style.background='#fff7ed';row.classList.add('upload-target-row');
-            currentUploadPath=fp;
-            if(_uploadPathDisplay) _uploadPathDisplay.textContent=currentContainer+'/'+fp;
-            toast('Ruta de carga: '+fp,'info');
-        });
-        /* ctx menu */
-        row.addEventListener('contextmenu',function(e){
-            e.preventDefault();selectedFolderPath=fp;
-            var cm=document.getElementById('contextMenu');
-            cm.style.top=e.clientY+'px';cm.style.left=e.clientX+'px';cm.style.display='block';
-        });
-
-        buildTree(childDiv,sub,fp,meta);
-        wrap.appendChild(row);wrap.appendChild(childDiv);container.appendChild(wrap);
-        });
-
-        /* ARCHIVOS */
-        filesOnly.forEach(function(name){
-        var fp=basePath?(basePath+'/'+name):name;
-        var m=meta[fp]||{};
-        var sz=fmtSize(m.size);
-        var dt=fmtDate(m.last_modified);
-
-        var row=document.createElement('div');
-        row.className='file-row-item';
-        row.dataset.file=fp;
-        row.style.cssText='display:grid;grid-template-columns:16px 15px 1fr 72px 148px 116px;gap:6px;align-items:center;padding:4px 7px;border-radius:6px;border:1px solid transparent;margin-bottom:2px;';
-        row.innerHTML=
-            '<input type="checkbox" class="file-cb" data-file="'+fp+'" style="cursor:pointer;width:13px;height:13px;accent-color:#0d6efd;">'+
-            fileIcon(name)+
-            '<span title="'+fp+'" style="font-size:11.5px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+name+'</span>'+
-            '<span class="file-size-cell" style="font-size:11px;color:#64748b;font-weight:500;white-space:nowrap;">'+sz+'</span>'+
-            '<span class="file-date-cell" style="font-size:10.5px;color:#64748b;white-space:nowrap;">'+dt+'</span>'+
-            '<div style="display:flex;gap:3px;justify-content:center;">'+
-            (ACCIONES.ver?'<button class="btn-view"     data-file="'+fp+'" title="Ver archivo" style="width:24px;height:24px;border:1px solid #d1fae5;border-radius:5px;background:#f0fdf4;color:#059669;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#bbf7d0\'" onmouseout="this.style.background=\'#f0fdf4\'"><i class="bi bi-eye"></i></button>':'')+
-            (ACCIONES.editar&&isEditable(name)?'<button class="btn-edit" data-file="'+fp+'" title="Editar archivo" style="width:24px;height:24px;border:1px solid #fef3c7;border-radius:5px;background:#fffbeb;color:#d97706;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fde68a\'" onmouseout="this.style.background=\'#fffbeb\'"><i class="bi bi-pencil"></i></button>':'')+
-            (ACCIONES.descargar?'<button class="btn-dl-single" data-file="'+fp+'" title="Descargar" style="width:24px;height:24px;border:1px solid #dbeafe;border-radius:5px;background:#f0f7ff;color:#0d6efd;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#f0f7ff\'"><i class="bi bi-download"></i></button>':'')+
-            '<button class="btn-props"    data-file="'+fp+'" data-meta=\''+JSON.stringify(m)+'\' title="Propiedades" style="width:24px;height:24px;border:1px solid #e2e8f0;border-radius:5px;background:#fafafa;color:#64748b;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fafafa\'"><i class="bi bi-info-circle"></i></button>'+
-            (ACCIONES.eliminar?'<button class="btn-del"      data-file="'+fp+'" title="Eliminar" style="width:24px;height:24px;border:1px solid #fee2e2;border-radius:5px;background:#fff5f5;color:#dc3545;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'#fff5f5\'"><i class="bi bi-trash"></i></button>':'')+
-            '</div>';
-        row.addEventListener('mouseover',function(){if(!row.classList.contains('selected-file'))row.style.background='#f8fafc';});
-        row.addEventListener('mouseout', function(){if(!row.classList.contains('selected-file'))row.style.background='';});
-        container.appendChild(row);
-        });
-    }
-
-    /* ── CARGAR ARCHIVOS — una sola llamada con caché de servidor ── */
-    function loadFiles(container){
-        showLoading('CARGANDO ARCHIVOS...','Obteniendo estructura del contenedor');
-        var ft=document.getElementById('fileTree');
-        ft.innerHTML='';
-        document.getElementById('fileTreeHeader').style.display='none';
-
-        var ctrl=new (window.AbortController||function(){this.signal={};this.abort=function(){};})();
-        currentAbortCtrl=ctrl;
-
-        /* Una sola petición — el servidor devuelve árbol + metadata en un solo JSON */
-        fetch('/containers/'+container+'/files-metadata',{signal:ctrl.signal})
-        .then(function(r){return r.json();})
-        .then(function(data){
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+            currentAbortCtrl = null;
+        }
+        window.cancelarOperacion = function () {
+            if (currentAbortCtrl) { try { currentAbortCtrl.abort(); } catch (e) { } }
             hideLoading();
-            if(!data.tree){toast('Error al leer archivos','error');return;}
-
-            metadataCache[container]=data.metadata||{};
-
-            var st=data.stats||{};
-            document.getElementById('statFiles').textContent=st.total_files||'—';
-            selectedFiles=[];updateDlBtn();
-
-            if(Object.keys(data.tree).length===0){
-            ft.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:30px 0;text-align:center;"><i class="bi bi-folder2-open" style="font-size:40px;color:#cbd5e1;"></i><p style="margin:0;font-size:13px;font-weight:600;color:#64748b;">Contenedor vacío</p><small style="font-size:11px;color:#94a3b8;">Sube archivos usando el área de carga</small></div>';
-            return;
+            // Restaurar estado visual del árbol si estaba vacío
+            var ft = document.getElementById('fileTree');
+            if (!ft.querySelector('.file-row-item') && !ft.querySelector('.folder-row-item')) {
+                ft.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:30px 0;text-align:center;"><i class="bi bi-x-circle" style="font-size:44px;color:#fca5a5;"></i><p style="margin:0;font-size:13px;font-weight:600;color:#64748b;">Consulta cancelada</p><small style="font-size:11px;color:#94a3b8;">Selecciona un contenedor para intentar de nuevo</small></div>';
+                document.getElementById('fileTreeHeader').style.display = 'none';
             }
-            document.getElementById('fileTreeHeader').style.display='block';
-            buildTree(ft,data.tree,'',metadataCache[container]);
+            toast('Operación cancelada', 'info');
+        };
 
-            var ci=document.querySelector('.container-item[data-container="'+container+'"] .ci-badge');
-            if(ci) ci.textContent=st.total_files||'—';
-        })
-        .catch(function(err){
-            if(err&&err.name==='AbortError')return;
-            hideLoading();
-            toast('Error: '+(err.message||err),'error');
-        });
-    }
-
-    /* ── helpers progreso ── */
-    function fmtSizeDl(b){
-        if(!b)return'—';
-        if(b<1024)return b+'B';
-        if(b<1048576)return(b/1024).toFixed(1)+'KB';
-        if(b<1073741824)return(b/1048576).toFixed(1)+'MB';
-        return(b/1073741824).toFixed(2)+'GB';
-    }
-    function mostrarProgresoDl(loaded,total){
-        var wrap=document.getElementById('dlProgressWrap');
-        var bar=document.getElementById('dlProgressBar');
-        var pct=document.getElementById('dlProgressPct');
-        var bytes=document.getElementById('dlProgressBytes');
-        wrap.style.display='block';
-        if(total&&total>0){
-        var p=Math.min(100,Math.round((loaded/total)*100));
-        bar.style.width=p+'%';
-        pct.textContent=p+'%';
-        } else {
-        /* Tamaño desconocido: barra indeterminada */
-        bar.style.width='100%';
-        bar.style.animation='progressAnim 1.4s ease-in-out infinite';
-        pct.textContent='...';
+        /* ── TOAST ── */
+        function toast(msg, type) {
+            type = type || 'info';
+            var c = { success: '#198754', error: '#dc3545', info: '#0d6efd' };
+            var ic = { success: 'bi-check-circle-fill', error: 'bi-x-circle-fill', info: 'bi-info-circle-fill' };
+            var el = document.createElement('div');
+            el.style.cssText = 'display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid ' + c[type] + ';border-radius:8px;padding:9px 13px;font-size:12px;color:#334155;min-width:230px;max-width:320px;box-shadow:0 4px 14px rgba(0,0,0,0.1);animation:slideInToast .22s ease;font-family:Century Gothic,Arial,sans-serif;';
+            el.innerHTML = '<i class="bi ' + ic[type] + '" style="color:' + c[type] + ';font-size:14px;flex-shrink:0;"></i><span>' + msg + '</span>';
+            document.getElementById('toastContainer').appendChild(el);
+            setTimeout(function () { el.remove(); }, 4000);
         }
-        bytes.textContent=fmtSizeDl(loaded)+(total?' / '+fmtSizeDl(total):'');
-    }
-    function ocultarProgresoDl(){
-        var wrap=document.getElementById('dlProgressWrap');
-        var bar=document.getElementById('dlProgressBar');
-        wrap.style.display='none';
-        bar.style.width='0%';
-        bar.style.animation='none';
-    }
 
-    /* ── DESCARGA CON PROGRESO REAL (ReadableStream) ── */
-    function descargarArchivo(fp){
-        var nombre=fp.split('/').pop();
-        showLoading('DESCARGANDO...','Archivo: '+nombre);
-        var ctrl=new (window.AbortController||function(){this.signal={};this.abort=function(){};})();
-        currentAbortCtrl=ctrl;
+        function updateDlBtn() {
+            var btn = document.getElementById('downloadSelectedBtn'), n = selectedFiles.length;
+            var dlCount = document.getElementById('dlCount');
+            if (dlCount) dlCount.textContent = n;
+            document.getElementById('statSelected').textContent = n;
+            if (btn) { btn.disabled = (n === 0); btn.style.opacity = n > 0 ? '1' : '0.45'; }
+            var delBtn = document.getElementById('deleteSelectedBtn');
+            var delCount = document.getElementById('delCount');
+            if (delCount) delCount.textContent = n;
+            if (delBtn) { delBtn.disabled = (n === 0); delBtn.style.opacity = n > 0 ? '1' : '0.45'; }
+        }
 
-        fetch('/containers/'+currentContainer+'/files/'+encodeURIComponent(fp)+'/download',{signal:ctrl.signal})
-        .then(function(r){
-            if(!r.ok) throw new Error('HTTP '+r.status);
+        /* ── Muestra/oculta elementos gateados por acción, según el contenedor seleccionado ── */
+        function aplicarAccionesUI() {
+            var dlBtn = document.getElementById('downloadSelectedBtn');
+            if (dlBtn) dlBtn.style.display = ACCIONES.descargar ? 'flex' : 'none';
+            var delBtn = document.getElementById('deleteSelectedBtn');
+            if (delBtn) delBtn.style.display = ACCIONES.eliminar ? 'flex' : 'none';
+            var upWrap = document.getElementById('uploadZoneWrap');
+            if (upWrap) upWrap.style.display = ACCIONES.cargar ? '' : 'none';
+        }
+        var _uploadPathDisplay = document.getElementById('currentUploadPathDisplay');
+        window.limpiarRutaCarga = function () {
+            currentUploadPath = '';
+            if (_uploadPathDisplay) _uploadPathDisplay.textContent = '/ (raíz)';
+            document.querySelectorAll('.upload-target-row').forEach(function (r) { r.style.background = ''; r.classList.remove('upload-target-row'); });
+        };
+        window.cerrarModal = function () { document.getElementById('propsModal').style.display = 'none'; };
 
-            /* Intentar progreso real si el navegador soporta ReadableStream */
-            var total=parseInt(r.headers.get('Content-Length')||'0',10)||0;
+        /* ── ICONO POR EXTENSIÓN ── */
+        function fileIcon(name) {
+            var ext = (name.split('.').pop() || '').toLowerCase();
+            var im = { pdf: 'bi-file-earmark-pdf', xlsx: 'bi-file-earmark-excel', xls: 'bi-file-earmark-excel', docx: 'bi-file-earmark-word', doc: 'bi-file-earmark-word', pptx: 'bi-file-earmark-ppt', ppt: 'bi-file-earmark-ppt', zip: 'bi-file-earmark-zip', rar: 'bi-file-earmark-zip', jpg: 'bi-file-earmark-image', jpeg: 'bi-file-earmark-image', png: 'bi-file-earmark-image', gif: 'bi-file-earmark-image', mp4: 'bi-file-earmark-play', avi: 'bi-file-earmark-play', mp3: 'bi-file-earmark-music', csv: 'bi-filetype-csv', json: 'bi-filetype-json', xml: 'bi-filetype-xml', py: 'bi-filetype-py', js: 'bi-filetype-js', txt: 'bi-file-earmark-text' };
+            var cm = { pdf: '#dc3545', xlsx: '#198754', xls: '#198754', docx: '#0d6efd', doc: '#0d6efd', pptx: '#fd7e14', ppt: '#fd7e14', zip: '#6f42c1', rar: '#6f42c1', jpg: '#0dcaf0', jpeg: '#0dcaf0', png: '#0dcaf0', gif: '#0dcaf0', mp4: '#d63384', avi: '#d63384', mp3: '#9c27b0', csv: '#20c997', json: '#fd7e14', xml: '#fd7e14', py: '#0d6efd', js: '#ffc107' };
+            return '<i class="bi ' + (im[ext] || 'bi-file-earmark') + '" style="color:' + (cm[ext] || '#64748b') + ';font-size:13px;"></i>';
+        }
 
-            if(r.body && typeof r.body.getReader === 'function'){
-            var reader=r.body.getReader();
-            var chunks=[];
-            var loaded=0;
+        /* ── FORMATO TAMAÑO ── */
+        function fmtSize(bytes) {
+            if (!bytes || bytes === 0) return '—';
+            var u = ['B', 'KB', 'MB', 'GB', 'TB'];
+            var i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + u[i];
+        }
 
-            function leer(){
-                return reader.read().then(function(res){
-                if(res.done){
-                    var blob=new Blob(chunks);
-                    return blob;
+        /* ── FORMATO FECHA + HORA (Colombia UTC-5) ── */
+        function fmtDate(d) {
+            if (!d) return '—';
+            try {
+                var dt = new Date(d);
+                var fecha = dt.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: 'short', year: '2-digit' });
+                var hora = dt.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hour12: false });
+                return fecha + ' ' + hora;
+            } catch (e) { return '—'; }
+        }
+
+        /* ══════════════════════════════════════
+           LAZY BROWSE — carga un nivel a la vez
+           ══════════════════════════════════════ */
+
+        /* Construye una fila de archivo */
+        function buildFileRow(file) {
+            var fp = file.full_path;
+            var name = file.name;
+            var sz = fmtSize(file.size);
+            var dt = fmtDate(file.last_modified);
+            var m = {
+                size: file.size, last_modified: file.last_modified,
+                content_type: file.content_type, etag: file.etag
+            };
+
+            var row = document.createElement('div');
+            row.className = 'file-row-item';
+            row.dataset.file = fp;
+            row.style.cssText = 'display:grid;grid-template-columns:16px 15px 1fr 72px 148px 116px;gap:6px;align-items:center;padding:4px 7px;border-radius:6px;border:1px solid transparent;margin-bottom:2px;';
+            row.innerHTML =
+                '<input type="checkbox" class="file-cb" data-file="' + fp + '" style="cursor:pointer;width:13px;height:13px;accent-color:#0d6efd;">' +
+                fileIcon(name) +
+                '<span title="' + fp + '" style="font-size:11.5px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</span>' +
+                '<span style="font-size:11px;color:#64748b;font-weight:500;white-space:nowrap;">' + sz + '</span>' +
+                '<span style="font-size:10.5px;color:#64748b;white-space:nowrap;">' + dt + '</span>' +
+                '<div style="display:flex;gap:3px;justify-content:center;">' +
+                (ACCIONES.ver ? '<button class="btn-view" data-file="' + fp + '" title="Ver" style="width:24px;height:24px;border:1px solid #d1fae5;border-radius:5px;background:#f0fdf4;color:#059669;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#bbf7d0\'" onmouseout="this.style.background=\'#f0fdf4\'"><i class="bi bi-eye"></i></button>' : '') +
+                (ACCIONES.editar && isEditable(name) ? '<button class="btn-edit" data-file="' + fp + '" title="Editar" style="width:24px;height:24px;border:1px solid #fef3c7;border-radius:5px;background:#fffbeb;color:#d97706;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fde68a\'" onmouseout="this.style.background=\'#fffbeb\'"><i class="bi bi-pencil"></i></button>' : '') +
+                (ACCIONES.descargar ? '<button class="btn-dl-single" data-file="' + fp + '" title="Descargar" style="width:24px;height:24px;border:1px solid #dbeafe;border-radius:5px;background:#f0f7ff;color:#0d6efd;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#f0f7ff\'"><i class="bi bi-download"></i></button>' : '') +
+                '<button class="btn-props" data-file="' + fp + '" data-meta=\'' + JSON.stringify(m) + '\' title="Propiedades" style="width:24px;height:24px;border:1px solid #e2e8f0;border-radius:5px;background:#fafafa;color:#64748b;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fafafa\'"><i class="bi bi-info-circle"></i></button>' +
+                (ACCIONES.eliminar ? '<button class="btn-del" data-file="' + fp + '" title="Eliminar" style="width:24px;height:24px;border:1px solid #fee2e2;border-radius:5px;background:#fff5f5;color:#dc3545;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'#fff5f5\'"><i class="bi bi-trash"></i></button>' : '') +
+                '</div>';
+            row.addEventListener('mouseover', function () { if (!row.classList.contains('selected-file')) row.style.background = '#f8fafc'; });
+            row.addEventListener('mouseout', function () { if (!row.classList.contains('selected-file')) row.style.background = ''; });
+            return row;
+        }
+
+        /* Construye un nodo de carpeta con carga lazy al expandir */
+        function buildFolderNode(folderName, fullPath) {
+            var wrap = document.createElement('div');
+            var row = document.createElement('div');
+            var childDiv = document.createElement('div');
+
+            row.className = 'folder-row-item';
+            row.dataset.path = fullPath;
+            row.dataset.loaded = 'false';
+            row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;border:1px solid transparent;margin-bottom:2px;user-select:none;';
+            row.innerHTML =
+                '<i class="bi bi-chevron-right folder-chevron" style="font-size:10px;color:#94a3b8;transition:transform 0.18s;flex-shrink:0;"></i>' +
+                '<i class="bi bi-folder-fill folder-ico" style="color:#f59e0b;font-size:13px;flex-shrink:0;"></i>' +
+                '<span style="font-size:12px;font-weight:700;color:#1e293b;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + fullPath + '">' + folderName + '</span>' +
+                '<span class="folder-badge" style="font-size:10px;color:#94a3b8;background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:1px 5px;flex-shrink:0;">...</span>';
+
+            childDiv.style.cssText = 'padding-left:18px;display:none;';
+
+            row.addEventListener('click', function (e) {
+                if (e.target.closest('.btn-view,.btn-edit,.btn-dl-single,.btn-props,.btn-del')) return;
+                var isOpen = childDiv.style.display === 'none';
+                childDiv.style.display = isOpen ? 'block' : 'none';
+                var chev = row.querySelector('.folder-chevron');
+                var ico = row.querySelector('.folder-ico');
+                chev.style.transform = isOpen ? 'rotate(90deg)' : '';
+                if (isOpen) {
+                    row.style.background = '#f0f7ff';
+                    ico.className = 'bi bi-folder2-open folder-ico';
+                } else {
+                    row.style.background = '';
+                    ico.className = 'bi bi-folder-fill folder-ico';
                 }
-                chunks.push(res.value);
-                loaded+=res.value.length;
-                mostrarProgresoDl(loaded,total);
-                return leer();
-                });
-            }
-            return leer();
-            }
-            /* Fallback para navegadores sin ReadableStream */
-            return r.blob();
-        })
-        .then(function(blob){
-            ocultarProgresoDl();
-            hideLoading();
-            var url=URL.createObjectURL(blob);
-            var a=document.createElement('a');
-            a.href=url; a.download=nombre; a.style.display='none';
-            document.body.appendChild(a); a.click();
-            setTimeout(function(){URL.revokeObjectURL(url);a.remove();},600);
-            toast('Descargado: '+nombre,'success');
-        })
-        .catch(function(err){
-            ocultarProgresoDl();
-            if(err&&err.name==='AbortError')return;
-            hideLoading();
-            toast('Error al descargar: '+(err.message||err),'error');
-        });
-    }
+                ico.style.cssText = 'color:#f59e0b;font-size:13px;flex-shrink:0;';
 
-    /* ── SELECCIONAR CONTENEDOR ── */
-    document.getElementById('containerList').addEventListener('click',function(e){
-        var item=e.target.closest('.container-item');
-        if(!item)return;
-        var c=item.dataset.container;
-        currentContainer=c; selectedFiles=[];updateDlBtn();limpiarRutaCarga();
-        document.querySelectorAll('.container-item').forEach(function(ci){ci.classList.remove('active-container');ci.style.background='';ci.style.border='1px solid transparent';});
-        item.classList.add('active-container');item.style.background='#f0f7ff';item.style.border='1px solid #bfdbfe';
-        document.getElementById('breadcrumbContainer').textContent=c;
-        document.getElementById('btnRefresh').disabled=false;
-        loadFiles(c);
-    });
-
-    /* ── FILTRAR CONTENEDORES ── */
-    document.getElementById('containerSearch').addEventListener('input',function(){
-        var v=this.value.toLowerCase();
-        document.querySelectorAll('.container-item').forEach(function(i){i.style.display=i.dataset.container.toLowerCase().includes(v)?'':'none';});
-    });
-
-    /* ── CREAR CONTENEDOR ── */
-    document.getElementById('createContainerBtn').addEventListener('click',function(){
-        var name=document.getElementById('newContainerName').value.trim();
-        if(!name){toast('Ingresa un nombre para el contenedor','error');return;}
-        showLoading('CREANDO CONTENEDOR...','');
-        fetch('/containers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})})
-        .then(function(r){return r.json();})
-        .then(function(d){hideLoading();if(d.message){toast(d.message,'success');setTimeout(function(){location.reload();},1500);}else toast(d.detail||'Error al crear','error');})
-        .catch(function(e){hideLoading();toast('Error: '+e.message,'error');});
-    });
-
-    /* ── REFRESCAR: invalida caché del servidor antes de recargar ── */
-    document.getElementById('btnRefresh').addEventListener('click',function(){
-        if(!currentContainer)return;
-        delete metadataCache[currentContainer];
-        /* Invalidar caché del servidor y luego recargar */
-        fetch('/containers/'+currentContainer+'/cache/invalidate',{method:'POST'})
-        .catch(function(){}) /* silencioso si falla */
-        .finally(function(){ loadFiles(currentContainer); });
-    });
-
-    /* ── CHECKBOX ── */
-    document.getElementById('fileTree').addEventListener('change',function(e){
-        if(!e.target.classList.contains('file-cb'))return;
-        var fp=e.target.dataset.file,row=e.target.closest('.file-row-item');
-        if(e.target.checked){if(!selectedFiles.includes(fp))selectedFiles.push(fp);if(row){row.classList.add('selected-file');row.style.background='#eff6ff';}}
-        else{selectedFiles=selectedFiles.filter(function(f){return f!==fp;});if(row){row.classList.remove('selected-file');row.style.background='';}}
-        updateDlBtn();
-    });
-
-    /* ── CLICKS ÁRBOL: descargar / props / eliminar ── */
-    document.getElementById('fileTree').addEventListener('click',function(e){
-        var dl=e.target.closest('.btn-dl-single'),pr=e.target.closest('.btn-props'),de=e.target.closest('.btn-del');
-        if(dl){descargarArchivo(dl.dataset.file);return;}
-        if(pr){mostrarPropiedades(pr.dataset.file,pr.dataset.meta);return;}
-        if(de){eliminarArchivo(de.dataset.file);return;}
-    });
-
-    /* ── DESCARGAR SELECCIONADOS (secuencial con progreso) ── */
-    var _dlSelBtn=document.getElementById('downloadSelectedBtn');
-    if(_dlSelBtn) _dlSelBtn.addEventListener('click',function(){
-        if(!currentContainer||selectedFiles.length===0)return;
-        var cola=selectedFiles.slice();
-        var idx=0;
-        function siguiente(){
-        if(idx>=cola.length){
-            ocultarProgresoDl();
-            hideLoading();
-            document.querySelectorAll('.file-cb').forEach(function(cb){cb.checked=false;});
-            document.querySelectorAll('.selected-file').forEach(function(r){r.classList.remove('selected-file');r.style.background='';});
-            var n=cola.length; selectedFiles=[];updateDlBtn();
-            toast(n+' archivo(s) descargado(s)','success');
-            return;
-        }
-        var fp=cola[idx]; idx++;
-        var nombre=fp.split('/').pop();
-        showLoading('DESCARGANDO '+idx+' / '+cola.length,'Archivo: '+nombre);
-        var ctrl=new (window.AbortController||function(){this.signal={};this.abort=function(){};})();
-        currentAbortCtrl=ctrl;
-        fetch('/containers/'+currentContainer+'/files/'+encodeURIComponent(fp)+'/download',{signal:ctrl.signal})
-            .then(function(r){
-            if(!r.ok)return Promise.reject('HTTP '+r.status);
-            var total=parseInt(r.headers.get('Content-Length')||'0',10)||0;
-            if(r.body&&typeof r.body.getReader==='function'){
-                var reader=r.body.getReader(),chunks=[],loaded=0;
-                function leer(){return reader.read().then(function(res){
-                if(res.done)return new Blob(chunks);
-                chunks.push(res.value);loaded+=res.value.length;
-                mostrarProgresoDl(loaded,total);return leer();
-                });}
-                return leer();
-            }
-            return r.blob();
-            })
-            .then(function(blob){
-            ocultarProgresoDl();
-            var u=URL.createObjectURL(blob),a=document.createElement('a');
-            a.href=u;a.download=nombre;a.style.display='none';
-            document.body.appendChild(a);a.click();
-            setTimeout(function(){URL.revokeObjectURL(u);a.remove();},600);
-            siguiente();
-            })
-            .catch(function(err){
-            if(err&&err.name==='AbortError')return;
-            ocultarProgresoDl();
-            toast('Error descargando: '+nombre,'error');
-            siguiente();
-            });
-        }
-        siguiente();
-    });
-
-    /* ── ELIMINAR ARCHIVO ── */
-    function eliminarArchivo(fp){
-        if(!confirm('¿Eliminar "'+fp.split('/').pop()+'"?\n\nEsta acción no se puede deshacer.'))return;
-        showLoading('ELIMINANDO...','');
-        fetch('/containers/'+currentContainer+'/files/'+encodeURIComponent(fp),{method:'DELETE'})
-        .then(function(r){return r.json();})
-        .then(function(d){hideLoading();if(d.message){toast(d.message,'success');delete metadataCache[currentContainer];loadFiles(currentContainer);}else toast(d.detail||'Error','error');})
-        .catch(function(e){hideLoading();toast('Error: '+e.message,'error');});
-    }
-
-    /* ── PROPIEDADES ── */
-    function mostrarPropiedades(fp, metaStr){
-        var name=fp.split('/').pop(), ext=(name.split('.').pop()||'').toUpperCase();
-        var folder=fp.includes('/')?fp.substring(0,fp.lastIndexOf('/')):'(raíz)';
-        var m={};
-        try{m=JSON.parse(metaStr||'{}');}catch(e){}
-        var mm={PDF:'application/pdf',XLSX:'application/vnd.ms-excel',XLS:'application/vnd.ms-excel',DOCX:'application/msword',DOC:'application/msword',PNG:'image/png',JPG:'image/jpeg',JPEG:'image/jpeg',GIF:'image/gif',ZIP:'application/zip',MP4:'video/mp4',MP3:'audio/mpeg',CSV:'text/csv',JSON:'application/json',TXT:'text/plain',XML:'application/xml'};
-        var mime=mm[ext]||'application/octet-stream';
-        function pr(label,val,accent){
-        return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid #f1f5f9;">'+
-            '<span style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;font-weight:700;flex-shrink:0;padding-right:10px;">'+label+'</span>'+
-            '<span style="font-size:12px;color:'+(accent?'#0d6efd':'#334155')+';text-align:right;word-break:break-all;max-width:68%;font-weight:600;">'+val+'</span></div>';
-        }
-        document.getElementById('propsBody').innerHTML=
-        pr('Nombre',name,true)+
-        pr('Tipo',ext+' — '+mime)+
-        pr('Carpeta',folder)+
-        pr('Ruta',currentContainer+'/'+fp)+
-        pr('Contenedor',currentContainer)+
-        pr('Tamaño',fmtSize(m.size))+
-        pr('Modificado',fmtDate(m.last_modified))+
-        (m.content_type?pr('Content-Type',m.content_type):'')+
-        (m.etag?pr('ETag',(m.etag||'').replace(/"/g,'')):'')+
-        (ACCIONES.descargar?'<div style="padding-top:10px;text-align:center;"><button onclick="descargarDesdeModal(\''+fp+'\')" style="background:linear-gradient(135deg,#198754,#157347);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-family:Century Gothic,Arial,sans-serif;font-weight:700;cursor:pointer;"><i class="bi bi-download"></i>&nbsp;Descargar</button></div>':'');
-        document.getElementById('propsModal').style.display='flex';
-    }
-    window.descargarDesdeModal=function(fp){cerrarModal();descargarArchivo(fp);};
-
-    /* ── CARGA DE ARCHIVOS (solo si el rol tiene permiso de editar) ── */
-    var _selBtn=document.getElementById('selectFilesBtn');
-    var _fileUp=document.getElementById('fileUpload');
-    var dz=document.getElementById('dropZone');
-    if(_selBtn) _selBtn.addEventListener('click',function(){if(_fileUp)_fileUp.click();});
-    if(_fileUp) _fileUp.addEventListener('change',function(e){subirArchivos(e.target.files);});
-    if(dz){
-        dz.addEventListener('dragover', function(e){e.preventDefault();dz.style.borderColor='#0d6efd';dz.style.background='#eff6ff';});
-        dz.addEventListener('dragleave',function(){dz.style.borderColor='#bfdbfe';dz.style.background='#f8faff';});
-        dz.addEventListener('drop',     function(e){e.preventDefault();dz.style.borderColor='#bfdbfe';dz.style.background='#f8faff';subirArchivos(e.dataTransfer.files);});
-    }
-
-    function subirArchivos(files){
-        if(!currentContainer){toast('Selecciona un contenedor primero','error');return;}
-        if(!files||files.length===0)return;
-        var path=currentUploadPath?(currentUploadPath+'/'):'';
-        var _upProg=document.getElementById('uploadProgress');
-        if(_upProg) _upProg.style.display='block';
-        /* Subir secuencialmente para mostrar progreso */
-        var arr=Array.from(files), idx=0;
-        function subir(){
-        if(idx>=arr.length){
-            hideLoading();
-            if(_upProg) _upProg.style.display='none';
-            if(_fileUp) _fileUp.value='';
-            delete metadataCache[currentContainer];
-            loadFiles(currentContainer);
-            return;
-        }
-        var file=arr[idx]; idx++;
-        showLoading('SUBIENDO '+idx+' / '+arr.length, file.name);
-        var fd=new FormData(); fd.append('file',file);
-        fetch('/containers/'+currentContainer+'/files?path='+encodeURIComponent(path),{method:'POST',body:fd})
-            .then(function(r){return r.json();})
-            .then(function(d){if(d.message)toast('✓ '+file.name,'success'); subir();})
-            .catch(function(){toast('✗ Error: '+file.name,'error'); subir();});
-        }
-        subir();
-    }
-
-    /* ── MENÚ CONTEXTUAL ── */
-    document.getElementById('ctxSetPath').addEventListener('click',function(){
-        if(selectedFolderPath){
-        document.querySelectorAll('.upload-target-row').forEach(function(r){r.style.background='';r.classList.remove('upload-target-row');});
-        var row=document.querySelector('.folder-row-item[data-path="'+selectedFolderPath+'"]');
-        if(row){row.style.background='#fff7ed';row.classList.add('upload-target-row');}
-        currentUploadPath=selectedFolderPath;
-        if(_uploadPathDisplay) _uploadPathDisplay.textContent=currentContainer+'/'+selectedFolderPath;
-        toast('Ruta de carga: '+selectedFolderPath,'info');
-        }
-        document.getElementById('contextMenu').style.display='none';
-    });
-    document.getElementById('ctxExpandAll').addEventListener('click',function(){
-        document.querySelectorAll('#fileTree .folder-row-item').forEach(function(row){
-        var cd=row.nextElementSibling;
-        if(cd){cd.style.display='block';row.querySelector('.folder-chevron').style.transform='rotate(90deg)';var fi=row.querySelector('.folder-ico');if(fi){fi.className='bi bi-folder2-open folder-ico';fi.style.cssText='color:#f59e0b;font-size:13px;flex-shrink:0;';} row.style.background='#f0f7ff';}
-        });
-        document.getElementById('contextMenu').style.display='none';
-    });
-    document.getElementById('ctxCollapseAll').addEventListener('click',function(){
-        document.querySelectorAll('#fileTree .folder-row-item').forEach(function(row){
-        var cd=row.nextElementSibling;
-        if(cd){cd.style.display='none';row.querySelector('.folder-chevron').style.transform='';var fi=row.querySelector('.folder-ico');if(fi){fi.className='bi bi-folder-fill folder-ico';fi.style.cssText='color:#f59e0b;font-size:13px;flex-shrink:0;';}row.style.background='';}
-        });
-        document.getElementById('contextMenu').style.display='none';
-    });
-    document.addEventListener('click',function(e){if(!e.target.closest('#contextMenu'))document.getElementById('contextMenu').style.display='none';});
-    document.getElementById('propsModal').addEventListener('click',function(e){if(e.target===this)cerrarModal();});
-    document.addEventListener('keydown',function(e){if(e.key==='Escape'){cerrarModal();cerrarVisor();cerrarEditor();document.getElementById('contextMenu').style.display='none';}});
-
-    /* ── CLICK ÁRBOL: agregar visor y editor ── */
-    document.getElementById('fileTree').addEventListener('click',function(e){
-        var vw=e.target.closest('.btn-view'),ed=e.target.closest('.btn-edit');
-        if(vw){abrirVisor(vw.dataset.file);return;}
-        if(ed){abrirEditor(ed.dataset.file);return;}
-    });
-
-    /* ── HELPERS TIPO ARCHIVO ── */
-    function extOf(name){return(name.split('.').pop()||'').toLowerCase();}
-    function isEditable(name){return['xls','xlsx'].indexOf(extOf(name))>=0;}
-    function isImage(name){return['jpg','jpeg','png','gif','webp','bmp','svg'].indexOf(extOf(name))>=0;}
-    function isPdf(name){return extOf(name)==='pdf';}
-    function isText(name){return['txt','csv','json','xml','js','py','html','htm','sql','md','yaml','yml','ini','cfg','log','ts','css','scss','sh','bat','rs','go','java','c','cpp','h','rb','php'].indexOf(extOf(name))>=0;}
-
-    /* ── CARGA DINÁMICA DE SheetJS (una sola vez) ── */
-    var _xlsxPromise = null;
-    function loadXLSX(){
-        if(window.XLSX) return Promise.resolve(window.XLSX);
-        if(_xlsxPromise) return _xlsxPromise;
-        _xlsxPromise = new Promise(function(resolve, reject){
-            var s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-            s.onload  = function(){ resolve(window.XLSX); };
-            s.onerror = function(){ reject(new Error('No se pudo cargar SheetJS')); };
-            document.head.appendChild(s);
-        });
-        return _xlsxPromise;
-    }
-    var viewerModal=document.getElementById('viewerModal');
-    window.cerrarVisor=function(){viewerModal.style.display='none';document.getElementById('viewerBody').innerHTML='';};
-    viewerModal.addEventListener('click',function(e){if(e.target===this)cerrarVisor();});
-
-    function abrirVisor(fp){
-        var name=fp.split('/').pop();
-        document.getElementById('viewerTitle').textContent=name;
-        var body=document.getElementById('viewerBody');
-        body.innerHTML='<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px;"><i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando...</div>';
-        viewerModal.style.display='flex';
-
-        var url='/containers/'+currentContainer+'/files/'+encodeURIComponent(fp)+'/download';
-
-        if(isImage(name)){
-            body.innerHTML='<div style="text-align:center;padding:12px;"><img src="'+url+'" style="max-width:100%;max-height:72vh;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>';
-        } else if(isPdf(name)){
-            body.innerHTML='<iframe src="'+url+'" style="width:100%;height:75vh;border:none;border-radius:4px;"></iframe>';
-        } else if(isEditable(name)){
-            /* xls / xlsx — renderizar con SheetJS en modo solo lectura */
-            loadXLSX().then(function(XLSX){
-            fetch(url)
-            .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();})
-            .then(function(ab){
-                var wb=XLSX.read(new Uint8Array(ab),{type:'array',cellText:true,cellDates:true});
-                var sn=wb.SheetNames[0];
-                /* Tabs si hay múltiples hojas */
-                var tabsHtml='';
-                if(wb.SheetNames.length>1){
-                    tabsHtml='<div style="display:flex;gap:2px;padding:6px 10px 0;background:#f8f9fa;border-bottom:1px solid #e2e8f0;overflow-x:auto;">';
-                    wb.SheetNames.forEach(function(s,i){
-                        tabsHtml+='<span class="vwr-tab" data-wb-idx="'+i+'" style="padding:3px 12px;font-size:11px;border-radius:4px 4px 0 0;cursor:pointer;border:1px solid #e2e8f0;border-bottom:'+(i===0?'2px solid #059669':'2px solid transparent')+';background:'+(i===0?'#fff':'#f1f5f9')+';color:'+(i===0?'#059669':'#64748b')+';font-weight:'+(i===0?'700':'600')+';white-space:nowrap;font-family:Century Gothic,Arial,sans-serif;">'+s+'</span>';
-                    });
-                    tabsHtml+='</div>';
+                if (isOpen && row.dataset.loaded === 'false') {
+                    row.dataset.loaded = 'loading';
+                    childDiv.innerHTML = '<div style="padding:6px 8px;font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:12px;height:12px;border:2px solid #e2e8f0;border-top-color:#0d6efd;border-radius:50%;animation:spinA 0.75s linear infinite;"></span>Cargando...</div>';
+                    fetch('/containers/' + currentContainer + '/browse?prefix=' + encodeURIComponent(fullPath + '/'))
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            childDiv.innerHTML = '';
+                            row.dataset.loaded = 'true';
+                            var badge = row.querySelector('.folder-badge');
+                            if (badge) badge.textContent = data.folders.length + data.files.length;
+                            renderLevel(childDiv, data, fullPath + '/');
+                        })
+                        .catch(function () {
+                            childDiv.innerHTML = '<div style="padding:6px 8px;font-size:11px;color:#dc3545;">Error al cargar</div>';
+                            row.dataset.loaded = 'error';
+                        });
                 }
-                function renderSheet(sheetName){
-                    var ws=wb.Sheets[sheetName];
-                    var html=XLSX.utils.sheet_to_html(ws,{editable:false});
-                    html=html.replace('<table','<table style="border-collapse:collapse;font-size:12px;font-family:Consolas,Arial,sans-serif;width:100%;"');
-                    html=html.replace(/<td/g,'<td style="border:1px solid #e2e8f0;padding:3px 7px;white-space:nowrap;"');
-                    html=html.replace(/<th/g,'<th style="border:1px solid #e2e8f0;padding:3px 7px;background:#f1f5f9;font-size:10px;color:#64748b;font-weight:700;white-space:nowrap;"');
-                    document.getElementById('vwr-table-area').innerHTML='<div style="overflow:auto;max-height:68vh;padding:10px;">'+html+'</div>';
-                }
-                body.innerHTML=tabsHtml+'<div id="vwr-table-area"></div>';
-                renderSheet(sn);
-                body.querySelectorAll('.vwr-tab').forEach(function(t){
-                    t.addEventListener('click',function(){
-                        body.querySelectorAll('.vwr-tab').forEach(function(x){x.style.borderBottom='2px solid transparent';x.style.background='#f1f5f9';x.style.color='#64748b';x.style.fontWeight='600';});
-                        t.style.borderBottom='2px solid #059669';t.style.background='#fff';t.style.color='#059669';t.style.fontWeight='700';
-                        renderSheet(wb.SheetNames[parseInt(t.dataset.wbIdx)]);
-                    });
-                });
-            })
-            .catch(function(e){body.innerHTML='<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> Error al cargar: '+e.message+'</div>';});
-            }).catch(function(e){body.innerHTML='<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> '+e.message+'</div>';});
-        } else if(isText(name)){
-            fetch(url)
-            .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
-            .then(function(txt){
-                var escaped=txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                body.innerHTML='<pre style="margin:0;padding:14px;font-family:Consolas,monospace;font-size:12px;line-height:1.55;color:#e2e8f0;background:#1e293b;border-radius:6px;overflow:auto;max-height:75vh;white-space:pre-wrap;word-break:break-word;">'+escaped+'</pre>';
-            })
-            .catch(function(e){body.innerHTML='<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> Error al cargar: '+e.message+'</div>';});
-        } else {
-            body.innerHTML='<div style="text-align:center;padding:40px 20px;"><i class="bi bi-file-earmark-x" style="font-size:48px;color:#cbd5e1;display:block;margin-bottom:12px;"></i><p style="font-size:13px;color:#64748b;margin:0 0 14px;">Vista previa no disponible para este tipo de archivo.</p><button onclick="cerrarVisor();descargarArchivo(\''+fp+'\')" style="background:linear-gradient(135deg,#0d6efd,#0b5ed7);color:#fff;border:none;border-radius:6px;padding:7px 18px;font-size:12px;font-family:Century Gothic,Arial,sans-serif;font-weight:700;cursor:pointer;"><i class="bi bi-download"></i>&nbsp;Descargar</button></div>';
-        }
-    }
-
-    /* ══════════════════════════════════════
-    EDITOR EXCEL (SheetJS)
-    ══════════════════════════════════════ */
-    var editorModal  = document.getElementById('editorModal');
-    var editorFile   = '';
-    var editorWB     = null;   // workbook activo
-    var editorSheet  = '';     // hoja activa
-    var editorXLSX   = null;   // referencia a la librería SheetJS
-
-    window.cerrarEditor = function(){
-        editorModal.style.display = 'none';
-        editorFile = ''; editorWB = null; editorSheet = ''; editorXLSX = null;
-        document.getElementById('editorTableWrap').innerHTML =
-            '<div id="editorLoading" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;"><i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando archivo...</div>';
-        document.getElementById('editorSheetTabs').innerHTML = '';
-        document.getElementById('editorSaveBtn').disabled = true;
-        document.getElementById('editorSaveBtn').style.opacity = '0.5';
-    };
-    editorModal.addEventListener('click', function(e){ if(e.target === this) cerrarEditor(); });
-
-    /* Renderiza la hoja activa como tabla editable */
-    function editorRenderSheet(sheetName, XLSX){
-        editorSheet = sheetName;
-        /* Actualizar tabs */
-        document.querySelectorAll('.editor-sheet-tab').forEach(function(t){
-            var active = t.dataset.sheet === sheetName;
-            t.style.background    = active ? '#fff'    : '#f1f5f9';
-            t.style.borderBottom  = active ? '2px solid #d97706' : '2px solid transparent';
-            t.style.fontWeight    = active ? '700'    : '600';
-            t.style.color         = active ? '#d97706' : '#64748b';
-        });
-
-        var ws = editorWB.Sheets[sheetName];
-        var range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-        var rows  = range.e.r - range.s.r + 1;
-        var cols  = range.e.c - range.s.c + 1;
-
-        /* Construir tabla */
-        var colLetters = [];
-        for(var ci = range.s.c; ci <= range.e.c; ci++) colLetters.push(XLSX.utils.encode_col(ci));
-
-        var html = '<table id="editorTable" style="border-collapse:collapse;font-size:12px;font-family:Consolas,Arial,sans-serif;width:100%;">';
-        /* Header con letras de columna */
-        html += '<thead><tr><th style="background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 6px;min-width:36px;text-align:center;font-size:10px;color:#94a3b8;position:sticky;top:0;z-index:1;">#</th>';
-        colLetters.forEach(function(l){
-            html += '<th style="background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 8px;min-width:90px;text-align:center;font-size:10px;color:#64748b;font-weight:700;position:sticky;top:0;z-index:1;">'+l+'</th>';
-        });
-        html += '</tr></thead><tbody>';
-
-        for(var ri = range.s.r; ri <= range.e.r; ri++){
-            var isEven = (ri - range.s.r) % 2 === 1;
-            html += '<tr style="background:'+(isEven?'#fafafa':'#fff')+'">';
-            html += '<td style="background:#f8f9fa;border:1px solid #e2e8f0;padding:2px 5px;text-align:center;font-size:10px;color:#94a3b8;font-weight:700;min-width:36px;">'+(ri+1)+'</td>';
-            for(var cj = range.s.c; cj <= range.e.c; cj++){
-                var addr = XLSX.utils.encode_cell({r:ri, c:cj});
-                var cell = ws[addr];
-                var val  = cell ? (cell.v !== undefined ? cell.v : '') : '';
-                var disp = cell ? (cell.w !== undefined ? cell.w : val) : '';
-                var escaped = String(disp).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                html += '<td contenteditable="true" data-addr="'+addr+'" data-raw="'+String(val).replace(/"/g,'&quot;')+'" '
-                    + 'style="border:1px solid #e2e8f0;padding:2px 6px;min-width:90px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;" '
-                    + 'onfocus="this.style.background=\'#fffbeb\';this.style.outline=\'2px solid #d97706\';this.style.zIndex=\'2\';" '
-                    + 'onblur="editorCellBlur(this);">'
-                    + escaped + '</td>';
-            }
-            html += '</tr>';
-        }
-        html += '</tbody></table>';
-
-        var wrap = document.getElementById('editorTableWrap');
-        wrap.innerHTML = html;
-        document.getElementById('editorStatus').textContent =
-            sheetName + ' — ' + rows + ' filas × ' + cols + ' columnas';
-    }
-
-    /* Commit de celda editada al workbook */
-    window.editorCellBlur = function(td){
-        td.style.background = ''; td.style.outline = ''; td.style.zIndex = '';
-        if(!editorWB || !editorSheet) return;
-        var ws   = editorWB.Sheets[editorSheet];
-        var addr = td.dataset.addr;
-        var newVal = td.innerText;
-        var num  = parseFloat(newVal);
-        if(newVal === ''){
-            delete ws[addr];
-        } else if(!isNaN(num) && newVal.trim() !== ''){
-            ws[addr] = { t:'n', v:num, w:newVal };
-        } else {
-            ws[addr] = { t:'s', v:newVal };
-        }
-    };
-
-    function abrirEditor(fp){
-        editorFile = fp;
-        var name   = fp.split('/').pop();
-        document.getElementById('editorTitle').textContent = name;
-        document.getElementById('editorSaveBtn').disabled  = true;
-        document.getElementById('editorSaveBtn').style.opacity = '0.5';
-        document.getElementById('editorStatus').textContent   = 'Cargando librería...';
-        document.getElementById('editorSheetTabs').innerHTML  = '';
-        document.getElementById('editorTableWrap').innerHTML  =
-            '<div id="editorLoading" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;"><i class="bi bi-hourglass-split" style="font-size:28px;display:block;margin-bottom:8px;"></i>Cargando archivo...</div>';
-        editorModal.style.display = 'flex';
-
-        loadXLSX().then(function(XLSX){
-        editorXLSX = XLSX;
-        document.getElementById('editorStatus').textContent = 'Descargando archivo...';
-        var url = '/containers/'+currentContainer+'/files/'+encodeURIComponent(fp)+'/download';
-        fetch(url)
-        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.arrayBuffer(); })
-        .then(function(ab){
-            editorWB = XLSX.read(new Uint8Array(ab), {type:'array', cellText:true, cellDates:true});
-
-            var tabsDiv = document.getElementById('editorSheetTabs');
-            editorWB.SheetNames.forEach(function(sn){
-                var tab = document.createElement('div');
-                tab.className    = 'editor-sheet-tab';
-                tab.dataset.sheet = sn;
-                tab.textContent  = sn;
-                tab.style.cssText = 'padding:4px 14px;font-size:11px;border-radius:4px 4px 0 0;cursor:pointer;border:1px solid #e2e8f0;border-bottom:2px solid transparent;background:#f1f5f9;color:#64748b;font-weight:600;white-space:nowrap;font-family:Century Gothic,Arial,sans-serif;';
-                var sn2 = sn; /* capturar en closure */
-                tab.addEventListener('click', function(){ editorRenderSheet(sn2, XLSX); });
-                tabsDiv.appendChild(tab);
             });
 
-            editorRenderSheet(editorWB.SheetNames[0], XLSX);
-            document.getElementById('editorSaveBtn').disabled = false;
-            document.getElementById('editorSaveBtn').style.opacity = '1';
-        })
-        .catch(function(e){
-            document.getElementById('editorTableWrap').innerHTML =
-                '<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> Error al cargar: '+e.message+'</div>';
-            document.getElementById('editorStatus').textContent = 'Error';
-        });
-        }).catch(function(e){
-            document.getElementById('editorTableWrap').innerHTML =
-                '<div style="padding:20px;color:#dc3545;font-size:12px;"><i class="bi bi-exclamation-circle"></i> '+e.message+'</div>';
-            document.getElementById('editorStatus').textContent = 'Error';
-        });
-    }
+            row.addEventListener('mouseover', function () { if (childDiv.style.display === 'none' && !row.classList.contains('upload-target-row')) row.style.background = '#f8fafc'; });
+            row.addEventListener('mouseout', function () { if (childDiv.style.display === 'none' && !row.classList.contains('upload-target-row')) row.style.background = ''; });
 
-    document.getElementById('editorSaveBtn').addEventListener('click', function(){
-        if(!editorFile || !editorWB || !editorXLSX) return;
-        /* Commit de cualquier celda aún activa */
-        var active = document.activeElement;
-        if(active && active.dataset && active.dataset.addr) window.editorCellBlur(active);
+            row.addEventListener('dblclick', function (e) {
+                e.stopPropagation();
+                document.querySelectorAll('.upload-target-row').forEach(function (r) { r.style.background = ''; r.classList.remove('upload-target-row'); });
+                row.style.background = '#fff7ed'; row.classList.add('upload-target-row');
+                currentUploadPath = fullPath;
+                if (_uploadPathDisplay) _uploadPathDisplay.textContent = currentContainer + '/' + fullPath;
+                toast('Ruta de carga: ' + fullPath, 'info');
+            });
 
-        var name    = editorFile.split('/').pop();
-        var folder  = editorFile.includes('/') ? editorFile.substring(0, editorFile.lastIndexOf('/')) : '';
-        var ext     = extOf(name);
-        var bookType= ext === 'xlsx' ? 'xlsx' : 'xls';
+            row.addEventListener('contextmenu', function (e) {
+                e.preventDefault(); selectedFolderPath = fullPath;
+                var cm = document.getElementById('contextMenu');
+                cm.style.top = e.clientY + 'px'; cm.style.left = e.clientX + 'px'; cm.style.display = 'block';
+            });
 
-        document.getElementById('editorStatus').textContent = 'Generando archivo...';
-        document.getElementById('editorSaveBtn').disabled   = true;
-        document.getElementById('editorSaveBtn').style.opacity = '0.5';
+            wrap.appendChild(row);
+            wrap.appendChild(childDiv);
+            return wrap;
+        }
 
-        var wbOut   = editorXLSX.write(editorWB, {bookType: bookType, type:'array'});
-        var blob    = new Blob([wbOut], {type:'application/octet-stream'});
-        var file    = new File([blob], name, {type:'application/octet-stream'});
-        var fd      = new FormData(); fd.append('file', file);
-        var pathParam = folder ? encodeURIComponent(folder+'/') : encodeURIComponent('');
+        /* Puebla un contenedor DOM con carpetas + archivos de un nivel */
+        function renderLevel(parentEl, data, prefix) {
+            data.folders.forEach(function (name) {
+                parentEl.appendChild(buildFolderNode(name, (prefix || '') + name));
+            });
+            data.files.forEach(function (file) {
+                parentEl.appendChild(buildFileRow(file));
+            });
+        }
 
-        document.getElementById('editorStatus').textContent = 'Guardando en Blob Storage...';
-        fetch('/containers/'+currentContainer+'/files?path='+pathParam, {method:'POST', body:fd})
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            if(d.message){
-                toast('✓ Guardado: '+name, 'success');
-                delete metadataCache[currentContainer];
-                loadFiles(currentContainer);
-                cerrarEditor();
+        /* Carga el nivel raíz del contenedor (reemplaza loadFiles) */
+        function browseRoot(containerName) {
+            var ft = document.getElementById('fileTree');
+            ft.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#94a3b8;display:flex;flex-direction:column;align-items:center;gap:8px;"><div style="width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#0d6efd;border-radius:50%;animation:spinA 0.75s linear infinite;"></div>Conectando con Azure...</div>';
+            document.getElementById('fileTreeHeader').style.display = 'none';
+            selectedFiles = []; updateDlBtn();
+
+            fetch('/containers/' + containerName + '/browse?prefix=')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    ft.innerHTML = '';
+                    if (data.folders.length === 0 && data.files.length === 0) {
+                        ft.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:30px 0;text-align:center;"><i class="bi bi-folder2-open" style="font-size:40px;color:#cbd5e1;"></i><p style="margin:0;font-size:13px;font-weight:600;color:#64748b;">Contenedor vacío</p><small style="font-size:11px;color:#94a3b8;">Sube archivos usando el área de carga</small></div>';
+                        return;
+                    }
+                    document.getElementById('fileTreeHeader').style.display = 'block';
+                    renderLevel(ft, data, '');
+                })
+                .catch(function (err) {
+                    ft.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:30px 0;text-align:center;"><i class="bi bi-x-circle" style="font-size:40px;color:#fca5a5;"></i><p style="margin:0;font-size:13px;font-weight:600;color:#64748b;">Error al cargar</p><small style="font-size:11px;color:#94a3b8;">' + (err.message || err) + '</small></div>';
+                });
+        }
+
+        /* ── helpers progreso ── */
+        function fmtSizeDl(b) {
+            if (!b) return '—';
+            if (b < 1024) return b + 'B';
+            if (b < 1048576) return (b / 1024).toFixed(1) + 'KB';
+            if (b < 1073741824) return (b / 1048576).toFixed(1) + 'MB';
+            return (b / 1073741824).toFixed(2) + 'GB';
+        }
+        function mostrarProgresoDl(loaded, total) {
+            var wrap = document.getElementById('dlProgressWrap');
+            var bar = document.getElementById('dlProgressBar');
+            var pct = document.getElementById('dlProgressPct');
+            var bytes = document.getElementById('dlProgressBytes');
+            wrap.style.display = 'block';
+            if (total && total > 0) {
+                var p = Math.min(100, Math.round((loaded / total) * 100));
+                bar.style.width = p + '%';
+                pct.textContent = p + '%';
             } else {
-                document.getElementById('editorStatus').textContent = 'Error al guardar';
-                toast(d.detail||'Error al guardar', 'error');
-                document.getElementById('editorSaveBtn').disabled = false;
-                document.getElementById('editorSaveBtn').style.opacity = '1';
+                /* Tamaño desconocido: barra indeterminada */
+                bar.style.width = '100%';
+                bar.style.animation = 'progressAnim 1.4s ease-in-out infinite';
+                pct.textContent = '...';
             }
-        })
-        .catch(function(e){
-            document.getElementById('editorStatus').textContent = 'Error: '+e.message;
-            toast('Error al guardar: '+e.message, 'error');
-            document.getElementById('editorSaveBtn').disabled = false;
-            document.getElementById('editorSaveBtn').style.opacity = '1';
+            bytes.textContent = fmtSizeDl(loaded) + (total ? ' / ' + fmtSizeDl(total) : '');
+        }
+        function ocultarProgresoDl() {
+            var wrap = document.getElementById('dlProgressWrap');
+            var bar = document.getElementById('dlProgressBar');
+            wrap.style.display = 'none';
+            bar.style.width = '0%';
+            bar.style.animation = 'none';
+        }
+
+        /* ── DESCARGA CON PROGRESO REAL (ReadableStream) ── */
+        function descargarArchivo(fp) {
+            var nombre = fp.split('/').pop();
+            showLoading('DESCARGANDO...', 'Archivo: ' + nombre);
+            var ctrl = new (window.AbortController || function () { this.signal = {}; this.abort = function () { }; })();
+            currentAbortCtrl = ctrl;
+
+            fetch('/containers/' + currentContainer + '/files/' + encodeURIComponent(fp) + '/download', { signal: ctrl.signal })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+
+                    /* Intentar progreso real si el navegador soporta ReadableStream */
+                    var total = parseInt(r.headers.get('Content-Length') || '0', 10) || 0;
+
+                    if (r.body && typeof r.body.getReader === 'function') {
+                        var reader = r.body.getReader();
+                        var chunks = [];
+                        var loaded = 0;
+
+                        function leer() {
+                            return reader.read().then(function (res) {
+                                if (res.done) {
+                                    var blob = new Blob(chunks);
+                                    return blob;
+                                }
+                                chunks.push(res.value);
+                                loaded += res.value.length;
+                                mostrarProgresoDl(loaded, total);
+                                return leer();
+                            });
+                        }
+                        return leer();
+                    }
+                    /* Fallback para navegadores sin ReadableStream */
+                    return r.blob();
+                })
+                .then(function (blob) {
+                    ocultarProgresoDl();
+                    hideLoading();
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = nombre; a.style.display = 'none';
+                    document.body.appendChild(a); a.click();
+                    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 600);
+                    toast('Descargado: ' + nombre, 'success');
+                })
+                .catch(function (err) {
+                    ocultarProgresoDl();
+                    if (err && err.name === 'AbortError') return;
+                    hideLoading();
+                    toast('Error al descargar: ' + (err.message || err), 'error');
+                });
+        }
+
+        /* ── SELECCIONAR CONTENEDOR ── */
+        document.getElementById('containerList').addEventListener('click', function (e) {
+            var item = e.target.closest('.container-item');
+            if (!item) return;
+            var c = item.dataset.container;
+            currentContainer = c; selectedFiles = []; updateDlBtn(); limpiarRutaCarga();
+            ACCIONES = ACCIONES_POR_CONTENEDOR[c] || ACCIONES_VACIAS;
+            aplicarAccionesUI();
+            document.querySelectorAll('.container-item').forEach(function (ci) { ci.classList.remove('active-container'); ci.style.background = ''; ci.style.border = '1px solid transparent'; });
+            item.classList.add('active-container'); item.style.background = '#f0f7ff'; item.style.border = '1px solid #bfdbfe';
+            document.getElementById('breadcrumbContainer').textContent = c;
+            document.getElementById('btnRefresh').disabled = false;
+            browseRoot(c);
         });
-    });
+
+        /* ── FILTRAR CONTENEDORES ── */
+        document.getElementById('containerSearch').addEventListener('input', function () {
+            var v = this.value.toLowerCase();
+            document.querySelectorAll('.container-item').forEach(function (i) { i.style.display = i.dataset.container.toLowerCase().includes(v) ? 'flex' : 'none'; });
+        });
+
+        /* ── CREAR CONTENEDOR ── */
+        var _createContainerBtn = document.getElementById('createContainerBtn');
+        if (_createContainerBtn) _createContainerBtn.addEventListener('click', function () {
+            var name = document.getElementById('newContainerName').value.trim();
+            if (!name) { toast('Ingresa un nombre para el contenedor', 'error'); return; }
+            showLoading('CREANDO CONTENEDOR...', '');
+            fetch('/containers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name }) })
+                .then(function (r) { return r.json(); })
+                .then(function (d) { hideLoading(); if (d.message) { toast(d.message, 'success'); setTimeout(function () { location.reload(); }, 1500); } else toast(d.detail || 'Error al crear', 'error'); })
+                .catch(function (e) { hideLoading(); toast('Error: ' + e.message, 'error'); });
+        });
+
+        /* ── REFRESCAR: invalida caché del servidor antes de recargar ── */
+        document.getElementById('btnRefresh').addEventListener('click', function () {
+            if (!currentContainer) return;
+            fetch('/containers/' + currentContainer + '/cache/invalidate', { method: 'POST' })
+                .catch(function () { })
+                .finally(function () { browseRoot(currentContainer); });
+        });
+
+        /* ── CHECKBOX ── */
+        document.getElementById('fileTree').addEventListener('change', function (e) {
+            if (!e.target.classList.contains('file-cb')) return;
+            var fp = e.target.dataset.file, row = e.target.closest('.file-row-item');
+            if (e.target.checked) { if (!selectedFiles.includes(fp)) selectedFiles.push(fp); if (row) { row.classList.add('selected-file'); row.style.background = '#eff6ff'; } }
+            else { selectedFiles = selectedFiles.filter(function (f) { return f !== fp; }); if (row) { row.classList.remove('selected-file'); row.style.background = ''; } }
+            updateDlBtn();
+        });
+
+        /* ── CLICKS ÁRBOL: descargar / props / eliminar ── */
+        document.getElementById('fileTree').addEventListener('click', function (e) {
+            var dl = e.target.closest('.btn-dl-single'), pr = e.target.closest('.btn-props'), de = e.target.closest('.btn-del');
+            if (dl) { descargarArchivo(dl.dataset.file); return; }
+            if (pr) { mostrarPropiedades(pr.dataset.file, pr.dataset.meta); return; }
+            if (de) { eliminarArchivo(de.dataset.file); return; }
+        });
+
+        /* ── DESCARGAR SELECCIONADOS (secuencial con progreso) ── */
+        var _dlSelBtn = document.getElementById('downloadSelectedBtn');
+        if (_dlSelBtn) _dlSelBtn.addEventListener('click', function () {
+            if (!currentContainer || selectedFiles.length === 0) return;
+            var cola = selectedFiles.slice();
+            var idx = 0;
+            function siguiente() {
+                if (idx >= cola.length) {
+                    ocultarProgresoDl();
+                    hideLoading();
+                    document.querySelectorAll('.file-cb').forEach(function (cb) { cb.checked = false; });
+                    document.querySelectorAll('.selected-file').forEach(function (r) { r.classList.remove('selected-file'); r.style.background = ''; });
+                    var n = cola.length; selectedFiles = []; updateDlBtn();
+                    toast(n + ' archivo(s) descargado(s)', 'success');
+                    return;
+                }
+                var fp = cola[idx]; idx++;
+                var nombre = fp.split('/').pop();
+                showLoading('DESCARGANDO ' + idx + ' / ' + cola.length, 'Archivo: ' + nombre);
+                var ctrl = new (window.AbortController || function () { this.signal = {}; this.abort = function () { }; })();
+                currentAbortCtrl = ctrl;
+                fetch('/containers/' + currentContainer + '/files/' + encodeURIComponent(fp) + '/download', { signal: ctrl.signal })
+                    .then(function (r) {
+                        if (!r.ok) return Promise.reject('HTTP ' + r.status);
+                        var total = parseInt(r.headers.get('Content-Length') || '0', 10) || 0;
+                        if (r.body && typeof r.body.getReader === 'function') {
+                            var reader = r.body.getReader(), chunks = [], loaded = 0;
+                            function leer() {
+                                return reader.read().then(function (res) {
+                                    if (res.done) return new Blob(chunks);
+                                    chunks.push(res.value); loaded += res.value.length;
+                                    mostrarProgresoDl(loaded, total); return leer();
+                                });
+                            }
+                            return leer();
+                        }
+                        return r.blob();
+                    })
+                    .then(function (blob) {
+                        ocultarProgresoDl();
+                        var u = URL.createObjectURL(blob), a = document.createElement('a');
+                        a.href = u; a.download = nombre; a.style.display = 'none';
+                        document.body.appendChild(a); a.click();
+                        setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 600);
+                        siguiente();
+                    })
+                    .catch(function (err) {
+                        if (err && err.name === 'AbortError') return;
+                        ocultarProgresoDl();
+                        toast('Error descargando: ' + nombre, 'error');
+                        siguiente();
+                    });
+            }
+            siguiente();
+        });
+
+        /* ── ELIMINAR ARCHIVO ── */
+        function eliminarArchivo(fp) {
+            if (!confirm('¿Eliminar "' + fp.split('/').pop() + '"?\n\nEsta acción no se puede deshacer.')) return;
+            showLoading('ELIMINANDO...', '');
+            fetch('/containers/' + currentContainer + '/files/' + encodeURIComponent(fp), { method: 'DELETE' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) { hideLoading(); if (d.message) { toast(d.message, 'success'); browseRoot(currentContainer); } else toast(d.detail || 'Error', 'error'); })
+                .catch(function (e) { hideLoading(); toast('Error: ' + e.message, 'error'); });
+        }
+
+        /* ── ELIMINAR SELECCIONADOS (masivo, secuencial) ── */
+        var _delSelBtn = document.getElementById('deleteSelectedBtn');
+        if (_delSelBtn) _delSelBtn.addEventListener('click', function () {
+            if (!currentContainer || selectedFiles.length === 0) return;
+            var cola = selectedFiles.slice();
+            var total = cola.length;
+            if (!confirm('¿Eliminar ' + total + ' archivo(s) seleccionado(s)?\n\nEsta acción no se puede deshacer.')) return;
+
+            var idx = 0, exitosos = 0, fallidos = 0;
+            function siguiente() {
+                if (idx >= cola.length) {
+                    hideLoading();
+                    selectedFiles = []; updateDlBtn();
+                    if (fallidos === 0) toast(exitosos + ' archivo(s) eliminado(s)', 'success');
+                    else toast(exitosos + ' eliminado(s), ' + fallidos + ' con error', fallidos === total ? 'error' : 'info');
+                    browseRoot(currentContainer);
+                    return;
+                }
+                var fp = cola[idx]; idx++;
+                showLoading('ELIMINANDO ' + idx + ' / ' + total, fp.split('/').pop());
+                fetch('/containers/' + currentContainer + '/files/' + encodeURIComponent(fp), { method: 'DELETE' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) { if (d.message) exitosos++; else fallidos++; siguiente(); })
+                    .catch(function () { fallidos++; siguiente(); });
+            }
+            siguiente();
+        });
+
+        /* ── PROPIEDADES ── */
+        function mostrarPropiedades(fp, metaStr) {
+            var name = fp.split('/').pop(), ext = (name.split('.').pop() || '').toUpperCase();
+            var folder = fp.includes('/') ? fp.substring(0, fp.lastIndexOf('/')) : '(raíz)';
+            var m = {};
+            try { m = JSON.parse(metaStr || '{}'); } catch (e) { }
+            var mm = { PDF: 'application/pdf', XLSX: 'application/vnd.ms-excel', XLS: 'application/vnd.ms-excel', DOCX: 'application/msword', DOC: 'application/msword', PNG: 'image/png', JPG: 'image/jpeg', JPEG: 'image/jpeg', GIF: 'image/gif', ZIP: 'application/zip', MP4: 'video/mp4', MP3: 'audio/mpeg', CSV: 'text/csv', JSON: 'application/json', TXT: 'text/plain', XML: 'application/xml' };
+            var mime = mm[ext] || 'application/octet-stream';
+            function pr(label, val, accent) {
+                return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid #f1f5f9;">' +
+                    '<span style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;font-weight:700;flex-shrink:0;padding-right:10px;">' + label + '</span>' +
+                    '<span style="font-size:12px;color:' + (accent ? '#0d6efd' : '#334155') + ';text-align:right;word-break:break-all;max-width:68%;font-weight:600;">' + val + '</span></div>';
+            }
+            document.getElementById('propsBody').innerHTML =
+                pr('Nombre', name, true) +
+                pr('Tipo', ext + ' — ' + mime) +
+                pr('Carpeta', folder) +
+                pr('Ruta', currentContainer + '/' + fp) +
+                pr('Contenedor', currentContainer) +
+                pr('Tamaño', fmtSize(m.size)) +
+                pr('Modificado', fmtDate(m.last_modified)) +
+                (m.content_type ? pr('Content-Type', m.content_type) : '') +
+                (m.etag ? pr('ETag', (m.etag || '').replace(/"/g, '')) : '') +
+                (ACCIONES.descargar ? '<div style="padding-top:10px;text-align:center;"><button onclick="descargarDesdeModal(\'' + fp + '\')" style="background:linear-gradient(135deg,#198754,#157347);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-family:Century Gothic,Arial,sans-serif;font-weight:700;cursor:pointer;"><i class="bi bi-download"></i>&nbsp;Descargar</button></div>' : '');
+            document.getElementById('propsModal').style.display = 'flex';
+        }
+        window.descargarDesdeModal = function (fp) { cerrarModal(); descargarArchivo(fp); };
+
+        /* ── CARGA DE ARCHIVOS (solo si el rol tiene permiso de editar) ── */
+        var _selBtn = document.getElementById('selectFilesBtn');
+        var _fileUp = document.getElementById('fileUpload');
+        var dz = document.getElementById('dropZone');
+        if (_selBtn) _selBtn.addEventListener('click', function () { if (_fileUp) _fileUp.click(); });
+        if (_fileUp) _fileUp.addEventListener('change', function (e) { subirArchivos(e.target.files); });
+        if (dz) {
+            dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.style.borderColor = '#0d6efd'; dz.style.background = '#eff6ff'; });
+            dz.addEventListener('dragleave', function () { dz.style.borderColor = '#bfdbfe'; dz.style.background = '#f8faff'; });
+            dz.addEventListener('drop', function (e) { e.preventDefault(); dz.style.borderColor = '#bfdbfe'; dz.style.background = '#f8faff'; subirArchivos(e.dataTransfer.files); });
+        }
+
+        function subirArchivos(files) {
+            if (!currentContainer) { toast('Selecciona un contenedor primero', 'error'); return; }
+            if (!files || files.length === 0) return;
+            var path = currentUploadPath ? (currentUploadPath + '/') : '';
+            var _upProg = document.getElementById('uploadProgress');
+            if (_upProg) _upProg.style.display = 'block';
+            /* Subir secuencialmente para mostrar progreso */
+            var arr = Array.from(files), idx = 0;
+            function subir() {
+                if (idx >= arr.length) {
+                    hideLoading();
+                    if (_upProg) _upProg.style.display = 'none';
+                    if (_fileUp) _fileUp.value = '';
+                    browseRoot(currentContainer);
+                    return;
+                }
+                var file = arr[idx]; idx++;
+                showLoading('SUBIENDO ' + idx + ' / ' + arr.length, file.name);
+                var fd = new FormData(); fd.append('file', file);
+                fetch('/containers/' + currentContainer + '/files?path=' + encodeURIComponent(path), { method: 'POST', body: fd })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) { if (d.message) toast('✓ ' + file.name, 'success'); subir(); })
+                    .catch(function () { toast('✗ Error: ' + file.name, 'error'); subir(); });
+            }
+            subir();
+        }
+
+        /* ── MENÚ CONTEXTUAL ── */
+        document.getElementById('ctxSetPath').addEventListener('click', function () {
+            if (selectedFolderPath) {
+                document.querySelectorAll('.upload-target-row').forEach(function (r) { r.style.background = ''; r.classList.remove('upload-target-row'); });
+                var row = document.querySelector('.folder-row-item[data-path="' + selectedFolderPath + '"]');
+                if (row) { row.style.background = '#fff7ed'; row.classList.add('upload-target-row'); }
+                currentUploadPath = selectedFolderPath;
+                if (_uploadPathDisplay) _uploadPathDisplay.textContent = currentContainer + '/' + selectedFolderPath;
+                toast('Ruta de carga: ' + selectedFolderPath, 'info');
+            }
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+        document.getElementById('ctxExpandAll').addEventListener('click', function () {
+            /* Simula click en cada carpeta colapsada y no cargada para activar lazy load */
+            document.querySelectorAll('#fileTree .folder-row-item').forEach(function (row) {
+                var cd = row.nextElementSibling;
+                if (!cd) return;
+                if (cd.style.display === 'none') row.click();  /* dispara lazy load si no estaba cargado */
+            });
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+        document.getElementById('ctxCollapseAll').addEventListener('click', function () {
+            document.querySelectorAll('#fileTree .folder-row-item').forEach(function (row) {
+                var cd = row.nextElementSibling;
+                if (cd && cd.style.display !== 'none') {
+                    cd.style.display = 'none';
+                    row.querySelector('.folder-chevron').style.transform = '';
+                    var fi = row.querySelector('.folder-ico');
+                    if (fi) { fi.className = 'bi bi-folder-fill folder-ico'; fi.style.cssText = 'color:#f59e0b;font-size:13px;flex-shrink:0;'; }
+                    row.style.background = '';
+                }
+            });
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+        document.addEventListener('click', function (e) { if (!e.target.closest('#contextMenu')) document.getElementById('contextMenu').style.display = 'none'; });
+        document.getElementById('propsModal').addEventListener('click', function (e) { if (e.target === this) cerrarModal(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { cerrarModal(); cerrarVisor(); cerrarEditor(); document.getElementById('contextMenu').style.display = 'none'; } });
+
+        /* ── CLICK ÁRBOL: agregar visor y editor ── */
+        document.getElementById('fileTree').addEventListener('click', function (e) {
+            var vw = e.target.closest('.btn-view'), ed = e.target.closest('.btn-edit');
+            if (vw) { abrirVisor(vw.dataset.file); return; }
+            if (ed) { abrirEditor(ed.dataset.file); return; }
+        });
+
+        /* ── HELPERS TIPO ARCHIVO ── */
+        function extOf(name) { return (name.split('.').pop() || '').toLowerCase(); }
+        function isEditable(name) { return ['xlsx', 'csv'].indexOf(extOf(name)) >= 0; }
+        function isImage(name) { return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].indexOf(extOf(name)) >= 0; }
+        function isPdf(name) { return extOf(name) === 'pdf'; }
+        function isTabular(name) { return ['xlsx', 'xlsm', 'csv'].indexOf(extOf(name)) >= 0; }
+        function isText(name) { return ['txt', 'json', 'xml', 'js', 'py', 'html', 'htm', 'sql', 'md', 'yaml', 'yml', 'ini', 'cfg', 'log', 'ts', 'css', 'scss', 'sh', 'bat', 'rs', 'go', 'java', 'c', 'cpp', 'h', 'rb', 'php'].indexOf(extOf(name)) >= 0; }
+
+        /* ══════════════════════════════════════
+           VISOR — Tabulator para xlsx/csv, iframe para pdf, img para imágenes
+           ══════════════════════════════════════ */
+        var viewerModal = document.getElementById('viewerModal');
+        var viewerBody = document.getElementById('viewerBody');
+        var viewerSheetTabs = document.getElementById('viewerSheetTabs');
+        var viewerStatusEl = document.getElementById('viewerStatus');
+        var viewerDownloadBtn = document.getElementById('viewerDownloadBtn');
+        var viewerTabInstance = null;
+        var viewerContext = { filePath: '', fileName: '', previewBase: '', isCSV: false, sheetNames: [], currentSheet: 0 };
+
+        function safeText(v) { return v === null || v === undefined ? '' : String(v); }
+        function escapeHtml(txt) {
+            return safeText(txt)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+        function pluralize(count, singular, plural) { return count + ' ' + (count === 1 ? singular : plural); }
+        function excelColumnName(index) {
+            var name = '';
+            var num = index + 1;
+            while (num > 0) {
+                var rem = (num - 1) % 26;
+                name = String.fromCharCode(65 + rem) + name;
+                num = Math.floor((num - rem - 1) / 26);
+            }
+            return name;
+        }
+        function getMaxCols(rows) {
+            var max = 0;
+            (rows || []).forEach(function (row) {
+                if (Array.isArray(row) && row.length > max) max = row.length;
+            });
+            return max;
+        }
+        function buildTableDescriptor(payload) {
+            payload = payload || {};
+            var headers = Array.isArray(payload.headers) ? payload.headers : [];
+            var rows = Array.isArray(payload.rows) ? payload.rows : [];
+            var totalCols = parseInt(payload.total_cols, 10) || Math.max(headers.length, getMaxCols(rows));
+            var titles = [];
+            for (var i = 0; i < totalCols; i++) {
+                titles.push(headers.length ? safeText(headers[i] || ('Col ' + (i + 1))) : excelColumnName(i));
+            }
+            return {
+                titles: titles,
+                rows: rows,
+                totalRows: payload.total_rows != null ? payload.total_rows : rows.length,
+                totalCols: totalCols
+            };
+        }
+        function buildTabulatorColumns(desc, editable) {
+            var columns = [{
+                title: '#',
+                field: '_rowNum',
+                width: 58,
+                minWidth: 58,
+                frozen: true,
+                hozAlign: 'center',
+                headerHozAlign: 'center',
+                headerSort: false,
+                resizable: false,
+                cssClass: 'sheet-cell--rownum',
+                formatter: function (cell) { return cell.getValue(); }
+            }];
+            desc.titles.forEach(function (title, idx) {
+                columns.push({
+                    title: title,
+                    field: 'c' + idx,
+                    minWidth: 120,
+                    maxInitialWidth: 340,
+                    headerSort: true,
+                    headerFilter: 'input',
+                    headerFilterPlaceholder: 'Filtrar',
+                    editor: editable ? 'input' : false,
+                    editable: editable,
+                    formatter: function (cell) { return safeText(cell.getValue()); },
+                    tooltip: function (e, cell) {
+                        var value = safeText(cell.getValue());
+                        return value ? escapeHtml(value) : false;
+                    }
+                });
+            });
+            if (columns.length === 1) {
+                columns.push({
+                    title: 'Datos',
+                    field: 'c0',
+                    minWidth: 160,
+                    headerFilter: 'input',
+                    formatter: function (cell) { return safeText(cell.getValue()); }
+                });
+            }
+            return columns;
+        }
+        function buildTabulatorData(desc) {
+            return (desc.rows || []).map(function (row, rowIndex) {
+                var obj = { _rowNum: rowIndex + 1, _ri: rowIndex };
+                for (var i = 0; i < desc.totalCols; i++) {
+                    obj['c' + i] = row && row[i] !== undefined && row[i] !== null ? String(row[i]) : '';
+                }
+                return obj;
+            });
+        }
+        function buildTabulatorOptions(desc, editable, onCellEdited, gridHeight) {
+            return {
+                data: buildTabulatorData(desc),
+                columns: buildTabulatorColumns(desc, editable),
+                layout: 'fitData',
+                responsiveLayout: false,
+                virtualDom: true,
+                virtualDomBuffer: 300,
+                height: gridHeight || '520px',
+                pagination: true,
+                paginationMode: 'local',
+                paginationSize: 50,
+                paginationSizeSelector: [25, 50, 100, 250, 500, true],
+                placeholder: 'Sin datos para mostrar',
+                movableColumns: true,
+                resizableColumns: true,
+                resizableRows: false,
+                clipboard: true,
+                clipboardCopyStyled: false,
+                history: !!editable,
+                index: '_ri',
+                locale: 'es-419',
+                langs: {
+                    'es-419': {
+                        pagination: {
+                            page_size: 'Filas',
+                            page_title: 'Pagina',
+                            first: '|<',
+                            first_title: 'Primera',
+                            last: '>|',
+                            last_title: 'Ultima',
+                            prev: '<',
+                            prev_title: 'Anterior',
+                            next: '>',
+                            next_title: 'Siguiente',
+                            all: 'Todo'
+                        },
+                        headerFilters: {
+                            default: 'Filtrar...'
+                        }
+                    }
+                },
+                cellEdited: onCellEdited || undefined
+            };
+        }
+        function buildTableCard(title, subtitle, legendItems, loadingText) {
+            var card = document.createElement('div');
+            card.className = 'sheet-tabulator-card';
+
+            var toolbar = document.createElement('div');
+            toolbar.className = 'sheet-tabulator-toolbar';
+
+            var info = document.createElement('div');
+            info.innerHTML =
+                '<div class="sheet-tabulator-toolbar__title">' + escapeHtml(title) + '</div>' +
+                '<div class="sheet-tabulator-toolbar__subtitle">' + escapeHtml(subtitle) + '</div>';
+
+            toolbar.appendChild(info);
+            if (legendItems && legendItems.length) {
+                var legend = document.createElement('div');
+                legend.className = 'sheet-tabulator-toolbar__legend';
+                legendItems.forEach(function (item) {
+                    var badge = document.createElement('span');
+                    badge.textContent = item;
+                    legend.appendChild(badge);
+                });
+                toolbar.appendChild(legend);
+            }
+            card.appendChild(toolbar);
+
+            var stage = document.createElement('div');
+            stage.className = 'sheet-tabulator-stage';
+            card.appendChild(stage);
+
+            var host = document.createElement('div');
+            host.className = 'sheet-tabulator-host';
+            stage.appendChild(host);
+
+            var loading = document.createElement('div');
+            loading.className = 'sheet-table-loading';
+            loading.innerHTML =
+                '<div class="sheet-table-loading__box">' +
+                '<div class="sheet-loading-spinner"></div>' +
+                '<span>' + escapeHtml(loadingText || 'Cargando datos...') + '</span>' +
+                '</div>';
+            stage.appendChild(loading);
+
+            return { card: card, host: host, loading: loading };
+        }
+        function computeModalGridHeight(host) {
+            if (!host) return '520px';
+            var modal = host.closest('.sheet-modal');
+            var footer = modal ? modal.querySelector('.sheet-modal__footer') : null;
+            if (!modal) return '520px';
+            var hostRect = host.getBoundingClientRect();
+            var limitRect = footer ? footer.getBoundingClientRect() : modal.getBoundingClientRect();
+            var available = Math.floor(limitRect.top - hostRect.top - 14);
+            return Math.max(320, available) + 'px';
+        }
+        function syncTabulatorViewport(instance, host) {
+            if (!instance || !host) return;
+            var gridHeight = computeModalGridHeight(host);
+            host.style.height = gridHeight;
+            try { instance.setHeight(gridHeight); } catch (e) { }
+            try { instance.redraw(true); } catch (e) { }
+        }
+        function bindTabulatorReady(instance, host, loading) {
+            if (!instance) return;
+            var done = false;
+            function finish() {
+                if (done) return;
+                done = true;
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        syncTabulatorViewport(instance, host);
+                        if (loading) loading.hidden = true;
+                    });
+                });
+            }
+            instance.on('renderComplete', finish);
+            instance.on('tableBuilt', function () {
+                syncTabulatorViewport(instance, host);
+                setTimeout(finish, 0);
+            });
+        }
+        function renderCardState(targetEl, type, iconClass, title, message, wrapWithShell) {
+            var html =
+                '<div class="' + type + '">' +
+                '<i class="bi ' + iconClass + '"></i>' +
+                '<strong>' + escapeHtml(title) + '</strong>' +
+                '<span>' + escapeHtml(message) + '</span>' +
+                '</div>';
+            targetEl.innerHTML = wrapWithShell
+                ? '<div class="sheet-grid-shell sheet-grid-shell--compact"><div class="sheet-tabulator-card">' + html + '</div></div>'
+                : '<div class="sheet-tabulator-card" style="height:100%;">' + html + '</div>';
+        }
+        function renderSheetTabs(container, sheetNames, activeKey, onSelect) {
+            container.innerHTML = '';
+            if (!sheetNames || sheetNames.length <= 1) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'flex';
+            sheetNames.forEach(function (sheetName, index) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'sheet-tab' + (sheetName === activeKey ? ' sheet-tab--active' : '');
+                btn.innerHTML = '<i class="bi bi-file-earmark-spreadsheet"></i><span>' + escapeHtml(sheetName) + '</span>';
+                btn.addEventListener('click', function () { onSelect(sheetName, index); });
+                container.appendChild(btn);
+            });
+        }
+        function updateViewerChips(ext, sheetCount, rows, cols) {
+            document.getElementById('viewerFileTypeChip').textContent = ext ? '.' + ext.toUpperCase() : 'Archivo';
+            document.getElementById('viewerSheetChip').textContent = sheetCount ? pluralize(sheetCount, 'hoja', 'hojas') : 'Vista simple';
+            document.getElementById('viewerRowsChip').textContent = rows ? pluralize(rows, 'fila', 'filas') : 'Sin datos';
+            document.getElementById('viewerColsChip').textContent = cols ? pluralize(cols, 'columna', 'columnas') : 'Sin columnas';
+        }
+        function destroyViewerTable() {
+            if (viewerTabInstance) {
+                try { viewerTabInstance.destroy(); } catch (e) { }
+                viewerTabInstance = null;
+            }
+        }
+        window.cerrarVisor = function () {
+            destroyViewerTable();
+            viewerModal.style.display = 'none';
+            viewerBody.innerHTML = '';
+            viewerSheetTabs.innerHTML = '';
+            viewerSheetTabs.style.display = 'none';
+            viewerStatusEl.textContent = 'Listo';
+            updateViewerChips('', 0, 0, 0);
+            viewerContext = { filePath: '', fileName: '', previewBase: '', isCSV: false, sheetNames: [], currentSheet: 0 };
+        };
+        viewerModal.addEventListener('click', function (e) { if (e.target === this) cerrarVisor(); });
+
+        function visorLoading() {
+            destroyViewerTable();
+            renderCardState(viewerBody, 'sheet-loading-state', 'bi-arrow-repeat', 'Cargando archivo', 'Preparando la vista previa.', true);
+            viewerStatusEl.textContent = 'Cargando vista previa...';
+        }
+        function renderViewerTable(payload, sheetName) {
+            destroyViewerTable();
+            var desc = buildTableDescriptor(payload);
+            var shell = document.createElement('div');
+            shell.className = 'sheet-grid-shell sheet-grid-shell--compact';
+            var tableCard = buildTableCard(
+                sheetName || viewerContext.fileName,
+                pluralize(desc.totalRows, 'fila', 'filas') + ' | ' + pluralize(desc.totalCols, 'columna', 'columnas'),
+                [],
+                'Construyendo la tabla para visualizacion...'
+            );
+            shell.appendChild(tableCard.card);
+            viewerBody.innerHTML = '';
+            viewerBody.appendChild(shell);
+            var viewerGridHeight = computeModalGridHeight(tableCard.host);
+            tableCard.host.style.height = viewerGridHeight;
+            viewerTabInstance = new Tabulator(tableCard.host, buildTabulatorOptions(desc, false, null, viewerGridHeight));
+            bindTabulatorReady(viewerTabInstance, tableCard.host, tableCard.loading);
+            updateViewerChips(extOf(viewerContext.fileName), viewerContext.sheetNames.length || 1, desc.totalRows, desc.totalCols);
+            viewerStatusEl.textContent = (sheetName || viewerContext.fileName) + ' | ' + pluralize(desc.totalRows, 'fila', 'filas') + ' | filtros y desplazamiento listos';
+        }
+        function cargarHojaVisor(sheetIdx) {
+            viewerContext.currentSheet = sheetIdx;
+            visorLoading();
+            renderSheetTabs(viewerSheetTabs, viewerContext.sheetNames, viewerContext.sheetNames[sheetIdx], function (name, index) {
+                cargarHojaVisor(index);
+            });
+            fetch(viewerContext.previewBase + '?page=1&limit=50000' + (viewerContext.isCSV ? '' : '&sheet=' + sheetIdx))
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function (d) {
+                    renderViewerTable(d, viewerContext.sheetNames[sheetIdx] || viewerContext.fileName);
+                })
+                .catch(function (e) {
+                    renderCardState(viewerBody, 'sheet-error-state', 'bi-exclamation-triangle', 'No fue posible abrir la hoja', e.message, true);
+                    viewerStatusEl.textContent = 'Error al cargar la hoja';
+                });
+        }
+        function renderViewerImage(dlUrl) {
+            destroyViewerTable();
+            viewerBody.innerHTML =
+                '<div class="sheet-grid-shell"><div class="sheet-tabulator-card" style="padding:16px;align-items:center;justify-content:center;">' +
+                '<img src="' + dlUrl + '" style="max-width:100%;max-height:74vh;border-radius:14px;box-shadow:0 12px 28px rgba(15,23,42,0.12);">' +
+                '</div></div>';
+            viewerStatusEl.textContent = 'Vista previa de imagen disponible';
+        }
+        function renderViewerPdf(dlUrl) {
+            destroyViewerTable();
+            viewerBody.innerHTML =
+                '<div class="sheet-grid-shell"><div class="sheet-tabulator-card" style="padding:12px;">' +
+                '<iframe src="' + dlUrl + '" style="width:100%;height:76vh;border:none;border-radius:12px;background:#fff;"></iframe>' +
+                '</div></div>';
+            viewerStatusEl.textContent = 'Vista previa PDF lista';
+        }
+        function renderViewerText(txt) {
+            destroyViewerTable();
+            viewerBody.innerHTML =
+                '<div class="sheet-grid-shell"><div class="sheet-tabulator-card" style="padding:14px;background:#0f172a;">' +
+                '<pre style="margin:0;font-family:Consolas,monospace;font-size:12px;line-height:1.55;color:#e2e8f0;overflow:auto;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(txt) + '</pre>' +
+                '</div></div>';
+            viewerStatusEl.textContent = 'Vista previa de texto lista';
+        }
+        function renderViewerUnsupported() {
+            destroyViewerTable();
+            renderCardState(viewerBody, 'sheet-empty-state', 'bi-file-earmark-x', 'Vista previa no disponible', 'Puedes descargar el archivo para abrirlo con la aplicación correspondiente.', true);
+            viewerStatusEl.textContent = 'Vista previa no disponible';
+        }
+        function abrirVisor(fp) {
+            var name = fp.split('/').pop();
+            var ext = extOf(name);
+            var dlUrl = '/containers/' + currentContainer + '/files/' + encodeURIComponent(fp) + '/download';
+
+            viewerContext = { filePath: fp, fileName: name, previewBase: '', isCSV: false, sheetNames: [name], currentSheet: 0 };
+
+            document.getElementById('viewerTitle').textContent = name;
+            viewerDownloadBtn.style.display = ACCIONES.descargar ? 'inline-flex' : 'none';
+            viewerDownloadBtn.onclick = function () { descargarArchivo(fp); };
+            viewerBody.innerHTML = '';
+            viewerSheetTabs.innerHTML = '';
+            viewerSheetTabs.style.display = 'none';
+            updateViewerChips(ext, 0, 0, 0);
+            viewerModal.style.display = 'flex';
+
+            if (isImage(name)) { renderViewerImage(dlUrl); return; }
+            if (isPdf(name)) { renderViewerPdf(dlUrl); return; }
+            if (isText(name)) {
+                viewerStatusEl.textContent = 'Cargando texto...';
+                fetch(dlUrl)
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+                    .then(function (txt) { renderViewerText(txt); })
+                    .catch(function (e) {
+                        renderCardState(viewerBody, 'sheet-error-state', 'bi-exclamation-triangle', 'No fue posible abrir el texto', e.message, true);
+                        viewerStatusEl.textContent = 'Error al cargar texto';
+                    });
+                return;
+            }
+            if (!isTabular(name)) { renderViewerUnsupported(); return; }
+
+            viewerContext.isCSV = ext === 'csv';
+            viewerContext.previewBase = viewerContext.isCSV
+                ? '/containers/' + currentContainer + '/blobs/' + encodeURIComponent(fp) + '/preview-csv'
+                : '/containers/' + currentContainer + '/blobs/' + encodeURIComponent(fp) + '/preview';
+
+            visorLoading();
+            fetch(viewerContext.previewBase + '?page=1&limit=50000' + (viewerContext.isCSV ? '' : '&sheet=0'))
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function (d) {
+                    viewerContext.sheetNames = viewerContext.isCSV ? [name] : (d.sheets && d.sheets.length ? d.sheets : [name]);
+                    renderSheetTabs(viewerSheetTabs, viewerContext.sheetNames, viewerContext.sheetNames[0], function (sheetName, index) {
+                        cargarHojaVisor(index);
+                    });
+                    renderViewerTable(d, viewerContext.sheetNames[0] || name);
+                })
+                .catch(function (e) {
+                    renderCardState(viewerBody, 'sheet-error-state', 'bi-exclamation-triangle', 'No fue posible cargar el archivo tabular', e.message, true);
+                    viewerStatusEl.textContent = 'Error al cargar vista previa';
+                });
+        }
+
+        /* ══════════════════════════════════════
+           EDITOR — Tabulator editable + save via API
+           ══════════════════════════════════════ */
+        var editorModal = document.getElementById('editorModal');
+        var editorSheetTabs = document.getElementById('editorSheetTabs');
+        var editorTableMount = document.getElementById('editorTableMount');
+        var editorSaveBtn = document.getElementById('editorSaveBtn');
+        var editorFile = '';
+        var editorSheets = {};
+        var editorCurrentSheet = '';
+        var editorTabInstance = null;
+        var editorDirty = false;
+
+        function updateEditorChips(sheetCount, rows, cols) {
+            document.getElementById('editorSheetChip').textContent = sheetCount ? pluralize(sheetCount, 'hoja', 'hojas') : 'Sin hojas';
+            document.getElementById('editorRowsChip').textContent = rows ? pluralize(rows, 'fila', 'filas') : 'Sin datos';
+            document.getElementById('editorColsChip').textContent = cols ? pluralize(cols, 'columna', 'columnas') : 'Sin columnas';
+        }
+        function setEditorDirtyState(isDirty) {
+            var chip = document.getElementById('editorDirtyChip');
+            editorDirty = !!isDirty;
+            chip.textContent = editorDirty ? 'Cambios pendientes' : 'Sin cambios';
+            chip.classList.toggle('sheet-meta-chip--dirty', editorDirty);
+            editorSaveBtn.disabled = !editorDirty;
+        }
+        function destroyEditorTable() {
+            if (editorTabInstance) {
+                try { editorTabInstance.destroy(); } catch (e) { }
+                editorTabInstance = null;
+            }
+        }
+        function editorLoading() {
+            destroyEditorTable();
+            editorTableMount.innerHTML = '';
+            editorTableMount.style.height = '100%';
+            renderCardState(editorTableMount, 'sheet-loading-state', 'bi-arrow-repeat', 'Cargando hoja', 'Consultando el archivo para habilitar edicion tabular.', false);
+            document.getElementById('editorStatus').textContent = 'Cargando archivo...';
+        }
+        window.cerrarEditor = function () {
+            destroyEditorTable();
+            editorModal.style.display = 'none';
+            editorFile = ''; editorSheets = {}; editorCurrentSheet = '';
+            editorSheetTabs.innerHTML = '';
+            editorSheetTabs.style.display = 'none';
+            editorTableMount.innerHTML = '';
+            document.getElementById('editorTitle').textContent = 'Editor';
+            document.getElementById('editorStatus').textContent = 'Listo';
+            updateEditorChips(0, 0, 0);
+            setEditorDirtyState(false);
+        };
+        editorModal.addEventListener('click', function (e) { if (e.target === this) cerrarEditor(); });
+
+        function buildEditorTabs(sheetNames) {
+            renderSheetTabs(editorSheetTabs, sheetNames, editorCurrentSheet, function (sheetName) {
+                editorCurrentSheet = sheetName;
+                buildEditorTabs(sheetNames);
+                renderEditorTable(sheetName);
+            });
+        }
+
+        function initEditorTabulator(sheetName) {
+            return renderEditorTable(sheetName);
+            if (editorTabInstance) { editorTabInstance.destroy(); editorTabInstance = null; }
+            var sd = editorSheets[sheetName] || { headers: [], rows: [] };
+            var headers = sd.headers;
+            var rows = sd.rows;
+
+            var columns = [{
+                title: '#', field: '_ri', width: 42, hozAlign: 'center', headerSort: false,
+                formatter: function (cell) { return cell.getRow().getPosition(true) + 1; },
+                frozen: true, cssClass: 'tabulator-frozen',
+            }].concat(headers.map(function (h, i) {
+                return {
+                    title: h || ('Col ' + (i + 1)), field: 'c' + i, minWidth: 90, editor: 'input',
+                    formatter: 'plaintext', headerFilter: 'input'
+                };
+            }));
+            if (headers.length === 0 && rows.length > 0) {
+                columns = columns.concat(rows[0].map(function (_, i) {
+                    return { title: 'Col ' + (i + 1), field: 'c' + i, minWidth: 90, editor: 'input', formatter: 'plaintext' };
+                }));
+            }
+
+            var data = rows.map(function (row, ri) {
+                var obj = { _ri: ri };
+                row.forEach(function (v, i) { obj['c' + i] = v !== null && v !== undefined ? String(v) : ''; });
+                return obj;
+            });
+
+            editorTabInstance = new Tabulator('#editor-tabulator', {
+                data: data,
+                columns: columns,
+                layout: 'fitDataFill',
+                height: '100%',
+                pagination: true,
+                paginationSize: 200,
+                paginationSizeSelector: [100, 200, 500],
+                placeholder: 'Sin datos',
+                cellEdited: function (cell) {
+                    var field = cell.getField();
+                    if (field === '_ri') return;
+                    var colIdx = parseInt(field.substring(1));
+                    var rowData = cell.getRow().getData();
+                    var ri = rowData._ri;
+                    if (editorSheets[editorCurrentSheet] && editorSheets[editorCurrentSheet].rows[ri] !== undefined) {
+                        editorSheets[editorCurrentSheet].rows[ri][colIdx] = cell.getValue();
+                    }
+                },
+            });
+            document.getElementById('editorStatus').textContent = sheetName + ' — ' + rows.length + ' filas × ' + headers.length + ' columnas';
+        }
+
+        function renderEditorTable(sheetName) {
+            destroyEditorTable();
+            var sheetData = editorSheets[sheetName] || { headers: [], rows: [] };
+            var desc = buildTableDescriptor(sheetData);
+            var tableCard = buildTableCard(
+                sheetName,
+                pluralize(desc.totalRows, 'fila', 'filas') + ' | ' + pluralize(desc.totalCols, 'columna', 'columnas'),
+                [],
+                'Preparando el editor tabular...'
+            );
+            editorTableMount.innerHTML = '';
+            editorTableMount.style.height = '100%';
+            editorTableMount.appendChild(tableCard.card);
+            var editorGridHeight = computeModalGridHeight(tableCard.host);
+            tableCard.host.style.height = editorGridHeight;
+            editorTabInstance = new Tabulator(tableCard.host, buildTabulatorOptions(desc, true, function (cell) {
+                var field = cell.getField();
+                if (field === '_rowNum' || field === '_ri') return;
+                var colIdx = parseInt(field.substring(1), 10);
+                var rowObj = cell.getRow().getData();
+                var ri = rowObj._ri;
+                if (!editorSheets[editorCurrentSheet].rows[ri]) editorSheets[editorCurrentSheet].rows[ri] = [];
+                editorSheets[editorCurrentSheet].rows[ri][colIdx] = safeText(cell.getValue());
+                setEditorDirtyState(true);
+                document.getElementById('editorStatus').textContent = 'Cambios detectados en ' + editorCurrentSheet + '. Guarda para subir al blob.';
+            }, editorGridHeight));
+            bindTabulatorReady(editorTabInstance, tableCard.host, tableCard.loading);
+
+            updateEditorChips(Object.keys(editorSheets).length, desc.totalRows, desc.totalCols);
+            document.getElementById('editorStatus').textContent = sheetName + ' | ' + pluralize(desc.totalRows, 'fila', 'filas') + ' | edita una celda para habilitar Guardar';
+        }
+
+        function abrirEditor(fp) {
+            editorFile = fp;
+            editorSheets = {};
+            editorCurrentSheet = '';
+            document.getElementById('editorTitle').textContent = fp.split('/').pop();
+            editorModal.style.display = 'flex';
+            editorSheetTabs.innerHTML = '';
+            editorSheetTabs.style.display = 'none';
+            updateEditorChips(0, 0, 0);
+            setEditorDirtyState(false);
+            editorLoading();
+
+            var name = fp.split('/').pop();
+            var isCSV = extOf(name) === 'csv';
+            var previewBase = isCSV
+                ? '/containers/' + currentContainer + '/blobs/' + encodeURIComponent(fp) + '/preview-csv'
+                : '/containers/' + currentContainer + '/blobs/' + encodeURIComponent(fp) + '/preview';
+
+            if (isCSV) {
+                fetch(previewBase + '?page=1&limit=50000')
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (d) {
+                        editorSheets[name] = { headers: d.headers || [], rows: d.rows || [] };
+                        editorCurrentSheet = name;
+                        buildEditorTabs([name]);
+                        renderEditorTable(name);
+                    })
+                    .catch(function (e) {
+                        renderCardState(editorTableMount, 'sheet-error-state', 'bi-exclamation-triangle', 'No fue posible cargar el archivo', e.message, false);
+                        document.getElementById('editorStatus').textContent = 'Error al cargar el archivo';
+                    });
+                return;
+            } else {
+                fetch(previewBase + '?sheet=0&page=1&limit=1')
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (init) {
+                        var sheetNames = init.sheets && init.sheets.length ? init.sheets : [name];
+                        editorCurrentSheet = sheetNames[0];
+                        return Promise.all(sheetNames.map(function (sn, i) {
+                            return fetch(previewBase + '?sheet=' + i + '&page=1&limit=50000')
+                                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                                .then(function (d) { editorSheets[sn] = { headers: d.headers || [], rows: d.rows || [] }; });
+                        }));
+                    })
+                    .then(function () {
+                        buildEditorTabs(Object.keys(editorSheets));
+                        renderEditorTable(editorCurrentSheet);
+                    })
+                    .catch(function (e) {
+                        renderCardState(editorTableMount, 'sheet-error-state', 'bi-exclamation-triangle', 'No fue posible cargar el Excel', e.message, false);
+                        document.getElementById('editorStatus').textContent = 'Error al cargar el Excel';
+                    });
+            }
+        }
+
+        editorSaveBtn.addEventListener('click', function () {
+            if (!editorFile || !Object.keys(editorSheets).length || !editorDirty) return;
+            document.getElementById('editorStatus').textContent = 'Guardando cambios en Blob Storage...';
+            editorSaveBtn.disabled = true;
+
+            var sheets = Object.keys(editorSheets).map(function (sn) {
+                return { name: sn, headers: editorSheets[sn].headers, rows: editorSheets[sn].rows };
+            });
+
+            fetch('/containers/' + currentContainer + '/blobs/' + encodeURIComponent(editorFile) + '/save-table', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sheets: sheets }),
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.message) {
+                        toast('Guardado: ' + editorFile.split('/').pop(), 'success');
+                        cerrarEditor();
+                        browseRoot(currentContainer);
+                    } else {
+                        setEditorDirtyState(true);
+                        document.getElementById('editorStatus').textContent = 'Error al guardar';
+                        toast(d.detail || 'Error al guardar', 'error');
+                    }
+                })
+                .catch(function (e) {
+                    setEditorDirtyState(true);
+                    document.getElementById('editorStatus').textContent = 'Error: ' + e.message;
+                    toast('Error: ' + e.message, 'error');
+                });
+        });
 
     })();
-    </script>
+</script>
 
 {% endblock %}

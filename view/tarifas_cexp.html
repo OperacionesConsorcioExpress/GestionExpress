@@ -1,0 +1,1347 @@
+{% extends "components/layout.html" %}
+{% block title %}Tarifas · Config · Consorcio Express{% endblock %}
+
+{% block head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    .contenedor-ancho {
+        width: min(96vw, 1920px);
+        margin: 0 auto;
+        padding: 0 16px;
+    }
+
+    .btn-action {
+        padding: .18rem .42rem;
+        font-size: 12px;
+        line-height: 1;
+    }
+
+    .btn-action i {
+        font-size: .82rem;
+    }
+
+    .overlay-proceso {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, .70);
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .overlay-proceso[hidden] {
+        display: none !important;
+    }
+
+    .nav-tabs-tar .nav-link {
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+        border-radius: 8px 8px 0 0;
+        border: 1px solid transparent;
+        padding: .45rem 1rem;
+    }
+
+    .nav-tabs-tar .nav-link.active {
+        color: #0a0f3d;
+        background: #fff;
+        border-color: #e5e7eb #e5e7eb #fff;
+    }
+
+    .nav-tabs-tar .nav-link:hover:not(.active) {
+        background: #f3f4f6;
+    }
+
+    .tab-content-tar {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-top: none;
+        border-radius: 0 0 12px 12px;
+        padding: 14px;
+    }
+
+    .tabla-tar thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #0a0f3d !important;
+        color: #fff !important;
+        border-bottom: 1px solid #e5e7eb;
+        white-space: nowrap;
+    }
+
+    .tabla-tar td,
+    .tabla-tar th {
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .tabla-tar td {
+        max-width: 320px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .tabla-scroll {
+        max-height: 55vh;
+        overflow: auto;
+    }
+
+    tr.fila-historica {
+        opacity: .6;
+        background: #fafafa !important;
+    }
+
+    .paginador {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-top: 1px solid #e5e7eb;
+        background: rgb(203, 207, 231);
+        border-radius: 0 0 10px 10px;
+        gap: 10px;
+    }
+
+    .paginacion-wrap {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+
+    .pagination {
+        flex-wrap: nowrap;
+        margin: 0;
+    }
+
+    .badge-activo {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .badge-inactivo {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+        background: #f3f4f6;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+    }
+
+    .badge-vigente {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+    }
+
+    .badge-historico {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+        background: #f3f4f6;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+    }
+
+    .badge-tipo {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+        background: #ede9fe;
+        color: #5b21b6;
+        border: 1px solid #ddd6fe;
+    }
+
+    .badge-tip {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+        background: #fef9c3;
+        color: #854d0e;
+        border: 1px solid #fde68a;
+    }
+
+    .badge-comb {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .panel-consulta {
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+        border: 1px solid #bfdbfe;
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div
+    style="font-size:12px; font-family:'Century Gothic', sans-serif; color:#111827; background:#ffffff; padding:16px 0;">
+    <div class="container-fluid contenedor-ancho">
+
+        <!-- HERO -->
+        <div
+            style="background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%); color:#fff; padding:.7rem 1rem; border-radius:8px; margin-bottom:12px; box-shadow:0 6px 16px rgba(17,24,39,.06);">
+            <h1 style="display:flex; align-items:center; gap:.5rem; font-size:.95rem; font-weight:700; margin:0;">
+                <i class="fa-solid fa-coins me-2" style="color:#bfdbfe;"></i>Tarifas · Configuración
+            </h1>
+            <p class="mb-0 mt-1" style="font-size:11px; color:#bfdbfe;">Gestión de tarifas con trazabilidad histórica
+                por período de vigencia</p>
+        </div>
+
+        <!-- TABS -->
+        <ul class="nav nav-tabs nav-tabs-tar mb-0" id="tabsTar" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-tarifas-btn" data-bs-toggle="tab" data-bs-target="#tab-tarifas"
+                    type="button" role="tab">
+                    <i class="fa-solid fa-coins me-1" style="color:#2563eb;"></i>Tarifas
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-tipo-btn" data-bs-toggle="tab" data-bs-target="#tab-tipo" type="button"
+                    role="tab">
+                    <i class="fa-solid fa-tag me-1" style="color:#8b5cf6;"></i>Tipo Tarifa
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-tipologia-btn" data-bs-toggle="tab" data-bs-target="#tab-tipologia"
+                    type="button" role="tab">
+                    <i class="fa-solid fa-bus me-1" style="color:#f59e0b;"></i>Tipología Bus
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-combustible-btn" data-bs-toggle="tab" data-bs-target="#tab-combustible"
+                    type="button" role="tab">
+                    <i class="fa-solid fa-gas-pump me-1" style="color:#10b981;"></i>Combustible
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content tab-content-tar" id="tabsTarContent">
+
+            <!-- ═══════════════════════════════════════════════
+           TAB 1 · TARIFAS
+      ══════════════════════════════════════════════════ -->
+            <div class="tab-pane fade show active" id="tab-tarifas" role="tabpanel">
+
+                <!-- Consulta por fecha + Nueva Tarifa -->
+                <div class="panel-consulta mb-2">
+                    <div class="d-flex align-items-end gap-2 flex-wrap">
+                        <div>
+                            <label class="form-label mb-1 fw-bold" style="font-size:11px;"><i
+                                    class="fa-solid fa-calendar-day me-1 text-primary"></i>Consultar tarifa en fecha</label>
+                            <input id="consulta-fecha" type="date" class="form-control form-control-sm"
+                                style="width:160px;">
+                        </div>
+                        <button id="btn-consultar-fecha" class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-magnifying-glass me-1"></i>Consultar
+                        </button>
+                        <button id="btn-limpiar-consulta" class="btn btn-outline-secondary btn-sm">
+                            <i class="fa-solid fa-broom me-1"></i>Ver todo
+                        </button>
+                        <div class="flex-grow-1" id="consulta-resultado-label" style="font-size:11px; color:#1d4ed8;"></div>
+                        <button class="btn btn-primary btn-sm ms-auto" data-bs-toggle="modal"
+                            data-bs-target="#modalTarifa" onclick="resetModalTarifa()"
+                            style="border-radius:8px; padding:.3rem .8rem;">
+                            <i class="fa-solid fa-plus me-1"></i>Nueva Tarifa
+                        </button>
+                    </div>
+                </div>
+                <div
+                    style="border:1px solid #e5e7eb; background:rgb(220,222,236); border-radius:10px; padding:10px; margin-bottom:10px;">
+                    <div style="background:#fff; border:1px dashed #e5e7eb; border-radius:8px; padding:10px;">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12 col-md-3">
+                                <label class="form-label mb-1">Tipo Tarifa</label>
+                                <select id="f-tipo" class="form-select" style="font-size:12px; height:34px;">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <label class="form-label mb-1">Tipología</label>
+                                <select id="f-tipologia" class="form-select" style="font-size:12px; height:34px;">
+                                    <option value="">Todas</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <label class="form-label mb-1">Combustible</label>
+                                <select id="f-combustible" class="form-select" style="font-size:12px; height:34px;">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <label class="form-label mb-1">Vigencia</label>
+                                <select id="f-vigencia" class="form-select" style="font-size:12px; height:34px;">
+                                    <option value="">Todas</option>
+                                    <option value="true">Vigentes</option>
+                                    <option value="false">Históricas</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button id="btn-limpiar-tar" class="btn btn-sm btn-outline-secondary"
+                                    style="height:34px;"><i class="fa-solid fa-broom me-1"></i>Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border:1px solid #e5e7eb; background:#fff; border-radius:10px;">
+                    <div class="table-responsive tabla-scroll">
+                        <table class="table table-hover align-middle mb-0 tabla-tar w-100" style="table-layout:auto;">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">ID</th>
+                                    <th class="text-center">Tipo</th>
+                                    <th class="text-center">Tipología</th>
+                                    <th class="text-center">Combustible</th>
+                                    <th class="text-center">Desde</th>
+                                    <th class="text-center">Hasta</th>
+                                    <th class="text-center">Tarifa</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-tarifas"></tbody>
+                        </table>
+                    </div>
+                    <div class="paginador">
+                        <div id="txt-total-tarifas" style="color:#6b7280;">0 de 0 registros</div>
+                        <div class="paginacion-wrap">
+                            <ul class="pagination pagination-sm" id="pag-tarifas"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /tab-tarifas -->
+
+
+            <!-- ═══════════════════════════════════════════════
+           TAB 2 · TIPO TARIFA
+      ══════════════════════════════════════════════════ -->
+            <div class="tab-pane fade" id="tab-tipo" role="tabpanel">
+                <div class="d-flex gap-2 justify-content-end mb-2">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTipo"
+                        onclick="resetModalTipo()" style="border-radius:8px; padding:.3rem .8rem;">
+                        <i class="fa-solid fa-plus me-1"></i> Nuevo Tipo
+                    </button>
+                </div>
+                <div
+                    style="border:1px solid #e5e7eb; background:rgb(220,222,236); border-radius:10px; padding:10px; margin-bottom:10px;">
+                    <div style="background:#fff; border:1px dashed #e5e7eb; border-radius:8px; padding:10px;">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Buscar tipo</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                    <input id="f-q-tipo" type="text" class="form-control" placeholder="KM, PAX…"
+                                        style="font-size:12px; height:34px;">
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <label class="form-label mb-1">Estado</label>
+                                <select id="f-estado-tipo" class="form-select" style="font-size:12px; height:34px;">
+                                    <option value="">Todos</option>
+                                    <option value="true">Activos</option>
+                                    <option value="false">Inactivos</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button id="btn-limpiar-tipo" class="btn btn-sm btn-outline-secondary"
+                                    style="height:34px;"><i class="fa-solid fa-broom me-1"></i>Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="border:1px solid #e5e7eb; background:#fff; border-radius:10px;">
+                    <div class="table-responsive tabla-scroll">
+                        <table class="table table-hover align-middle mb-0 tabla-tar">
+                            <thead>
+                                <tr>
+                                    <th style="width:55px;">ID</th>
+                                    <th>Tipo Tarifa</th>
+                                    <th style="width:90px;">Estado</th>
+                                    <th style="text-align:right; width:100px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-tipo"></tbody>
+                        </table>
+                    </div>
+                    <div class="paginador">
+                        <div id="txt-total-tipo" style="color:#6b7280;">0 de 0 registros</div>
+                        <div class="paginacion-wrap">
+                            <ul class="pagination pagination-sm" id="pag-tipo"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /tab-tipo -->
+
+
+            <!-- ═══════════════════════════════════════════════
+           TAB 3 · TIPOLOGÍA BUS
+      ══════════════════════════════════════════════════ -->
+            <div class="tab-pane fade" id="tab-tipologia" role="tabpanel">
+                <div class="d-flex gap-2 justify-content-end mb-2">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTipologia"
+                        onclick="resetModalTipologia()" style="border-radius:8px; padding:.3rem .8rem;">
+                        <i class="fa-solid fa-plus me-1"></i> Nueva Tipología
+                    </button>
+                </div>
+                <div
+                    style="border:1px solid #e5e7eb; background:rgb(220,222,236); border-radius:10px; padding:10px; margin-bottom:10px;">
+                    <div style="background:#fff; border:1px dashed #e5e7eb; border-radius:8px; padding:10px;">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Buscar tipología</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                    <input id="f-q-tipologia" type="text" class="form-control"
+                                        placeholder="BUS, PADRON…" style="font-size:12px; height:34px;">
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <label class="form-label mb-1">Estado</label>
+                                <select id="f-estado-tipologia" class="form-select"
+                                    style="font-size:12px; height:34px;">
+                                    <option value="">Todos</option>
+                                    <option value="true">Activos</option>
+                                    <option value="false">Inactivos</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button id="btn-limpiar-tipologia" class="btn btn-sm btn-outline-secondary"
+                                    style="height:34px;"><i class="fa-solid fa-broom me-1"></i>Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="border:1px solid #e5e7eb; background:#fff; border-radius:10px;">
+                    <div class="table-responsive tabla-scroll">
+                        <table class="table table-hover align-middle mb-0 tabla-tar">
+                            <thead>
+                                <tr>
+                                    <th style="width:55px;">ID</th>
+                                    <th>Tipología Bus</th>
+                                    <th style="width:90px;">Estado</th>
+                                    <th style="text-align:right; width:100px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-tipologia"></tbody>
+                        </table>
+                    </div>
+                    <div class="paginador">
+                        <div id="txt-total-tipologia" style="color:#6b7280;">0 de 0 registros</div>
+                        <div class="paginacion-wrap">
+                            <ul class="pagination pagination-sm" id="pag-tipologia"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /tab-tipologia -->
+
+
+            <!-- ═══════════════════════════════════════════════
+           TAB 4 · COMBUSTIBLE
+      ══════════════════════════════════════════════════ -->
+            <div class="tab-pane fade" id="tab-combustible" role="tabpanel">
+                <div class="d-flex gap-2 justify-content-end mb-2">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCombustible"
+                        onclick="resetModalCombustible()" style="border-radius:8px; padding:.3rem .8rem;">
+                        <i class="fa-solid fa-plus me-1"></i> Nuevo Combustible
+                    </button>
+                </div>
+                <div
+                    style="border:1px solid #e5e7eb; background:rgb(220,222,236); border-radius:10px; padding:10px; margin-bottom:10px;">
+                    <div style="background:#fff; border:1px dashed #e5e7eb; border-radius:8px; padding:10px;">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label mb-1">Buscar combustible</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                    <input id="f-q-combustible" type="text" class="form-control"
+                                        placeholder="ACPM, GNV…" style="font-size:12px; height:34px;">
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <label class="form-label mb-1">Estado</label>
+                                <select id="f-estado-combustible" class="form-select"
+                                    style="font-size:12px; height:34px;">
+                                    <option value="">Todos</option>
+                                    <option value="true">Activos</option>
+                                    <option value="false">Inactivos</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button id="btn-limpiar-combustible" class="btn btn-sm btn-outline-secondary"
+                                    style="height:34px;"><i class="fa-solid fa-broom me-1"></i>Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="border:1px solid #e5e7eb; background:#fff; border-radius:10px;">
+                    <div class="table-responsive tabla-scroll">
+                        <table class="table table-hover align-middle mb-0 tabla-tar">
+                            <thead>
+                                <tr>
+                                    <th style="width:55px;">ID</th>
+                                    <th>Combustible</th>
+                                    <th style="width:90px;">Estado</th>
+                                    <th style="text-align:right; width:100px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-combustible"></tbody>
+                        </table>
+                    </div>
+                    <div class="paginador">
+                        <div id="txt-total-combustible" style="color:#6b7280;">0 de 0 registros</div>
+                        <div class="paginacion-wrap">
+                            <ul class="pagination pagination-sm" id="pag-combustible"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /tab-combustible -->
+
+        </div><!-- /tab-content -->
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: NUEVA / EDITAR TARIFA
+════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalTarifa" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:560px;">
+        <div class="modal-content" style="border:1px solid #e5e7eb; border-radius:12px;">
+            <div class="modal-header"
+                style="border-bottom:1px solid #e5e7eb; background:#f9fafb; border-radius:12px 12px 0 0;">
+                <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+                    <i class="fa-solid fa-coins me-2" style="color:#2563eb;"></i>
+                    <span id="modal-titulo-tar">Nueva Tarifa</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label mb-1 fw-600">Tipo Tarifa <span class="text-danger">*</span></label>
+                        <select id="tar-tipo" class="form-select" style="font-size:12px;"></select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label mb-1 fw-600">Tipología Bus <span class="text-danger">*</span></label>
+                        <select id="tar-tipologia" class="form-select" style="font-size:12px;"></select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label mb-1 fw-600">Combustible <span class="text-danger">*</span></label>
+                        <select id="tar-combustible" class="form-select" style="font-size:12px;"></select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label mb-1 fw-600">Desde <span class="text-danger">*</span></label>
+                        <input id="tar-desde" type="date" class="form-control" style="font-size:12px;">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label mb-1 fw-600">Hasta <span class="text-muted">(opcional)</span></label>
+                        <input id="tar-hasta" type="date" class="form-control" style="font-size:12px;">
+                        <div class="form-text" style="font-size:10px;">Dejar vacío = vigente sin fin</div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label mb-1 fw-600">Tarifa <span class="text-danger">*</span></label>
+                        <input id="tar-valor" type="number" class="form-control" placeholder="0.0000" min="0.0001"
+                            step="0.0001" style="font-size:12px;">
+                    </div>
+                    <input type="hidden" id="tar-id">
+                    <input type="hidden" id="tar-modo"> <!-- nueva | valor -->
+                </div>
+
+                <!-- Aviso de reglas (solo en modo nueva) -->
+                <div id="tar-aviso" class="mt-3 p-2"
+                    style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:11px; color:#1e40af; display:none;">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    <strong>Reglas de continuidad:</strong> El valor de <em>Desde</em> debe ser exactamente el día
+                    siguiente al <em>Hasta</em> del período anterior para la misma combinación.
+                    El campo <em>Hasta</em> puede quedar vacío para indicar que la tarifa es vigente sin fecha de fin.
+                </div>
+            </div>
+            <div class="modal-footer"
+                style="border-top:1px solid #e5e7eb; background:#f9fafb; border-radius:0 0 12px 12px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"><i
+                        class="fa-solid fa-xmark me-1"></i>Cancelar</button>
+                <button id="btn-guardar-tar" type="button" class="btn btn-sm btn-primary"><i
+                        class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: CERRAR PERÍODO
+════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalCerrar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+        <div class="modal-content" style="border:1px solid #e5e7eb; border-radius:12px;">
+            <div class="modal-header"
+                style="background:#fff7ed; border-bottom:1px solid #fed7aa; border-radius:12px 12px 0 0;">
+                <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#9a3412;">
+                    <i class="fa-solid fa-calendar-xmark me-2"></i>Cerrar Período de Vigencia
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <p style="font-size:12px; margin-bottom:4px;">Tarifa: <strong id="cerrar-desc"></strong></p>
+                <p style="font-size:12px; margin-bottom:12px;">Vigente desde: <strong id="cerrar-desde"></strong></p>
+                <label class="form-label mb-1 fw-bold">Fecha de cierre (hasta) <span
+                        class="text-danger">*</span></label>
+                <input id="cerrar-hasta" type="date" class="form-control" style="font-size:12px;">
+                <div class="mt-2" style="font-size:11px; color:#9a3412;">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    El nuevo período debe iniciarse exactamente al día siguiente de esta fecha.
+                </div>
+                <input type="hidden" id="cerrar-id">
+            </div>
+            <div class="modal-footer"
+                style="background:#fff7ed; border-top:1px solid #fed7aa; border-radius:0 0 12px 12px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button id="btn-confirmar-cerrar" type="button" class="btn btn-sm btn-warning">
+                    <i class="fa-solid fa-calendar-xmark me-1"></i>Cerrar Período
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: TIPO TARIFA
+════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalTipo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content" style="border:1px solid #e5e7eb; border-radius:12px;">
+            <div class="modal-header"
+                style="border-bottom:1px solid #e5e7eb; background:#f9fafb; border-radius:12px 12px 0 0;">
+                <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+                    <i class="fa-solid fa-tag me-2" style="color:#8b5cf6;"></i><span id="modal-titulo-tipo">Nuevo Tipo
+                        Tarifa</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <label class="form-label mb-1 fw-bold">Tipo Tarifa <span class="text-danger">*</span></label>
+                <input id="tipo-texto" type="text" class="form-control" placeholder="Ej: KM"
+                    style="font-size:12px; height:36px;">
+                <input type="hidden" id="tipo-id">
+            </div>
+            <div class="modal-footer"
+                style="border-top:1px solid #e5e7eb; background:#f9fafb; border-radius:0 0 12px 12px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"><i
+                        class="fa-solid fa-xmark me-1"></i>Cancelar</button>
+                <button id="btn-guardar-tipo" type="button" class="btn btn-sm btn-primary"><i
+                        class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: TIPOLOGÍA BUS
+════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalTipologia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content" style="border:1px solid #e5e7eb; border-radius:12px;">
+            <div class="modal-header"
+                style="border-bottom:1px solid #e5e7eb; background:#f9fafb; border-radius:12px 12px 0 0;">
+                <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+                    <i class="fa-solid fa-bus me-2" style="color:#f59e0b;"></i><span id="modal-titulo-tipologia">Nueva
+                        Tipología Bus</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <label class="form-label mb-1 fw-bold">Tipología <span class="text-danger">*</span></label>
+                <input id="tipologia-texto" type="text" class="form-control" placeholder="Ej: BUS ARTICULADO"
+                    style="font-size:12px; height:36px;">
+                <input type="hidden" id="tipologia-id">
+            </div>
+            <div class="modal-footer"
+                style="border-top:1px solid #e5e7eb; background:#f9fafb; border-radius:0 0 12px 12px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"><i
+                        class="fa-solid fa-xmark me-1"></i>Cancelar</button>
+                <button id="btn-guardar-tipologia" type="button" class="btn btn-sm btn-primary"><i
+                        class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: COMBUSTIBLE
+════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalCombustible" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content" style="border:1px solid #e5e7eb; border-radius:12px;">
+            <div class="modal-header"
+                style="border-bottom:1px solid #e5e7eb; background:#f9fafb; border-radius:12px 12px 0 0;">
+                <h5 class="modal-title" style="font-weight:700; font-size:14px; color:#111827;">
+                    <i class="fa-solid fa-gas-pump me-2" style="color:#10b981;"></i><span id="modal-titulo-comb">Nuevo
+                        Combustible</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <label class="form-label mb-1 fw-bold">Combustible <span class="text-danger">*</span></label>
+                <input id="comb-texto" type="text" class="form-control" placeholder="Ej: ACPM"
+                    style="font-size:12px; height:36px;">
+                <input type="hidden" id="comb-id">
+            </div>
+            <div class="modal-footer"
+                style="border-top:1px solid #e5e7eb; background:#f9fafb; border-radius:0 0 12px 12px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"><i
+                        class="fa-solid fa-xmark me-1"></i>Cancelar</button>
+                <button id="btn-guardar-comb" type="button" class="btn btn-sm btn-primary"><i
+                        class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL COMPARTIDO: Cambiar Estado
+════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalCambiarEstado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+        <div class="modal-content" style="border-radius:12px; overflow:hidden;">
+            <div class="modal-header" id="mce-header" style="border-radius:12px 12px 0 0;">
+                <h5 class="modal-title" style="font-size:14px; font-weight:700;">
+                    <i id="mce-icon" class="me-2"></i><span id="mce-titulo">Cambiar Estado</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <p id="mce-msg" style="font-size:13px; margin-bottom:6px;"></p>
+                <p id="mce-nombre" class="fw-bold mb-0" style="font-size:13px;"></p>
+            </div>
+            <div class="modal-footer" id="mce-footer" style="border-radius:0 0 12px 12px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button id="btn-confirmar-estado" type="button" class="btn btn-sm">
+                    <i id="mce-btn-icon" class="me-1"></i><span id="mce-btn-texto">Confirmar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div id="overlay-proceso" class="overlay-proceso" hidden>
+    <div class="text-center">
+        <div class="spinner-border mb-2" role="status"></div>
+        <div class="fw-bold">Procesando…</div>
+    </div>
+</div>
+
+<!-- Toasts -->
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index:1080;">
+    <div id="pila-toasts"></div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    /* ══════════════════════════════════════════════════════════════════════════
+       UTILIDADES
+    ══════════════════════════════════════════════════════════════════════════ */
+    function limpiarBackdrops() {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+    function cerrarModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const inst = bootstrap.Modal.getInstance(el);
+        if (inst) {
+            inst.hide();
+        } else {
+            limpiarBackdrops();
+        }
+    }
+    // Limpieza global única: se ejecuta cuando cualquier modal termina de cerrarse
+    document.addEventListener('hidden.bs.modal', () => {
+        if (!document.querySelector('.modal.show')) {
+            limpiarBackdrops();
+        }
+    });
+
+    function mostrarToast({ titulo = 'Aviso', cuerpo = '', tipo = 'success' }) {
+        const color = tipo === 'success' ? '#198754' : tipo === 'warning' ? '#ffc107' : '#dc3545';
+        const html = `<div class="toast align-items-center border-0 show" role="alert" style="min-width:280px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.1);border-left:4px solid ${color}"><div class="d-flex"><div class="toast-body"><div class="fw-bold" style="color:${color}">${titulo}</div><div style="color:#111827">${cuerpo}</div></div><button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+        const wrap = document.createElement('div'); wrap.innerHTML = html;
+        const el = wrap.firstElementChild;
+        document.getElementById('pila-toasts').appendChild(el);
+        setTimeout(() => { try { bootstrap.Toast.getOrCreateInstance(el).hide(); } catch { } }, 3800);
+        el.addEventListener('hidden.bs.toast', () => el.remove());
+    }
+
+    function normalizarError(status, payload) {
+        if (payload && Array.isArray(payload.detail)) return { status, detail: payload.detail.map(d => d.msg || JSON.stringify(d)).join(' | ') };
+        return { status, detail: payload?.detail || payload?.message || `HTTP ${status}` };
+    }
+    async function getJSON(url, params = {}) {
+        const limpio = {}; for (const k in params) { const v = params[k]; if (v === '' || v === null || v === undefined) continue; limpio[k] = v; }
+        const q = new URLSearchParams(limpio);
+        const res = await fetch(q.toString() ? `${url}?${q}` : url, { credentials: 'same-origin' });
+        let data = null; try { data = await res.json(); } catch { }
+        if (!res.ok) throw normalizarError(res.status, data);
+        return data;
+    }
+    async function sendJSON(url, method, body) {
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(body) });
+        let data = null; try { data = await res.json(); } catch { }
+        if (!res.ok) throw normalizarError(res.status, data);
+        return data;
+    }
+    function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+
+    function dibujarPaginacion(idContenedor, actual, total, onChange) {
+        const ul = document.getElementById(idContenedor); if (!ul) return;
+        const ws = 5, start = Math.max(1, actual - Math.floor(ws / 2));
+        const end = Math.min(total, start + ws - 1), rs = Math.max(1, end - ws + 1);
+        const btn = (p, l = null, dis = false, act = false) => `<li class="page-item${dis ? ' disabled' : ''}${act ? ' active' : ''}"><a class="page-link" href="#" data-page="${p}">${l ?? p}</a></li>`;
+        let h = btn(1, '«', actual === 1) + btn(Math.max(1, actual - 1), '‹', actual === 1);
+        if (rs > 1) { h += btn(1, '1', false, actual === 1); if (rs > 2) h += `<li class="page-item disabled"><span class="page-link">…</span></li>`; }
+        for (let p = rs; p <= end; p++) h += btn(p, String(p), false, p === actual);
+        if (end < total) { if (end < total - 1) h += `<li class="page-item disabled"><span class="page-link">…</span></li>`; h += btn(total, String(total), false, actual === total); }
+        h += btn(Math.min(total, actual + 1), '›', actual === total) + btn(total, '»', actual === total);
+        ul.innerHTML = h;
+        ul.querySelectorAll('a[data-page]').forEach(a => {
+            a.onclick = e => { e.preventDefault(); const np = Number(a.dataset.page); if (np >= 1 && np <= total && np !== actual) onChange(np); };
+        });
+    }
+
+    function fmtFecha(s) { if (!s) return '<span class="badge-vigente">Vigente</span>'; return s.substring(0, 10); }
+    function fmtTarifa(v) { return Number(v).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 4 }); }
+    function badgeEstado(e) { return e ? `<span class="badge-activo">Activo</span>` : `<span class="badge-inactivo">Inactivo</span>`; }
+    function btnToggleEstado(activo, onclick) {
+        return activo
+            ? `<button class="btn btn-outline-warning btn-action" title="Inactivar" onclick="${onclick}"><i class="fa-solid fa-ban"></i></button>`
+            : `<button class="btn btn-outline-success btn-action" title="Activar" onclick="${onclick}"><i class="fa-solid fa-check"></i></button>`;
+    }
+
+    /* ── Modal cambiar estado ──────────────────────────────────────────────── */
+    let _fnEstado = null;
+    function abrirCambiarEstado({ nombre, nuevoEstado, fn }) {
+        _fnEstado = fn;
+        if (nuevoEstado) {
+            document.getElementById('mce-header').style.cssText = 'background:#f0fdf4;border-bottom:1px solid #86efac;border-radius:12px 12px 0 0;';
+            document.getElementById('mce-footer').style.cssText = 'background:#f0fdf4;border-top:1px solid #86efac;border-radius:0 0 12px 12px;';
+            document.getElementById('mce-icon').className = 'fa-solid fa-circle-check me-2'; document.getElementById('mce-icon').style.color = '#16a34a';
+            document.getElementById('mce-titulo').textContent = 'Activar registro';
+            document.getElementById('mce-msg').textContent = '¿Deseas activar el siguiente registro?';
+            document.getElementById('btn-confirmar-estado').className = 'btn btn-sm btn-success';
+            document.getElementById('mce-btn-icon').className = 'fa-solid fa-check me-1';
+            document.getElementById('mce-btn-texto').textContent = 'Activar';
+        } else {
+            document.getElementById('mce-header').style.cssText = 'background:#fff7ed;border-bottom:1px solid #fed7aa;border-radius:12px 12px 0 0;';
+            document.getElementById('mce-footer').style.cssText = 'background:#fff7ed;border-top:1px solid #fed7aa;border-radius:0 0 12px 12px;';
+            document.getElementById('mce-icon').className = 'fa-solid fa-ban me-2'; document.getElementById('mce-icon').style.color = '#ea580c';
+            document.getElementById('mce-titulo').textContent = 'Inactivar registro';
+            document.getElementById('mce-msg').textContent = '¿Deseas inactivar el siguiente registro?';
+            document.getElementById('btn-confirmar-estado').className = 'btn btn-sm btn-warning';
+            document.getElementById('mce-btn-icon').className = 'fa-solid fa-ban me-1';
+            document.getElementById('mce-btn-texto').textContent = 'Inactivar';
+        }
+        document.getElementById('mce-nombre').textContent = `"${nombre}"`;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarEstado')).show();
+    }
+    document.getElementById('btn-confirmar-estado')?.addEventListener('click', async () => {
+        if (!_fnEstado) return;
+        const fn = _fnEstado; _fnEstado = null;
+        try { await fn(); cerrarModal('modalCambiarEstado'); }
+        catch (err) { mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+    });
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       API
+    ══════════════════════════════════════════════════════════════════════════ */
+    const API = {
+        tarifas: {
+            listar: (p) => getJSON('/api/config/tarifas', p),
+            consultar: (p) => getJSON('/api/config/tarifas/consultar', p),
+            apoyo: () => getJSON('/api/config/tarifas/apoyo'),
+            crear: (b) => sendJSON('/api/config/tarifas', 'POST', b),
+            valor: (id, b) => sendJSON(`/api/config/tarifas/${id}/valor`, 'PUT', b),
+            cerrar: (id, b) => sendJSON(`/api/config/tarifas/${id}/cerrar`, 'PATCH', b),
+        },
+        tipo: {
+            listar: (p) => getJSON('/api/config/tipo_tarifa', p),
+            crear: (b) => sendJSON('/api/config/tipo_tarifa', 'POST', b),
+            actualizar: (id, b) => sendJSON(`/api/config/tipo_tarifa/${id}`, 'PUT', b),
+            cambiarEstado: (id, e) => sendJSON(`/api/config/tipo_tarifa/${id}/estado`, 'PATCH', { estado: e }),
+        },
+        tipologia: {
+            listar: (p) => getJSON('/api/config/tipologia_bus', p),
+            crear: (b) => sendJSON('/api/config/tipologia_bus', 'POST', b),
+            actualizar: (id, b) => sendJSON(`/api/config/tipologia_bus/${id}`, 'PUT', b),
+            cambiarEstado: (id, e) => sendJSON(`/api/config/tipologia_bus/${id}/estado`, 'PATCH', { estado: e }),
+        },
+        combustible: {
+            listar: (p) => getJSON('/api/config/combustible', p),
+            crear: (b) => sendJSON('/api/config/combustible', 'POST', b),
+            actualizar: (id, b) => sendJSON(`/api/config/combustible/${id}`, 'PUT', b),
+            cambiarEstado: (id, e) => sendJSON(`/api/config/combustible/${id}/estado`, 'PATCH', { estado: e }),
+        },
+    };
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       TAB 1 · TARIFAS
+    ══════════════════════════════════════════════════════════════════════════ */
+    const stTar = { pagina: 1, tamano: 15, id_tipo: '', id_tipologia: '', id_combustible: '', solo_vigentes: '' };
+    const cacheTar = { filas: [], apoyo: { tipos: [], tipologias: [], combustibles: [] } };
+    let __reqTar = 0, _modoConsulta = false;
+
+    async function cargarApoyo() {
+        const res = await API.tarifas.apoyo();
+        cacheTar.apoyo = res;
+
+        // Filtros del tab
+        ['f-tipo', 'tar-tipo'].forEach(id => {
+            const el = document.getElementById(id); if (!el) return;
+            const esModal = id.startsWith('tar-');
+            el.innerHTML = esModal ? '<option value="">-- Selecciona --</option>' : '<option value="">Todos</option>';
+            res.tipos.forEach(t => el.insertAdjacentHTML('beforeend', `<option value="${t.id}">${esc(t.tipo)}</option>`));
+        });
+        ['f-tipologia', 'tar-tipologia'].forEach(id => {
+            const el = document.getElementById(id); if (!el) return;
+            const esModal = id.startsWith('tar-');
+            el.innerHTML = esModal ? '<option value="">-- Selecciona --</option>' : '<option value="">Todas</option>';
+            res.tipologias.forEach(t => el.insertAdjacentHTML('beforeend', `<option value="${t.id}">${esc(t.tipologia)}</option>`));
+        });
+        ['f-combustible', 'tar-combustible'].forEach(id => {
+            const el = document.getElementById(id); if (!el) return;
+            const esModal = id.startsWith('tar-');
+            el.innerHTML = esModal ? '<option value="">-- Selecciona --</option>' : '<option value="">Todos</option>';
+            res.combustibles.forEach(c => el.insertAdjacentHTML('beforeend', `<option value="${c.id}">${esc(c.combustible)}</option>`));
+        });
+    }
+
+    async function cargarTarifas() {
+        const rid = ++__reqTar;
+        const ov = document.getElementById('overlay-proceso');
+        if (ov) ov.hidden = false;
+        try {
+            const p = {
+                pagina: stTar.pagina, tamano: stTar.tamano,
+                ...(stTar.id_tipo ? { id_tipo_tarifa: stTar.id_tipo } : {}),
+                ...(stTar.id_tipologia ? { id_tipologia: stTar.id_tipologia } : {}),
+                ...(stTar.id_combustible ? { id_combustible: stTar.id_combustible } : {}),
+                ...(stTar.solo_vigentes !== '' ? { solo_vigentes: stTar.solo_vigentes } : {})
+            };
+            const resp = await API.tarifas.listar(p);
+            if (rid !== __reqTar) return;
+            cacheTar.filas = resp.data || [];
+            renderTarifas(cacheTar.filas, resp.total || 0);
+        } catch (err) {
+            if (rid === __reqTar) mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' });
+        } finally {
+            if (rid === __reqTar && ov) ov.hidden = true;
+        }
+    }
+
+    function renderTarifas(filas, total) {
+        const tb = document.getElementById('tbody-tarifas');
+        if (!filas.length) {
+            tb.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4"><i class="fa-solid fa-inbox me-2"></i>Sin registros</td></tr>`;
+        } else {
+            tb.innerHTML = filas.map(r => {
+                const vigente = r.hasta === null || r.hasta === undefined || r.hasta === '';
+                return `
+        <tr class="${vigente ? '' : 'fila-historica'}">
+          <td class="text-center"><span class="text-muted" style="font-size:11px;">#${r.id}</span></td>
+          <td class="text-center"><span class="badge-tipo">${esc(r.tipo_tarifa || '')}</span></td>
+          <td class="text-center"><span class="badge-tip">${esc(r.tipologia || '')}</span></td>
+          <td class="text-center"><span class="badge-comb">${esc(r.combustible || '')}</span></td>
+          <td class="text-center">${esc(r.desde || '')}</td>
+          <td class="text-center">${vigente ? '<span class="badge-vigente"><i class="fa-solid fa-infinity" style="font-size:10px;"></i> Vigente</span>' : esc(r.hasta)}</td>
+          <td class="text-center fw-bold">${fmtTarifa(r.tarifa)}</td>
+          <td class="text-center">${vigente ? '<span class="badge-activo">Vigente</span>' : '<span class="badge-historico">Histórico</span>'}</td>
+          <td class="text-center">
+            <div class="btn-group">
+              <button class="btn btn-outline-secondary btn-action" title="Editar valor" onclick="abrirEdicionValor(${Number(r.id)})">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              ${vigente ? `<button class="btn btn-outline-warning btn-action" title="Cerrar período" onclick="abrirCerrarPeriodo(${Number(r.id)})"><i class="fa-solid fa-calendar-xmark"></i></button>` : ''}
+            </div>
+          </td>
+        </tr>`;
+            }).join('');
+        }
+        document.getElementById('txt-total-tarifas').textContent = `${filas.length} de ${total} registros`;
+        dibujarPaginacion('pag-tarifas', stTar.pagina, Math.max(1, Math.ceil(total / stTar.tamano)), np => { stTar.pagina = np; cargarTarifas(); });
+    }
+
+    /* Consulta por fecha */
+    document.getElementById('btn-consultar-fecha')?.addEventListener('click', async () => {
+        const fecha = document.getElementById('consulta-fecha').value;
+        if (!fecha) return mostrarToast({ titulo: 'Validación', cuerpo: 'Selecciona una fecha de consulta', tipo: 'warning' });
+        const ov = document.getElementById('overlay-proceso'); if (ov) ov.hidden = false;
+        try {
+            const res = await API.tarifas.consultar({
+                fecha,
+                ...(stTar.id_tipo ? { id_tipo_tarifa: stTar.id_tipo } : {}),
+                ...(stTar.id_tipologia ? { id_tipologia: stTar.id_tipologia } : {}),
+                ...(stTar.id_combustible ? { id_combustible: stTar.id_combustible } : {})
+            });
+            _modoConsulta = true;
+            document.getElementById('consulta-resultado-label').textContent =
+                `Mostrando ${res.data.length} tarifa(s) vigente(s) al ${fecha}`;
+            cacheTar.filas = res.data || [];
+            renderTarifas(cacheTar.filas, res.total || 0);
+        } catch (err) { mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+        finally { if (ov) ov.hidden = true; }
+    });
+
+    document.getElementById('btn-limpiar-consulta')?.addEventListener('click', () => {
+        document.getElementById('consulta-fecha').value = '';
+        document.getElementById('consulta-resultado-label').textContent = '';
+        _modoConsulta = false;
+        stTar.pagina = 1; cargarTarifas();
+    });
+
+    /* Modal nueva tarifa */
+    function resetModalTarifa() {
+        document.getElementById('tar-id').value = '';
+        document.getElementById('tar-modo').value = 'nueva';
+        document.getElementById('tar-tipo').value = ''; document.getElementById('tar-tipo').disabled = false;
+        document.getElementById('tar-tipologia').value = ''; document.getElementById('tar-tipologia').disabled = false;
+        document.getElementById('tar-combustible').value = ''; document.getElementById('tar-combustible').disabled = false;
+        document.getElementById('tar-desde').value = ''; document.getElementById('tar-desde').disabled = false;
+        document.getElementById('tar-hasta').value = ''; document.getElementById('tar-hasta').disabled = false;
+        document.getElementById('tar-valor').value = '';
+        document.getElementById('modal-titulo-tar').textContent = 'Nueva Tarifa';
+        document.getElementById('tar-aviso').style.display = 'block';
+    }
+
+    function abrirEdicionValor(id) {
+        const r = cacheTar.filas.find(x => Number(x.id) === id); if (!r) return;
+        document.getElementById('tar-id').value = r.id;
+        document.getElementById('tar-modo').value = 'valor';
+        document.getElementById('tar-tipo').value = r.id_tipo_tarifa || ''; document.getElementById('tar-tipo').disabled = true;
+        document.getElementById('tar-tipologia').value = r.id_tipologia || ''; document.getElementById('tar-tipologia').disabled = true;
+        document.getElementById('tar-combustible').value = r.id_combustible || ''; document.getElementById('tar-combustible').disabled = true;
+        document.getElementById('tar-desde').value = r.desde || ''; document.getElementById('tar-desde').disabled = true;
+        document.getElementById('tar-hasta').value = r.hasta || ''; document.getElementById('tar-hasta').disabled = true;
+        document.getElementById('tar-valor').value = r.tarifa || '';
+        document.getElementById('modal-titulo-tar').textContent = 'Editar Valor de Tarifa';
+        document.getElementById('tar-aviso').style.display = 'none';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTarifa')).show();
+    }
+
+    document.getElementById('btn-guardar-tar')?.addEventListener('click', async () => {
+        const id = document.getElementById('tar-id').value || null;
+        const modo = document.getElementById('tar-modo').value;
+        const valor = parseFloat(document.getElementById('tar-valor').value);
+        if (!valor || valor <= 0) return mostrarToast({ titulo: 'Validación', cuerpo: 'La tarifa debe ser un valor positivo', tipo: 'warning' });
+
+        try {
+            if (modo === 'valor' && id) {
+                await API.tarifas.valor(id, { tarifa: valor });
+                mostrarToast({ titulo: 'Tarifa', cuerpo: 'Valor actualizado correctamente', tipo: 'success' });
+            } else {
+                const tipo = document.getElementById('tar-tipo').value;
+                const tipologia = document.getElementById('tar-tipologia').value;
+                const combustible = document.getElementById('tar-combustible').value;
+                const desde = document.getElementById('tar-desde').value;
+                const hasta = document.getElementById('tar-hasta').value || null;
+                if (!tipo) return mostrarToast({ titulo: 'Validación', cuerpo: 'Selecciona el tipo de tarifa', tipo: 'warning' });
+                if (!tipologia) return mostrarToast({ titulo: 'Validación', cuerpo: 'Selecciona la tipología', tipo: 'warning' });
+                if (!combustible) return mostrarToast({ titulo: 'Validación', cuerpo: 'Selecciona el combustible', tipo: 'warning' });
+                if (!desde) return mostrarToast({ titulo: 'Validación', cuerpo: 'La fecha de inicio es obligatoria', tipo: 'warning' });
+                await API.tarifas.crear({ id_tipo_tarifa: parseInt(tipo), id_tipologia: parseInt(tipologia), id_combustible: parseInt(combustible), desde, hasta, tarifa: valor });
+                mostrarToast({ titulo: 'Tarifa', cuerpo: 'Tarifa creada correctamente', tipo: 'success' });
+            }
+            cerrarModal('modalTarifa');
+            stTar.pagina = 1; await cargarTarifas();
+        } catch (err) { mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+    });
+
+    /* Cerrar período */
+    function abrirCerrarPeriodo(id) {
+        const r = cacheTar.filas.find(x => Number(x.id) === id); if (!r || r.hasta) return;
+        document.getElementById('cerrar-id').value = id;
+        document.getElementById('cerrar-desc').textContent = `${r.tipo_tarifa} / ${r.tipologia} / ${r.combustible} — $${fmtTarifa(r.tarifa)}`;
+        document.getElementById('cerrar-desde').textContent = r.desde || '';
+        document.getElementById('cerrar-hasta').value = '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCerrar')).show();
+    }
+
+    document.getElementById('btn-confirmar-cerrar')?.addEventListener('click', async () => {
+        const id = document.getElementById('cerrar-id').value;
+        const hasta = document.getElementById('cerrar-hasta').value;
+        if (!hasta) return mostrarToast({ titulo: 'Validación', cuerpo: 'Selecciona la fecha de cierre', tipo: 'warning' });
+        try {
+            await API.tarifas.cerrar(id, { hasta });
+            mostrarToast({ titulo: 'Período cerrado', cuerpo: 'La fecha de fin fue asignada correctamente', tipo: 'success' });
+            cerrarModal('modalCerrar');
+            stTar.pagina = 1; await cargarTarifas();
+        } catch (err) { mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+    });
+
+    /* Filtros tarifas */
+    document.getElementById('f-tipo')?.addEventListener('change', e => { stTar.id_tipo = e.target.value; stTar.pagina = 1; cargarTarifas(); });
+    document.getElementById('f-tipologia')?.addEventListener('change', e => { stTar.id_tipologia = e.target.value; stTar.pagina = 1; cargarTarifas(); });
+    document.getElementById('f-combustible')?.addEventListener('change', e => { stTar.id_combustible = e.target.value; stTar.pagina = 1; cargarTarifas(); });
+    document.getElementById('f-vigencia')?.addEventListener('change', e => { stTar.solo_vigentes = e.target.value; stTar.pagina = 1; cargarTarifas(); });
+    document.getElementById('btn-limpiar-tar')?.addEventListener('click', () => {
+        ['f-tipo', 'f-tipologia', 'f-combustible', 'f-vigencia'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        stTar.id_tipo = ''; stTar.id_tipologia = ''; stTar.id_combustible = ''; stTar.solo_vigentes = ''; stTar.pagina = 1; cargarTarifas();
+    });
+
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       TAB 2 · TIPO TARIFA
+    ══════════════════════════════════════════════════════════════════════════ */
+    const stTipo = { pagina: 1, tamano: 15, q: '', estado: '' };
+    const cacheTipo = { filas: [] };
+    let __reqTipo = 0, _cargadoTipo = false;
+
+    async function cargarTipoTarifa() {
+        const rid = ++__reqTipo;
+        const ov = document.getElementById('overlay-proceso'); if (ov) ov.hidden = false;
+        try {
+            const resp = await API.tipo.listar({ pagina: stTipo.pagina, tamano: stTipo.tamano, ...(stTipo.q ? { q: stTipo.q } : {}), ...(stTipo.estado !== '' ? { estado: stTipo.estado } : {}) });
+            if (rid !== __reqTipo) return;
+            cacheTipo.filas = resp.data || [];
+            const tb = document.getElementById('tbody-tipo');
+            if (!cacheTipo.filas.length) {
+                tb.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4"><i class="fa-solid fa-inbox me-2"></i>Sin registros</td></tr>`;
+            } else {
+                tb.innerHTML = cacheTipo.filas.map(r => `
+        <tr class="${r.estado ? '' : 'fila-historica'}">
+          <td><span class="text-muted" style="font-size:11px;">#${r.id}</span></td>
+          <td><span class="badge-tipo">${esc(r.tipo)}</span></td>
+          <td>${badgeEstado(r.estado)}</td>
+          <td style="text-align:right;"><div class="btn-group">
+            <button class="btn btn-outline-secondary btn-action" title="Editar" onclick="abrirEdicionTipo(${Number(r.id)})"><i class="fa-solid fa-pen"></i></button>
+            ${btnToggleEstado(r.estado, `pedirEstadoTipo(${Number(r.id)},${!r.estado})`)}
+          </div></td>
+        </tr>`).join('');
+            }
+            const total = Number(resp.total) || 0;
+            document.getElementById('txt-total-tipo').textContent = `${cacheTipo.filas.length} de ${total} registros`;
+            dibujarPaginacion('pag-tipo', stTipo.pagina, Math.max(1, Math.ceil(total / stTipo.tamano)), np => { stTipo.pagina = np; cargarTipoTarifa(); });
+        } catch (err) { if (rid === __reqTipo) mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+        finally { if (rid === __reqTipo && ov) ov.hidden = true; }
+    }
+
+    function resetModalTipo() { document.getElementById('tipo-id').value = ''; document.getElementById('tipo-texto').value = ''; document.getElementById('modal-titulo-tipo').textContent = 'Nuevo Tipo Tarifa'; }
+    function abrirEdicionTipo(id) {
+        const r = cacheTipo.filas.find(x => Number(x.id) === id); if (!r) return;
+        document.getElementById('tipo-id').value = r.id;
+        document.getElementById('tipo-texto').value = r.tipo || '';
+        document.getElementById('modal-titulo-tipo').textContent = 'Editar Tipo Tarifa';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTipo')).show();
+    }
+    function pedirEstadoTipo(id, nuevoEstado) {
+        const r = cacheTipo.filas.find(x => Number(x.id) === id); if (!r) return;
+        abrirCambiarEstado({
+            nombre: r.tipo, nuevoEstado, fn: async () => {
+                await API.tipo.cambiarEstado(id, nuevoEstado);
+                mostrarToast({ titulo: 'Tipo Tarifa', cuerpo: nuevoEstado ? 'Activado' : 'Inactivado', tipo: 'success' });
+                stTipo.pagina = 1; await cargarTipoTarifa(); await cargarApoyo();
+            }
+        });
+    }
+    document.getElementById('btn-guardar-tipo')?.addEventListener('click', async () => {
+        const id = document.getElementById('tipo-id').value || null;
+        const txt = document.getElementById('tipo-texto').value.trim();
+        if (!txt) return mostrarToast({ titulo: 'Validación', cuerpo: 'El tipo de tarifa es obligatorio', tipo: 'warning' });
+        try {
+            if (id) { await API.tipo.actualizar(id, { tipo: txt }); mostrarToast({ titulo: 'Tipo Tarifa', cuerpo: 'Actualizado', tipo: 'success' }); }
+            else { await API.tipo.crear({ tipo: txt }); mostrarToast({ titulo: 'Tipo Tarifa', cuerpo: 'Creado', tipo: 'success' }); }
+            cerrarModal('modalTipo'); stTipo.pagina = 1; await cargarTipoTarifa(); await cargarApoyo();
+        } catch (err) { mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+    });
+    let dbTipo;
+    document.getElementById('f-q-tipo')?.addEventListener('input', e => { clearTimeout(dbTipo); dbTipo = setTimeout(() => { stTipo.q = e.target.value; stTipo.pagina = 1; cargarTipoTarifa(); }, 350); });
+    document.getElementById('f-estado-tipo')?.addEventListener('change', e => { stTipo.estado = e.target.value; stTipo.pagina = 1; cargarTipoTarifa(); });
+    document.getElementById('btn-limpiar-tipo')?.addEventListener('click', () => { document.getElementById('f-q-tipo').value = ''; document.getElementById('f-estado-tipo').value = ''; stTipo.q = ''; stTipo.estado = ''; stTipo.pagina = 1; cargarTipoTarifa(); });
+
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       TAB 3 · TIPOLOGÍA BUS
+    ══════════════════════════════════════════════════════════════════════════ */
+    const stTipol = { pagina: 1, tamano: 15, q: '', estado: '' };
+    const cacheTipol = { filas: [] };
+    let __reqTipol = 0, _cargadoTipol = false;
+
+    async function cargarTipologiaBus() {
+        const rid = ++__reqTipol;
+        const ov = document.getElementById('overlay-proceso'); if (ov) ov.hidden = false;
+        try {
+            const resp = await API.tipologia.listar({ pagina: stTipol.pagina, tamano: stTipol.tamano, ...(stTipol.q ? { q: stTipol.q } : {}), ...(stTipol.estado !== '' ? { estado: stTipol.estado } : {}) });
+            if (rid !== __reqTipol) return;
+            cacheTipol.filas = resp.data || [];
+            const tb = document.getElementById('tbody-tipologia');
+            if (!cacheTipol.filas.length) {
+                tb.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4"><i class="fa-solid fa-inbox me-2"></i>Sin registros</td></tr>`;
+            } else {
+                tb.innerHTML = cacheTipol.filas.map(r => `
+        <tr class="${r.estado ? '' : 'fila-historica'}">
+          <td><span class="text-muted" style="font-size:11px;">#${r.id}</span></td>
+          <td><span class="badge-tip">${esc(r.tipologia)}</span></td>
+          <td>${badgeEstado(r.estado)}</td>
+          <td style="text-align:right;"><div class="btn-group">
+            <button class="btn btn-outline-secondary btn-action" title="Editar" onclick="abrirEdicionTipologia(${Number(r.id)})"><i class="fa-solid fa-pen"></i></button>
+            ${btnToggleEstado(r.estado, `pedirEstadoTipologia(${Number(r.id)},${!r.estado})`)}
+          </div></td>
+        </tr>`).join('');
+            }
+            const total = Number(resp.total) || 0;
+            document.getElementById('txt-total-tipologia').textContent = `${cacheTipol.filas.length} de ${total} registros`;
+            dibujarPaginacion('pag-tipologia', stTipol.pagina, Math.max(1, Math.ceil(total / stTipol.tamano)), np => { stTipol.pagina = np; cargarTipologiaBus(); });
+        } catch (err) { if (rid === __reqTipol) mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+        finally { if (rid === __reqTipol && ov) ov.hidden = true; }
+    }
+
+    function resetModalTipologia() { document.getElementById('tipologia-id').value = ''; document.getElementById('tipologia-texto').value = ''; document.getElementById('modal-titulo-tipologia').textContent = 'Nueva Tipología Bus'; }
+    function abrirEdicionTipologia(id) {
+        const r = cacheTipol.filas.find(x => Number(x.id) === id); if (!r) return;
+        document.getElementById('tipologia-id').value = r.id;
+        document.getElementById('tipologia-texto').value = r.tipologia || '';
+        document.getElementById('modal-titulo-tipologia').textContent = 'Editar Tipología Bus';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTipologia')).show();
+    }
+    function pedirEstadoTipologia(id, nuevoEstado) {
+        const r = cacheTipol.filas.find(x => Number(x.id) === id); if (!r) return;
+        abrirCambiarEstado({
+            nombre: r.tipologia, nuevoEstado, fn: async () => {
+                await API.tipologia.cambiarEstado(id, nuevoEstado);
+                mostrarToast({ titulo: 'Tipología', cuerpo: nuevoEstado ? 'Activada' : 'Inactivada', tipo: 'success' });
+                stTipol.pagina = 1; await cargarTipologiaBus(); await cargarApoyo();
+            }
+        });
+    }
+    document.getElementById('btn-guardar-tipologia')?.addEventListener('click', async () => {
+        const id = document.getElementById('tipologia-id').value || null;
+        const txt = document.getElementById('tipologia-texto').value.trim();
+        if (!txt) return mostrarToast({ titulo: 'Validación', cuerpo: 'La tipología es obligatoria', tipo: 'warning' });
+        try {
+            if (id) { await API.tipologia.actualizar(id, { tipologia: txt }); mostrarToast({ titulo: 'Tipología', cuerpo: 'Actualizada', tipo: 'success' }); }
+            else { await API.tipologia.crear({ tipologia: txt }); mostrarToast({ titulo: 'Tipología', cuerpo: 'Creada', tipo: 'success' }); }
+            cerrarModal('modalTipologia'); stTipol.pagina = 1; await cargarTipologiaBus(); await cargarApoyo();
+        } catch (err) { mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+    });
+    let dbTipol;
+    document.getElementById('f-q-tipologia')?.addEventListener('input', e => { clearTimeout(dbTipol); dbTipol = setTimeout(() => { stTipol.q = e.target.value; stTipol.pagina = 1; cargarTipologiaBus(); }, 350); });
+    document.getElementById('f-estado-tipologia')?.addEventListener('change', e => { stTipol.estado = e.target.value; stTipol.pagina = 1; cargarTipologiaBus(); });
+    document.getElementById('btn-limpiar-tipologia')?.addEventListener('click', () => { document.getElementById('f-q-tipologia').value = ''; document.getElementById('f-estado-tipologia').value = ''; stTipol.q = ''; stTipol.estado = ''; stTipol.pagina = 1; cargarTipologiaBus(); });
+
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       TAB 4 · COMBUSTIBLE
+    ══════════════════════════════════════════════════════════════════════════ */
+    const stComb = { pagina: 1, tamano: 15, q: '', estado: '' };
+    const cacheComb = { filas: [] };
+    let __reqComb = 0, _cargadoComb = false;
+
+    async function cargarCombustible() {
+        const rid = ++__reqComb;
+        const ov = document.getElementById('overlay-proceso'); if (ov) ov.hidden = false;
+        try {
+            const resp = await API.combustible.listar({ pagina: stComb.pagina, tamano: stComb.tamano, ...(stComb.q ? { q: stComb.q } : {}), ...(stComb.estado !== '' ? { estado: stComb.estado } : {}) });
+            if (rid !== __reqComb) return;
+            cacheComb.filas = resp.data || [];
+            const tb = document.getElementById('tbody-combustible');
+            if (!cacheComb.filas.length) {
+                tb.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4"><i class="fa-solid fa-inbox me-2"></i>Sin registros</td></tr>`;
+            } else {
+                tb.innerHTML = cacheComb.filas.map(r => `
+        <tr class="${r.estado ? '' : 'fila-historica'}">
+          <td><span class="text-muted" style="font-size:11px;">#${r.id}</span></td>
+          <td><span class="badge-comb">${esc(r.combustible)}</span></td>
+          <td>${badgeEstado(r.estado)}</td>
+          <td style="text-align:right;"><div class="btn-group">
+            <button class="btn btn-outline-secondary btn-action" title="Editar" onclick="abrirEdicionComb(${Number(r.id)})"><i class="fa-solid fa-pen"></i></button>
+            ${btnToggleEstado(r.estado, `pedirEstadoComb(${Number(r.id)},${!r.estado})`)}
+          </div></td>
+        </tr>`).join('');
+            }
+            const total = Number(resp.total) || 0;
+            document.getElementById('txt-total-combustible').textContent = `${cacheComb.filas.length} de ${total} registros`;
+            dibujarPaginacion('pag-combustible', stComb.pagina, Math.max(1, Math.ceil(total / stComb.tamano)), np => { stComb.pagina = np; cargarCombustible(); });
+        } catch (err) { if (rid === __reqComb) mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+        finally { if (rid === __reqComb && ov) ov.hidden = true; }
+    }
+
+    function resetModalCombustible() { document.getElementById('comb-id').value = ''; document.getElementById('comb-texto').value = ''; document.getElementById('modal-titulo-comb').textContent = 'Nuevo Combustible'; }
+    function abrirEdicionComb(id) {
+        const r = cacheComb.filas.find(x => Number(x.id) === id); if (!r) return;
+        document.getElementById('comb-id').value = r.id;
+        document.getElementById('comb-texto').value = r.combustible || '';
+        document.getElementById('modal-titulo-comb').textContent = 'Editar Combustible';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCombustible')).show();
+    }
+    function pedirEstadoComb(id, nuevoEstado) {
+        const r = cacheComb.filas.find(x => Number(x.id) === id); if (!r) return;
+        abrirCambiarEstado({
+            nombre: r.combustible, nuevoEstado, fn: async () => {
+                await API.combustible.cambiarEstado(id, nuevoEstado);
+                mostrarToast({ titulo: 'Combustible', cuerpo: nuevoEstado ? 'Activado' : 'Inactivado', tipo: 'success' });
+                stComb.pagina = 1; await cargarCombustible(); await cargarApoyo();
+            }
+        });
+    }
+    document.getElementById('btn-guardar-comb')?.addEventListener('click', async () => {
+        const id = document.getElementById('comb-id').value || null;
+        const txt = document.getElementById('comb-texto').value.trim();
+        if (!txt) return mostrarToast({ titulo: 'Validación', cuerpo: 'El combustible es obligatorio', tipo: 'warning' });
+        try {
+            if (id) { await API.combustible.actualizar(id, { combustible: txt }); mostrarToast({ titulo: 'Combustible', cuerpo: 'Actualizado', tipo: 'success' }); }
+            else { await API.combustible.crear({ combustible: txt }); mostrarToast({ titulo: 'Combustible', cuerpo: 'Creado', tipo: 'success' }); }
+            cerrarModal('modalCombustible'); stComb.pagina = 1; await cargarCombustible(); await cargarApoyo();
+        } catch (err) { mostrarToast({ titulo: 'Error', cuerpo: esc(err.detail || String(err)), tipo: 'danger' }); }
+    });
+    let dbComb;
+    document.getElementById('f-q-combustible')?.addEventListener('input', e => { clearTimeout(dbComb); dbComb = setTimeout(() => { stComb.q = e.target.value; stComb.pagina = 1; cargarCombustible(); }, 350); });
+    document.getElementById('f-estado-combustible')?.addEventListener('change', e => { stComb.estado = e.target.value; stComb.pagina = 1; cargarCombustible(); });
+    document.getElementById('btn-limpiar-combustible')?.addEventListener('click', () => { document.getElementById('f-q-combustible').value = ''; document.getElementById('f-estado-combustible').value = ''; stComb.q = ''; stComb.estado = ''; stComb.pagina = 1; cargarCombustible(); });
+
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       ACTIVACIÓN LAZY POR PESTAÑA
+    ══════════════════════════════════════════════════════════════════════════ */
+    document.getElementById('tab-tipo-btn')?.addEventListener('shown.bs.tab', () => { if (!_cargadoTipo) { _cargadoTipo = true; cargarTipoTarifa(); } });
+    document.getElementById('tab-tipologia-btn')?.addEventListener('shown.bs.tab', () => { if (!_cargadoTipol) { _cargadoTipol = true; cargarTipologiaBus(); } });
+    document.getElementById('tab-combustible-btn')?.addEventListener('shown.bs.tab', () => { if (!_cargadoComb) { _cargadoComb = true; cargarCombustible(); } });
+
+    /* ══════════════════════════════════════════════════════════════════════════
+       ARRANQUE
+    ══════════════════════════════════════════════════════════════════════════ */
+    (async function boot() {
+        try {
+            await cargarApoyo();
+            await cargarTarifas();
+        } catch (err) { mostrarToast({ titulo: 'Error inicial', cuerpo: String(err.detail || err), tipo: 'danger' }); }
+    })();
+</script>
+{% endblock %}

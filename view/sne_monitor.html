@@ -1,4 +1,4 @@
-{% extends "components/layout.html" %}
+﻿{% extends "components/layout.html" %}
 {% block title %}Monitor SNE{% endblock %}
 
 {% block head %}
@@ -552,6 +552,479 @@
         min-width: 0;
     }
 
+    /* ── Ficha de Rutas ──────────────────────────────────────────────── */
+    .fr-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .65rem;
+        align-items: flex-end;
+        padding: .75rem .85rem;
+        margin-bottom: .85rem;
+        background: var(--mon-surface-soft);
+        border: 1px solid var(--mon-border);
+        border-radius: var(--mon-radius-md);
+    }
+
+    .fr-field label {
+        font-size: .68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: var(--mon-text-soft);
+        margin-bottom: .25rem;
+        display: block;
+    }
+
+    .fr-select, .fr-input {
+        font-size: .8rem;
+        height: 36px;
+        border: 1px solid var(--mon-border);
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    .fr-select:focus, .fr-input:focus {
+        border-color: var(--mon-accent);
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, .12);
+    }
+
+    .fr-btn {
+        height: 36px;
+        border-radius: 10px;
+        font-size: .8rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: 0 .9rem;
+        border: 1px solid var(--mon-border);
+        background: #fff;
+        color: var(--mon-text);
+        transition: all .15s;
+    }
+
+    .fr-btn:hover { background: #f1f5fb; }
+
+    .fr-btn-primary {
+        background: linear-gradient(135deg, var(--mon-accent), var(--mon-secondary));
+        color: #fff;
+        border: none;
+        box-shadow: 0 6px 16px rgba(13, 110, 253, .25);
+    }
+
+    .fr-btn-primary:hover,
+    .fr-btn-ficha:hover {
+        background: #16a34a;
+        background-image: none;
+        color: #fff;
+        filter: none;
+        box-shadow: 0 6px 16px rgba(22, 163, 74, .3);
+    }
+
+    .fr-btn-sm {
+        height: 26px;
+        font-size: .72rem;
+        padding: 0 .6rem;
+        border-radius: 8px;
+        gap: .25rem;
+    }
+
+    /* Tabla rutas */
+    .fr-table-wrap {
+        border: 1px solid var(--mon-border);
+        border-radius: var(--mon-radius-md);
+        overflow: hidden;
+    }
+
+    .fr-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+
+    .fr-table thead th {
+        background: linear-gradient(135deg, var(--mon-primary), var(--mon-secondary));
+        color: #fff;
+        font-size: .68rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        font-weight: 800;
+        padding: .4rem .8rem;
+        position: sticky;
+        top: 0;
+        white-space: nowrap;
+    }
+
+    .fr-table tbody td {
+        padding: .3rem .8rem;
+        border-bottom: 1px solid var(--mon-border);
+        color: var(--mon-text);
+        vertical-align: middle;
+        line-height: 1.2;
+    }
+
+    .fr-table tbody tr:nth-child(even) { background: #e2e8f0; }
+    .fr-table tbody tr:hover { background: #d1fae5; }
+
+    .fr-table td.fr-actions {
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .fr-table th.fr-actions-h { text-align: center; }
+
+    .fr-route-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        font-weight: 700;
+        color: var(--mon-primary);
+    }
+
+    /* Modal historial */
+    .fr-modal-header {
+        background: linear-gradient(135deg, var(--mon-primary) 0%, var(--mon-secondary) 55%, var(--mon-accent) 100%);
+        color: #fff;
+        border-radius: 14px 14px 0 0;
+        border-bottom: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.2rem;
+        gap: .8rem;
+    }
+
+    .fr-modal-header .modal-title { color: #fff; }
+    .fr-modal-header .btn-close { filter: invert(1) brightness(2); }
+    .fr-modal-header-close {
+        background: rgba(255,255,255,.15);
+        border: none;
+        color: #fff;
+        border-radius: 8px;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        transition: background .15s;
+    }
+    .fr-modal-header-close:hover { background: rgba(255,255,255,.28); }
+
+    .fr-hist-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .6rem;
+        align-items: flex-end;
+        background: var(--mon-surface-soft);
+        border: 1px solid var(--mon-border);
+        border-radius: var(--mon-radius-md);
+        padding: .65rem .8rem;
+        margin-bottom: 1rem;
+    }
+
+    .fr-feed {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .9rem;
+        align-items: start;
+    }
+
+    @media (max-width: 768px) {
+        .fr-feed { grid-template-columns: 1fr; }
+    }
+
+    /* Tarjeta estilo "post" de Facebook */
+    .fr-post {
+        border: 1px solid var(--mon-border);
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: var(--mon-shadow-sm);
+        overflow: hidden;
+        transition: box-shadow .15s;
+    }
+
+    .fr-post:hover { box-shadow: var(--mon-shadow-md); }
+
+    .fr-post.fr-collapsed .fr-post__body,
+    .fr-post.fr-collapsed .fr-post__attachments,
+    .fr-post.fr-collapsed .fr-post__actions {
+        display: none;
+    }
+
+    .fr-post__head {
+        display: flex;
+        align-items: flex-start;
+        gap: .65rem;
+        padding: .85rem .9rem .4rem;
+        cursor: pointer;
+    }
+
+    .fr-post.fr-collapsed .fr-post__head {
+        padding-bottom: .85rem;
+    }
+
+    .fr-post__toggle {
+        flex: 0 0 auto;
+        color: var(--mon-text-soft);
+        font-size: 1rem;
+        margin-top: .15rem;
+        transition: transform .15s;
+    }
+
+    .fr-post.fr-collapsed .fr-post__toggle {
+        transform: rotate(-90deg);
+    }
+
+    .fr-post__avatar {
+        flex: 0 0 auto;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--mon-accent), var(--mon-secondary));
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: .85rem;
+    }
+
+    .fr-post__meta { flex: 1; min-width: 0; }
+
+    .fr-post__subject {
+        font-weight: 800;
+        font-size: .92rem;
+        color: var(--mon-text);
+        line-height: 1.25;
+    }
+
+    .fr-post__sub {
+        font-size: .7rem;
+        color: var(--mon-text-soft);
+        margin-top: .1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        align-items: center;
+    }
+
+    .fr-post__body {
+        padding: .25rem .9rem .85rem;
+        font-size: .82rem;
+        color: var(--mon-text);
+        white-space: pre-wrap;
+        line-height: 1.5;
+    }
+
+    .fr-post__actions {
+        display: flex;
+        gap: .35rem;
+        flex: 0 0 auto;
+    }
+
+    .fr-post__attachments {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .55rem;
+        padding: 0 .9rem .9rem;
+    }
+
+    .fr-att-img {
+        width: 96px;
+        height: 96px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 1px solid var(--mon-border);
+        cursor: zoom-in;
+        transition: transform .15s, box-shadow .15s;
+    }
+
+    .fr-att-img:hover { transform: scale(1.03); box-shadow: var(--mon-shadow-sm); }
+
+    .fr-att-file {
+        width: 88px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .15rem;
+        text-decoration: none;
+        font-size: .64rem;
+        color: var(--mon-text);
+        padding: .5rem .3rem;
+        border: 1px solid var(--mon-border);
+        border-radius: 10px;
+        background: var(--mon-surface-soft);
+        transition: background .15s;
+    }
+
+    .fr-att-file:hover { background: #eaf2ff; color: var(--mon-text); }
+    .fr-att-file i { font-size: 1.7rem; }
+    .fr-att-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+        text-align: center;
+    }
+
+    .fr-badge-estado {
+        font-size: .65rem;
+        font-weight: 800;
+        padding: .2rem .6rem;
+        border-radius: 999px;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .fr-badge-on  { background: #dcfce7; color: #15803d; }
+    .fr-badge-off { background: #f1f5f9; color: #64748b; }
+
+    /* Modal formulario */
+    .fr-dropzone {
+        border: 2px dashed #b9a6f5;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
+        background: linear-gradient(135deg, #faf5ff, #f3f0ff);
+        transition: all .15s;
+    }
+
+    .fr-dropzone.fr-drag { border-color: #7c3aed; background: #ede9fe; }
+
+    .fr-attach-item {
+        width: 86px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .15rem;
+        font-size: .62rem;
+        position: relative;
+        padding: .4rem .3rem .3rem;
+        border: 1px solid var(--mon-border);
+        border-radius: 10px;
+        background: var(--mon-surface-soft);
+    }
+
+    .fr-attach-item img {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+
+    .fr-attach-item .fr-attach-remove {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: none;
+        background: #ef4444;
+        color: #fff;
+        font-size: .7rem;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    }
+
+    /* Lightbox */
+    .fr-lightbox {
+        position: fixed;
+        inset: 0;
+        background: rgba(8, 14, 28, .82);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 4000;
+        padding: 2rem;
+    }
+
+    .fr-lightbox.fr-open { display: flex; }
+
+    .fr-lightbox img {
+        max-width: 92vw;
+        max-height: 88vh;
+        border-radius: 10px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+
+    .fr-lightbox-close {
+        position: absolute;
+        top: 18px;
+        right: 24px;
+        color: #fff;
+        font-size: 2rem;
+        line-height: 1;
+        cursor: pointer;
+        background: rgba(255,255,255,.12);
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fr-saving-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255,255,255,.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 5000;
+        backdrop-filter: blur(1px);
+    }
+
+    .fr-saving-overlay.fr-open { display: flex; }
+
+    .fr-saving-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .6rem;
+        padding: 1.5rem 2rem;
+        background: rgba(15, 23, 42, .85);
+        color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    }
+
+    .fr-saving-text {
+        font-size: .9rem;
+        font-weight: 600;
+    }
+
+    /* ── Noticias — panel de la pestaña ──────────────────────────────────── */
+    .nt-panel {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 190px);
+        min-height: 480px;
+        overflow: hidden;
+    }
+
+    .nt-panel .fr-hist-toolbar {
+        flex: 0 0 auto;
+        border-radius: var(--mon-radius-md) var(--mon-radius-md) 0 0;
+        margin-bottom: 0;
+    }
+
+    .nt-feed-wrap {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 1rem;
+        background: var(--mon-bg);
+        border: 1px solid var(--mon-border);
+        border-top: none;
+        border-radius: 0 0 var(--mon-radius-md) var(--mon-radius-md);
+    }
+
     .mon-panel {
         overflow: hidden;
     }
@@ -852,8 +1325,12 @@
 
     .mon-card-fs .mon-chart-stage,
     .mon-card-fs .mon-canvas-cont {
-        height: calc(100vh - 130px) !important;
         flex: 1 !important;
+        min-height: 0 !important;
+        height: auto !important;
+    }
+    .mon-card-fs .mon-canvas-cont > div {
+        height: 100% !important;
     }
 
     /* ── Tabla ── */
@@ -1166,6 +1643,22 @@
         word-break: break-word;
     }
 
+    /* Columnas de texto libre en Reportes (p. ej. Nota Objeción): ancho fijo para que
+       un texto largo no estire la tabla entera. Vence al white-space:nowrap general
+       de .mon-table td por especificidad (2 clases vs 1 clase + 1 tipo). */
+    .mon-table .mon-rep-text-col {
+        min-width: 260px;
+        width: 260px;
+        max-width: 260px;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .mon-table td.mon-rep-text-col {
+        vertical-align: top;
+        text-align: left;
+    }
+
     .mon-table .mon-obj-users {
         min-width: 160px;
         width: 160px;
@@ -1377,6 +1870,15 @@
             <button class="tab-btn-mon" data-tab="procesamientos" onclick="monSwitchTab(event,'procesamientos')">
                 <i class="bi bi-cpu"></i> Procesamientos
             </button>
+            <button class="tab-btn-mon" data-tab="mon-transmitools" onclick="monSwitchTab(event,'mon-transmitools')">
+                <i class="bi bi-send-check"></i> Transmitools
+            </button>
+            <button class="tab-btn-mon" data-tab="ficha-rutas" onclick="monSwitchTab(event,'ficha-rutas')">
+                <i class="bi bi-journal-text"></i> Ficha de Rutas
+            </button>
+            <button class="tab-btn-mon" data-tab="noticias" onclick="monSwitchTab(event,'noticias')">
+                <i class="bi bi-newspaper"></i> Noticias
+            </button>
         </div>
 
         <!-- ══ TAB CONTENT ════════════════════════════════════════════════════ -->
@@ -1384,11 +1886,254 @@
         <div id="tab-resultados" class="mon-tab-content"></div>
         <div id="tab-reportes" class="mon-tab-content"></div>
         <div id="tab-procesamientos" class="mon-tab-content"></div>
+        <div id="tab-mon-transmitools" class="mon-tab-content"></div>
+        <div id="tab-ficha-rutas" class="mon-tab-content"></div>
+        <div id="tab-noticias" class="mon-tab-content"></div>
 
         <!-- ══ FULLSCREEN OVERLAY ═════════════════════════════════════════════ -->
         <div id="monFsOverlay" onclick="monCloseFsFromOverlay()"></div>
 
     </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    MODAL: HISTORIAL DE FICHA POR RUTA
+══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalFichaHistorial" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content" style="border-radius:14px; border:2px solid #1e293b; box-shadow:0 25px 60px rgba(0,0,0,.45); overflow:hidden;">
+      <div class="modal-header fr-modal-header">
+        <h5 class="modal-title" style="font-weight:800; font-size:1rem;">
+          <i class="bi bi-journal-text"></i>
+          Ficha de Ruta · <span id="frHistRutaTitulo">-</span>
+          <span class="badge" style="font-size:.68rem; background:rgba(255,255,255,.18); color:#fff; font-weight:700;" id="frHistIdLinea"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" style="padding:1rem; background:var(--mon-bg); max-height:75vh; display:flex; flex-direction:column; overflow:hidden;">
+        <div class="fr-hist-toolbar" style="flex:0 0 auto;">
+          <div class="fr-field">
+            <label>Estado</label>
+            <select id="frHistFiltroEstado" class="form-select fr-select" style="min-width:140px;">
+              <option value="">Todos</option>
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </div>
+          <div class="fr-field" style="flex:1; min-width:220px;">
+            <label>Buscar</label>
+            <input id="frHistFiltroQ" type="text" class="form-control fr-input" placeholder="Buscar en asunto u observación">
+          </div>
+          <div class="fr-field">
+            <label>&nbsp;</label>
+            <button class="fr-btn" onclick="window.frRecargarHistorial()">
+              <i class="bi bi-search"></i> Filtrar
+            </button>
+          </div>
+          <div class="fr-field">
+            <label>&nbsp;</label>
+            <button class="fr-btn" onclick="window.frLimpiarFiltrosHistorial()">
+              <i class="bi bi-x-circle"></i> Limpiar
+            </button>
+          </div>
+          <div class="fr-field">
+            <label>&nbsp;</label>
+            <button class="fr-btn" onclick="window.frContraerTodo()">
+              <i class="bi bi-arrows-collapse"></i> Contraer todo
+            </button>
+          </div>
+          <div class="fr-field">
+            <label>&nbsp;</label>
+            <button class="fr-btn" onclick="window.frExpandirTodo()">
+              <i class="bi bi-arrows-expand"></i> Expandir todo
+            </button>
+          </div>
+          <div class="fr-field ms-auto">
+            <label>&nbsp;</label>
+            <button class="fr-btn fr-btn-primary" onclick="window.frAbrirFormulario(null)">
+              <i class="bi bi-plus-lg"></i> Nueva historia
+            </button>
+          </div>
+        </div>
+
+        <div style="flex:1 1 auto; overflow-y:auto; margin-top:.85rem;">
+          <div id="frHistContenido" class="fr-feed"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    MODAL: CREAR / EDITAR HISTORIA DE FICHA
+══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalFichaForm" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:14px; border:2px solid #1e293b; box-shadow:0 25px 60px rgba(0,0,0,.45); overflow:hidden;">
+      <div class="modal-header fr-modal-header">
+        <h5 class="modal-title" style="font-weight:800; font-size:1rem;" id="frFormTitulo">
+          <i class="bi bi-journal-plus"></i> Nueva historia
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" style="padding:1.1rem; background:var(--mon-bg);">
+        <input type="hidden" id="frFormId" value="">
+        <input type="hidden" id="frFormIdLinea" value="">
+        <input type="hidden" id="frFormRutaComercial" value="">
+
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label mb-1" style="font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mon-text-soft);">
+              Asunto <span class="text-danger">*</span>
+            </label>
+            <input id="frFormAsunto" type="text" class="form-control fr-input" maxlength="255" placeholder="Resumen breve de la observación">
+          </div>
+          <div class="col-12">
+            <label class="form-label mb-1" style="font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mon-text-soft);">
+              Observación <span class="text-danger">*</span>
+            </label>
+            <textarea id="frFormObservacion" class="form-control fr-input" style="height:auto;" rows="4" placeholder="Detalle de la historia / novedad de la ruta"></textarea>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label mb-1" style="font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mon-text-soft);">Estado</label>
+            <select id="frFormEstado" class="form-select fr-select">
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label mb-1" style="font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mon-text-soft);">
+              Adjuntos (opcional)
+            </label>
+            <div id="frDropZone" class="fr-dropzone" tabindex="0"
+              ondragover="frDragOver(event)" ondragleave="frDragLeave(event)" ondrop="frDrop(event)"
+              onclick="document.getElementById('frFileInput').click()">
+              <i class="bi bi-cloud-arrow-up" style="font-size:1.6rem; color:#7c3aed; display:block; margin-bottom:.25rem;"></i>
+              <div style="font-size:.78rem; color:#7c3aed; font-weight:700;">Arrastra, pega (Ctrl+V) o haz clic para adjuntar</div>
+              <div style="font-size:.66rem; color:#94a3b8; margin-top:.2rem;">Imágenes (también capturas pegadas), PDF, Excel o Word</div>
+              <input type="file" id="frFileInput" multiple
+                accept="image/*,application/pdf,.xlsx,.xls,.docx,.doc"
+                style="display:none;" onchange="frHandleFiles(event.target.files)">
+            </div>
+            <div id="frAttachList" class="d-flex flex-wrap gap-2 mt-2"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid var(--mon-border); background:var(--mon-bg);">
+        <button type="button" class="fr-btn" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="frFormBtnGuardar" class="fr-btn fr-btn-primary" onclick="window.frGuardarFicha()">
+          <i class="bi bi-check2-circle"></i> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    LIGHTBOX: VISOR DE IMÁGENES (FICHA DE RUTAS)
+══════════════════════════════════════════════════════════════════════ -->
+<div class="fr-lightbox" id="frLightbox" onclick="window.frCerrarLightbox(event)">
+  <div class="fr-lightbox-close" onclick="window.frCerrarLightbox(event)"><i class="bi bi-x-lg"></i></div>
+  <img id="frLightboxImg" src="" alt="">
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    OVERLAY DE GUARDADO (FICHA DE RUTAS)
+══════════════════════════════════════════════════════════════════════ -->
+<div class="fr-saving-overlay" id="frSavingOverlay">
+  <div class="fr-saving-box">
+    <div class="spinner-border" role="status"></div>
+    <div class="fr-saving-text">Guardando...</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    MODAL FORMULARIO — NOTICIAS (crear / editar)
+══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="ntModalForm" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px; border:2px solid #1e293b; box-shadow:0 25px 60px rgba(0,0,0,.45); overflow:hidden;">
+      <div class="fr-modal-header">
+        <div>
+          <h5 class="mb-0" id="ntModalFormTitle">Nueva noticia</h5>
+          <small style="opacity:.7">Completa los campos obligatorios</small>
+        </div>
+        <button type="button" class="fr-modal-header-close" data-bs-dismiss="modal" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-body" style="background:var(--mon-bg); padding:1.2rem 1.4rem;">
+        <input type="hidden" id="ntFormId">
+        <div style="display:flex; gap:.8rem; align-items:flex-start; margin-bottom:.7rem;">
+          <div style="flex:1; min-width:0;">
+            <label style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mon-text-soft);margin-bottom:.25rem;display:block;">
+              Asunto <span style="color:#ef4444">*</span>
+            </label>
+            <input class="fr-input" type="text" id="ntFormAsunto" maxlength="200" placeholder="Resumen de la noticia…" style="width:100%;height:36px;padding:0 .7rem;">
+          </div>
+          <div style="width:150px; flex-shrink:0;">
+            <label style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mon-text-soft);margin-bottom:.25rem;display:block;">Estado</label>
+            <select class="fr-select" id="ntFormEstado" style="width:100%;height:36px;padding:0 .5rem;">
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:.7rem;">
+          <label style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mon-text-soft);margin-bottom:.25rem;display:block;">
+            Observación <span style="color:#ef4444">*</span>
+          </label>
+          <textarea class="fr-input" id="ntFormObservacion" rows="8" placeholder="Detalle de la noticia…" style="width:100%;min-height:190px;resize:vertical;padding:.5rem .7rem;height:auto;line-height:1.5;"></textarea>
+        </div>
+        <div>
+          <label style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mon-text-soft);margin-bottom:.25rem;display:block;">
+            Adjuntos <small style="color:var(--mon-text-soft);text-transform:none;">(imágenes, PDF, Excel, Word)</small>
+          </label>
+          <div class="fr-dropzone" id="ntDropZone"
+               ondragover="window.ntDragOver(event)" ondragleave="window.ntDragLeave()" ondrop="window.ntDrop(event)"
+               onclick="document.getElementById('ntFileInput').click()">
+            <i class="bi bi-cloud-arrow-up" style="font-size:1.6rem;"></i>
+            <p style="margin:.3rem 0 0">Arrastra archivos aquí o <strong>haz clic</strong> para seleccionar</p>
+            <small style="color:var(--mon-text-soft)">También puedes pegar imágenes desde el portapapeles (Ctrl+V)</small>
+          </div>
+          <input type="file" id="ntFileInput" multiple accept="image/*,application/pdf,.xlsx,.xls,.docx,.doc" style="display:none"
+                 onchange="window.ntHandleFiles(this.files)">
+          <div id="ntAttachList" class="fr-attach-list" style="margin-top:.5rem;"></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid var(--mon-border); background:var(--mon-bg);">
+        <button type="button" class="fr-btn" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="ntFormBtnGuardar" class="fr-btn fr-btn-primary" onclick="window.ntGuardar()">
+          <i class="bi bi-check2-circle"></i> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    VISOR DE ARCHIVOS — PDF (NOTICIAS)
+══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="ntFileViewer" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width:88vw;">
+    <div class="modal-content" style="border-radius:14px; border:2px solid #1e293b; box-shadow:0 25px 60px rgba(0,0,0,.45); height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+      <div class="fr-modal-header">
+        <div style="overflow:hidden;">
+          <h6 class="mb-0" id="ntFileViewerTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Documento</h6>
+        </div>
+        <button type="button" class="fr-modal-header-close" data-bs-dismiss="modal" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div style="flex:1; overflow:hidden; background:#e2e8f0;">
+        <iframe id="ntFileViewerFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+    LIGHTBOX NOTICIAS
+══════════════════════════════════════════════════════════════════════ -->
+<div class="fr-lightbox" id="ntLightbox" onclick="window.ntCerrarLightbox(event)">
+  <div class="fr-lightbox-close" onclick="window.ntCerrarLightbox(event)"><i class="bi bi-x-lg"></i></div>
+  <img id="ntLightboxImg" src="" alt="">
 </div>
 
 
@@ -1406,6 +2151,7 @@
         var _activeTab = 'asignaciones';
         var _repData = [];
         var _reportesBuilt = false;
+        var _repAbort = null;   // consulta de reportes en curso (para cancelarla antes de relanzar)
         var _defaultFechaIni = '';
         var _defaultFechaFin = '';
 
@@ -1451,9 +2197,25 @@
             if (ff) p.push('fecha_fin=' + ff);
             return p;
         }
+        /* Rango de respaldo (1° del mes actual → hoy). Se usa cuando /meta no pobló
+           los filtros o cuando el usuario borró una de las fechas. */
+        function _fallbackDateRange() {
+            var hoy = new Date();
+            if (!_defaultFechaIni) _defaultFechaIni = _fmtDateInput(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+            if (!_defaultFechaFin) _defaultFechaFin = _fmtDateInput(hoy);
+            return { ini: _defaultFechaIni, fin: _defaultFechaFin };
+        }
         function _syncDateRange(showAlert) {
             var iniEl = _q('monFechaIni');
             var finEl = _q('monFechaFin');
+            /* Un rango incompleto deja las consultas sin WHERE, lo que obliga a recorrer
+               sne.ics completa. Se repone el rango por defecto en vez de seguir sin filtro. */
+            if (!iniEl.value || !finEl.value) {
+                var fb = _fallbackDateRange();
+                if (!iniEl.value) iniEl.value = fb.ini;
+                if (!finEl.value) finEl.value = fb.fin;
+                if (showAlert) alert('El rango de fechas es obligatorio. Se repuso el rango por defecto.');
+            }
             var ini = _parseDate(iniEl.value);
             var fin = _parseDate(finEl.value);
             if (!ini || !fin) return true;
@@ -1516,13 +2278,20 @@
 
         function _gp() {   // get params from global filters
             var p = [];
-            var comp = _q('monComponente').value, zona = _q('monZona').value;
-            var cop = _q('monCop').value, ruta = _q('monRuta').value;
+            var comp    = _q('monComponente').value, zona  = _q('monZona').value;
+            var cop     = _q('monCop').value,         ruta  = _q('monRuta').value;
+            var asign   = _q('monAsignador').value,   rev   = _q('monRevisor').value;
+            var estAsig = _q('monEstAsig').value,     estObj = _q('monEstObj').value;
             p = p.concat(_dateParams());
-            if (comp) p.push('componente=' + encodeURIComponent(comp));
-            if (zona) p.push('zona=' + encodeURIComponent(zona));
-            if (cop) p.push('id_cop=' + cop);
-            if (ruta) p.push('id_linea=' + ruta);
+            if (comp)            p.push('componente='        + encodeURIComponent(comp));
+            if (zona)            p.push('zona='              + encodeURIComponent(zona));
+            if (cop)             p.push('id_cop='            + cop);
+            if (ruta)            p.push('id_linea='          + ruta);
+            if (asign)           p.push('id_asignador='      + asign);
+            if (rev)             p.push('id_revisor='        + rev);
+            /* estado_asignacion y estado_objecion pueden ser 0 (≠ falsy) */
+            if (estAsig  !== '') p.push('estado_asignacion=' + estAsig);
+            if (estObj   !== '') p.push('estado_objecion='   + estObj);
             return p;
         }
 
@@ -1579,6 +2348,8 @@
             _q('monRuta').value = '';
             window.monLoadRutas();
             _loadUsuarios();
+            _procData = null;
+            if (_activeTab === 'procesamientos') _loadProcesamientos(true);
         };
 
         window.monLimpiar = function () {
@@ -1590,6 +2361,8 @@
             _syncDateRange(false);
             window.monLoadRutas();
             _loadUsuarios();
+            _procData = null;
+            if (_activeTab === 'procesamientos') _loadProcesamientos(true);
         };
 
         /* ══════════════════════════════════════════════════════════════════
@@ -1604,6 +2377,9 @@
             if (tabName === 'resultados') _loadDashboard();
             if (tabName === 'reportes') _loadReportes();
             if (tabName === 'procesamientos') _loadProcesamientos();
+            if (tabName === 'mon-transmitools') _loadMonTransmitools();
+            if (tabName === 'ficha-rutas') _loadFichaRutas();
+            if (tabName === 'noticias') _loadNoticias();
         };
 
         /* ══════════════════════════════════════════════════════════════════
@@ -1615,6 +2391,7 @@
             if (_activeTab === 'resultados') _loadDashboard();
             if (_activeTab === 'reportes') _loadReportes();
             if (_activeTab === 'procesamientos') _loadProcesamientos(true);
+            if (_activeTab === 'mon-transmitools') _loadMonTransmitools(true);
         };
 
         /* ══════════════════════════════════════════════════════════════════
@@ -1655,8 +2432,10 @@
             var totalKm = _sumRows(rows, 'total_km');
             var asig = _sumRows(rows, 'asignados');
             var obj = _sumRows(rows, 'objetados');
+            var mi = _sumRows(rows, 'manejo_interno');
             var kmAsig = _sumRows(rows, 'km_revision_asignados');
             var kmObj = _sumRows(rows, 'km_objetados');
+            var kmMi = _sumRows(rows, 'km_manejo_interno');
             var kmPorAsignar = _sumRows(rows, 'km_por_asignar');
             var kmVencidosSinAsig = _sumRows(rows, 'km_vencidos_sin_asignar');
             var kmPorObjetar = _sumRows(rows, 'km_por_objetar');
@@ -1710,12 +2489,14 @@
                 },
                 {
                     icon: 'bi-signpost-split', label: 'Km Objetados', value: _fmtKm(kmObj),
-                    detail: 'Sobre km asignados', color: '#2563eb',
+                    sub: 'Obj: <strong>' + _fmtKm(kmObj) + '</strong> · MI: <strong>' + _fmtKm(kmMi) + '</strong>',
+                    color: '#2563eb',
                     sideLabel: '% Cump Km', sideValue: _fmtPct(pctCumplKm), splitSide: true
                 },
                 {
                     icon: 'bi-patch-check', label: 'Viajes Objetados', value: _fmtInt(obj),
-                    detail: 'Sobre viajes asignados', color: '#7c3aed',
+                    sub: 'Obj: <strong>' + _fmtInt(obj) + '</strong> · MI: <strong>' + _fmtInt(mi) + '</strong>',
+                    color: '#7c3aed',
                     sideLabel: '% Cump Vj', sideValue: _fmtPct(pctCumplVj), splitSide: true
                 },
                 {
@@ -1847,7 +2628,7 @@
             return asignados > 0 ? (_num(r.objetados) / asignados * 100) : 0;
         }
         function _exportTableMatrix(rows) {
-            return [['Año', 'Mes', 'Ruta Comercial', 'Total Km', 'Total Viajes', '%Asig Km', '%Asig Viajes', 'Vj Por Asignar', 'Viajes Asignados', 'Km por Asignar', 'Km Revisión Asignación', 'Viajes Objetados', 'Km Objetados', '% Cump Km', '% Cump Vj']].concat(
+            return [['Año', 'Mes', 'Ruta Comercial', 'Total Km', 'Total Viajes', '%Asig Km', '%Asig Viajes', 'Vj Por Asignar', 'Viajes Asignados', 'Km por Asignar', 'Km Revisión Asignación', 'Viajes Objetados', 'Km Objetados', '% Cump Km', '% Cump Vj', 'Vj Manejo Interno', 'Km Manejo Interno', 'Km Aceptado', '% Éxito']].concat(
                 rows.map(function (r) {
                     return [
                         r.anio || '',
@@ -1865,6 +2646,10 @@
                         _num(r.km_objetados),
                         _num(r.pct_cumplimiento),
                         _pctViajes(r),
+                        _num(r.manejo_interno),
+                        _num(r.km_manejo_interno),
+                        _num(r.km_aceptado),
+                        _num(r.pct_exito),
                     ];
                 })
             );
@@ -1927,16 +2712,16 @@
                 + '<tr>'
                 + '<th rowspan="2">Año</th><th rowspan="2">Mes</th><th rowspan="2" class="mon-route-col">Ruta Comercial</th><th rowspan="2">Total Km</th><th rowspan="2">Total Viajes</th><th rowspan="2">%Asig Km</th><th rowspan="2">%Asig Viajes</th>'
                 + '<th colspan="4" class="mon-group-head">Asignación</th>'
-                + '<th colspan="4" class="mon-group-head">Objeción</th>'
+                + '<th colspan="8" class="mon-group-head">Objeción</th>'
                 + '</tr>'
                 + '<tr class="th-sub">'
                 + '<th>Vj Por Asignar</th><th>Viajes Asignados</th><th>Km por Asignar</th><th>Km Revisión</th>'
-                + '<th>Viajes Objetados</th><th>Km Objetados</th><th>% Cump Km</th><th>% Cump Vj</th>'
+                + '<th>Viajes Objetados</th><th>Km Objetados</th><th>% Cump Km</th><th>% Cump Vj</th><th>Vj Manejo Interno</th><th>Km Manejo Interno</th><th>Km Aceptado</th><th>% Éxito</th>'
                 + '</tr>'
                 + '</thead><tbody>';
 
             if (!filtered.length) {
-                html += '<tr><td colspan="15" style="text-align:center;padding:1.5rem;color:#94a3b8;">Sin resultados</td></tr>';
+                html += '<tr><td colspan="19" style="text-align:center;padding:1.5rem;color:#94a3b8;">Sin resultados</td></tr>';
             } else {
                 filtered.forEach(function (r) {
                     var pctCumpVj = _pctViajes(r);
@@ -1956,6 +2741,10 @@
                         + _kmc(r.km_objetados)
                         + _pctc(r.pct_cumplimiento)
                         + _pctc(pctCumpVj)
+                        + _nc(r.manejo_interno, 'warn')
+                        + _kmc(r.km_manejo_interno, 'warn')
+                        + _kmc(r.km_aceptado)
+                        + _pctc(r.pct_exito)
                         + '</tr>';
                 });
             }
@@ -1984,7 +2773,8 @@
             modosRuta: { boxplot: 'sne', hist: 'sne', scatter: 'sne' },
             rutasRuta: { boxplot: [], hist: [], scatter: [] },
             noneSelected: { boxplot: false, hist: false, scatter: false },
-            data: { registros: [], km: [], motivos: {}, rutas: [], boxplot: { sne: [], asignado: [], objetado: [] }, objetores: [] },
+            data: { registros: [], km: [], motivos: {}, rutas: [], boxplot: { sne: [], asignado: [], objetado: [] }, objetores: [], kmAceptado: [], exitoObjecion: [], ingresos: [], revisores: [] },
+            gran: { registros: 'dia', km: 'dia', kmAceptado: 'dia', exitoObjecion: 'dia', ingresos: 'dia' },
         };
 
         var _POLAR_COLORS = [
@@ -2017,12 +2807,13 @@
                 + '<style>'
                 + '.mon-card-fs{position:fixed!important;inset:0!important;z-index:9990!important;border-radius:0!important;overflow-y:auto!important;box-shadow:none!important;display:flex!important;flex-direction:column!important;}'
                 + '.mon-card-fs .mon-card-body{flex:1!important;display:flex!important;flex-direction:column!important;}'
-                + '.mon-card-fs .mon-canvas-cont{height:calc(100vh - 130px)!important;flex:1!important;}'
+                + '.mon-card-fs .mon-canvas-cont{flex:1!important;min-height:0!important;height:auto!important;}'
+                + '.mon-card-fs .mon-canvas-cont > div{height:100%!important;}'
                 + '</style>'
                 // Fila 1: Registros + KM
                 + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
-                + _cardHtml('chartRegistros', 'Comportamiento Viajes Revisados', 'bi-people-fill', '#3b82f6', '')
-                + _cardHtml('chartKm', 'Comportamiento Kilómetros Revisados', 'bi-speedometer2', '#22c55e', '')
+                + _cardHtml('chartRegistros', 'Comportamiento Viajes Objetados', 'bi-people-fill', '#3b82f6', '<div class="mon-pill-group"><button id="granBtn_registros_dia" onclick="_dashGran(\'registros\',\'dia\')" class="mon-pill is-active">Día</button><button id="granBtn_registros_mes" onclick="_dashGran(\'registros\',\'mes\')" class="mon-pill">Mes</button><button id="granBtn_registros_ano" onclick="_dashGran(\'registros\',\'ano\')" class="mon-pill">Año</button></div>')
+                + _cardHtml('chartKm', 'Comportamiento Kilómetros Objetados', 'bi-speedometer2', '#22c55e', '<div class="mon-pill-group"><button id="granBtn_km_dia" onclick="_dashGran(\'km\',\'dia\')" class="mon-pill is-active">Día</button><button id="granBtn_km_mes" onclick="_dashGran(\'km\',\'mes\')" class="mon-pill">Mes</button><button id="granBtn_km_ano" onclick="_dashGran(\'km\',\'ano\')" class="mon-pill">Año</button></div>')
                 + '</div>'
                 // Fila 2: Motivos + Rutas
                 + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
@@ -2060,6 +2851,54 @@
                     + '</div>'
                     + _dashRouteFilterHtml('scatter'))
                 + _cardHtml('chartObjetores', 'Cumplimiento de Km Objetado por Colaborador', 'bi-person-check-fill', '#7c3aed', '')
+                + '</div>'
+                // Fila 5: Km Aceptados + Éxito Objeción Contundente
+                + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
+                + _cardHtml('chartKmAceptado', 'Comportamiento Kilómetros Aceptados', 'bi-check-circle-fill', '#10b981', '<div class="mon-pill-group"><button id="granBtn_kmAceptado_dia" onclick="_dashGran(\'kmAceptado\',\'dia\')" class="mon-pill is-active">Día</button><button id="granBtn_kmAceptado_mes" onclick="_dashGran(\'kmAceptado\',\'mes\')" class="mon-pill">Mes</button><button id="granBtn_kmAceptado_ano" onclick="_dashGran(\'kmAceptado\',\'ano\')" class="mon-pill">Año</button></div>')
+                + _cardHtml('chartExitoObjecion', 'Éxito de Objeción Contundente', 'bi-trophy-fill', '#6366f1', '<div class="mon-pill-group"><button id="granBtn_exitoObjecion_dia" onclick="_dashGran(\'exitoObjecion\',\'dia\')" class="mon-pill is-active">Día</button><button id="granBtn_exitoObjecion_mes" onclick="_dashGran(\'exitoObjecion\',\'mes\')" class="mon-pill">Mes</button><button id="granBtn_exitoObjecion_ano" onclick="_dashGran(\'exitoObjecion\',\'ano\')" class="mon-pill">Año</button></div>')
+                + '</div>'
+                // Fila 6: Estimación Ingresos + Tabla Detalle por Ruta
+                + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
+                + _cardHtml('chartIngresos', 'Estimación de Ingresos', 'bi-cash-stack', '#0a2f75', '<div class="mon-pill-group"><button id="granBtn_ingresos_dia" onclick="_dashGran(\'ingresos\',\'dia\')" class="mon-pill is-active">Día</button><button id="granBtn_ingresos_mes" onclick="_dashGran(\'ingresos\',\'mes\')" class="mon-pill">Mes</button><button id="granBtn_ingresos_ano" onclick="_dashGran(\'ingresos\',\'ano\')" class="mon-pill">Año</button></div>')
+                + '<div id="dashCard_tablaRutas" class="mon-chart-card" style="--mon-card-color:#0a2f75;">'
+                + '<div class="mon-chart-card__header">'
+                + '<i class="bi bi-table" style="color:white;font-size:0.9rem;"></i>'
+                + '<span class="mon-chart-card__title">Detalle por Ruta</span>'
+                + '<button onclick="_exportTablaRutas()" title="Exportar a Excel" '
+                + 'style="margin-left:auto;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.28);'
+                + 'border-radius:7px;color:white;font-size:0.67rem;font-weight:700;padding:0.22rem 0.55rem;'
+                + 'cursor:pointer;display:inline-flex;align-items:center;gap:0.3rem;white-space:nowrap;'
+                + 'transition:background .15s;" '
+                + 'onmouseover="this.style.background=\'rgba(255,255,255,0.32)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.18)\'">'
+                + '<i class="bi bi-file-earmark-excel"></i> Excel</button>'
+                + '<button id="dashFsBtn_tablaRutas" onclick="_dashToggleFs(\'tablaRutas\')" title="Maximizar" '
+                + 'class="mon-fs-btn" '
+                + 'onmouseover="this.style.background=\'rgba(255,255,255,0.32)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.18)\'">'
+                + '<i class="bi bi-arrows-fullscreen"></i></button>'
+                + '</div>'
+                + '<div class="mon-chart-card__body mon-card-body" style="padding:0;">'
+                + '<div id="dashCont_tablaRutas" class="mon-canvas-cont" style="height:260px;overflow-y:auto;overflow-x:auto;">'
+                + '<div id="monTablaRutas"></div>'
+                + '</div></div></div>'
+                + '</div>'
+                // Fila 7+8: split — tabla izquierda, gráfico tendencia derecha
+                + '<div class="mon-dashboard-grid mon-dashboard-grid--split">'
+                + '<div id="dashCard_tablaRevisores" class="mon-chart-card" style="--mon-card-color:#0f766e;">'
+                + '<div class="mon-chart-card__header" style="display:flex;align-items:center;gap:0.5rem;">'
+                + '<i class="bi bi-person-lines-fill" style="color:white;font-size:0.9rem;"></i>'
+                + '<span class="mon-chart-card__title">Comportamiento Revisor</span>'
+                + '<span style="font-size:0.62rem;color:rgba(255,255,255,0.75);margin-left:0.4rem;">10% ID\'s · 10% Km · 60% Éxito · 20% Vol</span>'
+                + '<button id="dashFsBtn_tablaRevisores" onclick="_dashToggleFs(\'tablaRevisores\')" title="Maximizar" '
+                + 'class="mon-fs-btn" style="margin-left:auto;"'
+                + 'onmouseover="this.style.background=\'rgba(255,255,255,0.32)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.18)\'">'
+                + '<i class="bi bi-arrows-fullscreen"></i></button>'
+                + '</div>'
+                + '<div class="mon-chart-card__body mon-card-body" style="padding:0;">'
+                + '<div id="dashCont_tablaRevisores" class="mon-canvas-cont" style="height:360px;overflow-y:auto;overflow-x:auto;">'
+                + '<div id="monTablaRevisores"></div>'
+                + '</div></div></div>'
+                + _cardHtml('chartRevisoresTendencia', 'Tendencia Resultado Ponderado por Revisor', 'bi-graph-up', '#0f766e',
+                    '<div id="chartRevFilterBar" style="padding:0.3rem 0.65rem 0;"></div>')
                 + '</div>';
         }
 
@@ -2113,6 +2952,10 @@
             _fetchRouteAnalytics('hist', qs);
             _fetchRouteAnalytics('scatter', qs);
             _fetchObjetores(qs);
+            _fetchKmAceptado(qs);
+            _fetchExitoObjecion(qs);
+            _fetchIngresos(qs);
+            _fetchRevisores(qs);
         };
 
         /* ── ECharts helpers ──────────────────────────────────────────── */
@@ -2171,35 +3014,100 @@
             };
         }
 
+        /* ── Agrupación mes/año para gráficas de comportamiento ─────── */
+        var _MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+        function _agruparMes(data, sumFields, pctFn) {
+            var map = {};
+            data.forEach(function (d) {
+                var k = (d.fecha || '').substring(0, 7);
+                if (!k) return;
+                if (!map[k]) { map[k] = {}; sumFields.forEach(function (f) { map[k][f] = 0; }); }
+                sumFields.forEach(function (f) { map[k][f] += parseFloat(d[f]) || 0; });
+            });
+            return Object.keys(map).sort().map(function (k) {
+                var g = map[k];
+                var p = k.split('-');
+                var lbl = p.length === 2
+                    ? (_MESES_CORTOS[parseInt(p[1], 10) - 1] || p[1]) + ' ' + p[0]
+                    : k;
+                return Object.assign({ fecha: lbl, pct_cump: pctFn ? pctFn(g) : 0 }, g);
+            });
+        }
+
+        function _agruparAnio(data, sumFields, pctFn) {
+            var map = {};
+            data.forEach(function (d) {
+                var k = (d.fecha || '').substring(0, 4);
+                if (!k) return;
+                if (!map[k]) { map[k] = {}; sumFields.forEach(function (f) { map[k][f] = 0; }); }
+                sumFields.forEach(function (f) { map[k][f] += parseFloat(d[f]) || 0; });
+            });
+            return Object.keys(map).sort().map(function (k) {
+                var g = map[k];
+                return Object.assign({ fecha: k, pct_cump: pctFn ? pctFn(g) : 0 }, g);
+            });
+        }
+
+        var _GRAN_RENDERS = {};
+        window._dashGran = function (chartKey, val) {
+            _DASH.gran[chartKey] = val;
+            ['dia', 'mes', 'ano'].forEach(function (v) {
+                var btn = document.getElementById('granBtn_' + chartKey + '_' + v);
+                if (btn) btn.classList.toggle('is-active', v === val);
+            });
+            if (_GRAN_RENDERS[chartKey]) _GRAN_RENDERS[chartKey]();
+        };
+
         /* ── Chart 1: Registros ──────────────────────────────────────── */
         function _fetchRegistros(qs) {
             _get(API + '/dashboard/registros' + qs).then(function (j) {
                 if (!j.ok || !j.data.length) { _setNoDataChart('chartRegistros', 'Sin datos con los filtros'); return; }
-                var fechas = [], asig = [], rev = [], pct = [];
-                j.data.forEach(function (d) { fechas.push(d.fecha); asig.push(d.ids_asignados); rev.push(d.ids_revisados); pct.push(d.pct_cump); });
                 _DASH.data.registros = j.data;
-                var inst = _ec('chartRegistros'); if (!inst) return;
-                var opt = _lineOpt();
-                opt.xAxis.data = fechas;
-                opt.series = [_areaSerie('Asignados', asig, '#3b82f6'), _areaSerie('Revisados', rev, '#10b981'), _pctSerie(pct)];
-                inst.setOption(opt);
+                _renderRegistros();
             });
         }
+        function _renderRegistros() {
+            var raw = _DASH.data.registros || [];
+            if (!raw.length) return;
+            var _pctReg = function (g) { return g.ids_asignados ? g.ids_revisados / g.ids_asignados * 100 : 0; };
+            var data = _DASH.gran.registros === 'mes' ? _agruparMes(raw, ['ids_asignados', 'ids_revisados'], _pctReg)
+                     : _DASH.gran.registros === 'ano' ? _agruparAnio(raw, ['ids_asignados', 'ids_revisados'], _pctReg)
+                     : raw;
+            var fechas = [], asig = [], rev = [], pct = [];
+            data.forEach(function (d) { fechas.push(d.fecha); asig.push(d.ids_asignados); rev.push(d.ids_revisados); pct.push(d.pct_cump); });
+            var inst = _ec('chartRegistros'); if (!inst) return;
+            var opt = _lineOpt();
+            opt.xAxis.data = fechas;
+            opt.series = [_areaSerie('Asignados', asig, '#3b82f6'), _areaSerie('Objetados', rev, '#10b981'), _pctSerie(pct)];
+            inst.setOption(opt);
+        }
+        _GRAN_RENDERS.registros = _renderRegistros;
 
         /* ── Chart 2: Kilómetros ─────────────────────────────────────── */
         function _fetchKm(qs) {
             _get(API + '/dashboard/kilometros' + qs).then(function (j) {
                 if (!j.ok || !j.data.length) { _setNoDataChart('chartKm', 'Sin datos con los filtros'); return; }
-                var fechas = [], kr = [], ko = [], pct = [];
-                j.data.forEach(function (d) { fechas.push(d.fecha); kr.push(d.km_revision); ko.push(d.km_objetado); pct.push(d.pct_cump); });
                 _DASH.data.km = j.data;
-                var inst = _ec('chartKm'); if (!inst) return;
-                var opt = _lineOpt();
-                opt.xAxis.data = fechas;
-                opt.series = [_areaSerie('Km Revisión', kr, '#f59e0b'), _areaSerie('Km Objetado', ko, '#ef4444'), _pctSerie(pct)];
-                inst.setOption(opt);
+                _renderKm();
             });
         }
+        function _renderKm() {
+            var raw = _DASH.data.km || [];
+            if (!raw.length) return;
+            var _pctKm = function (g) { return g.km_revision ? g.km_objetado / g.km_revision * 100 : 0; };
+            var data = _DASH.gran.km === 'mes' ? _agruparMes(raw, ['km_revision', 'km_objetado'], _pctKm)
+                     : _DASH.gran.km === 'ano' ? _agruparAnio(raw, ['km_revision', 'km_objetado'], _pctKm)
+                     : raw;
+            var fechas = [], kr = [], ko = [], pct = [];
+            data.forEach(function (d) { fechas.push(d.fecha); kr.push(d.km_revision); ko.push(d.km_objetado); pct.push(d.pct_cump); });
+            var inst = _ec('chartKm'); if (!inst) return;
+            var opt = _lineOpt();
+            opt.xAxis.data = fechas;
+            opt.series = [_areaSerie('Km Asignado', kr, '#f59e0b'), _areaSerie('Km Objetado', ko, '#ef4444'), _pctSerie(pct)];
+            inst.setOption(opt);
+        }
+        _GRAN_RENDERS.km = _renderKm;
 
         /* ── Chart 3: Motivos / Responsables (polar area) ────────────── */
         function _fetchMotivos(qs) {
@@ -2394,6 +3302,7 @@
                 if (!j.ok) return;
                 _DASH.data.rutas = j.data;
                 _renderRutas(j.data);
+                _renderTablaRutas(j.data);
             });
         }
 
@@ -2685,6 +3594,927 @@
                         emphasis: { focus: 'series' }
                     }
                 ]
+            }, true);
+        }
+
+        /* ── Chart: Comportamiento Km Aceptados ──────────────────────── */
+        function _fetchKmAceptado(qs) {
+            _get(API + '/dashboard/kilometros-aceptados' + qs).then(function (j) {
+                if (!j.ok || !j.data.length) { _setNoDataChart('chartKmAceptado', 'Sin datos con los filtros'); return; }
+                _DASH.data.kmAceptado = j.data;
+                _renderKmAceptado();
+            }).catch(function () { _setNoDataChart('chartKmAceptado', 'Sin datos con los filtros'); });
+        }
+        function _renderKmAceptado() {
+            var raw = _DASH.data.kmAceptado || []; if (!raw.length) return;
+            var _pctKa = function (g) { return g.km_objetado ? g.km_aceptado / g.km_objetado * 100 : 0; };
+            var data = _DASH.gran.kmAceptado === 'mes' ? _agruparMes(raw, ['km_objetado', 'km_aceptado'], _pctKa)
+                     : _DASH.gran.kmAceptado === 'ano' ? _agruparAnio(raw, ['km_objetado', 'km_aceptado'], _pctKa)
+                     : raw;
+            var fechas = [], ko = [], ka = [], pct = [];
+            data.forEach(function (d) { fechas.push(d.fecha); ko.push(d.km_objetado); ka.push(d.km_aceptado); pct.push(d.pct_cump); });
+            var inst = _ec('chartKmAceptado'); if (!inst) return;
+            var opt = _lineOpt(); opt.xAxis.data = fechas;
+            opt.series = [
+                _areaSerie('Km Objetados', ko, '#f97316'),
+                _areaSerie('Km Aceptados', ka, '#10b981'),
+                { name: '% Cump', type: 'line', smooth: true, yAxisIndex: 1, data: pct,
+                  lineStyle: { color: '#6366f1', width: 1.5, type: 'dashed' }, itemStyle: { color: '#6366f1' },
+                  symbol: 'none', tooltip: { valueFormatter: function (v) { return v != null ? v.toFixed(1) + '%' : '--'; } } }
+            ];
+            inst.setOption(opt);
+        }
+        _GRAN_RENDERS.kmAceptado = _renderKmAceptado;
+
+        /* ── Chart: Éxito de Objeción Contundente ────────────────────── */
+        function _fetchExitoObjecion(qs) {
+            _get(API + '/dashboard/exito-objecion' + qs).then(function (j) {
+                if (!j.ok || !j.data.length) { _setNoDataChart('chartExitoObjecion', 'Sin datos con los filtros'); return; }
+                _DASH.data.exitoObjecion = j.data;
+                _renderExitoObjecion();
+            }).catch(function () { _setNoDataChart('chartExitoObjecion', 'Sin datos con los filtros'); });
+        }
+        function _renderExitoObjecion() {
+            var raw = _DASH.data.exitoObjecion || []; if (!raw.length) return;
+            var _pctEx = function (g) { return g.km_revision ? g.km_aceptado / g.km_revision * 100 : 0; };
+            var data = _DASH.gran.exitoObjecion === 'mes' ? _agruparMes(raw, ['km_revision', 'km_aceptado'], _pctEx)
+                     : _DASH.gran.exitoObjecion === 'ano' ? _agruparAnio(raw, ['km_revision', 'km_aceptado'], _pctEx)
+                     : raw;
+            var fechas = [], kr = [], ka = [], pct = [];
+            data.forEach(function (d) { fechas.push(d.fecha); kr.push(d.km_revision); ka.push(d.km_aceptado); pct.push(d.pct_cump); });
+            var inst = _ec('chartExitoObjecion'); if (!inst) return;
+            var opt = _lineOpt(); opt.xAxis.data = fechas;
+            opt.series = [
+                _areaSerie('Km Revisión', kr, '#0ea5e9'),
+                _areaSerie('Km Aceptados', ka, '#10b981'),
+                { name: '% Éxito', type: 'line', smooth: true, yAxisIndex: 1, data: pct,
+                  lineStyle: { color: '#6366f1', width: 1.5, type: 'dashed' }, itemStyle: { color: '#6366f1' },
+                  symbol: 'none', tooltip: { valueFormatter: function (v) { return v != null ? v.toFixed(1) + '%' : '--'; } } }
+            ];
+            inst.setOption(opt);
+        }
+        _GRAN_RENDERS.exitoObjecion = _renderExitoObjecion;
+
+        /* ── Chart: Estimación de Ingresos ───────────────────────────── */
+        function _fetchIngresos(qs) {
+            _get(API + '/dashboard/estimacion-ingresos' + qs).then(function (j) {
+                if (!j.ok || !j.data.length) { _setNoDataChart('chartIngresos', 'Sin datos con los filtros'); return; }
+                _DASH.data.ingresos = j.data;
+                _renderIngresos();
+            }).catch(function () { _setNoDataChart('chartIngresos', 'Sin datos con los filtros'); });
+        }
+        function _renderIngresos() {
+            var raw = _DASH.data.ingresos || []; if (!raw.length) return;
+            var _pctIng = function (g) { return g.ingresos_objetado ? g.ingresos_aceptado / g.ingresos_objetado * 100 : 0; };
+            var data = _DASH.gran.ingresos === 'mes' ? _agruparMes(raw, ['ingresos_objetado', 'ingresos_aceptado'], _pctIng)
+                     : _DASH.gran.ingresos === 'ano' ? _agruparAnio(raw, ['ingresos_objetado', 'ingresos_aceptado'], _pctIng)
+                     : raw;
+            var fechas = [], io = [], ia = [], pct = [];
+            data.forEach(function (d) { fechas.push(d.fecha); io.push(d.ingresos_objetado); ia.push(d.ingresos_aceptado); pct.push(d.pct_cump); });
+            var inst = _ec('chartIngresos'); if (!inst) return;
+            var fmtP = function (v) { return '$ ' + _num(v).toLocaleString('es-CO', { maximumFractionDigits: 0 }); };
+            var opt = {
+                backgroundColor: '#fff',
+                tooltip: {
+                    trigger: 'axis', axisPointer: { type: 'cross' },
+                    formatter: function (params) {
+                        var out = '<div style="font-weight:700;margin-bottom:4px;">' + params[0].name + '</div>';
+                        params.forEach(function (p) {
+                            var val = p.seriesIndex === 2 ? (p.value != null ? p.value.toFixed(1) + '%' : '--') : fmtP(p.value);
+                            out += '<div>' + p.marker + ' ' + p.seriesName + ': <strong>' + val + '</strong></div>';
+                        });
+                        return out;
+                    }
+                },
+                legend: { top: 4, right: 8, textStyle: { fontSize: 11 } },
+                grid: { top: 36, bottom: 50, left: 80, right: 60, containLabel: false },
+                xAxis: { type: 'category', data: fechas, axisLabel: { fontSize: 10, rotate: 30 }, axisTick: { alignWithLabel: true } },
+                yAxis: [
+                    { type: 'value', axisLabel: { fontSize: 9, formatter: function (v) { return fmtP(v); } } },
+                    { type: 'value', name: '%', min: 0, max: 100, axisLabel: { formatter: '{value}%', fontSize: 10 }, splitLine: { show: false } }
+                ],
+                series: [
+                    _areaSerie('$$ Km Objetado', io, '#f97316'),
+                    _areaSerie('$$ Km Aceptado', ia, '#0a2f75'),
+                    { name: '% Cumpl.', type: 'line', smooth: true, yAxisIndex: 1, data: pct,
+                      lineStyle: { color: '#a855f7', width: 1.5, type: 'dashed' }, itemStyle: { color: '#a855f7' },
+                      symbol: 'none' }
+                ]
+            };
+            inst.setOption(opt);
+        }
+        _GRAN_RENDERS.ingresos = _renderIngresos;
+        /* ── Tabla: Detalle por Ruta ──────────────────────────────────── */
+        var _RUTA_SORT = { key: null, dir: -1 }; // -1 = desc, 1 = asc
+
+        function _renderTablaRutas(rows) {
+            var el = document.getElementById('monTablaRutas'); if (!el) return;
+            var meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            if (!rows || !rows.length) {
+                el.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;"><i class="bi bi-inbox"></i> Sin datos.</div>';
+                return;
+            }
+
+            // Ordenar si hay clave activa
+            var sorted = rows.slice();
+            if (_RUTA_SORT.key) {
+                var sk = _RUTA_SORT.key, sd = _RUTA_SORT.dir;
+                sorted.sort(function (a, b) {
+                    var av = a[sk], bv = b[sk];
+                    if (typeof av === 'string') return sd * av.localeCompare(bv, 'es', { sensitivity: 'base' });
+                    return sd * ((parseFloat(av) || 0) - (parseFloat(bv) || 0));
+                });
+            }
+
+            // Icono de ordenamiento por columna
+            var _ico = function (key) {
+                if (_RUTA_SORT.key !== key)
+                    return '<i class="bi bi-arrow-down-up" style="opacity:0.3;font-size:0.58rem;margin-left:3px;vertical-align:middle;"></i>';
+                return _RUTA_SORT.dir === -1
+                    ? '<i class="bi bi-arrow-down" style="color:#7dd3fc;font-size:0.6rem;margin-left:3px;vertical-align:middle;"></i>'
+                    : '<i class="bi bi-arrow-up" style="color:#7dd3fc;font-size:0.6rem;margin-left:3px;vertical-align:middle;"></i>';
+            };
+
+            // Encabezado: TH(label, sortKey, align)
+            var TH = function (t, key, al) {
+                var active = _RUTA_SORT.key === key;
+                return '<th onclick="_sortTablaRutas(\'' + key + '\')" '
+                    + 'title="Ordenar por ' + t.replace(/'/g, '') + '" '
+                    + 'style="position:sticky;top:0;'
+                    + 'background:' + (active ? '#0c3a8a' : '#0a2f75') + ';'
+                    + 'color:white;font-size:0.65rem;font-weight:700;'
+                    + 'padding:0.35rem 0.5rem;white-space:nowrap;'
+                    + 'text-align:' + (al || 'center') + ';'
+                    + 'border-right:1px solid rgba(255,255,255,0.15);'
+                    + 'cursor:pointer;user-select:none;'
+                    + 'transition:background .15s;"'
+                    + ' onmouseover="if(this.style.background!==\'rgb(12,58,138)\')this.style.background=\'#1a4a9e\'"'
+                    + ' onmouseout="this.style.background=\'' + (active ? '#0c3a8a' : '#0a2f75') + '\'">'
+                    + t + _ico(key) + '</th>';
+            };
+
+            var badge = function (v) {
+                var c = v >= 80 ? '#dcfce7' : v >= 50 ? '#fef9c3' : '#fee2e2';
+                var tc = v >= 80 ? '#166534' : v >= 50 ? '#854d0e' : '#7f1d1d';
+                return '<span style="background:' + c + ';color:' + tc + ';border-radius:10px;padding:0.1rem 0.4rem;font-weight:700;font-size:0.65rem;">' + v.toFixed(1) + '%</span>';
+            };
+
+            var thead = '<thead><tr>'
+                + TH('Año',          'anio',          'center')
+                + TH('Mes',          'mes',           'center')
+                + TH('Ruta',         'ruta_comercial','left')
+                + TH("ID's Asig.",   'ids_asignados', 'center')
+                + TH("ID's Obj.",    'ids_revisados', 'center')
+                + TH("% ID's",       'pct_cump_ids',  'center')
+                + TH('Km Revisión',  'km_revision',   'right')
+                + TH('Km Objetados', 'km_objetado',   'right')
+                + TH('% Km',         'pct_cump_km',   'center')
+                + TH('Km Aceptado',  'km_aceptado',   'right')
+                + TH('% Éxito',      'pct_exito',     'center')
+                + '</tr></thead>';
+
+            var body = sorted.map(function (r, i) {
+                var bg = i % 2 === 0 ? '#f8fafc' : '#fff';
+                var ka = parseFloat(r.km_aceptado || 0);
+                var pe = parseFloat(r.pct_exito || 0);
+                return '<tr style="background:' + bg + ';" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'' + bg + '\'">'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + r.anio + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + meses[(r.mes || 1) - 1] + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;font-weight:600;border-bottom:1px solid #f1f5f9;">' + (r.ruta_comercial || '—') + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + r.ids_asignados + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + r.ids_revisados + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + badge(parseFloat(r.pct_cump_ids || 0)) + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;text-align:right;border-bottom:1px solid #f1f5f9;font-family:monospace;">' + _fmtKm(r.km_revision) + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;text-align:right;border-bottom:1px solid #f1f5f9;font-family:monospace;">' + _fmtKm(r.km_objetado) + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + badge(parseFloat(r.pct_cump_km || 0)) + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;font-size:0.68rem;text-align:right;border-bottom:1px solid #f1f5f9;font-family:monospace;">' + ka.toFixed(1).replace('.', ',') + '</td>'
+                    + '<td style="padding:0.28rem 0.5rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + badge(pe) + '</td>'
+                    + '</tr>';
+            }).join('');
+            el.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + thead + '<tbody>' + body + '</tbody></table>';
+        }
+
+        // Llamado desde onclick del encabezado (scope global)
+        window._sortTablaRutas = function (key) {
+            if (_RUTA_SORT.key === key) {
+                _RUTA_SORT.dir *= -1;          // mismo campo → invertir dirección
+            } else {
+                _RUTA_SORT.key = key;
+                _RUTA_SORT.dir = -1;           // nuevo campo → inicia descendente
+            }
+            var rows = (_DASH && _DASH.data && _DASH.data.rutas) ? _DASH.data.rutas : [];
+            _renderTablaRutas(rows);
+        };
+
+        // Exportar Detalle por Ruta → Excel (respeta el orden activo)
+        window._exportTablaRutas = function () {
+            var rows = (_DASH && _DASH.data && _DASH.data.rutas) ? _DASH.data.rutas : [];
+            if (!rows.length) return;
+
+            // Aplicar el mismo orden que la tabla visual
+            var sorted = rows.slice();
+            if (_RUTA_SORT.key) {
+                var sk = _RUTA_SORT.key, sd = _RUTA_SORT.dir;
+                sorted.sort(function (a, b) {
+                    var av = a[sk], bv = b[sk];
+                    if (typeof av === 'string') return sd * av.localeCompare(bv, 'es', { sensitivity: 'base' });
+                    return sd * ((parseFloat(av) || 0) - (parseFloat(bv) || 0));
+                });
+            }
+
+            var meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            var header = ['Año', 'Mes', 'Ruta Comercial',
+                          "ID's Asig.", "ID's Obj.", "% ID's",
+                          'Km Revisión', 'Km Objetados', '% Km',
+                          'Km Aceptado', '% Éxito'];
+            var matrix = [header].concat(sorted.map(function (r) {
+                return [
+                    r.anio,
+                    meses[(r.mes || 1) - 1],
+                    r.ruta_comercial || '',
+                    r.ids_asignados  || 0,
+                    r.ids_revisados  || 0,
+                    parseFloat(r.pct_cump_ids || 0),
+                    parseFloat(r.km_revision  || 0),
+                    parseFloat(r.km_objetado  || 0),
+                    parseFloat(r.pct_cump_km  || 0),
+                    parseFloat(r.km_aceptado  || 0),
+                    parseFloat(r.pct_exito    || 0)
+                ];
+            }));
+
+            var fi = (_q('dashFechaIni') || {}).value || '';
+            var ff = (_q('dashFechaFin') || {}).value || '';
+            var fileName = 'detalle_rutas' + (fi ? '_' + fi : '') + (ff ? '_' + ff : '') + '.xlsx';
+
+            if (window.XLSX && window.XLSX.utils) {
+                var wb = XLSX.utils.book_new();
+                var ws = XLSX.utils.aoa_to_sheet(matrix);
+                ws['!cols'] = [
+                    { wch: 6 }, { wch: 6 }, { wch: 28 },
+                    { wch: 10 }, { wch: 10 }, { wch: 8 },
+                    { wch: 14 }, { wch: 14 }, { wch: 8 },
+                    { wch: 14 }, { wch: 9 }
+                ];
+                XLSX.utils.book_append_sheet(wb, ws, 'Detalle por Ruta');
+                XLSX.writeFile(wb, fileName);
+                return;
+            }
+            // Fallback CSV
+            var csv = matrix.map(function (row) {
+                return row.map(function (cell) {
+                    var t = String(cell == null ? '' : cell).replace(/"/g, '""');
+                    return /[;"\n]/.test(t) ? '"' + t + '"' : t;
+                }).join(';');
+            }).join('\r\n');
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName.replace(/\.xlsx$/i, '.csv');
+            link.click();
+            setTimeout(function () { URL.revokeObjectURL(link.href); }, 250);
+        };
+
+        /* ── Tooltips encabezados Comportamiento Revisor ─────────────── */
+        (function () {
+            var style = document.createElement('style');
+            style.textContent = [
+                '#revThTip{position:fixed;z-index:9999;display:none;max-width:230px;',
+                'padding:0.55rem 0.75rem 0.6rem;border-radius:12px;',
+                'background:linear-gradient(160deg,#0f172a 0%,#1e293b 100%);',
+                'color:#f8fafc;pointer-events:none;',
+                'box-shadow:0 14px 32px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.07);}',
+                '#revThTip.rt-visible{display:block;}',
+                '#revThTip::before{content:"";position:absolute;top:-6px;',
+                'left:var(--rt-ax,50%);transform:translateX(-50%);',
+                'border:6px solid transparent;border-top:0;border-bottom-color:#0f172a;}',
+                '.rt-label{font-size:0.63rem;font-weight:800;letter-spacing:0.05em;',
+                'margin-bottom:5px;padding-bottom:5px;',
+                'border-bottom:1px solid rgba(255,255,255,0.1);}',
+                '.rt-desc{font-size:0.68rem;color:#cbd5e1;line-height:1.5;font-weight:500;}',
+                '.rt-row{display:flex;justify-content:space-between;gap:10px;',
+                'font-size:0.66rem;padding:1px 0;}',
+                '.rt-row span{color:#94a3b8;}',
+                '.rt-row strong{color:#93c5fd;font-weight:700;}',
+            ].join('');
+            document.head.appendChild(style);
+        })();
+
+        var _REV_TIP_DATA = {
+            ids: {
+                color: '#34d399',
+                label: '% ID\'s',
+                html: '<div class="rt-desc">Viajes <strong style="color:#f8fafc;">objetados</strong>'
+                    + ' sobre viajes <strong style="color:#f8fafc;">asignados</strong></div>'
+            },
+            km: {
+                color: '#38bdf8',
+                label: '% Km',
+                html: '<div class="rt-desc">Kilómetros <strong style="color:#f8fafc;">objetados</strong>'
+                    + ' sobre kilómetros <strong style="color:#f8fafc;">asignados</strong></div>'
+            },
+            exito: {
+                color: '#fb923c',
+                label: '% Éxito',
+                html: '<div class="rt-desc">Kilómetros <strong style="color:#f8fafc;">aceptados TMSA</strong>'
+                    + ' sobre kilómetros <strong style="color:#f8fafc;">objetados</strong></div>'
+            },
+            resultado: {
+                color: '#a78bfa',
+                label: 'Resultado Ponderado',
+                html: '<div class="rt-row"><span>% ID\'s</span><strong>10 %</strong></div>'
+                    + '<div class="rt-row"><span>% Km</span><strong>10 %</strong></div>'
+                    + '<div class="rt-row"><span>% Éxito</span><strong>60 %</strong></div>'
+                    + '<div class="rt-row"><span>% Volumen</span><strong>20 %</strong></div>'
+                    + '<div class="rt-desc" style="margin-top:5px;color:#94a3b8;">Vol = (IDs Objetados + Manejo Interno del Revisor / IDs Obj+MI Totales del período) × 100</div>'
+            }
+        };
+
+        window._revThShow = function (el, key) {
+            var t = _REV_TIP_DATA[key]; if (!t) return;
+            var tip = document.getElementById('revThTip');
+            if (!tip) return;
+            tip.innerHTML = '<div class="rt-label" style="color:' + t.color + ';">' + t.label + '</div>'
+                + t.html;
+            tip.classList.add('rt-visible');
+            var rect = el.getBoundingClientRect();
+            // Calcular posición centrada debajo del th
+            var tipW = tip.offsetWidth || 220;
+            var left = Math.round(rect.left + rect.width / 2 - tipW / 2);
+            if (left < 8) left = 8;
+            if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8;
+            var arrowX = Math.round(rect.left + rect.width / 2 - left);
+            tip.style.left = left + 'px';
+            tip.style.top  = (rect.bottom + 8) + 'px';
+            tip.style.setProperty('--rt-ax', arrowX + 'px');
+        };
+
+        window._revThHide = function () {
+            var tip = document.getElementById('revThTip');
+            if (tip) tip.classList.remove('rt-visible');
+        };
+
+        window._revTdShowSub = function (el, key, v1, v2, pct) {
+            var tip = document.getElementById('revThTip');
+            if (!tip) return;
+            var cfg = {
+                ids:   { label: "% ID's",  color: '#34d399', n1: 'Objetados',  n2: 'Asignados', fmt: function(v){ return Math.round(v); } },
+                km:    { label: '% Km',    color: '#38bdf8', n1: 'Km Obj.',    n2: 'Km Asig.',  fmt: function(v){ return parseFloat(v).toFixed(2).replace('.', ','); } },
+                exito: { label: '% Éxito', color: '#fb923c', n1: 'Km Aceptado',n2: 'Km Obj.',   fmt: function(v){ return parseFloat(v).toFixed(2).replace('.', ','); } }
+            };
+            var c = cfg[key]; if (!c) return;
+            tip.innerHTML = '<div class="rt-label" style="color:' + c.color + ';">' + c.label + '</div>'
+                + '<div class="rt-row"><span>' + c.n1 + '</span><strong>' + c.fmt(v1) + '</strong></div>'
+                + '<div class="rt-row"><span>' + c.n2 + '</span><strong>' + c.fmt(v2) + '</strong></div>'
+                + '<div class="rt-row" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:4px;margin-top:4px;">'
+                + '<span>Resultado</span><strong style="color:' + c.color + ';">' + parseFloat(pct).toFixed(1) + '%</strong></div>';
+            tip.classList.add('rt-visible');
+            var rect = el.getBoundingClientRect();
+            var tipW = tip.offsetWidth || 200;
+            var left = Math.round(rect.left + rect.width / 2 - tipW / 2);
+            if (left < 8) left = 8;
+            if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8;
+            tip.style.left = left + 'px';
+            tip.style.top  = (rect.bottom + 8) + 'px';
+            tip.style.setProperty('--rt-ax', Math.round(rect.left + rect.width / 2 - left) + 'px');
+        };
+
+        window._revTdShow = function (el, pIds, pKm, pEx, vNorm, res, idsObjMi) {
+            var tip = document.getElementById('revThTip');
+            if (!tip) return;
+            var volDetalle = (idsObjMi !== undefined && idsObjMi !== null)
+                ? ' <em style="color:#94a3b8;font-weight:400;font-size:0.68rem;">(' + Math.round(idsObjMi) + ' Obj+MI)</em>'
+                : '';
+            tip.innerHTML = '<div class="rt-label" style="color:#a78bfa;">Detalle Resultado</div>'
+                + '<div class="rt-row"><span>% ID\'s &nbsp;<em style="color:#64748b;font-weight:500;">(×10%)</em></span><strong>' + parseFloat(pIds).toFixed(1) + '%</strong></div>'
+                + '<div class="rt-row"><span>% Km &nbsp;<em style="color:#64748b;font-weight:500;">(×10%)</em></span><strong>' + parseFloat(pKm).toFixed(1) + '%</strong></div>'
+                + '<div class="rt-row"><span>% Éxito &nbsp;<em style="color:#64748b;font-weight:500;">(×60%)</em></span><strong>' + parseFloat(pEx).toFixed(1) + '%</strong></div>'
+                + '<div class="rt-row"><span>% Volumen &nbsp;<em style="color:#64748b;font-weight:500;">(×20%)</em>' + volDetalle + '</span><strong>' + parseFloat(vNorm).toFixed(1) + '%</strong></div>'
+                + '<div class="rt-row" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:4px;margin-top:4px;">'
+                + '<span>Resultado</span><strong style="color:#6ee7b7;font-size:0.72rem;">' + parseFloat(res).toFixed(1) + '%</strong></div>';
+            tip.classList.add('rt-visible');
+            var rect = el.getBoundingClientRect();
+            var tipW = tip.offsetWidth || 230;
+            var left = Math.round(rect.left + rect.width / 2 - tipW / 2);
+            if (left < 8) left = 8;
+            if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8;
+            var arrowX = Math.round(rect.left + rect.width / 2 - left);
+            tip.style.left = left + 'px';
+            tip.style.top  = (rect.bottom + 8) + 'px';
+            tip.style.setProperty('--rt-ax', arrowX + 'px');
+        };
+
+        // Nodo del tooltip (creado una vez)
+        (function () {
+            if (document.getElementById('revThTip')) return;
+            var d = document.createElement('div');
+            d.id = 'revThTip';
+            document.body.appendChild(d);
+        })();
+
+        /* ── Fetch + Tabla + Chart: Comportamiento Revisor ───────────── */
+        var _REV_STATE = {
+            sortKey: null, sortDir: -1, showSub: true,
+            allRevisores: [], visibleRevs: [], filterOpen: false,
+            chartVisibleRevs: [], chartFilterOpen: false
+        };
+
+        function _fetchRevisores(qs) {
+            _get(API + '/dashboard/revisores' + qs).then(function (j) {
+                if (!j.ok) return;
+                _DASH.data.revisores = j.data;
+                _REV_STATE.sortKey = null;
+                _REV_STATE.filterOpen = false;
+                _REV_STATE.chartFilterOpen = false;
+                var revSet = {};
+                (j.data || []).forEach(function (r) {
+                    revSet[r.revisor_nombre || ('ID ' + r.revisor_id)] = true;
+                });
+                _REV_STATE.allRevisores = Object.keys(revSet).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+                _REV_STATE.visibleRevs = _REV_STATE.allRevisores.slice();
+                _REV_STATE.chartVisibleRevs = _REV_STATE.allRevisores.slice();
+                _renderTablaRevisores(j.data);
+                _renderChartRevisoresTendencia(j.data);
+            });
+        }
+
+        window._revToggleSub = function () {
+            _REV_STATE.showSub = !_REV_STATE.showSub;
+            _renderTablaRevisores(_DASH.data.revisores);
+        };
+
+        window._revSortBy = function (mesKey) {
+            if (_REV_STATE.sortKey === mesKey) _REV_STATE.sortDir *= -1;
+            else { _REV_STATE.sortKey = mesKey; _REV_STATE.sortDir = -1; }
+            _renderTablaRevisores(_DASH.data.revisores);
+        };
+
+        window._revToggleFilter = function (e) {
+            e.stopPropagation();
+            _REV_STATE.filterOpen = !_REV_STATE.filterOpen;
+            var menu = document.getElementById('revFilterMenu');
+            if (!menu) return;
+            menu.style.display = _REV_STATE.filterOpen ? 'block' : 'none';
+            if (_REV_STATE.filterOpen) {
+                var inp = document.getElementById('revFilterSearch');
+                if (inp) inp.value = '';
+                _revRenderFilterList('');
+            }
+        };
+
+        function _revRenderFilterList(search) {
+            var listEl = document.getElementById('revFilterList');
+            if (!listEl) return;
+            var all = _REV_STATE.allRevisores;
+            var hits = search
+                ? all.filter(function (n) { return n.toLowerCase().indexOf(search.toLowerCase()) >= 0; })
+                : all;
+            listEl.innerHTML = hits.map(function (nombre) {
+                var checked = _REV_STATE.visibleRevs.indexOf(nombre) >= 0;
+                var safe = nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                return '<label style="display:flex;align-items:center;gap:0.38rem;padding:0.18rem 0.1rem;'
+                    + 'font-size:0.66rem;color:#334155;font-weight:600;cursor:pointer;user-select:none;">'
+                    + '<input type="checkbox" ' + (checked ? 'checked' : '') + ' '
+                    + 'onchange="_revCheckRevName(\'' + safe + '\',this.checked)" '
+                    + 'style="accent-color:#0f766e;cursor:pointer;flex-shrink:0;">'
+                    + nombre + '</label>';
+            }).join('');
+        }
+
+        window._revSearchFilter = function (val) { _revRenderFilterList(val); };
+
+        window._revCheckRevName = function (nombre, checked) {
+            var idx = _REV_STATE.visibleRevs.indexOf(nombre);
+            if (checked && idx < 0) _REV_STATE.visibleRevs.push(nombre);
+            if (!checked && idx >= 0) _REV_STATE.visibleRevs.splice(idx, 1);
+            _revUpdateFilterBtn();
+            _renderTablaRevisores(_DASH.data.revisores);
+        };
+
+        window._revSelAllRevs = function () {
+            _REV_STATE.visibleRevs = _REV_STATE.allRevisores.slice();
+            _revUpdateFilterBtn();
+            _revRenderFilterList((document.getElementById('revFilterSearch') || {}).value || '');
+            _renderTablaRevisores(_DASH.data.revisores);
+        };
+
+        window._revClearRevs = function () {
+            _REV_STATE.visibleRevs = [];
+            _revUpdateFilterBtn();
+            _revRenderFilterList((document.getElementById('revFilterSearch') || {}).value || '');
+            _renderTablaRevisores(_DASH.data.revisores);
+        };
+
+        function _revUpdateFilterBtn() {
+            var btn = document.getElementById('revFilterBtn');
+            if (!btn) return;
+            var sel = _REV_STATE.visibleRevs.length, tot = _REV_STATE.allRevisores.length;
+            var isAll = sel === tot;
+            btn.textContent = isAll ? '👤 Revisores' : ('👤 ' + sel + ' / ' + tot);
+            btn.style.background = isAll ? 'rgba(15,23,42,0.06)' : 'rgba(15,118,110,0.12)';
+            btn.style.color      = isAll ? '#334155' : '#0f766e';
+            btn.style.borderColor = isAll ? '#cbd5e1' : '#0f766e';
+        }
+
+        document.addEventListener('click', function (e) {
+            // Cerrar filtro tabla
+            if (_REV_STATE.filterOpen) {
+                var menu = document.getElementById('revFilterMenu');
+                var btn  = document.getElementById('revFilterBtn');
+                if (menu && !menu.contains(e.target) && e.target !== btn) {
+                    _REV_STATE.filterOpen = false;
+                    menu.style.display = 'none';
+                }
+            }
+            // Cerrar filtro gráfico
+            if (_REV_STATE.chartFilterOpen) {
+                var cmenu = document.getElementById('revChartFilterMenu');
+                var cbtn  = document.getElementById('revChartFilterBtn');
+                if (cmenu && !cmenu.contains(e.target) && e.target !== cbtn) {
+                    _REV_STATE.chartFilterOpen = false;
+                    cmenu.style.display = 'none';
+                }
+            }
+        });
+
+        /* ── Filtro revisores del gráfico ─────────────────────────── */
+        window._revChartToggleFilter = function (e) {
+            e.stopPropagation();
+            _REV_STATE.chartFilterOpen = !_REV_STATE.chartFilterOpen;
+            var menu = document.getElementById('revChartFilterMenu');
+            if (!menu) return;
+            menu.style.display = _REV_STATE.chartFilterOpen ? 'block' : 'none';
+            if (_REV_STATE.chartFilterOpen) {
+                var inp = document.getElementById('revChartFilterSearch');
+                if (inp) inp.value = '';
+                _revChartRenderFilterList('');
+            }
+        };
+
+        function _revChartRenderFilterList(search) {
+            var listEl = document.getElementById('revChartFilterList');
+            if (!listEl) return;
+            var all  = _REV_STATE.allRevisores;
+            var hits = search
+                ? all.filter(function (n) { return n.toLowerCase().indexOf(search.toLowerCase()) >= 0; })
+                : all;
+            listEl.innerHTML = hits.map(function (nombre) {
+                var checked = _REV_STATE.chartVisibleRevs.indexOf(nombre) >= 0;
+                var safe = nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                return '<label style="display:flex;align-items:center;gap:0.38rem;padding:0.18rem 0.1rem;'
+                    + 'font-size:0.66rem;color:#334155;font-weight:600;cursor:pointer;user-select:none;">'
+                    + '<input type="checkbox" ' + (checked ? 'checked' : '') + ' '
+                    + 'onchange="_revChartCheckRevName(\'' + safe + '\',this.checked)" '
+                    + 'style="accent-color:#0f766e;cursor:pointer;flex-shrink:0;">'
+                    + nombre + '</label>';
+            }).join('');
+        }
+
+        window._revChartSearchFilter = function (val) { _revChartRenderFilterList(val); };
+
+        window._revChartCheckRevName = function (nombre, checked) {
+            var idx = _REV_STATE.chartVisibleRevs.indexOf(nombre);
+            if (checked  && idx < 0) _REV_STATE.chartVisibleRevs.push(nombre);
+            if (!checked && idx >= 0) _REV_STATE.chartVisibleRevs.splice(idx, 1);
+            _revChartUpdateFilterBtn();
+            _renderChartRevisoresTendencia(_DASH.data.revisores);
+        };
+
+        window._revChartSelAll = function () {
+            _REV_STATE.chartVisibleRevs = _REV_STATE.allRevisores.slice();
+            _revChartUpdateFilterBtn();
+            _revChartRenderFilterList((document.getElementById('revChartFilterSearch') || {}).value || '');
+            _renderChartRevisoresTendencia(_DASH.data.revisores);
+        };
+
+        window._revChartClearAll = function () {
+            _REV_STATE.chartVisibleRevs = [];
+            _revChartUpdateFilterBtn();
+            _revChartRenderFilterList((document.getElementById('revChartFilterSearch') || {}).value || '');
+            _renderChartRevisoresTendencia(_DASH.data.revisores);
+        };
+
+        function _revChartUpdateFilterBtn() {
+            var btn = document.getElementById('revChartFilterBtn');
+            if (!btn) return;
+            var sel = _REV_STATE.chartVisibleRevs.length, tot = _REV_STATE.allRevisores.length;
+            var isAll = sel === tot;
+            btn.textContent = isAll ? '👤 Revisores' : ('👤 ' + sel + ' / ' + tot);
+            btn.style.background  = isAll ? 'rgba(15,23,42,0.06)' : 'rgba(15,118,110,0.12)';
+            btn.style.color       = isAll ? '#334155' : '#0f766e';
+            btn.style.borderColor = isAll ? '#cbd5e1' : '#0f766e';
+        }
+
+        function _renderTablaRevisores(rows) {
+            var wrap = document.getElementById('monTablaRevisores');
+            if (!wrap) return;
+            var MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            if (!rows || !rows.length) {
+                wrap.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;">'
+                    + '<i class="bi bi-inbox"></i> Sin datos.</div>';
+                return;
+            }
+
+            // ── 1. Meses únicos ordenados ─────────────────────────────
+            var mesSet = {};
+            rows.forEach(function (r) {
+                var k = String(r.anio) + '-' + String(r.mes).padStart(2, '0');
+                mesSet[k] = { anio: r.anio, mes: r.mes, key: k };
+            });
+            var meses = Object.keys(mesSet).sort().map(function (k) { return mesSet[k]; });
+
+            // ── 2. Agrupar por revisor ────────────────────────────────
+            var revMap = {};
+            rows.forEach(function (r) {
+                var n = r.revisor_nombre || ('ID ' + r.revisor_id);
+                if (!revMap[n]) revMap[n] = {};
+                revMap[n][String(r.anio) + '-' + String(r.mes).padStart(2, '0')] = r;
+            });
+
+            // ── 3. Filtrar y ordenar ──────────────────────────────────
+            var vis = _REV_STATE.visibleRevs;
+            var revisores = Object.keys(revMap)
+                .filter(function (n) { return !vis.length || vis.indexOf(n) >= 0; })
+                .sort(function (a, b) { return a.localeCompare(b, 'es'); });
+            if (_REV_STATE.sortKey) {
+                var sk = _REV_STATE.sortKey, sd = _REV_STATE.sortDir;
+                revisores.sort(function (a, b) {
+                    var va = parseFloat(((revMap[a] || {})[sk] || {}).resultado) || -1;
+                    var vb = parseFloat(((revMap[b] || {})[sk] || {}).resultado) || -1;
+                    return (vb - va) * sd;
+                });
+            }
+
+            // ── 4. Badge ──────────────────────────────────────────────
+            var badge = function (v, bold) {
+                if (v == null || isNaN(parseFloat(v)))
+                    return '<span style="color:#cbd5e1;font-size:0.58rem;">—</span>';
+                var n = parseFloat(v);
+                var c  = n >= 80 ? '#dcfce7' : n >= 50 ? '#fef9c3' : '#fee2e2';
+                var tc = n >= 80 ? '#166534' : n >= 50 ? '#854d0e' : '#7f1d1d';
+                return '<span style="background:' + c + ';color:' + tc
+                    + ';border-radius:6px;padding:0.04rem 0.28rem;font-weight:' + (bold ? '800' : '700')
+                    + ';font-size:0.59rem;display:inline-block;">' + n.toFixed(1) + '%</span>';
+            };
+
+            var showSub = _REV_STATE.showSub;
+            var subDisp = showSub ? '' : 'display:none;';
+            var BD = '1px solid #dde7f2';
+
+            // ── 5. Estilos (fuente alineada con Detalle por Ruta) ─────
+            var thCmn  = 'font-size:0.65rem;font-weight:700;padding:0.28rem 0.45rem;white-space:nowrap;'
+                       + 'text-align:center;border:' + BD + ';color:#fff;';
+            var thStky = 'position:sticky;left:0;z-index:3;background:#0a2f75;'
+                       + 'text-align:left;white-space:nowrap;vertical-align:middle;';
+            var thMes  = 'background:#0f766e;cursor:pointer;user-select:none;';
+            var thSub  = 'background:#115e59;font-size:0.63rem;font-weight:600;color:#d1fae5;';
+            var thRes  = 'background:#0c4a6e;color:#bae6fd;cursor:pointer;user-select:none;';
+            var tdCmn  = 'padding:0.28rem 0.5rem;font-size:0.68rem;border:' + BD
+                       + ';text-align:center;white-space:nowrap;';
+            var tdRes  = tdCmn + 'background:rgba(14,116,144,0.05);';
+            var tdStky = 'position:sticky;left:0;z-index:1;font-weight:700;font-size:0.68rem;'
+                       + 'padding:0.28rem 0.5rem;border:' + BD + ';border-right:2px solid #b6c9e0;'
+                       + 'color:#0f172a;white-space:nowrap;';
+
+            // ── 6. Cabecera fila 1 ────────────────────────────────────
+            var h1 = '<tr><th rowspan="2" style="' + thCmn + thStky + 'z-index:4;">Revisor</th>';
+            meses.forEach(function (m) {
+                var lbl = MESES[m.mes - 1] + ' \'' + String(m.anio).slice(2);
+                var arrow = _REV_STATE.sortKey === m.key
+                    ? (_REV_STATE.sortDir === -1 ? ' ↓' : ' ↑') : '';
+                h1 += '<th class="rev-mes-head" colspan="' + (showSub ? 4 : 1) + '" '
+                    + 'onclick="_revSortBy(\'' + m.key + '\')" '
+                    + 'title="Ordenar por ' + MESES[m.mes - 1] + ' ' + m.anio + '" '
+                    + 'style="' + thCmn + thMes + '">' + lbl + arrow + '</th>';
+            });
+            h1 += '</tr>';
+
+            // ── 7. Cabecera fila 2: sub-columnas ─────────────────────
+            var h2 = '<tr>';
+            meses.forEach(function (m) {
+                h2 += '<th class="rev-sub" onmouseenter="_revThShow(this,\'ids\')" onmouseleave="_revThHide()" style="' + thCmn + thSub + subDisp + 'cursor:help;">% ID\'s</th>';
+                h2 += '<th class="rev-sub" onmouseenter="_revThShow(this,\'km\')" onmouseleave="_revThHide()" style="' + thCmn + thSub + subDisp + 'cursor:help;">% Km</th>';
+                h2 += '<th class="rev-sub" onmouseenter="_revThShow(this,\'exito\')" onmouseleave="_revThHide()" style="' + thCmn + thSub + subDisp + 'cursor:help;">% Éxito</th>';
+                h2 += '<th onmouseenter="_revThShow(this,\'resultado\')" onmouseleave="_revThHide()" style="' + thCmn + thRes + 'cursor:help;">Resultado</th>';
+            });
+            h2 += '</tr>';
+
+            // ── 8. Filas ──────────────────────────────────────────────
+            var tbody = revisores.map(function (nombre, idx) {
+                var bg = idx % 2 === 0 ? '#f8fafc' : '#fff';
+                var cells = '<td style="' + tdStky + 'background:' + bg + ';" title="' + nombre + '">'
+                    + nombre + '</td>';
+                meses.forEach(function (m) {
+                    var d = revMap[nombre][m.key];
+                    if (d) {
+                        cells += '<td class="rev-sub" style="' + tdCmn + subDisp + 'cursor:help;" '
+                            + 'onmouseenter="_revTdShowSub(this,\'ids\',' + (d.ids_revisados||0) + ',' + (d.ids_asignados||0) + ',' + (d.pct_ids||0) + ')" '
+                            + 'onmouseleave="_revThHide()">' + badge(d.pct_ids) + '</td>';
+                        cells += '<td class="rev-sub" style="' + tdCmn + subDisp + 'cursor:help;" '
+                            + 'onmouseenter="_revTdShowSub(this,\'km\',' + (d.km_objetado||0) + ',' + (d.km_revision||0) + ',' + (d.pct_km||0) + ')" '
+                            + 'onmouseleave="_revThHide()">' + badge(d.pct_km) + '</td>';
+                        cells += '<td class="rev-sub" style="' + tdCmn + subDisp + 'cursor:help;" '
+                            + 'onmouseenter="_revTdShowSub(this,\'exito\',' + (d.km_aceptado||0) + ',' + (d.km_objetado||0) + ',' + (d.pct_exito||0) + ')" '
+                            + 'onmouseleave="_revThHide()">' + badge(d.pct_exito) + '</td>';
+                        cells += '<td style="' + tdRes + 'cursor:help;" '
+                            + 'onmouseenter="_revTdShow(this,' + (d.pct_ids||0) + ',' + (d.pct_km||0) + ',' + (d.pct_exito||0) + ',' + (d.vol_norm||0) + ',' + (d.resultado||0) + ',' + (d.ids_obj_mi||0) + ')" '
+                            + 'onmouseleave="_revThHide()">'
+                            + badge(d.resultado, true) + '</td>';
+                    } else {
+                        cells += '<td class="rev-sub" style="' + tdCmn + subDisp + 'color:#e2e8f0;">—</td>'
+                               + '<td class="rev-sub" style="' + tdCmn + subDisp + 'color:#e2e8f0;">—</td>'
+                               + '<td class="rev-sub" style="' + tdCmn + subDisp + 'color:#e2e8f0;">—</td>'
+                               + '<td style="' + tdRes + 'color:#e2e8f0;">—</td>';
+                    }
+                });
+                return '<tr style="background:' + bg + ';"'
+                    + ' onmouseover="this.querySelectorAll(\'td\').forEach(function(t){t.style.background=\'#d1fae5\';})"'
+                    + ' onmouseout="this.querySelectorAll(\'td\').forEach(function(t){t.style.background=\'\';})">'
+                    + cells + '</tr>';
+            }).join('');
+
+            // ── 9. Barra de controles ─────────────────────────────────
+            var sel = _REV_STATE.visibleRevs.length, tot = _REV_STATE.allRevisores.length;
+            var isAll = sel === tot;
+            var btnS = 'border:1px solid;border-radius:7px;padding:0.17rem 0.52rem;'
+                     + 'font-size:0.62rem;font-weight:700;cursor:pointer;white-space:nowrap;';
+            var toggleBg    = showSub ? 'rgba(15,118,110,0.10)' : 'rgba(12,74,110,0.10)';
+            var toggleColor = showSub ? '#0f766e' : '#0369a1';
+            var filterBg    = isAll ? 'rgba(15,23,42,0.06)' : 'rgba(15,118,110,0.12)';
+            var filterColor = isAll ? '#334155' : '#0f766e';
+            var filterBord  = isAll ? '#cbd5e1' : '#0f766e';
+            var filterLabel = isAll ? '👤 Revisores' : ('👤 ' + sel + ' / ' + tot);
+
+            var controls = '<div style="display:flex;align-items:center;gap:0.4rem;'
+                + 'padding:0.28rem 0.55rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;">'
+                + '<button id="revToggleSubBtn" onclick="_revToggleSub()" style="' + btnS
+                + 'background:' + toggleBg + ';color:' + toggleColor + ';border-color:currentColor;">'
+                + (showSub ? '⊟ Ocultar detalle' : '⊞ Ver detalle') + '</button>'
+                + '<div style="position:relative;">'
+                + '<button id="revFilterBtn" onclick="_revToggleFilter(event)" style="' + btnS
+                + 'background:' + filterBg + ';color:' + filterColor + ';border-color:' + filterBord + ';">'
+                + filterLabel + '</button>'
+                + '<div id="revFilterMenu" style="display:none;position:absolute;top:calc(100%+4px);left:0;'
+                + 'z-index:60;min-width:210px;background:#fff;border:1px solid #e2e8f0;'
+                + 'border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,0.14);padding:0.48rem;">'
+                + '<input id="revFilterSearch" type="text" placeholder="Buscar revisor..." '
+                + 'oninput="_revSearchFilter(this.value)" onclick="event.stopPropagation()" '
+                + 'style="width:100%;box-sizing:border-box;min-height:26px;padding:0.24rem 0.45rem;'
+                + 'border-radius:7px;border:1px solid #e2e8f0;font-size:0.65rem;outline:none;margin-bottom:0.3rem;">'
+                + '<div style="display:flex;gap:0.28rem;margin-bottom:0.3rem;">'
+                + '<button onclick="_revSelAllRevs()" style="flex:1;' + btnS
+                + 'border-color:#94a3b8;background:rgba(148,163,184,0.1);color:#475569;">✓ Todos</button>'
+                + '<button onclick="_revClearRevs()" style="flex:1;' + btnS
+                + 'border-color:#94a3b8;background:rgba(148,163,184,0.1);color:#475569;">✗ Ninguno</button>'
+                + '</div>'
+                + '<div id="revFilterList" style="max-height:170px;overflow-y:auto;padding-right:2px;"></div>'
+                + '</div></div>'
+                + '<span style="font-size:0.58rem;color:#94a3b8;margin-left:auto;">'
+                + 'Clic en mes para ordenar ↑↓</span>'
+                + '</div>';
+
+            // ── tabla: width:auto sin min-width ───────────────────────
+            wrap.innerHTML = controls
+                + '<table id="monRevTabla" style="width:auto;border-collapse:collapse;">'
+                + '<thead>' + h1 + h2 + '</thead>'
+                + '<tbody>' + tbody + '</tbody>'
+                + '</table>';
+
+            if (_REV_STATE.filterOpen) {
+                var menu = document.getElementById('revFilterMenu');
+                if (menu) { menu.style.display = 'block'; _revRenderFilterList(''); }
+            }
+        }
+
+        function _renderChartRevisoresTendencia(rows) {
+            // ── Altura del contenedor ──────────────────────────────────
+            var cont = document.getElementById('dashCont_chartRevisoresTendencia');
+            if (cont) cont.style.height = '320px';
+
+            if (!rows || !rows.length) { _setNoDataChart('chartRevisoresTendencia', 'Sin datos con los filtros'); return; }
+            var MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            var PALETTE = ['#0f766e','#2563eb','#dc2626','#7c3aed','#f97316','#0891b2','#16a34a',
+                           '#db2777','#ca8a04','#4f46e5','#059669','#ea580c','#0284c7','#9333ea'];
+
+            // ── Meses ──────────────────────────────────────────────────
+            var mesSet = {};
+            rows.forEach(function (r) {
+                var k = String(r.anio) + '-' + String(r.mes).padStart(2, '0');
+                if (!mesSet[k]) mesSet[k] = MESES[r.mes - 1] + ' \'' + String(r.anio).slice(2);
+            });
+            var mesKeys   = Object.keys(mesSet).sort();
+            var mesLabels = mesKeys.map(function (k) { return mesSet[k]; });
+
+            // ── Agrupar por revisor ────────────────────────────────────
+            var revData = {};
+            rows.forEach(function (r) {
+                var nombre = r.revisor_nombre || ('ID ' + r.revisor_id);
+                if (!revData[nombre]) revData[nombre] = {};
+                var k = String(r.anio) + '-' + String(r.mes).padStart(2, '0');
+                revData[nombre][k] = r.resultado != null ? parseFloat(r.resultado) : null;
+            });
+            var allRevs = Object.keys(revData).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+
+            // ── Filtrar por selección ──────────────────────────────────
+            var vis = _REV_STATE.chartVisibleRevs;
+            var revisores = allRevs.filter(function (n) { return !vis.length || vis.indexOf(n) >= 0; });
+
+            // ── Renderizar barra de filtro ─────────────────────────────
+            var filterBar = document.getElementById('chartRevFilterBar');
+            if (filterBar) {
+                var sel = _REV_STATE.chartVisibleRevs.length, tot = _REV_STATE.allRevisores.length;
+                var isAll = sel === tot;
+                var btnS = 'border:1px solid;border-radius:7px;padding:0.17rem 0.52rem;'
+                         + 'font-size:0.62rem;font-weight:700;cursor:pointer;white-space:nowrap;';
+                var fBg  = isAll ? 'rgba(15,23,42,0.06)' : 'rgba(15,118,110,0.12)';
+                var fCol = isAll ? '#334155' : '#0f766e';
+                var fBrd = isAll ? '#cbd5e1' : '#0f766e';
+                var fLbl = isAll ? '👤 Revisores' : ('👤 ' + sel + ' / ' + tot);
+                filterBar.innerHTML = '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;position:relative;">'
+                    + '<div style="position:relative;">'
+                    + '<button id="revChartFilterBtn" onclick="_revChartToggleFilter(event)" style="'
+                    + btnS + 'background:' + fBg + ';color:' + fCol + ';border-color:' + fBrd + ';">'
+                    + fLbl + '</button>'
+                    + '<div id="revChartFilterMenu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;'
+                    + 'z-index:60;min-width:210px;background:#fff;border:1px solid #e2e8f0;'
+                    + 'border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,0.14);padding:0.48rem;">'
+                    + '<input id="revChartFilterSearch" type="text" placeholder="Buscar revisor..." '
+                    + 'oninput="_revChartSearchFilter(this.value)" onclick="event.stopPropagation()" '
+                    + 'style="width:100%;box-sizing:border-box;min-height:26px;padding:0.24rem 0.45rem;'
+                    + 'border-radius:7px;border:1px solid #e2e8f0;font-size:0.65rem;outline:none;margin-bottom:0.3rem;">'
+                    + '<div style="display:flex;gap:0.28rem;margin-bottom:0.3rem;">'
+                    + '<button onclick="_revChartSelAll()" style="flex:1;' + btnS
+                    + 'border-color:#94a3b8;background:rgba(148,163,184,0.1);color:#475569;">✓ Todos</button>'
+                    + '<button onclick="_revChartClearAll()" style="flex:1;' + btnS
+                    + 'border-color:#94a3b8;background:rgba(148,163,184,0.1);color:#475569;">✗ Ninguno</button>'
+                    + '</div>'
+                    + '<div id="revChartFilterList" style="max-height:170px;overflow-y:auto;padding-right:2px;"></div>'
+                    + '</div></div>'
+                    + '</div>';
+                if (_REV_STATE.chartFilterOpen) {
+                    var m = document.getElementById('revChartFilterMenu');
+                    if (m) { m.style.display = 'block'; _revChartRenderFilterList(''); }
+                }
+            }
+
+            // ── Series ─────────────────────────────────────────────────
+            var series = revisores.map(function (nombre, idx) {
+                var color = PALETTE[allRevs.indexOf(nombre) % PALETTE.length];
+                return {
+                    name: nombre,
+                    type: 'line',
+                    smooth: true,
+                    connectNulls: false,
+                    data: mesKeys.map(function (k) {
+                        var v = revData[nombre][k];
+                        return v != null ? parseFloat(v.toFixed(1)) : null;
+                    }),
+                    lineStyle: { color: color, width: 2.5 },
+                    itemStyle: { color: color },
+                    symbol: 'circle',
+                    symbolSize: 7,
+                    emphasis: { focus: 'series', lineStyle: { width: 4 }, scale: true }
+                };
+            });
+
+            var inst = _ec('chartRevisoresTendencia');
+            if (!inst) return;
+            inst.setOption({
+                backgroundColor: '#fff',
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(15,23,42,0.94)',
+                    borderWidth: 0,
+                    padding: [8, 12],
+                    textStyle: { color: '#f8fafc', fontSize: 11 },
+                    formatter: function (p) {
+                        if (p.value == null) return '';
+                        return '<div style="font-weight:800;margin-bottom:4px;font-size:0.72rem;">'
+                            + p.marker + ' ' + p.seriesName + '</div>'
+                            + '<div style="display:flex;justify-content:space-between;gap:16px;">'
+                            + '<span style="color:#94a3b8;">' + p.name + '</span>'
+                            + '<strong style="color:#6ee7b7;">' + parseFloat(p.value).toFixed(1) + '%</strong>'
+                            + '</div>';
+                    }
+                },
+                legend: { show: false },
+                grid: { top: 16, bottom: 54, left: 50, right: 20, containLabel: false },
+                xAxis: {
+                    type: 'category',
+                    data: mesLabels,
+                    axisLabel: { fontSize: 10, rotate: 30, color: '#64748b' },
+                    axisTick: { alignWithLabel: true }
+                },
+                yAxis: {
+                    type: 'value',
+                    min: 0,
+                    max: 100,
+                    name: 'Resultado %',
+                    nameTextStyle: { color: '#475569', fontSize: 10, fontWeight: 700, padding: [0, 30, 0, 0] },
+                    axisLabel: { formatter: '{value}%', fontSize: 10, color: '#64748b' },
+                    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.18)' } }
+                },
+                series: series
             }, true);
         }
 
@@ -3019,14 +4849,22 @@
                 document.body.style.overflow = '';
                 document.removeEventListener('keydown', _fsEscHandler);
             }
-            // Redimensionar el chart — doble llamada para garantizar layout estable
-            var inst = _charts[divId];
+            // Para charts de ruta (scatter/boxplot/hist): re-renderizar con datos en caché
+            // para que la nueva instancia de ECharts capture las dimensiones correctas del contenedor.
+            // resize() solo no es suficiente porque la instancia fue creada a 260px.
+            var _routeKeyMap = { chartScatterRutas: 'scatter', chartBoxplotRutas: 'boxplot', chartHistRutas: 'hist' };
+            var _routeKey = _routeKeyMap[divId];
             setTimeout(function () {
+                if (_routeKey) {
+                    _dashRenderRouteChart(_routeKey);
+                }
+                var inst = _charts[divId];
                 if (inst) try { inst.resize(); } catch (e) { }
                 setTimeout(function () {
+                    var inst = _charts[divId];
                     if (inst) try { inst.resize(); } catch (e) { }
-                }, 180);
-            }, 60);
+                }, 200);
+            }, 80);
         };
 
         function _fsEscHandler(e) { if (e.key === 'Escape') _closeFsAll(); }
@@ -3042,7 +4880,9 @@
             document.body.style.overflow = '';
             document.removeEventListener('keydown', _fsEscHandler);
             // Restaurar alturas
-            ['chartRegistros', 'chartKm', 'chartMotivos', 'chartRutas', 'chartBoxplotRutas', 'chartHistRutas', 'chartScatterRutas', 'chartObjetores'].forEach(function (id) {
+            ['chartRegistros', 'chartKm', 'chartMotivos', 'chartRutas', 'chartBoxplotRutas', 'chartHistRutas', 'chartScatterRutas', 'chartObjetores',
+             'chartKmAceptado', 'chartExitoObjecion', 'chartIngresos', 'tablaRutas',
+             'tablaRevisores', 'chartRevisoresTendencia'].forEach(function (id) {
                 var cont = _q('dashCont_' + id);
                 if (cont) cont.style.height = '260px';
                 var inst = _charts[id];
@@ -3058,6 +4898,11 @@
         /* ══════════════════════════════════════════════════════════════════
         TAB 3 – REPORTES
         ══════════════════════════════════════════════════════════════════ */
+
+        function _fmtCOP(v) {
+            if (v == null || v === '') return '';
+            return '$ ' + _num(v).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+        }
 
         function _fmtShortDateTime(v) {
             if (!v) return '';
@@ -3093,6 +4938,83 @@
             { key: 'cop',              label: 'COP' },
         ];
 
+        var REP_COLS_SNE_GESTIONADO = REP_COLS_SNE_PROCESADO.concat([
+            // ── gestion_sne ──────────────────────────────────────────────────
+            { key: 'revisor',                label: 'Revisor' },
+            { key: 'estado_asignacion',      label: 'Estado Asignación' },
+            { key: 'usuario_asigna',         label: 'Asignado por' },
+            { key: 'fecha_hora_asignacion',  label: 'Fecha Asignación' },
+            { key: 'estado_objecion',        label: 'Estado Objeción' },
+            { key: 'usuario_objeta',         label: 'Objetado por' },
+            { key: 'fecha_hora_objecion',    label: 'Fecha Objeción' },
+            // ── objecion_guardada ─────────────────────────────────────────────
+            { key: 'km_objetado',            label: 'Km Objetado' },
+            { key: 'valor_km_objetado',      label: '$ Km Objetado', fmt: _fmtCOP },
+            { key: 'km_no_objetado',         label: 'Km No Objetado' },
+            { key: 'responsable_final',      label: 'Responsable Final' },
+            { key: 'motivo_final',           label: 'Motivo Final' },
+            { key: 'accion',                 label: 'Acción' },
+            { key: 'justificacion',          label: 'Justificación' },
+            { key: 'nota_objecion',          label: 'Nota Objeción', cls: 'mon-rep-text-col' },
+            { key: 'fecha_guardado',         label: 'Fecha Guardado' },
+            { key: 'tiempo_objecion_seg',    label: 'Tiempo Objeción (seg)' },
+            { key: 'reporte',                label: 'Reporte' },
+            // ── gestion_sne (campos opcionales) ──────────────────────────────
+            { key: 'estado_transmitools',    label: 'Estado Transmitools' },
+            { key: 'fecha_hora_transmitools',label: 'Fecha Transmitools' },
+            { key: 'fecha_inicio_dp',        label: 'Fecha Inicio DP' },
+            { key: 'fecha_cierre_dp',        label: 'Fecha Cierre DP' },
+            { key: 'fase_dp_actual',         label: 'Fase DP Actual' },
+            { key: 'estado_dp_actual',       label: 'Estado DP Actual' },
+            { key: 'fecha_cambio_dp',        label: 'Fecha Cambio DP' },
+            { key: 'km_aceptado',            label: 'Km Aceptado' },
+            { key: 'valor_km_aceptado',      label: '$ Km Aceptado', fmt: _fmtCOP },
+        ]);
+
+        /* Parámetros que acepta realmente cada endpoint de reportes (ver
+           controller/route_sne_monitor.py). Los que no están en la lista los descarta
+           FastAPI en silencio, así que enviarlos hacía creer que el filtro se aplicaba
+           cuando el reporte venía completo. Se recortan aquí y se avisa al usuario. */
+        var REP_PARAMS_PERMITIDOS = {
+            'sne-procesado':  ['fecha_ini', 'fecha_fin', 'componente', 'zona', 'id_cop', 'id_linea'],
+            'sne-gestionado': ['fecha_ini', 'fecha_fin', 'componente', 'zona', 'id_cop', 'id_linea',
+                               'id_revisor', 'id_asignador', 'estado_asignacion', 'estado_objecion'],
+        };
+
+        var REP_FILTRO_LABEL = {
+            fecha_ini: 'Fecha inicio',     fecha_fin: 'Fecha fin',
+            componente: 'Componente',      zona: 'Zona',
+            id_cop: 'COP',                 id_linea: 'Ruta',
+            id_revisor: 'Revisor',         id_asignador: 'Asignado por',
+            estado_asignacion: 'Estado Asignación',
+            estado_objecion: 'Estado Objeción',
+        };
+
+        /* Separa los filtros globales en los que este reporte sí aplica y los que ignora. */
+        function _repSepararFiltros(tipo) {
+            var permitidos = REP_PARAMS_PERMITIDOS[tipo] || [];
+            var aplicados = [], ignorados = [];
+            _gp().forEach(function (kv) {
+                var k = kv.split('=')[0];
+                if (permitidos.indexOf(k) !== -1) aplicados.push(kv);
+                else ignorados.push(REP_FILTRO_LABEL[k] || k);
+            });
+            return { aplicados: aplicados, ignorados: ignorados };
+        }
+
+        function _repMostrarAviso(ignorados) {
+            var el = _q('repAvisoFiltros');
+            if (!el) return;
+            if (!ignorados.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+            el.style.display = '';
+            el.innerHTML =
+                '<i class="bi bi-info-circle-fill" style="color:#d97706;margin-right:.35rem;"></i>'
+                + '<strong>Este reporte no admite ' + (ignorados.length === 1 ? 'el filtro' : 'los filtros') + ':</strong> '
+                + _esc(ignorados.join(', '))
+                + '. Se ignora' + (ignorados.length === 1 ? '' : 'n') + ' en la consulta. '
+                + 'Use <em>SNE Gestionado</em> si necesita filtrar por gestión.';
+        }
+
         function _buildReportesUI(cont) {
             cont.innerHTML = [
                 '<section class="mon-panel" style="padding:1rem 1.1rem;min-width:0;overflow:hidden;">',
@@ -3113,6 +5035,7 @@
                     '</button>',
                     '<span id="repContador" style="font-size:.72rem;color:#64748b;align-self:center;"></span>',
                   '</div>',
+                  '<div id="repAvisoFiltros" style="display:none;padding:0.55rem 0.8rem;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-size:.72rem;margin-bottom:0.75rem;"></div>',
                   '<div id="repStatus" style="padding:1.4rem;text-align:center;border-radius:14px;background:#f8fbff;border:1px solid #dbe4f1;margin-bottom:0.75rem;">',
                     '<i class="bi bi-file-earmark-bar-graph" style="font-size:1.8rem;color:#94a3b8;display:block;margin-bottom:0.5rem;"></i>',
                     '<strong style="color:#475569;font-size:.82rem;">Seleccione un reporte</strong>',
@@ -3155,12 +5078,15 @@
                 wrap.style.display = 'block';
                 return;
             }
-            head.innerHTML = '<tr>' + cols.map(function (c) { return '<th>' + _esc(c.label) + '</th>'; }).join('') + '</tr>';
+            /* c.cls permite fijar el ancho de columnas de texto libre (ver .mon-rep-text-col) */
+            head.innerHTML = '<tr>' + cols.map(function (c) {
+                return '<th' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + _esc(c.label) + '</th>';
+            }).join('') + '</tr>';
             body.innerHTML = rows.map(function (row) {
                 return '<tr>' + cols.map(function (c) {
                     var v = row[c.key];
                     var display = c.fmt ? c.fmt(v) : (v == null ? '' : v);
-                    return '<td>' + _esc(display) + '</td>';
+                    return '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + _esc(display) + '</td>';
                 }).join('') + '</tr>';
             }).join('');
             wrap.style.display = 'block';
@@ -3172,23 +5098,45 @@
             if (!tipo) {
                 _setRepStatus('info', 'Seleccione un reporte', 'Elija el tipo de reporte de la lista y presione Consultar.');
                 var wrap = _q('repTableWrap'); if (wrap) wrap.style.display = 'none';
+                _repMostrarAviso([]);
                 return;
             }
-            if (tipo === 'sne-gestionado') {
-                _setRepStatus('info', 'Próximamente', 'El reporte SNE Gestionado estará disponible en una próxima versión.');
-                var wrap = _q('repTableWrap'); if (wrap) wrap.style.display = 'none';
+            var _repEndpoint = tipo === 'sne-gestionado' ? '/reportes/sne-gestionado' : '/reportes/sne-procesado';
+            var _repCols     = tipo === 'sne-gestionado' ? REP_COLS_SNE_GESTIONADO   : REP_COLS_SNE_PROCESADO;
+            var _repLabel    = tipo === 'sne-gestionado' ? 'SNE Gestionado'           : 'SNE Procesado';
+
+            /* El rango de fechas es obligatorio: sin él la consulta recorre sne.ics
+               completa, sin LIMIT, y mantiene locks sobre las tablas de config. */
+            _syncDateRange(false);
+            if (!_q('monFechaIni').value || !_q('monFechaFin').value) {
+                _setRepStatus('error', 'Rango de fechas requerido',
+                              'Indique fecha inicio y fecha fin en los filtros antes de consultar el reporte.');
+                var wNod = _q('repTableWrap'); if (wNod) wNod.style.display = 'none';
                 return;
             }
-            // SNE Procesado
-            _setRepStatus('loading', 'Consultando...', 'Cargando datos del reporte SNE Procesado, por favor espere.');
+
+            /* Si ya hay una consulta en curso se cancela antes de lanzar la nueva:
+               el botón global "Consultar" y el cambio de pestaña también llegan aquí,
+               y sin esto se apilan full scans concurrentes sobre la misma tabla. */
+            if (_repAbort) { try { _repAbort.abort(); } catch (e) {} }
+            var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+            _repAbort = ctrl;
+
+            _setRepStatus('loading', 'Consultando...', 'Cargando datos del reporte ' + _repLabel + ', por favor espere.');
             var wrap = _q('repTableWrap'); if (wrap) wrap.style.display = 'none';
             var btn = _q('repBtnConsultar');
             if (btn) { btn.disabled = true; btn.innerHTML = '<span class="mon-spinner"></span> Consultando'; }
-            var p = _gp();
-            var qs = p.length ? '?' + p.join('&') : '';
-            _get(API + '/reportes/sne-procesado' + qs).then(function (j) {
+            /* Solo se envían los filtros que este endpoint acepta; el resto se avisa. */
+            var f = _repSepararFiltros(tipo);
+            _repMostrarAviso(f.ignorados);
+            var qs = f.aplicados.length ? '?' + f.aplicados.join('&') : '';
+            fetch(API + _repEndpoint + qs, ctrl ? { signal: ctrl.signal } : undefined).then(function (r) {
+                return r.json();
+            }).then(function (j) {
+                if (_repAbort !== ctrl) return;   // respuesta de una consulta ya reemplazada
                 if (!j.ok) {
-                    _setRepStatus('error', 'Error en la consulta', 'No fue posible cargar el reporte. Intente de nuevo.');
+                    _setRepStatus('error', 'Error en la consulta',
+                                  j.detail || 'No fue posible cargar el reporte. Intente de nuevo.');
                     return;
                 }
                 _repData = j.data || [];
@@ -3197,10 +5145,14 @@
                 } else {
                     _setRepStatus('info', 'Sin resultados', 'La consulta fue válida pero no devolvió registros para los filtros aplicados.');
                 }
-                _renderRepTable(_repData, REP_COLS_SNE_PROCESADO);
-            }).catch(function () {
+                _renderRepTable(_repData, _repCols);
+            }).catch(function (err) {
+                if (err && err.name === 'AbortError') return;   // cancelada por una consulta más reciente
+                if (_repAbort !== ctrl) return;
                 _setRepStatus('error', 'Error de conexión', 'No fue posible comunicarse con el servidor.');
             }).finally(function () {
+                if (_repAbort !== ctrl) return;   // otra consulta tomó el relevo: no tocar la UI
+                _repAbort = null;
                 var btn = _q('repBtnConsultar');
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-search"></i> Consultar'; }
             });
@@ -3212,7 +5164,9 @@
                 return;
             }
             var tipo = ((_q('repTipo') || {}).value) || 'reporte';
-            var cols = tipo === 'sne-procesado' ? REP_COLS_SNE_PROCESADO : [];
+            var cols = tipo === 'sne-procesado'  ? REP_COLS_SNE_PROCESADO
+                     : tipo === 'sne-gestionado' ? REP_COLS_SNE_GESTIONADO
+                     : [];
             if (!cols.length) return;
             try {
                 var wsData = [cols.map(function (c) { return c.label; })].concat(
@@ -3226,7 +5180,7 @@
                 var ws = XLSX.utils.aoa_to_sheet(wsData);
                 var wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
-                XLSX.writeFile(wb, 'sne_' + tipo + '_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+                XLSX.writeFile(wb, 'sne_' + tipo + '.xlsx');
             } catch (e) {
                 alert('Error al generar el archivo XLSX: ' + e.message);
             }
@@ -3461,7 +5415,8 @@
             }
             if (wrap) wrap.style.display = 'none';
 
-            _get(API + '/procesamientos').then(function(j) {
+            var _dp = _dateParams();
+            _get(API + '/procesamientos' + (_dp.length ? '?' + _dp.join('&') : '')).then(function(j) {
                 if (!j.ok) {
                     if (status) {
                         status.style.display = '';
@@ -3480,6 +5435,700 @@
                 }
             });
         }
+
+        /* ══════════════════════════════════════════════════════════════════
+        TAB 5 – TRANSMITOOLS MONITOR (global)
+        ══════════════════════════════════════════════════════════════════ */
+
+        var _monTmBuilt  = false;
+        var _monTmTipEl  = null;
+        var _monTmActive = null;
+
+        var _MON_TM_ESTADOS = {
+            0: { label: 'Sin Gestión',   bg: '#64748b', fg: '#fff' },
+            1: { label: 'Envío Exitoso', bg: '#16a34a', fg: '#fff' },
+            2: { label: 'Procesando',    bg: '#d97706', fg: '#fff' },
+            3: { label: 'Error',         bg: '#dc2626', fg: '#fff' },
+        };
+
+        function _monTmEstado(val) {
+            var k = (val === null || val === undefined) ? 0 : val;
+            return _MON_TM_ESTADOS[k] || { label: 'Sin Gestión', bg: '#64748b', fg: '#fff' };
+        }
+
+        function _monTmFmt(v) {
+            return (v === null || v === undefined || v === '') ? '—' : String(v);
+        }
+
+        function _monTmChipHtml(rec) {
+            var est = _monTmEstado(rec.estado_transmitools);
+            var tip = JSON.stringify({
+                id_ics:       rec.id_ics,
+                fecha:        rec.fecha,
+                ruta:         rec.ruta_comercial,
+                servicio:     rec.servicio,
+                tabla:        rec.tabla,
+                viaje_linea:  rec.viaje_linea,
+                id_viaje:     rec.id_viaje,
+                sentido:      rec.sentido,
+                vehiculo:     rec.vehiculo_real,
+                hora_ini:     rec.hora_ini_teorica,
+                km_prog:      rec.km_prog_ad,
+                km_ejec:      rec.km_ejecutado,
+                km_rev:       rec.km_revision,
+                conductor:    rec.conductor,
+                componente:   rec.componente,
+                zona:         rec.zona,
+                cop:          rec.cop_nombre,
+                revisor:      rec.revisor_nombre,
+                estado_tm:    est.label,
+                fh_transmi:   rec.fecha_hora_transmitools,
+            });
+            return '<span class="mon-tm-chip" '
+                + 'style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;'
+                + 'background:' + est.bg + '1a;color:' + est.bg + ';border:1.5px solid ' + est.bg + ';'
+                + 'font-size:.72rem;font-weight:700;cursor:pointer;transition:opacity .15s;white-space:nowrap;margin:3px;" '
+                + 'data-montmtip=\'' + tip.replace(/'/g, '&#39;') + '\' '
+                + 'onclick="_monTmToggleTip(event)">'
+                + rec.id_ics
+                + '</span>';
+        }
+
+        window._monTmToggleTip = function(e) {
+            e.stopPropagation();
+            var chip = e.currentTarget;
+            var tip  = _monTmTipEl;
+            if (!tip) return;
+
+            if (_monTmActive === chip && tip.style.display !== 'none') {
+                tip.style.display = 'none';
+                _monTmActive = null;
+                return;
+            }
+            _monTmActive = chip;
+
+            var raw;
+            try { raw = JSON.parse(chip.getAttribute('data-montmtip')); } catch(ex) { return; }
+
+            var rows = [
+                ['ID ICS',         raw.id_ics],
+                ['Fecha',          raw.fecha],
+                ['Ruta',           raw.ruta],
+                ['Servicio',       raw.servicio],
+                ['Tabla',          raw.tabla],
+                ['Viaje Línea',    raw.viaje_linea],
+                ['ID Viaje',       raw.id_viaje],
+                ['Sentido',        raw.sentido],
+                ['Vehículo',       raw.vehiculo],
+                ['H. Ini. Teórica',raw.hora_ini],
+                ['Km Prog.',       raw.km_prog],
+                ['Km Ejecutado',   raw.km_ejec],
+                ['Km Revisión',    raw.km_rev],
+                ['Conductor',      raw.conductor],
+                ['Componente',     raw.componente],
+                ['Zona',           raw.zona],
+                ['COP',            raw.cop],
+                ['Revisor',        raw.revisor],
+                ['Estado TM',      raw.estado_tm],
+                ['Fecha/Hora TM',  raw.fh_transmi],
+            ];
+
+            tip.innerHTML = rows.map(function(r) {
+                return '<div style="display:flex;justify-content:space-between;gap:.6rem;font-size:.68rem;'
+                    + 'padding:.18rem 0;border-bottom:1px solid rgba(255,255,255,.08);">'
+                    + '<span style="color:#94a3b8;flex:1;">' + _esc(r[0]) + '</span>'
+                    + '<strong style="color:#f1f5f9;text-align:right;">' + _esc(_monTmFmt(r[1])) + '</strong>'
+                    + '</div>';
+            }).join('');
+
+            tip.style.left = '-9999px';
+            tip.style.top  = '-9999px';
+            tip.style.display = 'block';
+            var rect = chip.getBoundingClientRect();
+            var tipW = tip.offsetWidth  || 270;
+            var tipH = tip.offsetHeight || 340;
+            var left = rect.left;
+            var top  = rect.bottom + 6;
+            if (left + tipW > window.innerWidth  - 8) left = rect.right - tipW;
+            if (left < 8) left = 8;
+            if (top  + tipH > window.innerHeight - 8) top  = rect.top - tipH - 6;
+            if (top  < 8) top  = 8;
+            tip.style.left = left + 'px';
+            tip.style.top  = top  + 'px';
+        };
+
+        document.addEventListener('click', function(e) {
+            if (_monTmTipEl && _monTmTipEl.style.display !== 'none' && !_monTmTipEl.contains(e.target)) {
+                _monTmTipEl.style.display = 'none';
+                _monTmActive = null;
+            }
+        });
+
+        function _monTmSectionHtml(title, icon, color, records) {
+            var chips = records.length
+                ? records.map(_monTmChipHtml).join('')
+                : '<span style="font-size:.75rem;color:#94a3b8;font-style:italic;">Sin registros</span>';
+
+            return '<div style="flex:1;min-width:300px;background:var(--mon-surface);border-radius:var(--mon-radius-md);'
+                + 'border:1.5px solid ' + color + '33;box-shadow:var(--mon-shadow-sm);overflow:hidden;">'
+                + '<div style="background:' + color + ';padding:.65rem 1.1rem;display:flex;align-items:center;gap:.5rem;">'
+                + '<i class="bi ' + icon + '" style="color:#fff;font-size:1rem;"></i>'
+                + '<span style="font-size:.84rem;font-weight:700;color:#fff;">' + title + '</span>'
+                + '<span style="margin-left:auto;background:rgba(255,255,255,.22);color:#fff;font-size:.72rem;'
+                + 'font-weight:700;padding:2px 11px;border-radius:20px;">' + records.length + '</span>'
+                + '</div>'
+                + '<div style="padding:.8rem;display:flex;flex-wrap:wrap;align-content:flex-start;gap:2px;height:calc(100vh - 320px);min-height:220px;overflow-y:auto;">'
+                + chips
+                + '</div></div>';
+        }
+
+        function _buildMonTmUI(cont) {
+            /* Tooltip flotante singleton */
+            if (!_monTmTipEl) {
+                _monTmTipEl = document.createElement('div');
+                _monTmTipEl.style.cssText = 'position:fixed;display:none;z-index:9999;background:#1e293b;'
+                    + 'color:#e2e8f0;border-radius:10px;padding:.65rem .9rem;min-width:250px;'
+                    + 'max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,.28);';
+                document.body.appendChild(_monTmTipEl);
+            }
+            _monTmBuilt = true;
+        }
+
+        function _renderMonTm(data) {
+            var cont = _q('tab-mon-transmitools');
+            if (!cont) return;
+
+            var enviados   = data.filter(function(d) { return d.estado_transmitools === 1; });
+            var pendientes = data.filter(function(d) { return d.estado_transmitools !== 1; });
+
+            var _orden = { 3: 0, 2: 1, 0: 2 };
+            pendientes.sort(function(a, b) {
+                var oa = _orden[a.estado_transmitools == null ? 0 : a.estado_transmitools];
+                var ob = _orden[b.estado_transmitools == null ? 0 : b.estado_transmitools];
+                if (oa === undefined) oa = 3;
+                if (ob === undefined) ob = 3;
+                return oa - ob;
+            });
+
+            var legend = '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.85rem;align-items:center;">'
+                + '<span style="font-size:.7rem;color:var(--mon-text-soft);font-weight:600;margin-right:.2rem;">Estados:</span>'
+                + Object.entries(_MON_TM_ESTADOS).map(function(e) {
+                    return '<span style="background:' + e[1].bg + ';color:#fff;font-size:.68rem;font-weight:700;'
+                        + 'padding:2px 9px;border-radius:20px;">' + e[1].label + '</span>';
+                }).join('')
+                + '<span style="margin-left:auto;font-size:.72rem;color:var(--mon-text-soft);">'
+                + 'Total: <strong>' + data.length + '</strong> ICS objetados</span>'
+                + '</div>';
+
+            cont.innerHTML = '<section class="mon-panel">'
+                + '<div class="mon-panel__title"><i class="bi bi-send-check"></i><span>Monitor Transmitools</span></div>'
+                + '<div style="padding:.5rem 0;">'
+                + legend
+                + '<div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start;">'
+                + _monTmSectionHtml('Objeciones Enviadas',  'bi-check2-circle', '#16a34a', enviados)
+                + _monTmSectionHtml('Objeciones Pendientes','bi-clock-history',  '#64748b', pendientes)
+                + '</div></div></section>';
+        }
+
+        function _loadMonTransmitools(forceReload) {
+            var cont = _q('tab-mon-transmitools');
+            if (!cont) return;
+
+            if (!_monTmBuilt) _buildMonTmUI(cont);
+
+            cont.innerHTML = '<section class="mon-panel">'
+                + '<div class="mon-empty"><i class="bi bi-hourglass-split"></i>'
+                + '<p>Cargando Transmitools</p>'
+                + '<span>Consultando estado de envíos al sistema.</span></div></section>';
+
+            var p = _gp();
+            var revisor = _q('monRevisor').value;
+            if (revisor) p.push('usuario_revisor=' + revisor);
+            var qs = p.length ? '?' + p.join('&') : '';
+
+            _get(API + '/transmitools' + qs).then(function(j) {
+                if (!j.ok) {
+                    cont.innerHTML = '<section class="mon-panel"><div class="mon-empty">'
+                        + '<i class="bi bi-exclamation-triangle"></i>'
+                        + '<p>Error al cargar datos</p>'
+                        + '<span>Intenta de nuevo en unos segundos.</span></div></section>';
+                    return;
+                }
+                _renderMonTm(j.data || []);
+            }).catch(function() {
+                cont.innerHTML = '<section class="mon-panel"><div class="mon-empty">'
+                    + '<i class="bi bi-wifi-off"></i>'
+                    + '<p>Error de conexión</p>'
+                    + '<span>No fue posible consultar Transmitools.</span></div></section>';
+            });
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+        TAB – FICHA DE RUTAS
+        ══════════════════════════════════════════════════════════════════ */
+        var _frBuilt = false;
+        var _frRutas = [];
+        var _frRutaActual = null;        // { id_linea, ruta_comercial }
+        var _frAdjuntosExistentes = [];  // adjuntos ya guardados al editar
+        var _frArchivosNuevos = [];      // File objects pendientes de subir
+        var _frEditandoId = null;
+
+        var _FR_ICONS = {
+            pdf: 'bi-file-earmark-pdf text-danger',
+            xlsx: 'bi-file-earmark-excel text-success',
+            xls: 'bi-file-earmark-excel text-success',
+            docx: 'bi-file-earmark-word text-primary',
+            doc: 'bi-file-earmark-word text-primary',
+            png: 'bi-file-earmark-image text-info',
+            jpg: 'bi-file-earmark-image text-info',
+            jpeg: 'bi-file-earmark-image text-info',
+            gif: 'bi-file-earmark-image text-info',
+            webp: 'bi-file-earmark-image text-info'
+        };
+        var _FR_IMG_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+
+        function _frExt(name) {
+            var n = String(name || '');
+            var i = n.lastIndexOf('.');
+            return i >= 0 ? n.substring(i + 1).toLowerCase() : '';
+        }
+
+        function _frBuildUI(cont) {
+            cont.innerHTML = '<section class="mon-panel">'
+                + '<div class="mon-panel__title"><i class="bi bi-journal-text"></i><span>Ficha de Rutas</span></div>'
+                + '<div class="fr-toolbar">'
+                + '  <div class="fr-field"><label>Componente</label>'
+                + '    <select id="frComponente" class="form-select fr-select"><option value="">Todos</option></select></div>'
+                + '  <div class="fr-field"><label>Zona</label>'
+                + '    <select id="frZona" class="form-select fr-select"><option value="">Todas</option></select></div>'
+                + '  <div class="fr-field"><label>COP</label>'
+                + '    <select id="frCop" class="form-select fr-select"><option value="">Todos</option></select></div>'
+                + '  <div class="fr-field" style="min-width:220px; flex:1;"><label>Ruta comercial</label>'
+                + '    <input id="frRutaComercial" type="text" class="form-control fr-input" placeholder="Buscar ruta o ID línea"></div>'
+                + '  <div class="fr-field"><label>&nbsp;</label>'
+                + '    <button class="fr-btn fr-btn-primary" onclick="window._frBuscarRutas()"><i class="bi bi-search"></i> Buscar</button></div>'
+                + '  <div class="fr-field"><label>&nbsp;</label>'
+                + '    <button class="fr-btn" onclick="window._frLimpiarRutas()"><i class="bi bi-x-circle"></i> Limpiar</button></div>'
+                + '</div>'
+                + '<div class="fr-table-wrap">'
+                + '  <div style="max-height:58vh; overflow:auto;">'
+                + '    <table class="fr-table">'
+                + '      <thead><tr>'
+                + '        <th>ID Línea</th><th>Ruta Comercial</th><th>Componente</th><th>Zona</th><th>COP</th><th class="fr-actions-h">Acciones</th>'
+                + '      </tr></thead>'
+                + '      <tbody id="frTbodyRutas"></tbody>'
+                + '    </table>'
+                + '  </div>'
+                + '</div>'
+                + '</section>';
+
+            _q('frComponente').addEventListener('change', function () {
+                _frCargarZonas();
+                _frCargarCop();
+            });
+            _q('frZona').addEventListener('change', _frCargarCop);
+            _q('frRutaComercial').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') window._frBuscarRutas();
+            });
+        }
+
+        window._frLimpiarRutas = function () {
+            _q('frComponente').value = '';
+            _q('frZona').value = '';
+            _q('frCop').value = '';
+            _q('frRutaComercial').value = '';
+            _frCargarZonas();
+            _frCargarCop();
+            window._frBuscarRutas();
+        };
+
+        function _loadFichaRutas() {
+            var cont = _q('tab-ficha-rutas');
+            if (!_frBuilt) {
+                _frBuildUI(cont);
+                _frBuilt = true;
+                _frCargarComponentes();
+                _frCargarZonas();
+                _frCargarCop();
+            }
+            window._frBuscarRutas();
+        }
+
+        function _frCargarComponentes() {
+            _get('/api/config/rutas/filtros/componentes').then(function (j) {
+                var sel = _q('frComponente');
+                (j.data || []).forEach(function (c) {
+                    var opt = document.createElement('option');
+                    opt.value = c; opt.textContent = c;
+                    sel.appendChild(opt);
+                });
+            });
+        }
+
+        function _frCargarZonas() {
+            var comp = _q('frComponente').value;
+            var qs = comp ? ('?componente=' + encodeURIComponent(comp)) : '';
+            _get('/api/config/rutas/filtros/zonas' + qs).then(function (j) {
+                var sel = _q('frZona');
+                var prev = sel.value;
+                sel.innerHTML = '<option value="">Todas</option>';
+                (j.data || []).forEach(function (z) {
+                    var opt = document.createElement('option');
+                    opt.value = z; opt.textContent = z;
+                    sel.appendChild(opt);
+                });
+                if (prev) sel.value = prev;
+            });
+        }
+
+        function _frCargarCop() {
+            var comp = _q('frComponente').value, zona = _q('frZona').value;
+            var p = [];
+            if (comp) p.push('componente=' + encodeURIComponent(comp));
+            if (zona) p.push('zona=' + encodeURIComponent(zona));
+            var qs = p.length ? ('?' + p.join('&')) : '';
+            _get('/api/config/rutas/cop' + qs).then(function (j) {
+                var sel = _q('frCop');
+                var prev = sel.value;
+                sel.innerHTML = '<option value="">Todos</option>';
+                (j.data || []).forEach(function (c) {
+                    var opt = document.createElement('option');
+                    opt.value = c.id; opt.textContent = c.cop;
+                    sel.appendChild(opt);
+                });
+                if (prev) sel.value = prev;
+            });
+        }
+
+        window._frBuscarRutas = function () {
+            var tbody = _q('frTbodyRutas');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Cargando…</td></tr>';
+
+            var p = [];
+            var comp = _q('frComponente').value, zona = _q('frZona').value;
+            var cop = _q('frCop').value, q = _q('frRutaComercial').value.trim();
+            if (comp) p.push('componente=' + encodeURIComponent(comp));
+            if (zona) p.push('zona=' + encodeURIComponent(zona));
+            if (cop) p.push('id_cop=' + encodeURIComponent(cop));
+            if (q) p.push('q=' + encodeURIComponent(q));
+            var qs = p.length ? ('?' + p.join('&')) : '';
+
+            _get(API + '/ficha-rutas/rutas' + qs).then(function (j) {
+                if (!j.ok) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar rutas</td></tr>'; return; }
+                _frRutas = j.data || [];
+                if (!_frRutas.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin rutas activas para los filtros seleccionados</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = _frRutas.map(function (r) {
+                    return '<tr>'
+                        + '<td><span class="fr-route-chip">' + _esc(r.id_linea) + '</span></td>'
+                        + '<td>' + _esc(r.ruta_comercial) + '</td>'
+                        + '<td>' + _esc(r.componente || '-') + '</td>'
+                        + '<td>' + _esc(r.zona || '-') + '</td>'
+                        + '<td>' + _esc(r.cop || '-') + '</td>'
+                        + '<td class="fr-actions">'
+                        + '  <button class="fr-btn fr-btn-primary fr-btn-sm" onclick="window._frVerFichas(' + _esc(r.id_linea) + ',\'' + _esc(r.ruta_comercial).replace(/'/g, "\\'") + '\')">'
+                        + '    <i class="bi bi-journal-text"></i> Ficha</button>'
+                        + '</td>'
+                        + '</tr>';
+                }).join('');
+            }).catch(function () {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error de conexión</td></tr>';
+            });
+        };
+
+        /* ── Modal Historial ──────────────────────────────────────────────── */
+        window._frVerFichas = function (idLinea, rutaComercial) {
+            _frRutaActual = { id_linea: idLinea, ruta_comercial: rutaComercial };
+            _q('frHistRutaTitulo').textContent = rutaComercial;
+            _q('frHistIdLinea').textContent = 'ID Línea ' + idLinea;
+            _q('frHistFiltroEstado').value = '';
+            _q('frHistFiltroQ').value = '';
+            new bootstrap.Modal(_q('modalFichaHistorial')).show();
+            window.frRecargarHistorial();
+        };
+
+        window.frRecargarHistorial = function () {
+            if (!_frRutaActual) return;
+            var cont = _q('frHistContenido');
+            cont.innerHTML = '<div class="mon-empty"><i class="bi bi-hourglass-split"></i><p>Cargando historial</p></div>';
+
+            var p = ['id_linea=' + encodeURIComponent(_frRutaActual.id_linea)];
+            var estado = _q('frHistFiltroEstado').value, q = _q('frHistFiltroQ').value.trim();
+            if (estado !== '') p.push('estado=' + estado);
+            if (q) p.push('q=' + encodeURIComponent(q));
+
+            _get(API + '/ficha-rutas?' + p.join('&')).then(function (j) {
+                if (!j.ok) { cont.innerHTML = '<div class="mon-empty"><i class="bi bi-exclamation-triangle"></i><p>Error al cargar historial</p></div>'; return; }
+                _frRenderHistorial(j.data || []);
+            }).catch(function () {
+                cont.innerHTML = '<div class="mon-empty"><i class="bi bi-wifi-off"></i><p>Error de conexión</p></div>';
+            });
+        };
+
+        window.frToggleHistoria = function (headEl) {
+            headEl.closest('.fr-post').classList.toggle('fr-collapsed');
+        };
+        window.frContraerTodo = function () {
+            _q('frHistContenido').querySelectorAll('.fr-post').forEach(function (p) {
+                p.classList.add('fr-collapsed');
+            });
+        };
+        window.frExpandirTodo = function () {
+            _q('frHistContenido').querySelectorAll('.fr-post').forEach(function (p) {
+                p.classList.remove('fr-collapsed');
+            });
+        };
+
+        window.frLimpiarFiltrosHistorial = function () {
+            _q('frHistFiltroEstado').value = '';
+            _q('frHistFiltroQ').value = '';
+            window.frRecargarHistorial();
+        };
+
+        window.frAbrirLightbox = function (url) {
+            _q('frLightboxImg').src = url;
+            _q('frLightbox').classList.add('fr-open');
+        };
+        window.frCerrarLightbox = function (e) {
+            if (e && e.target && e.target.id === 'frLightboxImg') return;
+            _q('frLightbox').classList.remove('fr-open');
+            _q('frLightboxImg').src = '';
+        };
+
+        function _frIniciales(nombre) {
+            var partes = (nombre || '').trim().split(/\s+/).filter(Boolean);
+            if (!partes.length) return '?';
+            if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+            return (partes[0][0] + partes[1][0]).toUpperCase();
+        }
+
+        function _frRenderHistorial(rows) {
+            var cont = _q('frHistContenido');
+            if (!rows.length) {
+                cont.innerHTML = '<div class="mon-empty"><i class="bi bi-inbox"></i><p>Sin historias registradas</p><span>Usa "Nueva historia" para agregar la primera entrada.</span></div>';
+                return;
+            }
+            cont.innerHTML = rows.map(function (f) {
+                var adjuntos = f.imagen || [];
+                var chips = adjuntos.map(function (a) {
+                    var ext = (a.tipo || _frExt(a.nombre)).toLowerCase();
+                    var url = API + '/ficha-rutas/adjunto?ruta=' + encodeURIComponent(a.ruta_blob);
+                    if (_FR_IMG_EXT.indexOf(ext) >= 0) {
+                        return '<img src="' + url + '" class="fr-att-img" title="' + _esc(a.nombre) + '" '
+                            + 'onclick="window.frAbrirLightbox(\'' + url.replace(/'/g, "%27") + '\')">';
+                    }
+                    var icon = _FR_ICONS[ext] || 'bi-file-earmark';
+                    return '<a href="' + url + '" target="_blank" class="fr-att-file" title="' + _esc(a.nombre) + '">'
+                        + '<i class="bi ' + icon + '"></i>'
+                        + '<span class="fr-att-name">' + _esc(a.nombre) + '</span>'
+                        + '</a>';
+                }).join('');
+
+                var badge = f.estado === 1
+                    ? '<span class="fr-badge-estado fr-badge-on"><i class="bi bi-check-circle"></i> Activo</span>'
+                    : '<span class="fr-badge-estado fr-badge-off"><i class="bi bi-dash-circle"></i> Inactivo</span>';
+
+                return '<div class="fr-post">'
+                    + '  <div class="fr-post__head" onclick="window.frToggleHistoria(this)">'
+                    + '    <i class="bi bi-chevron-down fr-post__toggle"></i>'
+                    + '    <div class="fr-post__avatar">' + _esc(_frIniciales(f.usuario_publico)) + '</div>'
+                    + '    <div class="fr-post__meta">'
+                    + '      <div class="fr-post__subject">' + _esc(f.asunto) + '</div>'
+                    + '      <div class="fr-post__sub">'
+                    + '        <i class="bi bi-person"></i> ' + _esc(f.usuario_publico || '-')
+                    + '        &nbsp;·&nbsp; <i class="bi bi-calendar3"></i> ' + _esc(f.fecha_registro)
+                    + '      </div>'
+                    + '    </div>'
+                    + badge
+                    + '  </div>'
+                    + '  <div class="fr-post__body">' + _esc(f.observacion) + '</div>'
+                    + (chips ? ('<div class="fr-post__attachments">' + chips + '</div>') : '')
+                    + '  <div class="fr-post__actions">'
+                    + '    <button class="fr-btn" onclick=\'window.frAbrirFormulario(' + JSON.stringify(f).replace(/'/g, "&#39;") + ')\'>'
+                    + '      <i class="bi bi-pencil"></i> Editar</button>'
+                    + '    <button class="fr-btn" onclick="window.frCambiarEstado(' + f.id + ',' + (f.estado === 1 ? 0 : 1) + ')">'
+                    + '      <i class="bi bi-' + (f.estado === 1 ? 'eye-slash' : 'eye') + '"></i> ' + (f.estado === 1 ? 'Desactivar' : 'Activar') + '</button>'
+                    + '  </div>'
+                    + '</div>';
+            }).join('');
+        }
+
+        window.frCambiarEstado = function (id, nuevoEstado) {
+            fetch(API + '/ficha-rutas/' + id + '/estado', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: nuevoEstado })
+            }).then(function (r) { return r.json(); }).then(function (j) {
+                if (j.ok) window.frRecargarHistorial();
+                else alert('No se pudo actualizar el estado');
+            }).catch(function () { alert('Error de conexión'); });
+        };
+
+        /* ── Modal Crear / Editar ─────────────────────────────────────────── */
+        window.frAbrirFormulario = function (ficha) {
+            _frArchivosNuevos = [];
+            _frAdjuntosExistentes = (ficha && ficha.imagen) ? ficha.imagen.slice() : [];
+            _frEditandoId = ficha ? ficha.id : null;
+
+            _q('frFormId').value = ficha ? ficha.id : '';
+            _q('frFormIdLinea').value = _frRutaActual.id_linea;
+            _q('frFormRutaComercial').value = _frRutaActual.ruta_comercial;
+            _q('frFormAsunto').value = ficha ? ficha.asunto : '';
+            _q('frFormObservacion').value = ficha ? ficha.observacion : '';
+            _q('frFormEstado').value = ficha ? String(ficha.estado) : '1';
+            _q('frFormTitulo').innerHTML = ficha
+                ? '<i class="bi bi-pencil-square"></i> Editar historia'
+                : '<i class="bi bi-journal-plus"></i> Nueva historia';
+
+            _frRenderAttachList();
+            new bootstrap.Modal(_q('modalFichaForm')).show();
+            _frInitPaste();
+        };
+
+        var _frPasteBound = false;
+        function _frInitPaste() {
+            if (_frPasteBound) return;
+            _frPasteBound = true;
+            document.addEventListener('paste', function (e) {
+                var modal = _q('modalFichaForm');
+                if (!modal.classList.contains('show')) return;
+                var items = (e.clipboardData && e.clipboardData.items) || [];
+                var added = false;
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type && items[i].type.indexOf('image') === 0) {
+                        var file = items[i].getAsFile();
+                        if (file) {
+                            var ext = (file.type.split('/')[1] || 'png');
+                            var renamed = new File([file], 'captura_' + Date.now() + '.' + ext, { type: file.type });
+                            _frArchivosNuevos.push(renamed);
+                            added = true;
+                        }
+                    }
+                }
+                if (added) _frRenderAttachList();
+            });
+        }
+
+        function _frRenderAttachList() {
+            var cont = _q('frAttachList');
+            var html = '';
+
+            _frAdjuntosExistentes.forEach(function (a, idx) {
+                var ext = (a.tipo || _frExt(a.nombre)).toLowerCase();
+                if (_FR_IMG_EXT.indexOf(ext) >= 0) {
+                    var url = API + '/ficha-rutas/adjunto?ruta=' + encodeURIComponent(a.ruta_blob);
+                    html += '<div class="fr-attach-item" title="' + _esc(a.nombre) + '">'
+                        + '<img src="' + url + '">'
+                        + '<button type="button" class="fr-attach-remove" onclick="window.frQuitarExistente(' + idx + ')"><i class="bi bi-x"></i></button>'
+                        + '</div>';
+                } else {
+                    var icon = _FR_ICONS[ext] || 'bi-file-earmark';
+                    html += '<div class="fr-attach-item" title="' + _esc(a.nombre) + '">'
+                        + '<i class="bi ' + icon + '" style="font-size:1.8rem;"></i>'
+                        + '<span class="fr-att-name">' + _esc(a.nombre) + '</span>'
+                        + '<button type="button" class="fr-attach-remove" onclick="window.frQuitarExistente(' + idx + ')"><i class="bi bi-x"></i></button>'
+                        + '</div>';
+                }
+            });
+
+            _frArchivosNuevos.forEach(function (f, idx) {
+                var ext = _frExt(f.name);
+                if (_FR_IMG_EXT.indexOf(ext) >= 0) {
+                    var url = URL.createObjectURL(f);
+                    html += '<div class="fr-attach-item" title="' + _esc(f.name) + '">'
+                        + '<img src="' + url + '">'
+                        + '<button type="button" class="fr-attach-remove" onclick="window.frQuitarNuevo(' + idx + ')"><i class="bi bi-x"></i></button>'
+                        + '</div>';
+                } else {
+                    var icon = _FR_ICONS[ext] || 'bi-file-earmark';
+                    html += '<div class="fr-attach-item" title="' + _esc(f.name) + '">'
+                        + '<i class="bi ' + icon + '" style="font-size:1.8rem;"></i>'
+                        + '<span class="fr-att-name">' + _esc(f.name) + '</span>'
+                        + '<button type="button" class="fr-attach-remove" onclick="window.frQuitarNuevo(' + idx + ')"><i class="bi bi-x"></i></button>'
+                        + '</div>';
+                }
+            });
+
+            cont.innerHTML = html;
+        }
+
+        window.frQuitarExistente = function (idx) {
+            _frAdjuntosExistentes.splice(idx, 1);
+            _frRenderAttachList();
+        };
+        window.frQuitarNuevo = function (idx) {
+            _frArchivosNuevos.splice(idx, 1);
+            _frRenderAttachList();
+        };
+
+        window.frDragOver = function (e) {
+            e.preventDefault();
+            _q('frDropZone').classList.add('fr-drag');
+        };
+        window.frDragLeave = function () {
+            _q('frDropZone').classList.remove('fr-drag');
+        };
+        window.frDrop = function (e) {
+            e.preventDefault();
+            window.frDragLeave();
+            frHandleFiles(e.dataTransfer.files);
+        };
+        window.frHandleFiles = function (files) {
+            Array.from(files).forEach(function (f) { _frArchivosNuevos.push(f); });
+            _frRenderAttachList();
+        };
+
+        function _frSetSaving(activo) {
+            var overlay = _q('frSavingOverlay');
+            if (!overlay) return;
+            overlay.classList.toggle('fr-open', !!activo);
+        }
+        window._frSetSaving = _frSetSaving;
+
+        window.frGuardarFicha = function () {
+            var asunto = _q('frFormAsunto').value.trim();
+            var observacion = _q('frFormObservacion').value.trim();
+            if (!asunto || !observacion) {
+                alert('Asunto y Observación son obligatorios.');
+                return;
+            }
+
+            var fd = new FormData();
+            fd.append('ruta_comercial', _q('frFormRutaComercial').value);
+            fd.append('asunto', asunto);
+            fd.append('observacion', observacion);
+            fd.append('estado', _q('frFormEstado').value);
+            _frArchivosNuevos.forEach(function (f) { fd.append('files', f); });
+
+            var btn = _q('frFormBtnGuardar');
+            btn.disabled = true;
+            _frSetSaving(true);
+
+            var url, method;
+            if (_frEditandoId) {
+                url = API + '/ficha-rutas/' + _frEditandoId;
+                method = 'PUT';
+                fd.append('adjuntos_existentes', JSON.stringify(_frAdjuntosExistentes));
+            } else {
+                url = API + '/ficha-rutas';
+                method = 'POST';
+                fd.append('id_linea', _q('frFormIdLinea').value);
+            }
+
+            fetch(url, { method: method, body: fd }).then(function (r) { return r.json(); }).then(function (j) {
+                btn.disabled = false;
+                _frSetSaving(false);
+                if (!j.ok) { alert('No se pudo guardar la historia'); return; }
+                bootstrap.Modal.getInstance(_q('modalFichaForm')).hide();
+                window.frRecargarHistorial();
+            }).catch(function () {
+                btn.disabled = false;
+                _frSetSaving(false);
+                alert('Error de conexión al guardar');
+            });
+        };
 
         /* ══════════════════════════════════════════════════════════════════
         INICIALIZACIÓN
@@ -3510,6 +6159,276 @@
                 _loadUsuarios();
                 _loadAsignaciones();
             });
+        });
+
+        /* ══════════════════════════════════════════════════════════════════
+           NOTICIAS — pestaña de publicaciones generales
+        ══════════════════════════════════════════════════════════════════ */
+
+        var _ntData = [];
+        var _ntArchivosNuevos = [];
+        var _ntAdjuntosExistentes = [];
+        var _ntEditandoId = null;
+        var _NT_ICONS = { pdf:'bi-file-earmark-pdf-fill', xlsx:'bi-file-earmark-excel-fill', xls:'bi-file-earmark-excel-fill', docx:'bi-file-earmark-word-fill', doc:'bi-file-earmark-word-fill' };
+        var _NT_IMG_EXT = ['png','jpg','jpeg','gif','webp'];
+        function _ntExt(n){ return n && n.includes('.') ? n.split('.').pop().toLowerCase() : ''; }
+        function _ntIniciales(u){ return (u||'?').split(' ').map(function(p){return p[0]||'';}).slice(0,2).join('').toUpperCase()||'?'; }
+
+        function _loadNoticias() {
+            var wrap = _q('tab-noticias');
+            if (wrap.dataset.loaded) { window.ntRecargar(); return; }
+            wrap.dataset.loaded = '1';
+            wrap.innerHTML = [
+                '<div class="nt-panel">',
+                '  <div class="fr-hist-toolbar">',
+                '    <div class="fr-field"><label>Estado</label>',
+                '      <select class="fr-select" id="ntFiltroEstado">',
+                '        <option value="" selected>Todos</option><option value="1">Activo</option><option value="0">Inactivo</option>',
+                '      </select></div>',
+                '    <div class="fr-field" style="flex:1;min-width:260px;"><label>Buscar</label>',
+                '      <input class="fr-input" id="ntFiltroQ" type="text" placeholder="Asunto / Observación…" style="width:100%;"></div>',
+                '    <button class="fr-btn fr-btn-primary" onclick="window.ntRecargar()"><i class="bi bi-search"></i> Filtrar</button>',
+                '    <button class="fr-btn" onclick="window.ntLimpiarFiltros()"><i class="bi bi-x-circle"></i> Limpiar</button>',
+                '    <button class="fr-btn" onclick="window.ntContraerTodo()"><i class="bi bi-chevron-double-up"></i> Contraer</button>',
+                '    <button class="fr-btn" onclick="window.ntExpandirTodo()"><i class="bi bi-chevron-double-down"></i> Expandir</button>',
+                '    <button class="fr-btn fr-btn-primary" onclick="window.ntAbrirFormulario()"><i class="bi bi-plus-circle"></i> Nueva noticia</button>',
+                '  </div>',
+                '  <div class="nt-feed-wrap"><div id="ntContenido" class="fr-feed"></div></div>',
+                '</div>',
+            ].join('');
+            _q('ntFiltroQ').addEventListener('keydown', function(e){ if(e.key==='Enter') window.ntRecargar(); });
+            window.ntRecargar();
+        }
+        window._loadNoticias = _loadNoticias;
+
+        window.ntRecargar = function() {
+            var cont = _q('ntContenido');
+            if (!cont) return;
+            cont.innerHTML = '<div class="mon-empty"><i class="bi bi-hourglass-split"></i><p>Cargando noticias…</p></div>';
+            var p = [];
+            var estadoEl = _q('ntFiltroEstado'), qEl = _q('ntFiltroQ');
+            var estado = estadoEl ? estadoEl.value : '1';
+            var q = qEl ? qEl.value.trim() : '';
+            if (estado !== '') p.push('estado=' + encodeURIComponent(estado));
+            if (q) p.push('q=' + encodeURIComponent(q));
+            _get(API + '/noticias' + (p.length ? '?' + p.join('&') : '')).then(function(j) {
+                if (!j.ok) { cont.innerHTML = '<div class="mon-empty"><i class="bi bi-exclamation-triangle"></i><p>Error al cargar</p></div>'; return; }
+                _ntData = j.data || [];
+                _ntRenderFeed(_ntData);
+            }).catch(function() {
+                cont.innerHTML = '<div class="mon-empty"><i class="bi bi-wifi-off"></i><p>Sin conexión</p></div>';
+            });
+        };
+
+        function _ntRenderFeed(items) {
+            var cont = _q('ntContenido');
+            if (!items || !items.length) {
+                cont.innerHTML = '<div class="mon-empty" style="grid-column:1/-1"><i class="bi bi-newspaper"></i><p>Sin noticias</p><span>Crea la primera con "Nueva noticia"</span></div>';
+                return;
+            }
+            cont.innerHTML = items.map(function(n) {
+                var imgs  = (n.imagen || []).filter(function(a){ return _NT_IMG_EXT.includes(_ntExt(a.nombre)); });
+                var files = (n.imagen || []).filter(function(a){ return !_NT_IMG_EXT.includes(_ntExt(a.nombre)); });
+                var badge = n.estado == 1
+                    ? '<span class="fr-badge-estado fr-badge-on">Activo</span>'
+                    : '<span class="fr-badge-estado fr-badge-off">Inactivo</span>';
+                var toggleLbl  = n.estado == 1 ? 'Inactivar' : 'Activar';
+                var toggleIcon = n.estado == 1 ? 'bi-toggle-on' : 'bi-toggle-off';
+                var imgHtml = imgs.map(function(a){
+                    var url = '/monitor/api/noticias/adjunto?ruta=' + encodeURIComponent(a.ruta_blob);
+                    return '<img class="fr-att-img" src="'+url+'" alt="'+_esc(a.nombre)+'" onclick="window.ntAbrirLightbox(\''+url+'\')" title="'+_esc(a.nombre)+'">';
+                }).join('');
+                var fileHtml = files.map(function(a){
+                    var ext  = _ntExt(a.nombre);
+                    var icon = _NT_ICONS[ext] || 'bi-file-earmark';
+                    var url  = '/monitor/api/noticias/adjunto?ruta=' + encodeURIComponent(a.ruta_blob);
+                    if (ext === 'pdf') {
+                        return '<a class="fr-att-file" href="javascript:void(0)" onclick="window.ntAbrirVisor(\''+url+'\',\''+_esc(a.nombre)+'\')" title="'+_esc(a.nombre)+'"><i class="bi '+icon+'"></i><span class="fr-att-name">'+_esc(a.nombre)+'</span></a>';
+                    }
+                    return '<a class="fr-att-file" href="'+url+'" target="_blank" title="'+_esc(a.nombre)+'"><i class="bi '+icon+'"></i><span class="fr-att-name">'+_esc(a.nombre)+'</span></a>';
+                }).join('');
+                return [
+                    '<div class="fr-post" id="nt-post-'+n.id+'">',
+                    '  <div class="fr-post__header" onclick="window.ntTogglePost('+n.id+')">',
+                    '    <div class="fr-post__avatar">'+_ntIniciales(n.usuario_publico)+'</div>',
+                    '    <div class="fr-post__meta" style="display:flex;flex-direction:column;gap:.05rem;">',
+                    '      <strong class="fr-post__subject">'+_esc(n.asunto)+'</strong>',
+                    '      <span class="fr-post__sub">'+(n.usuario_publico||'Sistema')+' · '+n.fecha_registro+' '+badge+'</span>',
+                    '    </div>',
+                    '    <span class="fr-post__toggle" style="margin-left:auto;"><i class="bi bi-chevron-up"></i></span>',
+                    '  </div>',
+                    '  <div class="fr-post__body"><p style="margin:0;white-space:pre-line">'+_esc(n.observacion)+'</p></div>',
+                    ((imgs.length || files.length) ? '  <div class="fr-post__attachments" style="display:flex;flex-wrap:nowrap;gap:.4rem;overflow-x:auto;padding-bottom:.2rem;">'+imgHtml+fileHtml+'</div>' : ''),
+                    '  <div class="fr-post__actions">',
+                    '    <button class="fr-btn fr-btn-sm" onclick="window.ntAbrirFormulario('+n.id+')"><i class="bi bi-pencil"></i> Editar</button>',
+                    '    <button class="fr-btn fr-btn-sm" onclick="window.ntCambiarEstado('+n.id+','+(n.estado==1?0:1)+')"><i class="bi '+toggleIcon+'"></i> '+toggleLbl+'</button>',
+                    '  </div>',
+                    '</div>',
+                ].join('');
+            }).join('');
+        }
+
+        window.ntTogglePost = function(id) {
+            var el = _q('nt-post-'+id); if (el) el.classList.toggle('fr-collapsed');
+        };
+        window.ntContraerTodo = function() {
+            document.querySelectorAll('#ntContenido .fr-post').forEach(function(p){ p.classList.add('fr-collapsed'); });
+        };
+        window.ntExpandirTodo = function() {
+            document.querySelectorAll('#ntContenido .fr-post').forEach(function(p){ p.classList.remove('fr-collapsed'); });
+        };
+        window.ntLimpiarFiltros = function() {
+            var e = _q('ntFiltroEstado'); if (e) e.value = '';
+            var q = _q('ntFiltroQ'); if (q) q.value = '';
+            window.ntRecargar();
+        };
+        window.ntAbrirLightbox = function(url) {
+            _q('ntLightboxImg').src = url;
+            _q('ntLightbox').classList.add('fr-open');
+        };
+        window.ntCerrarLightbox = function(e) {
+            if (e && e.target && e.target.id === 'ntLightboxImg') return;
+            _q('ntLightbox').classList.remove('fr-open');
+            _q('ntLightboxImg').src = '';
+        };
+        window.ntAbrirVisor = function(url, nombre) {
+            _q('ntFileViewerTitle').textContent = nombre || 'Documento';
+            _q('ntFileViewerFrame').src = url;
+            new bootstrap.Modal(_q('ntFileViewer')).show();
+        };
+        _q('ntFileViewer').addEventListener('hidden.bs.modal', function() {
+            _q('ntFileViewerFrame').src = '';
+        });
+        window.ntCambiarEstado = function(id, estado) {
+            fetch(API + '/noticias/' + id + '/estado', {
+                method: 'PATCH', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ estado: estado }),
+            }).then(function(r){ return r.json(); }).then(function(j) {
+                if (j.ok) window.ntRecargar(); else alert('No se pudo cambiar el estado');
+            }).catch(function(){ alert('Error de conexión'); });
+        };
+
+        window.ntAbrirFormulario = function(id) {
+            _ntArchivosNuevos = [];
+            _ntAdjuntosExistentes = [];
+            _ntEditandoId = id || null;
+            _q('ntFormId').value = '';
+            _q('ntFormAsunto').value = '';
+            _q('ntFormObservacion').value = '';
+            _q('ntFormEstado').value = '1';
+            _q('ntAttachList').innerHTML = '';
+            _q('ntModalFormTitle').textContent = id ? 'Editar noticia' : 'Nueva noticia';
+            if (id) {
+                var n = _ntData.find(function(x){ return x.id == id; });
+                if (!n) { alert('Noticia no encontrada'); return; }
+                _ntEditandoId = n.id;
+                _q('ntFormId').value = n.id;
+                _q('ntFormAsunto').value = n.asunto;
+                _q('ntFormObservacion').value = n.observacion;
+                _q('ntFormEstado').value = n.estado;
+                _ntAdjuntosExistentes = n.imagen ? JSON.parse(JSON.stringify(n.imagen)) : [];
+                _ntRenderAttachList();
+            }
+            new bootstrap.Modal(_q('ntModalForm')).show();
+            _ntInitPaste();
+        };
+
+        function _ntInitPaste() {
+            document.removeEventListener('paste', _ntOnPaste);
+            document.addEventListener('paste', _ntOnPaste);
+        }
+        function _ntOnPaste(e) {
+            if (!_q('ntModalForm') || !_q('ntModalForm').classList.contains('show')) return;
+            var items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    var file = items[i].getAsFile();
+                    if (!file) continue;
+                    var ext = file.type.split('/')[1] || 'png';
+                    var nombre = 'captura_' + Date.now() + '.' + ext;
+                    var renamed = new File([file], nombre, { type: file.type });
+                    _ntArchivosNuevos.push(renamed);
+                    _ntRenderAttachList();
+                }
+            }
+        }
+
+        function _ntRenderAttachList() {
+            var cont = _q('ntAttachList'); if (!cont) return;
+            var html = '';
+            _ntAdjuntosExistentes.forEach(function(a, idx) {
+                var ext  = _ntExt(a.nombre);
+                var icon = _NT_ICONS[ext] || 'bi-file-earmark';
+                var isImg = _NT_IMG_EXT.includes(ext);
+                var url  = '/monitor/api/noticias/adjunto?ruta=' + encodeURIComponent(a.ruta_blob);
+                html += '<div class="fr-attach-item">'
+                    + (isImg ? '<img src="'+url+'" style="height:32px;width:32px;object-fit:cover;border-radius:4px;">' : '<i class="bi '+icon+'" style="font-size:1.1rem;"></i>')
+                    + '<span class="fr-attach-name">'+_esc(a.nombre)+'</span>'
+                    + '<button type="button" class="fr-attach-remove" onclick="window.ntQuitarExistente('+idx+')"><i class="bi bi-x"></i></button>'
+                    + '</div>';
+            });
+            _ntArchivosNuevos.forEach(function(f, idx) {
+                var ext  = _ntExt(f.name);
+                var icon = _NT_ICONS[ext] || 'bi-file-earmark';
+                var isImg = _NT_IMG_EXT.includes(ext);
+                html += '<div class="fr-attach-item">'
+                    + (isImg ? '<img src="'+URL.createObjectURL(f)+'" style="height:32px;width:32px;object-fit:cover;border-radius:4px;">' : '<i class="bi '+icon+'" style="font-size:1.1rem;"></i>')
+                    + '<span class="fr-attach-name">'+_esc(f.name)+' <em style="color:var(--mon-text-soft);font-size:.7rem;">(nuevo)</em></span>'
+                    + '<button type="button" class="fr-attach-remove" onclick="window.ntQuitarNuevo('+idx+')"><i class="bi bi-x"></i></button>'
+                    + '</div>';
+            });
+            cont.innerHTML = html;
+        }
+        window.ntQuitarExistente = function(idx){ _ntAdjuntosExistentes.splice(idx,1); _ntRenderAttachList(); };
+        window.ntQuitarNuevo    = function(idx){ _ntArchivosNuevos.splice(idx,1);     _ntRenderAttachList(); };
+        window.ntDragOver  = function(e){ e.preventDefault(); _q('ntDropZone').classList.add('fr-drag'); };
+        window.ntDragLeave = function()  { _q('ntDropZone').classList.remove('fr-drag'); };
+        window.ntDrop      = function(e){ e.preventDefault(); window.ntDragLeave(); window.ntHandleFiles(e.dataTransfer.files); };
+        window.ntHandleFiles = function(files){ Array.from(files).forEach(function(f){ _ntArchivosNuevos.push(f); }); _ntRenderAttachList(); };
+
+        window.ntGuardar = function() {
+            var asunto = _q('ntFormAsunto').value.trim();
+            var obs    = _q('ntFormObservacion').value.trim();
+            if (!asunto || !obs) { alert('Asunto y Observación son obligatorios.'); return; }
+
+            var fd = new FormData();
+            fd.append('asunto', asunto);
+            fd.append('observacion', obs);
+            fd.append('estado', _q('ntFormEstado').value);
+            _ntArchivosNuevos.forEach(function(f){ fd.append('files', f); });
+
+            var btn = _q('ntFormBtnGuardar');
+            btn.disabled = true;
+            _frSetSaving(true);
+
+            var url, method;
+            if (_ntEditandoId) {
+                url = API + '/noticias/' + _ntEditandoId;
+                method = 'PUT';
+                fd.append('adjuntos_existentes', JSON.stringify(_ntAdjuntosExistentes));
+            } else {
+                url = API + '/noticias';
+                method = 'POST';
+            }
+            fetch(url, { method: method, body: fd }).then(function(r){ return r.json(); }).then(function(j) {
+                btn.disabled = false;
+                _frSetSaving(false);
+                if (!j.ok) { alert('No se pudo guardar la noticia'); return; }
+                bootstrap.Modal.getInstance(_q('ntModalForm')).hide();
+                window.ntRecargar();
+            }).catch(function() {
+                btn.disabled = false;
+                _frSetSaving(false);
+                alert('Error de conexión al guardar');
+            });
+        };
+
+        /* Garantiza que el overlay siempre se quite aunque el modal se cierre por cualquier vía */
+        _q('ntModalForm').addEventListener('hidden.bs.modal', function() {
+            _frSetSaving(false);
+            var btn = _q('ntFormBtnGuardar');
+            if (btn) btn.disabled = false;
         });
 
     })();

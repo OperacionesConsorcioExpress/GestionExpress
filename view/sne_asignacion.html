@@ -1,11 +1,13 @@
 {% extends "components/layout.html" %}
 {% block title %}Programación y Asignación de Kilómetros{% endblock %}
 
+{% set sne_asignacion_build_v = build_v|default('sne_reasignacion_objecion_v14', true) %}
+
 {% block head %}
 <!-- Tabulator CSS -->
-<link rel="stylesheet" href="{{ url_for('static', path='sne-asignacion/vendor/tabulator/tabulator_bootstrap5.min.css') }}?v={{ build_v }}">
+<link rel="stylesheet" href="{{ url_for('static', path='sne-asignacion/vendor/tabulator/tabulator_bootstrap5.min.css') }}?v={{ sne_asignacion_build_v }}">
 <!-- App CSS -->
-<link rel="stylesheet" href="{{ url_for('static', path='sne-asignacion/app.css') }}?v={{ build_v }}">
+<link rel="stylesheet" href="{{ url_for('static', path='sne-asignacion/app.css') }}?v={{ sne_asignacion_build_v }}">
 {% endblock %}
 
 {% block content %}
@@ -41,11 +43,11 @@
 <script type="importmap">
 {
   "imports": {
-    "@sne/api": "{{ url_for('static', path='sne-asignacion/api.js') }}?v={{ build_v }}",
-    "@sne/app": "{{ url_for('static', path='sne-asignacion/app.js') }}?v={{ build_v }}",
-    "@sne/ics-table": "{{ url_for('static', path='sne-asignacion/ics-table.js') }}?v={{ build_v }}",
-    "@sne/reglas": "{{ url_for('static', path='sne-asignacion/reglas.js') }}?v={{ build_v }}",
-    "@sne/utils": "{{ url_for('static', path='sne-asignacion/utils.js') }}?v={{ build_v }}"
+    "@sne/api": "{{ url_for('static', path='sne-asignacion/api.js') }}?v={{ sne_asignacion_build_v }}",
+    "@sne/app": "{{ url_for('static', path='sne-asignacion/app.js') }}?v={{ sne_asignacion_build_v }}",
+    "@sne/ics-table": "{{ url_for('static', path='sne-asignacion/ics-table.js') }}?v={{ sne_asignacion_build_v }}",
+    "@sne/reglas": "{{ url_for('static', path='sne-asignacion/reglas.js') }}?v={{ sne_asignacion_build_v }}",
+    "@sne/utils": "{{ url_for('static', path='sne-asignacion/utils.js') }}?v={{ sne_asignacion_build_v }}"
   }
 }
 </script>

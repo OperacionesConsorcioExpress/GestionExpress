@@ -71,6 +71,9 @@
           <i class="fa-solid fa-route me-2" style="color:#0a0f3d;"></i>Configuración · Rutas
         </h1>
         <div class="d-flex gap-2">
+          <a href="/cargues/rutas.xlsx" download="rutas.xlsx" class="btn btn-outline-light btn-sm">
+            <i class="fa-solid fa-file-excel me-1"></i> Descargar plantilla
+          </a>
           <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCarga">
             <i class="fa-solid fa-file-arrow-up me-1"></i> Carga masiva
           </button>
@@ -180,6 +183,7 @@
           <div class="col-12 col-md-4">
             <label class="form-label mb-1">ID Línea <span class="text-danger">*</span></label>
             <input id="ruta-id-linea" type="number" min="1" class="form-control" placeholder="Ej: 80" style="font-size:12px; height:34px;">
+            <div id="ruta-id-linea-feedback" class="invalid-feedback" style="display:none; font-size:11px;"></div>
           </div>
 
           <!-- Ruta Comercial -->
@@ -649,6 +653,7 @@
   function abrirEdicion(id){
     const r = cache.filas.find(x=> Number(x.id)===Number(id));
     if(!r) return mostrarToast({titulo:'Ruta', cuerpo:'Registro no encontrado', tipo:'danger'});
+    limpiarErrorIdLinea();
     document.getElementById('ruta-id').value        = r.id;
     document.getElementById('ruta-id-linea').value  = r.id_linea || '';
     document.getElementById('ruta-comercial').value = r.ruta_comercial || '';
@@ -671,6 +676,15 @@
     }catch(err){ mostrarToast({titulo:'Error', cuerpo:esc(err.detail), tipo:'danger'}); }
   }
 
+  function limpiarErrorIdLinea(){
+    const campo = document.getElementById('ruta-id-linea');
+    const fb    = document.getElementById('ruta-id-linea-feedback');
+    campo.classList.remove('is-invalid');
+    if(fb){ fb.style.display='none'; fb.textContent=''; }
+  }
+
+  document.getElementById('ruta-id-linea')?.addEventListener('input', limpiarErrorIdLinea);
+
   document.getElementById('btn-guardar-ruta')?.addEventListener('click', async ()=>{
     const id    = document.getElementById('ruta-id').value || null;
     const cuerpo = {
@@ -682,6 +696,29 @@
     if(!cuerpo.id_linea || !cuerpo.ruta_comercial || !cuerpo.id_cop){
       return mostrarToast({titulo:'Validación', cuerpo:'ID Línea, Ruta Comercial y Centro de Operación son obligatorios', tipo:'danger'});
     }
+    /* Validación de duplicado solo al crear */
+    if(!id){
+      try{
+        const busqueda = await API.rutas.listar({q: String(cuerpo.id_linea), tamano:50});
+        const existente = (busqueda.data||[]).find(r=> Number(r.id_linea)===Number(cuerpo.id_linea));
+        if(existente){
+          const campo = document.getElementById('ruta-id-linea');
+          const fb    = document.getElementById('ruta-id-linea-feedback');
+          campo.classList.add('is-invalid');
+          if(fb){
+            fb.textContent = `El ID Línea ${cuerpo.id_linea} ya existe (${existente.ruta_comercial}). Usa Editar para modificarlo.`;
+            fb.style.display = 'block';
+          }
+          return mostrarToast({
+            titulo: 'ID Línea duplicado',
+            cuerpo: `El ID Línea <strong>${cuerpo.id_linea}</strong> ya existe (${esc(existente.ruta_comercial)}). Para modificarlo usa la opción <strong>Editar</strong>.`,
+            tipo: 'warning'
+          });
+        }
+      }catch(err){
+        return mostrarToast({titulo:'Error', cuerpo:esc(err.detail||'No se pudo verificar el ID Línea'), tipo:'danger'});
+      }
+    }
     try{
       if(id){ await API.rutas.actualizar(id, cuerpo); mostrarToast({titulo:'Ruta', cuerpo:'Actualizada correctamente', tipo:'success'}); }
       else   { await API.rutas.crear(cuerpo);         mostrarToast({titulo:'Ruta', cuerpo:'Creada correctamente',     tipo:'success'}); }
@@ -692,6 +729,7 @@
   });
 
   document.getElementById('btn-nueva-ruta')?.addEventListener('click', async ()=>{
+    limpiarErrorIdLinea();
     document.getElementById('ruta-id').value         = '';
     document.getElementById('ruta-id-linea').value   = '';
     document.getElementById('ruta-comercial').value  = '';

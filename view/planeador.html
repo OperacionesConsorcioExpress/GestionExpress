@@ -1,0 +1,3423 @@
+{% extends "components/layout.html" %}
+{% block title %}Planeador de Tareas{% endblock %}
+
+{% block head %}
+<style>
+  :root{
+    --pl-primary:#0d6efd; --pl-primary-dark:#0b5ed7; --pl-ink:#10233c; --pl-muted:#62778e;
+    --pl-border:#e1e9f1; --pl-bg:#f4f8fc;
+  }
+  .pl-page{min-height:100%;padding:10px;background:radial-gradient(circle at top right,rgba(13,110,253,.10),transparent 24%),linear-gradient(180deg,#f4f8fc 0%,#eef3f9 100%);font-family:'Century Gothic',Arial,sans-serif;color:#17324c}
+  .pl-card{background:#fff;border:1px solid #dbe5ef;border-radius:18px;box-shadow:0 16px 36px rgba(15,23,42,.07);margin-bottom:10px;transition:box-shadow .2s ease}
+  .pl-hero{padding:16px 18px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%);color:#fff;border:0}
+  .pl-hero .pl-title{color:#fff;display:flex;align-items:center;gap:8px}
+  .pl-hero .pl-text{color:rgba(255,255,255,.85)}
+  .pl-title{margin:0 0 3px;font-size:1.05rem;font-weight:800}
+  .pl-text{margin:0;color:#60768e;font-size:.72rem}
+  .pl-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pl-select{min-height:36px;border:1px solid rgba(255,255,255,.5);border-radius:11px;padding:0 10px;font-size:.75rem;background:rgba(255,255,255,.95);color:#10233c;font-weight:700}
+  .pl-btn{border:none;border-radius:11px;min-height:36px;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:transform .15s ease,filter .15s ease}
+  .pl-btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
+  .pl-btn:active{transform:translateY(0)}
+  .pl-btn--primary{background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%);color:#fff;box-shadow:0 8px 18px rgba(13,110,253,.25)}
+  .pl-btn--light{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4)}
+  .pl-btn--light:hover{background:rgba(255,255,255,.28)}
+  .pl-btn--soft{background:#eef4fb;color:#1f4e79;border:1px solid #d8e3f1}
+  .pl-btn--danger{background:#fff3f3;color:#b3261e;border:1px solid #f3c8c8}
+  .pl-btn--sm{min-height:30px;padding:0 10px;font-size:.66rem;border-radius:8px}
+  .pl-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+  .pl-tabs{display:flex;gap:4px;padding:8px;border-bottom:1px solid #e4ebf3;flex-wrap:wrap;background:#fbfdff}
+  .pl-tab{border:none;background:transparent;padding:9px 16px;border-radius:11px 11px 0 0;font-size:.74rem;font-weight:700;color:#5c7390;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s ease}
+  .pl-tab:hover{color:#0b5ed7;background:#f1f6ff}
+  .pl-tab.active{background:#eef4fb;color:#0b5ed7;box-shadow:inset 0 -3px 0 #0d6efd}
+  .pl-panel{padding:16px 18px;display:none;animation:plFadeIn .25s ease}
+  .pl-panel.active{display:block}
+  @keyframes plFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  .pl-empty{padding:30px 16px;text-align:center;color:#7e93a8;font-size:.76rem}
+  .pl-empty i{display:block;font-size:1.6rem;margin-bottom:8px;opacity:.5}
+  .pl-loading{padding:24px;text-align:center;color:#7e93a8;font-size:.74rem}
+  .pl-loading i{animation:plSpin 1s linear infinite;margin-right:6px}
+  @keyframes plSpin{to{transform:rotate(360deg)}}
+  .pl-section-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#3b546d;margin:0 0 8px;display:flex;align-items:center;gap:6px}
+  .pl-board{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
+  .pl-col{min-width:250px;max-width:270px;background:#f6f9fc;border:1px solid #e1e9f1;border-radius:16px;display:flex;flex-direction:column;box-shadow:0 4px 10px rgba(15,23,42,.03);transition:min-width .2s ease,max-width .2s ease}
+  .pl-col.is-collapsed{min-width:52px;max-width:52px}
+  .pl-col-head{padding:10px 12px;font-size:.72rem;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:6px;border-bottom:2px solid #dde9f8;border-radius:16px 16px 0 0;background:linear-gradient(180deg,#fff 0%,#f6f9fc 100%)}
+  .pl-col.is-collapsed .pl-col-head{flex-direction:column;align-items:center;padding:10px 4px;gap:8px;border-bottom:0}
+  .pl-col-name-wrap{display:flex;align-items:center;gap:5px;overflow:hidden}
+  .pl-col-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl-col.is-collapsed .pl-col-name-wrap{flex-direction:column;align-items:center;gap:4px}
+  .pl-col.is-collapsed .pl-col-name{writing-mode:vertical-lr;text-orientation:mixed;white-space:nowrap;overflow:hidden;max-height:130px;font-size:.64rem;letter-spacing:.04em}
+  .pl-col-head-btns{display:flex;gap:4px;flex-shrink:0}
+  .pl-col.is-collapsed .pl-col-head-btns{flex-direction:column;align-items:center}
+  .pl-col.is-collapsed .pl-col-add-btn{display:none}
+  .pl-col-toggle{border:none;background:rgba(14,110,253,.08);color:#0d6efd;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;transition:background .15s,color .15s;flex-shrink:0}
+  .pl-col-toggle:hover{background:rgba(14,110,253,.18)}
+  .pl-col-count{background:#e6eefb;color:#1f4e79;border-radius:999px;padding:1px 8px;font-size:.62rem;white-space:nowrap}
+  .pl-col-body{padding:9px;display:flex;flex-direction:column;gap:9px;min-height:80px;max-height:520px;overflow-y:auto;transition:background .15s ease}
+  .pl-col-body::-webkit-scrollbar{width:5px}
+  .pl-col-body::-webkit-scrollbar-thumb{background:#cfdce8;border-radius:999px}
+  .pl-col-body::-webkit-scrollbar-track{background:transparent}
+  .pl-col.is-collapsed .pl-col-body{display:none}
+  .pl-col-body.drag-over{background:#e0ecff;outline:2px dashed #7eb2ff;outline-offset:-4px;border-radius:10px}
+  .pl-card-item{background:#fff;border:1px solid #dde7f2;border-radius:13px;padding:10px;font-size:.7rem;cursor:grab;box-shadow:0 4px 10px rgba(15,23,42,.05);transition:box-shadow .15s ease,transform .15s ease}
+  .pl-card-item:hover{box-shadow:0 8px 18px rgba(15,23,42,.1);transform:translateY(-1px)}
+  .pl-card-item.dragging{opacity:.4;transform:rotate(2deg)}
+  .pl-card-item b{display:block;font-size:.76rem;margin-bottom:4px;color:#17324c}
+  .pl-card-item small{color:#7e93a8;display:inline-flex;align-items:center;gap:3px;margin-top:2px}
+  .pl-card-proyecto{font-size:.64rem;color:#6b46c1;font-weight:700;display:flex;align-items:center;gap:4px;margin-top:3px}
+  .pl-venc-badge{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:999px;text-transform:uppercase;margin-top:4px}
+  .pl-venc-badge--vencida{background:#fdecec;color:#b3261e}
+  .pl-venc-badge--vigente{background:#e9f8ee;color:#1d7a3c}
+  .pl-persona-carga{padding:9px 0;border-bottom:1px solid #eef2f7}
+  .pl-persona-carga:last-child{border-bottom:none}
+  .pl-persona-carga-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px}
+  .pl-persona-carga-head .nombre{font-size:.7rem;font-weight:700;color:#17324c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-persona-pct{font-size:.62rem;font-weight:800;color:#1d7a3c}
+  .pl-stack-bar{display:flex;height:9px;border-radius:999px;overflow:hidden;background:#eef2f7;width:100%}
+  .pl-stack-seg{height:100%}
+  .pl-persona-legend{display:flex;flex-wrap:wrap;gap:7px;margin-top:5px;font-size:.6rem;color:#7e93a8}
+  .pl-persona-legend span{display:inline-flex;align-items:center;gap:3px}
+  .pl-persona-legend i{width:7px;height:7px;border-radius:50%;display:inline-block}
+  .pl-tag{display:inline-block;font-size:.6rem;font-weight:800;padding:2px 8px;border-radius:999px;background:#edf4ff;color:#0b5ed7;margin-right:4px;text-transform:uppercase;letter-spacing:.02em}
+  .pl-tag--baja{background:#eef6ee;color:#2e7d32}
+  .pl-tag--media{background:#edf4ff;color:#0b5ed7}
+  .pl-tag--alta{background:#fff3e0;color:#b06b00}
+  .pl-tag--urgente{background:#fdecec;color:#b3261e}
+  .pl-table{width:100%;border-collapse:separate;border-spacing:0 7px;font-size:.72rem}
+  .pl-table th{text-align:left;padding:8px;color:#5c7390;font-weight:800;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em}
+  .pl-table td{padding:9px 8px;background:#fff;vertical-align:middle}
+  .pl-table tr td:first-child{border-radius:11px 0 0 11px;border-left:3px solid #7eb2ff}
+  .pl-table tr td:last-child{border-radius:0 11px 11px 0;text-align:right}
+  .pl-table tbody tr{transition:box-shadow .15s ease}
+  .pl-table tbody tr:hover td{background:#f7fafd}
+  .pl-status{display:inline-flex;align-items:center;gap:5px;font-size:.64rem;font-weight:800;padding:3px 9px;border-radius:999px}
+  .pl-status--pendiente{background:#fff7e6;color:#a86a00}
+  .pl-status--completada{background:#e9f8ee;color:#1d7a3c}
+  .pl-status--omitida{background:#f1f3f5;color:#6c757d}
+  .pl-status--no_realizada{background:#fdecea;color:#b71c1c}
+  .pl-recurrentes-layout{display:grid;grid-template-columns:1fr 270px;gap:14px;align-items:start;transition:grid-template-columns .3s ease}
+  .pl-recurrentes-layout.aside-collapsed{grid-template-columns:1fr 32px}
+  @media (max-width:880px){.pl-recurrentes-layout{grid-template-columns:1fr}.pl-recurrentes-layout.aside-collapsed{grid-template-columns:1fr 32px}}
+  .pl-rec-list{display:flex;flex-direction:column;gap:8px}
+  .pl-rec-row{display:grid;grid-template-columns:34px minmax(0,1fr) 210px 90px 78px 40px;align-items:start;column-gap:10px;background:#fff;border:1px solid #e1e9f1;border-radius:13px;padding:9px 12px;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
+  .pl-rec-row.is-inactiva{opacity:.6}
+  .pl-rec-estado{padding-top:2px}
+  .pl-estado-badge{display:inline-flex;align-items:center;gap:4px;font-size:.62rem;font-weight:800;padding:3px 9px;border-radius:999px;text-transform:uppercase}
+  .pl-estado-badge--activa{background:#e9f8ee;color:#1d7a3c}
+  .pl-estado-badge--inactiva{background:#f1f3f5;color:#6c757d}
+  .pl-rec-row:hover{box-shadow:0 8px 18px rgba(15,23,42,.08);transform:translateY(-1px)}
+  .pl-rec-check{width:34px;height:34px;border-radius:50%;border:2px solid #d9e3ee;background:#fff;display:flex;align-items:center;justify-content:center;color:#9fb2c5;font-size:1rem;transition:all .15s ease}
+  .pl-rec-check:hover{border-color:#0d6efd;color:#0d6efd}
+  .pl-rec-check.is-done{border-color:#1d7a3c;background:#e9f8ee;color:#1d7a3c;cursor:default}
+  .pl-rec-main{min-width:0}
+  .pl-rec-title-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .pl-rec-title{font-weight:800;font-size:.78rem;color:#17324c}
+  .pl-rec-meta{display:flex;align-items:center;gap:10px;margin-top:3px;flex-wrap:wrap;font-size:.66rem;color:#7e93a8}
+  .pl-rec-meta b{color:#3b546d}
+  .pl-rec-responsable{display:grid;grid-template-columns:32px 1fr;column-gap:7px;align-items:start;text-align:left;min-width:0}
+  .pl-rec-responsable .nombre{font-size:.7rem;font-weight:700;color:#17324c;line-height:1.25;white-space:normal;word-break:break-word;text-align:left}
+  .pl-rec-responsable .rol-tag{display:block;font-size:.58rem;color:#9fb2c5;text-transform:uppercase;text-align:left}
+  .pl-rec-fecha{text-align:right}
+  .pl-rec-fecha .fecha{font-weight:800;font-size:.72rem;color:#17324c}
+  .pl-rec-fecha.is-overdue .fecha{color:#b3261e}
+  .pl-rec-fecha small{display:block;color:#9fb2c5;font-size:.6rem;text-transform:uppercase}
+  .pl-rec-actions{flex:none}
+  .pl-rec-filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .pl-rec-filtros input,.pl-rec-filtros select{min-height:32px;border:1px solid #d9e3ee;border-radius:10px;padding:0 10px;font-size:.7rem;background:#fcfdff}
+  .pl-rec-filtros .pl-search{flex:1;min-width:160px}
+  .pl-rec-filtros .pl-search input{width:100%}
+  .pl-carga-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #eef2f7}
+  .pl-carga-row:last-child{border-bottom:none}
+  .pl-rec-carga{align-self:start;position:sticky;top:10px;overflow:hidden;transition:opacity .25s ease .05s}
+  .pl-rec-carga.is-collapsed{overflow:hidden}
+  .pl-rec-carga.is-collapsed .pl-persona-contenido{display:none}
+  .pl-persona-tab{display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:100%;min-height:120px;cursor:pointer;padding:10px 0}
+  .pl-rec-carga.is-collapsed .pl-persona-tab{display:flex}
+  .pl-persona-tab-label{writing-mode:vertical-lr;transform:rotate(180deg);font-size:.65rem;font-weight:700;color:#5a7090;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+  .pl-persona-toggle-btn{background:none;border:none;padding:4px;color:#5a7090;cursor:pointer;border-radius:6px;transition:background .15s}
+  .pl-persona-toggle-btn:hover{background:#e8f0f8}
+  #plCargaSemanal,#plTableroCargaPersonas{max-height:460px;overflow-y:auto}
+  #plCargaSemanal::-webkit-scrollbar,#plTableroCargaPersonas::-webkit-scrollbar{width:8px}
+  #plCargaSemanal::-webkit-scrollbar-thumb,#plTableroCargaPersonas::-webkit-scrollbar-thumb{background:#b0c4d8;border-radius:999px;border:2px solid #f0f4f9}
+  #plCargaSemanal::-webkit-scrollbar-track,#plTableroCargaPersonas::-webkit-scrollbar-track{background:#f0f4f9;border-radius:999px}
+  .pl-carga-info{flex:1;min-width:0}
+  .pl-carga-bar{height:6px;border-radius:999px;background:#eef2f7;margin-top:4px;overflow:hidden}
+  .pl-carga-bar span{display:block;height:100%;background:linear-gradient(90deg,#0d6efd,#0b5ed7);border-radius:999px}
+  .pl-carga-time{font-size:.62rem;font-weight:800;color:#3b546d}
+  .pl-detalle-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .pl-detalle-meta div{background:#f6f9fc;border-radius:11px;padding:8px 10px}
+  .pl-detalle-meta b{display:block;font-size:.6rem;text-transform:uppercase;color:#7e93a8;letter-spacing:.03em}
+  .pl-detalle-meta span{font-size:.78rem;font-weight:700;color:#17324c}
+  /* ── Historial tabla compacta ── */
+  .pl-hist-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.72rem}
+  .pl-hist-table thead th{position:sticky;top:0;background:#f0f4f9;color:#5a7090;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:2px solid #d8e4f0;white-space:nowrap}
+  .pl-hist-table tbody tr{transition:background .1s}
+  .pl-hist-table tbody tr:hover{background:#f7fafd}
+  .pl-hist-table tbody tr:not(:last-child) td{border-bottom:1px solid #eef2f7}
+  .pl-hist-table td{padding:6px 8px;vertical-align:middle}
+  .pl-hist-fecha{font-weight:800;color:#3b546d;white-space:nowrap;width:80px}
+  .pl-hist-estado{width:90px;white-space:nowrap}
+  .pl-hist-usuario{width:130px}
+  .pl-hist-usuario-name{font-size:.65rem;color:#3b546d;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+  .pl-hist-usuario-time{font-size:.58rem;color:#8fa3b8;white-space:nowrap}
+  .pl-hist-obs{color:#4a6280;font-size:.7rem;min-width:160px}
+  .pl-hist-obs-text{overflow:hidden;max-height:2.8em;line-height:1.4}
+  .pl-proy-row{display:grid;grid-template-columns:6px minmax(0,1fr) 200px 110px 36px;align-items:start;column-gap:10px;background:#fff;border:1px solid #e1e9f1;border-radius:13px;padding:10px 12px;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
+  .pl-proy-row:hover{box-shadow:0 8px 18px rgba(15,23,42,.08);transform:translateY(-1px)}
+  .pl-proy-accent{width:6px;height:100%;min-height:48px;border-radius:4px;align-self:stretch}
+  .pl-proy-main .nombre{font-weight:800;font-size:.78rem;color:#17324c}
+  .pl-proy-main .desc{font-size:.66rem;color:#7e93a8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px}
+  .pl-proy-main .fechas{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:.66rem;color:#7e93a8}
+  .pl-proy-main .fechas i{color:#9fb2c5}
+  .pl-proy-main .dias-badge{font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:999px}
+  .pl-proy-main .dias-badge--ok{background:#e9f8ee;color:#1d7a3c}
+  .pl-proy-main .dias-badge--warn{background:#fff3e0;color:#b06b00}
+  .pl-proy-main .dias-badge--venc{background:#fdecec;color:#b3261e}
+  .pl-proy-responsable{display:grid;grid-template-columns:32px 1fr;column-gap:7px;align-items:start;text-align:left;min-width:0}
+  .pl-proy-responsable .nombre{font-size:.7rem;font-weight:700;color:#17324c;line-height:1.1;white-space:normal;word-break:break-word}
+  .pl-proy-responsable .rol-tag{display:block;font-size:.58rem;color:#9fb2c5;text-transform:uppercase}
+  .pl-proy-estado{padding-top:2px}
+  .pl-resumen-estado{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eef2f7}
+  .pl-resumen-estado:last-child{border-bottom:none}
+  .pl-resumen-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .pl-resumen-label{flex:1;font-size:.72rem;font-weight:700;color:#17324c}
+  .pl-resumen-count{font-size:.7rem;font-weight:800;color:#3b546d}
+  .pl-resumen-pct-bar{height:6px;border-radius:999px;margin-top:3px;background:#eef2f7;overflow:hidden}
+  .pl-resumen-pct-bar span{display:block;height:100%;border-radius:999px}
+  @media (max-width:700px){.pl-proy-row{grid-template-columns:6px 1fr 36px}}
+  /* ── Notas ── */
+  .pl-notas-layout{display:grid;grid-template-columns:1fr 200px;gap:16px;align-items:start}
+  @media(max-width:820px){.pl-notas-layout{grid-template-columns:1fr}}
+  #plNotasContenido{max-height:calc(100vh - 240px);overflow-y:auto;padding-right:6px}
+  #plNotasContenido::-webkit-scrollbar{width:8px}
+  #plNotasContenido::-webkit-scrollbar-thumb{background:#b0c4d8;border-radius:999px;border:2px solid #f0f4f9}
+  #plNotasContenido::-webkit-scrollbar-track{background:#f0f4f9;border-radius:999px}
+  .pl-notas-filtro-label{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8fa3b8;margin-bottom:8px;padding:4px 0 2px 2px;border-bottom:1px solid #eef2f7}
+  .pl-notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+  .pl-note{border-radius:14px;padding:13px;font-size:.72rem;box-shadow:0 4px 12px rgba(15,23,42,.07);transition:transform .15s ease,box-shadow .15s ease;cursor:pointer;height:200px;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(0,0,0,.06)}
+  .pl-note:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(15,23,42,.11)}
+  .pl-note-titulo{font-weight:800;font-size:.78rem;color:#17324c;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl-note-body{color:#4a5f75;flex:1;overflow:hidden;line-height:1.45;word-break:break-word;font-size:.7rem}
+  .pl-note-footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:.6rem;color:#8fa3b8}
+  .pl-note-clips{display:flex;align-items:center;gap:3px}
+  /* Checklist en tarjeta */
+  .pl-checklist-wrap{margin-top:4px}
+  .pl-checklist-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;border:1px solid #e4edf7;background:#fff;margin-bottom:4px;transition:background .15s}
+  .pl-checklist-item.is-done{background:#f0fdf4;border-color:#bbf7d0}
+  .pl-checklist-item input[type=checkbox]{width:16px;height:16px;accent-color:#1d7a3c;cursor:pointer;flex-shrink:0}
+  .pl-checklist-item .pl-cl-texto{flex:1;font-size:.8rem;color:#3b546d;line-height:1.3}
+  .pl-checklist-item.is-done .pl-cl-texto{text-decoration:line-through;color:#94a3b8}
+  .pl-checklist-item .pl-cl-del{background:none;border:none;color:#c0cad8;cursor:pointer;padding:0 2px;font-size:.75rem;opacity:0;transition:opacity .15s}
+  .pl-checklist-item:hover .pl-cl-del{opacity:1}
+  .pl-checklist-add{display:flex;gap:6px;margin-top:6px}
+  .pl-checklist-add input{flex:1;font-size:.8rem}
+  .pl-checklist-progress{height:5px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-bottom:8px}
+  .pl-checklist-progress-bar{height:100%;background:#1d7a3c;border-radius:999px;transition:width .3s}
+  .pl-checklist-label{font-size:.65rem;color:#5a7090;margin-bottom:4px}
+  /* Adjuntos en modal */
+  .pl-adj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:8px}
+  .pl-adj-item{border-radius:10px;overflow:hidden;border:1px solid #dde7f2;background:#f8fafc;cursor:pointer;transition:box-shadow .15s;position:relative}
+  .pl-adj-item:hover{box-shadow:0 4px 10px rgba(15,23,42,.12)}
+  .pl-adj-thumb{width:100%;height:72px;object-fit:cover;display:block}
+  .pl-adj-thumb-pdf{width:100%;height:72px;display:flex;align-items:center;justify-content:center;background:#fff5f5;font-size:1.6rem;color:#dc3545}
+  .pl-adj-thumb-file{width:100%;height:72px;display:flex;align-items:center;justify-content:center;background:#f0f4f9;font-size:1.6rem;color:#5a7090}
+  .pl-adj-name{font-size:.55rem;padding:3px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4a5f75}
+  .pl-adj-del{position:absolute;top:3px;right:3px;background:rgba(220,53,69,.85);border:none;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s;color:#fff;font-size:.55rem;padding:0}
+  .pl-adj-item:hover .pl-adj-del{opacity:1}
+  .pl-dropzone{border:2px dashed #c5d5e8;border-radius:12px;padding:16px;text-align:center;color:#8fa3b8;font-size:.7rem;cursor:pointer;transition:border-color .15s,background .15s;margin-top:8px}
+  .pl-dropzone:hover,.pl-dropzone.dragover{border-color:#4a90d9;background:#f0f7ff;color:#2e6db4}
+  .pl-dropzone i{font-size:1.4rem;display:block;margin-bottom:4px}
+  /* ── Calendario ── */
+  .pl-cal-layout{display:flex;gap:18px;align-items:flex-start}
+  .pl-cal-main{flex:0 0 58%;min-width:0}
+  .pl-cal-detalle{flex:1;min-width:280px;background:#f7fafd;border-radius:14px;padding:0;min-height:340px;border:1px solid #e4ebf3;position:sticky;top:0;display:flex;flex-direction:column;max-height:calc(100vh - 220px)}
+  .pl-cal-detalle-header{padding:14px 16px 0;flex-shrink:0}
+  .pl-cal-detalle-scroll{flex:1;overflow-y:auto;padding:0 16px 14px}
+  .pl-cal-detalle-scroll::-webkit-scrollbar{width:6px}
+  .pl-cal-detalle-scroll::-webkit-scrollbar-thumb{background:#b0c4d8;border-radius:999px}
+  .pl-cal-detalle-scroll::-webkit-scrollbar-track{background:transparent}
+  .pl-cal-detalle-footer{padding:10px 16px 14px;flex-shrink:0;border-top:1px solid #e4ebf3}
+  .pl-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .pl-cal-mes-label{font-size:.95rem;font-weight:800;color:#1f4e79;text-transform:capitalize;letter-spacing:-.01em}
+  .pl-cal-nav{border:none;background:#eef4fb;color:#1f4e79;border-radius:8px;width:30px;height:30px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
+  .pl-cal-nav:hover{background:#d4e6f7}
+  .pl-cal-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:.66rem;color:#5a7090;font-weight:600;align-items:center}
+  .pl-cal-legend-item{display:flex;align-items:center;gap:4px}
+  .pl-cal-legend-fes{color:#c62828}
+  .pl-cal-legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .pl-cal-legend-dot--rec{background:#4a6fa5}
+  .pl-cal-legend-dot--tar{background:#e07000}
+  .pl-cal-legend-dot--evt{background:#7c3aed}
+  .pl-cal-legend-fes-box{width:10px;height:10px;border-radius:3px;background:#ffecec;border:1px solid #f5c6c6;display:inline-block}
+  .pl-cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.6rem;font-weight:800;color:#7e93a8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;padding:0 1px}
+  .pl-cal-weekdays div:last-child{color:#c62828}
+  .pl-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  /* Modo sin fin de semana: oculta col 6 (Sá) y col 7 (Do) de weekdays y grilla */
+  .pl-cal-main.pl-cal-hide-finde .pl-cal-weekdays{grid-template-columns:repeat(5,1fr)}
+  .pl-cal-main.pl-cal-hide-finde .pl-cal-weekdays div:nth-child(6),
+  .pl-cal-main.pl-cal-hide-finde .pl-cal-weekdays div:nth-child(7){display:none}
+  .pl-cal-main.pl-cal-hide-finde .pl-cal-grid{grid-template-columns:repeat(5,1fr)}
+  /* nth-child(7n+6)=Sábados, nth-child(7n)=Domingos (CSS n≥1 → 7,14,21…) */
+  .pl-cal-main.pl-cal-hide-finde .pl-cal-grid .pl-cal-day:nth-child(7n+6),
+  .pl-cal-main.pl-cal-hide-finde .pl-cal-grid .pl-cal-day:nth-child(7n){display:none}
+  .pl-cal-day{min-height:66px;background:#fff;border-radius:9px;padding:5px 4px 4px;border:1.5px solid transparent;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;position:relative;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(30,60,100,.04)}
+  .pl-cal-day:hover{border-color:#b8d4f0;background:#f0f7ff;box-shadow:0 2px 8px rgba(30,80,160,.08)}
+  .pl-cal-day.is-selected{border-color:#0d6efd!important;background:#eef4ff!important;box-shadow:0 2px 10px rgba(13,110,253,.15)!important}
+  .pl-cal-day.is-today .pl-cal-day-num{background:#0d6efd;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:800;margin:0 auto}
+  .pl-cal-day.is-holiday{background:#fff5f5;border-color:#fad7d7}
+  .pl-cal-day.is-sunday{background:#fff9f9}
+  .pl-cal-day.is-holiday .pl-cal-day-num,.pl-cal-day.is-sunday .pl-cal-day-num{color:#c62828}
+  .pl-cal-day.is-other-month{opacity:.3;pointer-events:none}
+  .pl-cal-day-num{font-size:.95rem;font-weight:800;color:#1f4e79;line-height:1;margin-bottom:2px;min-width:28px;min-height:24px;display:flex;align-items:center;justify-content:center;width:100%;text-align:center}
+  .pl-cal-day-fes{font-size:.48rem;color:#c62828;font-weight:700;line-height:1.2;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-cal-dots{display:flex;flex-wrap:wrap;gap:2px;margin-top:auto;padding-bottom:2px}
+  .pl-cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .pl-cal-dot--rec{background:#4a6fa5}
+  .pl-cal-dot--tar{background:#e07000}
+  .pl-cal-dot--evt{background:#7c3aed}
+  .pl-cal-more{font-size:.5rem;color:#7e93a8;font-weight:700;line-height:1;margin-left:2px}
+  /* Detalle lateral */
+  .pl-cal-detalle-empty{text-align:center;color:#9ab0c8;font-size:.74rem;padding:40px 10px}
+  .pl-cal-detalle-empty i{font-size:2rem;display:block;margin-bottom:8px;opacity:.4}
+  .pl-cal-det-fecha{font-size:.76rem;font-weight:800;color:#1f4e79;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #e4ebf3;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+  .pl-cal-det-badge{font-size:.58rem;padding:2px 7px;border-radius:999px;font-weight:800;background:#fff0f0;color:#c62828}
+  .pl-cal-det-section{margin-bottom:10px}
+  .pl-cal-det-section-title{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#7e93a8;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+  .pl-cal-det-item{padding:5px 8px;border-radius:8px;margin-bottom:3px;font-size:.7rem;font-weight:600;display:flex;align-items:flex-start;gap:5px}
+  .pl-cal-det-item--rec{background:#eef3fa;border-left:3px solid #4a6fa5;color:#1a3a5c}
+  .pl-cal-det-item--tar{background:#fff3e0;border-left:3px solid #e07000;color:#6b3000}
+  .pl-cal-det-item--evt{background:#f3effe;border-left:3px solid #7c3aed;color:#3b0f8c}
+  .pl-cal-det-item-obs{font-weight:400;color:#6c757d;font-size:.64rem;margin-top:2px}
+  .pl-cal-det-item-body{flex:1;min-width:0}
+  .pl-cal-det-actions{display:flex;gap:5px;margin-top:10px}
+  .pl-cal-det-icon-btn{background:none;border:none;padding:2px 4px;cursor:pointer;border-radius:5px;line-height:1;transition:background .12s}
+  .pl-cal-det-icon-btn:hover{background:rgba(0,0,0,.07)}
+  /* Preview modal overlay */
+  #plPreviewOverlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+  #plPreviewOverlay.show{display:flex}
+  #plPreviewOverlay img{max-width:90vw;max-height:88vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  #plPreviewOverlay iframe{width:85vw;height:88vh;border:none;border-radius:10px;background:#fff}
+  #plPreviewClose{position:fixed;top:16px;right:20px;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #plPreviewClose:hover{background:rgba(255,255,255,.28)}
+  /* Selector colores pastel */
+  .pl-color-picker{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .pl-color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .pl-color-swatch:hover{transform:scale(1.18)}
+  .pl-color-swatch.selected{border-color:#3b546d;transform:scale(1.18)}
+  /* Sidebar fechas */
+  .pl-notas-sidebar{background:#f8fafc;border:1px solid #e1e9f1;border-radius:14px;padding:12px;font-size:.7rem}
+  .pl-notas-sidebar .pl-section-title{margin-bottom:8px}
+  .pl-fecha-nav-item{padding:6px 8px;border-radius:8px;cursor:pointer;transition:background .12s;display:flex;justify-content:space-between;align-items:center}
+  .pl-fecha-nav-item:hover{background:#eef2f7}
+  .pl-fecha-nav-item.active{background:#ddeeff;font-weight:700;color:#174e80}
+  .pl-fecha-nav-badge{background:#cfdce8;border-radius:999px;font-size:.55rem;padding:1px 6px;font-weight:700}
+  .pl-file{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid #dde7f2;border-radius:12px;padding:9px 11px;font-size:.7rem;margin-top:7px;transition:box-shadow .15s ease}
+  .pl-file:hover{box-shadow:0 4px 10px rgba(15,23,42,.06)}
+  .pl-file i{color:#0b5ed7;margin-right:6px}
+  .pl-member-row{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #eef2f7;font-size:.74rem;gap:8px}
+  .pl-member-row:last-child{border-bottom:none}
+  .pl-scroll-list{max-height:260px;overflow-y:auto;padding-right:4px}
+  .pl-scroll-list::-webkit-scrollbar{width:7px}
+  .pl-scroll-list::-webkit-scrollbar-thumb{background:#cfdce8;border-radius:999px}
+  .pl-scroll-list::-webkit-scrollbar-track{background:transparent}
+  .pl-member-info{display:flex;align-items:center;gap:9px;min-width:0}
+  .pl-member-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:800;color:#fff;flex:none}
+  .pl-role-badge{font-size:.6rem;font-weight:800;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em}
+  .pl-role-badge--admin{background:#fdecec;color:#b3261e}
+  .pl-role-badge--editor{background:#fff3e0;color:#b06b00}
+  .pl-role-badge--lector{background:#edf4ff;color:#0b5ed7}
+  .pl-search{position:relative}
+  .pl-search i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#8ba2b8;font-size:.78rem}
+  .pl-search input{padding-left:32px !important}
+  .pl-autocomplete{position:relative}
+  .pl-autocomplete-results{position:absolute;z-index:1056;top:calc(100% + 4px);left:0;right:0;max-height:220px;overflow:auto;background:#fff;border:1px solid #dde7f2;border-radius:12px;box-shadow:0 14px 28px rgba(15,23,42,.14);display:none}
+  .pl-ac-item{display:flex;align-items:center;gap:9px;padding:8px 10px;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;font-size:.72rem}
+  .pl-ac-item:hover{background:#f1f6ff}
+  .pl-ac-empty{padding:14px;text-align:center;color:#8ba2b8;font-size:.7rem}
+
+  /* Modales modernos */
+  .pl-modal .modal-content{border:0;border-radius:20px;box-shadow:0 24px 60px rgba(15,23,42,.28)}
+  .pl-modal .modal-header{background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 100%);color:#fff;border:0;padding:16px 20px;border-radius:20px 20px 0 0}
+  .pl-modal .modal-header .modal-title{display:flex;align-items:center;gap:9px;font-weight:800;font-size:.92rem}
+  .pl-modal .modal-header .btn-close{filter:invert(1) grayscale(1) brightness(2)}
+  .pl-modal .modal-body{padding:18px 20px}
+  .pl-modal .modal-footer{border:0;padding:12px 20px 18px;border-radius:0 0 20px 20px}
+  .pl-modal .form-label{font-size:.68rem;font-weight:800;color:#3b546d;text-transform:uppercase;letter-spacing:.02em}
+  .pl-modal .form-control,.pl-modal .form-select{border-radius:10px;border:1px solid #d9e3ee;font-size:.78rem}
+  .pl-modal .form-control:focus,.pl-modal .form-select:focus{border-color:#0d6efd;box-shadow:0 0 0 4px rgba(13,110,253,.12)}
+  .pl-modal-sub{font-size:.78rem;font-weight:800;color:#17324c;margin:0 0 10px;display:flex;align-items:center;gap:6px}
+  .pl-divider{height:1px;background:linear-gradient(90deg,transparent,#dde7f2 18%,#dde7f2 82%,transparent);margin:16px 0}
+
+  /* Toasts */
+  #plToastWrap{position:fixed;top:16px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:8px;max-width:320px}
+  .pl-toast{display:flex;align-items:flex-start;gap:9px;background:#fff;border-radius:13px;padding:11px 13px;box-shadow:0 14px 30px rgba(15,23,42,.18);font-size:.74rem;border-left:4px solid #0d6efd;animation:plToastIn .25s ease}
+  .pl-toast--success{border-left-color:#1d7a3c}
+  .pl-toast--error{border-left-color:#b3261e}
+  .pl-toast i{font-size:1rem;margin-top:1px}
+  .pl-toast--success i{color:#1d7a3c}
+  .pl-toast--error i{color:#b3261e}
+  .pl-toast--info i{color:#0b5ed7}
+  @keyframes plToastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+  .pl-toast.is-leaving{animation:plToastOut .2s ease forwards}
+  @keyframes plToastOut{to{opacity:0;transform:translateX(24px)}}
+
+  @media (max-width:640px){.pl-hero{padding:14px}.pl-toolbar{width:100%}.pl-select{flex:1}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="plToastWrap"></div>
+
+<div class="pl-page">
+  <section class="pl-card pl-hero">
+    <div>
+      <h1 class="pl-title"><i class="bi bi-calendar2-week"></i> Planeador de Tareas</h1>
+      <p class="pl-text">Actividades recurrentes, tablero scrumban, proyectos y notas por equipo de trabajo.</p>
+    </div>
+    <div class="pl-toolbar">
+      <select id="plEquipoSelect" class="pl-select"></select>
+      <button id="plBtnNuevoEquipo" class="pl-btn pl-btn--light" type="button"><i class="bi bi-plus-lg"></i> Equipo</button>
+      <button id="plBtnAdminEquipo" class="pl-btn pl-btn--light" type="button" style="display:none"><i class="bi bi-people"></i> Administrar</button>
+    </div>
+  </section>
+
+  <section id="plSinEquipos" class="pl-card" style="display:none">
+    <div class="pl-empty"><i class="bi bi-people"></i>No perteneces a ningún equipo todavía.<br>Crea uno con el botón "+ Equipo".</div>
+  </section>
+
+  <section id="plContenido" class="pl-card" style="display:none">
+    <div class="pl-tabs">
+      <button class="pl-tab active" data-tab="recurrentes" type="button"><i class="bi bi-arrow-repeat"></i> Recurrentes</button>
+      <button class="pl-tab" data-tab="scrumban" type="button"><i class="bi bi-kanban"></i> Scrumban</button>
+      <button class="pl-tab" data-tab="proyectos" type="button"><i class="bi bi-folder2-open"></i> Proyectos</button>
+      <button class="pl-tab" data-tab="notas" type="button"><i class="bi bi-journal-text"></i> Notas y archivos</button>
+      <button class="pl-tab" data-tab="calendario" type="button"><i class="bi bi-calendar3"></i> Calendario</button>
+    </div>
+
+    <div class="pl-panel active" data-panel="recurrentes">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <p class="pl-section-title" style="margin:0"><i class="bi bi-arrow-repeat"></i> Actividades recurrentes del equipo</p>
+        <div class="d-flex gap-2 align-items-center">
+          <button id="plBtnMigrarDiasHabiles" class="pl-btn pl-btn--soft pl-btn--sm" type="button" title="Mover ejecuciones pendientes en festivos/fines de semana al siguiente día hábil" style="display:none"><i class="bi bi-calendar-check"></i> Ajustar días hábiles</button>
+          <button id="plBtnNuevaRecurrente" class="pl-btn pl-btn--primary pl-btn--sm" type="button"><i class="bi bi-plus-lg"></i> Recurrente</button>
+        </div>
+      </div>
+      <div class="pl-recurrentes-layout">
+        <div>
+          <div class="pl-rec-filtros">
+            <div class="pl-search" style="flex:2;min-width:130px">
+              <i class="bi bi-search"></i>
+              <input id="plRecFiltroTexto" placeholder="Buscar actividad...">
+            </div>
+            <select id="plRecFiltroEstado" style="flex:0 0 auto">
+              <option value="true">Activas</option>
+              <option value="false">Inactivas</option>
+              <option value="">Todas</option>
+            </select>
+            <select id="plRecFiltroFrecuencia" style="flex:0 0 auto">
+              <option value="">Todas las frecuencias</option>
+              <option value="diaria">Diaria</option>
+              <option value="semanal">Semanal</option>
+              <option value="quincenal">Quincenal</option>
+              <option value="mensual">Mensual</option>
+              <option value="trimestral">Trimestral</option>
+              <option value="semestral">Semestral</option>
+              <option value="anual">Anual</option>
+            </select>
+            <select id="plRecFiltroResponsable" style="flex:0 0 auto">
+              <option value="">Todos los responsables</option>
+            </select>
+            <select id="plRecFiltroVigencia" style="flex:0 0 auto">
+              <option value="">Próximas y vencidas</option>
+              <option value="proxima">Próximas</option>
+              <option value="vencida">Vencidas</option>
+            </select>
+          </div>
+          <div id="plRecurrentesList" class="pl-rec-list" style="max-height:calc(100vh - 310px);overflow-y:auto;padding-right:4px"><div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando...</div></div>
+        </div>
+        <aside class="pl-rec-carga">
+          <p class="pl-section-title"><i class="bi bi-clock-history"></i> Carga semanal por persona</p>
+          <div id="plCargaSemanal"><div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando...</div></div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="pl-panel" data-panel="scrumban">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <p class="pl-text"><i class="bi bi-info-circle"></i> Arrastra las tarjetas entre columnas para actualizar su estado, o haz clic para editarlas</p>
+        <button id="plBtnNuevaColumna" class="pl-btn pl-btn--soft pl-btn--sm" type="button"><i class="bi bi-plus-lg"></i> Columna</button>
+      </div>
+      <div class="pl-rec-filtros">
+        <div class="pl-search">
+          <i class="bi bi-search"></i>
+          <input id="plTabFiltroTexto" placeholder="Buscar por asunto...">
+        </div>
+        <select id="plTabFiltroResponsable">
+          <option value="">Todos los responsables</option>
+        </select>
+        <select id="plTabFiltroProyecto">
+          <option value="">Todos los proyectos</option>
+        </select>
+      </div>
+      <div class="pl-recurrentes-layout">
+        <div id="plBoard" class="pl-board"><div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando tablero...</div></div>
+        <aside class="pl-rec-carga" id="plPersonaAside">
+          <!-- Pestaña vertical (solo visible al colapsar) -->
+          <div class="pl-persona-tab" id="plPersonaTab" title="Expandir panel">
+            <button class="pl-persona-toggle-btn" id="plBtnExpandPersona" type="button"><i class="bi bi-chevron-left"></i></button>
+            <span class="pl-persona-tab-label">Por persona</span>
+          </div>
+          <!-- Contenido (se oculta al colapsar) -->
+          <div class="pl-persona-contenido">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+              <p class="pl-section-title" style="margin:0;flex:1"><i class="bi bi-bar-chart-steps"></i> Por persona</p>
+              <button id="plBtnTogglePersona" class="pl-persona-toggle-btn" title="Contraer panel" type="button"><i class="bi bi-chevron-right"></i></button>
+            </div>
+            <div id="plPersonaFiltros" style="display:flex;gap:6px;margin-bottom:8px">
+              <select id="plPersonaAnio" class="form-select form-select-sm" style="flex:1">
+                <option value="">Año</option>
+              </select>
+              <select id="plPersonaMes" class="form-select form-select-sm" style="flex:1">
+                <option value="">Mes</option>
+              </select>
+            </div>
+            <div id="plTableroCargaPersonas"><div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando...</div></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="pl-panel" data-panel="proyectos">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <p class="pl-section-title" style="margin:0"><i class="bi bi-folder2-open"></i> Proyectos del equipo</p>
+        <button id="plBtnNuevoProyecto" class="pl-btn pl-btn--primary pl-btn--sm" type="button"><i class="bi bi-plus-lg"></i> Proyecto</button>
+      </div>
+      <div class="pl-rec-filtros">
+        <div class="pl-search" style="flex:1;min-width:180px">
+          <i class="bi bi-search"></i>
+          <input id="plProyFiltroTexto" placeholder="Buscar proyecto...">
+        </div>
+        <select id="plProyFiltroEstado">
+          <option value="">Todos los estados</option>
+          <option value="activo">Activo</option>
+          <option value="pausado">Pausado</option>
+          <option value="cerrado">Cerrado</option>
+        </select>
+        <select id="plProyFiltroResponsable">
+          <option value="">Todos los responsables</option>
+        </select>
+      </div>
+      <div class="pl-recurrentes-layout">
+        <div id="plProyectosList" class="pl-rec-list" style="max-height:520px;overflow-y:auto"><div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando...</div></div>
+        <aside class="pl-rec-carga">
+          <p class="pl-section-title"><i class="bi bi-pie-chart"></i> Resumen</p>
+          <div id="plProyectosResumen"><div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando...</div></div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="pl-panel" data-panel="notas">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <p class="pl-section-title" style="margin:0"><i class="bi bi-journal-text"></i> Notas y archivos compartidos</p>
+        <button id="plBtnNuevaNota" class="pl-btn pl-btn--primary pl-btn--sm" type="button"><i class="bi bi-plus-lg"></i> Nueva nota</button>
+      </div>
+      <div class="pl-notas-layout">
+        <div id="plNotasContenido"><div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando...</div></div>
+        <aside class="pl-notas-sidebar">
+          <p class="pl-section-title"><i class="bi bi-calendar3"></i> Por fecha</p>
+          <div id="plNotasFechasNav"></div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="pl-panel" data-panel="calendario">
+      <div class="pl-rec-filtros" style="margin-bottom:12px">
+        <select id="plCalFiltroTipo" style="flex:0 0 auto">
+          <option value="">Todo</option>
+          <option value="rec">Recurrentes</option>
+          <option value="tar">Scrumban</option>
+          <option value="evt">Eventos</option>
+        </select>
+        <select id="plCalFiltroResponsable" style="flex:0 0 auto">
+          <option value="">Todos los responsables</option>
+        </select>
+        <button id="plCalBtnFinde" type="button" class="pl-btn pl-btn--soft pl-btn--sm" title="Ocultar / mostrar sábado y domingo" style="flex:none;white-space:nowrap">
+          <i class="bi bi-calendar-week"></i> <span id="plCalFindeLabel">Ocultar finde</span>
+        </button>
+      </div>
+      <div class="pl-cal-layout">
+        <!-- Calendario principal -->
+        <div class="pl-cal-main">
+          <div class="pl-cal-header">
+            <button class="pl-cal-nav" id="plCalPrev" type="button"><i class="bi bi-chevron-left"></i></button>
+            <div class="pl-cal-mes-label" id="plCalMesLabel">—</div>
+            <button class="pl-cal-nav" id="plCalNext" type="button"><i class="bi bi-chevron-right"></i></button>
+          </div>
+          <div class="pl-cal-legend">
+            <span class="pl-cal-legend-item"><span class="pl-cal-legend-dot pl-cal-legend-dot--rec"></span> Recurrentes</span>
+            <span class="pl-cal-legend-item"><span class="pl-cal-legend-dot pl-cal-legend-dot--tar"></span> Scrumban</span>
+            <span class="pl-cal-legend-item"><span class="pl-cal-legend-dot pl-cal-legend-dot--evt"></span> Eventos</span>
+            <span class="pl-cal-legend-item pl-cal-legend-fes"><span class="pl-cal-legend-fes-box"></span> Dom / Festivo</span>
+          </div>
+          <div class="pl-cal-weekdays">
+            <div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div style="color:#c62828">Do</div>
+          </div>
+          <div id="plCalGrid" class="pl-cal-grid"></div>
+        </div>
+        <!-- Panel de detalle del día -->
+        <div id="plCalDetalle" class="pl-cal-detalle">
+          <div class="pl-cal-detalle-empty"><i class="bi bi-calendar3"></i>Selecciona un día para ver el resumen</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Modal Evento calendario -->
+<div class="modal fade pl-modal" id="plModalCalEvt" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-calendar-plus"></i> <span id="plCalEvtModalTitulo">Nuevo evento</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="plCalEvtId">
+        <div class="mb-2">
+          <label class="form-label">Fecha <span class="text-danger">*</span></label>
+          <input id="plCalEvtFecha" type="date" class="form-control">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Título <span class="text-danger">*</span></label>
+          <input id="plCalEvtTitulo" class="form-control" placeholder="Título del evento">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Observación</label>
+          <textarea id="plCalEvtObs" rows="3" class="form-control" placeholder="Detalles del evento..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plCalGuardarEvt" type="button"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Equipo -->
+<div class="modal fade pl-modal" id="plModalEquipo" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-people-fill"></i> Nuevo equipo de trabajo</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">Nombre del equipo</label><input id="plEquipoNombre" class="form-control" placeholder="Ej. Centro de Información"></div>
+        <div class="mb-3"><label class="form-label">Área</label><input id="plEquipoArea" class="form-control" placeholder="Ej. Operaciones"></div>
+        <div class="mb-1"><label class="form-label">Descripción</label><textarea id="plEquipoDescripcion" class="form-control" rows="3" placeholder="¿De qué se encarga este equipo?"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plGuardarEquipo" type="button"><i class="bi bi-check-lg"></i> Crear equipo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Admin Equipo -->
+<div class="modal fade pl-modal" id="plModalAdmin" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-people-fill"></i> Administrar equipo</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p class="pl-modal-sub"><i class="bi bi-pencil-square"></i> Datos del equipo</p>
+        <div class="row">
+          <div class="col-md-5 mb-2"><label class="form-label">Nombre</label><input id="plAdminEquipoNombre" class="form-control"></div>
+          <div class="col-md-3 mb-2"><label class="form-label">Área</label><input id="plAdminEquipoArea" class="form-control"></div>
+          <div class="col-md-4 mb-2"><label class="form-label">Descripción</label><input id="plAdminEquipoDescripcion" class="form-control"></div>
+        </div>
+        <div class="text-end mb-2"><button id="plGuardarDatosEquipo" class="pl-btn pl-btn--primary pl-btn--sm" type="button"><i class="bi bi-check-lg"></i> Guardar cambios</button></div>
+
+        <div class="pl-divider"></div>
+
+        <p class="pl-modal-sub"><i class="bi bi-people"></i> Miembros del equipo <span id="plMiembrosCount" class="pl-tag" style="margin-left:4px"></span></p>
+        <div class="pl-search mb-2">
+          <i class="bi bi-search"></i>
+          <input id="plMiembrosBuscar" class="form-control form-control-sm" placeholder="Buscar miembro por nombre o cédula...">
+        </div>
+        <div id="plMiembrosList" class="pl-scroll-list"></div>
+
+        <div class="pl-divider"></div>
+
+        <p class="pl-modal-sub"><i class="bi bi-person-plus"></i> Agregar persona al equipo</p>
+        <div class="d-flex gap-2 flex-wrap">
+          <div class="pl-autocomplete pl-search" style="flex:1;min-width:220px">
+            <i class="bi bi-search"></i>
+            <input id="plNuevoMiembroBuscar" class="form-control form-control-sm" placeholder="Escribe un nombre o haz clic para ver todos...">
+            <input type="hidden" id="plNuevoMiembroUsuarioId">
+            <div id="plNuevoMiembroResultados" class="pl-autocomplete-results"></div>
+          </div>
+          <select id="plNuevoMiembroRol" class="form-select form-select-sm" style="max-width:130px">
+            <option value="lector">Lector</option>
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button id="plAgregarMiembro" class="pl-btn pl-btn--primary pl-btn--sm" type="button"><i class="bi bi-plus-lg"></i> Agregar</button>
+        </div>
+        <p class="pl-text" style="margin-top:6px"><i class="bi bi-info-circle"></i> Lector: solo consulta. Editor: crea y edita. Admin: gestiona miembros y datos del equipo.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Recurrente -->
+<div class="modal fade pl-modal" id="plModalRecurrente" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-arrow-repeat"></i> Nueva actividad recurrente</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-2"><label class="form-label">Título</label><input id="plRecTitulo" class="form-control" placeholder="Ej. Reporte diario de novedades"></div>
+        <div class="mb-2"><label class="form-label">Descripción</label><textarea id="plRecDescripcion" class="form-control" rows="2"></textarea></div>
+        <div class="row">
+          <div class="col-md-6 mb-2"><label class="form-label">Responsable <span class="text-danger">*</span></label><select id="plRecResponsable" class="form-select"><option value="">Selecciona una persona...</option></select></div>
+          <div class="col-md-6 mb-2"><label class="form-label">Frecuencia</label>
+            <select id="plRecFrecuencia" class="form-select">
+              <option value="diaria">Diaria</option>
+              <option value="semanal">Semanal</option>
+              <option value="quincenal">Quincenal</option>
+              <option value="mensual">Mensual</option>
+              <option value="trimestral">Trimestral</option>
+              <option value="semestral">Semestral</option>
+              <option value="anual">Anual</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-2" id="plRecDiasSemanaWrap" style="display:none">
+          <label class="form-label">Días de la semana</label>
+          <div id="plRecDiasSemanaChips" class="d-flex gap-1 flex-wrap"></div>
+        </div>
+        <div class="mb-2" id="plRecDiaMesWrap" style="display:none">
+          <label class="form-label">Día del mes</label>
+          <input id="plRecDiaMes" type="number" min="1" max="31" class="form-control" placeholder="1-31">
+        </div>
+        <div class="mb-2" id="plRecMesInicioWrap" style="display:none">
+          <label class="form-label" id="plRecMesInicioLabel">Mes</label>
+          <select id="plRecMesInicio" class="form-select">
+            <option value="1">Enero</option><option value="2">Febrero</option>
+            <option value="3">Marzo</option><option value="4">Abril</option>
+            <option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option>
+            <option value="9">Septiembre</option><option value="10">Octubre</option>
+            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+          <div id="plRecMesesPreview" style="font-size:.67rem;color:#4a6fa5;margin-top:5px;font-weight:600"></div>
+        </div>
+        <div class="mb-1"><label class="form-label">Duración estimada por ejecución (minutos)</label><input id="plRecDuracion" type="number" min="5" step="5" class="form-control" value="30"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plGuardarRecurrente" type="button"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalle Recurrente -->
+<div class="modal fade pl-modal" id="plModalRecurrenteDetalle" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="border-radius:16px;overflow:hidden">
+      <!-- Header compacto -->
+      <div class="modal-header" style="padding:10px 16px;border-bottom:1px solid #e4ebf3">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+          <i class="bi bi-arrow-repeat" style="color:#0d6efd;font-size:.9rem;flex-shrink:0"></i>
+          <span style="font-size:.85rem;font-weight:800;color:#fff">Actividad Recurrente</span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" style="margin-left:8px;flex-shrink:0"></button>
+      </div>
+      <div class="modal-body" style="padding:12px 16px">
+
+        <!-- Título editable -->
+        <div style="background:#f6f9fc;border-radius:9px;padding:7px 10px;border:1px solid #e4ebf3;margin-bottom:8px">
+          <div style="font-size:.57rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8fa3b8;margin-bottom:3px">Nombre de la actividad</div>
+          <span id="plDetalleTitulo" style="display:none;font-size:.82rem;font-weight:700;color:#17324c"></span>
+          <div id="plDetalleTituloEdit" class="d-flex gap-1 align-items-center" style="display:none">
+            <input id="plDetalleTituloInput" type="text" class="form-control form-control-sm" style="font-size:.78rem;padding:2px 8px;height:28px;font-weight:700">
+            <button type="button" id="plGuardarTituloDetalle" class="pl-btn pl-btn--sm pl-btn--primary" style="min-height:28px;padding:0 8px;font-size:.65rem;border-radius:7px;white-space:nowrap"><i class="bi bi-check-lg"></i></button>
+          </div>
+        </div>
+
+        <!-- Fila 1: Responsable | Duración | Carga | Estado (4 celdas en una línea) -->
+        <div style="display:grid;grid-template-columns:1fr 140px 120px 140px;gap:8px;margin-bottom:8px">
+          <!-- Responsable -->
+          <div style="background:#f6f9fc;border-radius:9px;padding:7px 10px;border:1px solid #e4ebf3">
+            <div style="font-size:.57rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8fa3b8;margin-bottom:3px">Responsable</div>
+            <span id="plDetalleResponsable" style="display:none;font-size:.75rem;font-weight:700;color:#17324c">-</span>
+            <div id="plDetalleResponsableEdit" class="d-flex gap-1" style="display:none">
+              <select id="plDetalleResponsableSelect" class="form-select form-select-sm" style="font-size:.72rem;padding:2px 6px;height:28px"></select>
+              <button type="button" id="plGuardarResponsableDetalle" class="pl-btn pl-btn--sm pl-btn--primary" style="min-height:28px;padding:0 8px;font-size:.65rem;border-radius:7px"><i class="bi bi-check-lg"></i></button>
+            </div>
+          </div>
+          <!-- Duración -->
+          <div style="background:#f6f9fc;border-radius:9px;padding:7px 10px;border:1px solid #e4ebf3">
+            <div style="font-size:.57rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8fa3b8;margin-bottom:3px">Duración / ejecución</div>
+            <span id="plDetalleDuracion" style="display:none;font-size:.75rem;font-weight:700;color:#17324c">-</span>
+            <div id="plDetalleDuracionEdit" class="d-flex gap-1 align-items-center" style="display:none">
+              <input id="plDetalleDuracionInput" type="number" min="5" step="5" class="form-control form-control-sm" style="width:62px;font-size:.72rem;padding:2px 6px;height:28px">
+              <span style="font-size:.65rem;color:#5a7090">min</span>
+              <button type="button" id="plGuardarDuracionDetalle" class="pl-btn pl-btn--sm pl-btn--primary" style="min-height:28px;padding:0 7px;font-size:.65rem;border-radius:7px"><i class="bi bi-check-lg"></i></button>
+            </div>
+          </div>
+          <!-- Carga semanal -->
+          <div style="background:#f6f9fc;border-radius:9px;padding:7px 10px;border:1px solid #e4ebf3">
+            <div style="font-size:.57rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8fa3b8;margin-bottom:3px">Carga semanal</div>
+            <span id="plDetalleCargaSemanal" style="font-size:.75rem;font-weight:700;color:#17324c">-</span>
+          </div>
+          <!-- Estado -->
+          <div style="background:#f6f9fc;border-radius:9px;padding:7px 10px;border:1px solid #e4ebf3">
+            <div style="font-size:.57rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8fa3b8;margin-bottom:3px">Estado</div>
+            <span id="plDetalleEstado" style="display:none;font-size:.75rem;font-weight:700;color:#17324c">-</span>
+            <div id="plDetalleEstadoEdit" class="d-flex gap-1" style="display:none">
+              <select id="plDetalleEstadoSelect" class="form-select form-select-sm" style="font-size:.72rem;padding:2px 6px;height:28px">
+                <option value="true">Activa</option>
+                <option value="false">Inactiva</option>
+              </select>
+              <button type="button" id="plGuardarEstadoDetalle" class="pl-btn pl-btn--sm pl-btn--primary" style="min-height:28px;padding:0 8px;font-size:.65rem;border-radius:7px"><i class="bi bi-check-lg"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila 2: Frecuencia (ancho completo) -->
+        <div style="background:#f6f9fc;border-radius:9px;padding:7px 10px;border:1px solid #e4ebf3;margin-bottom:8px">
+          <div style="font-size:.57rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8fa3b8;margin-bottom:4px">Frecuencia</div>
+          <span id="plDetalleFrecuencia" style="display:none;font-size:.75rem;font-weight:700;color:#17324c">-</span>
+          <div id="plDetalleFrecuenciaEdit" style="display:none">
+            <div class="d-flex gap-1 align-items-center flex-wrap">
+              <select id="plDetalleFrecuenciaSelect" class="form-select form-select-sm" style="min-width:120px;max-width:140px;font-size:.72rem;padding:2px 6px;height:28px">
+                <option value="diaria">Diaria</option>
+                <option value="semanal">Semanal</option>
+                <option value="quincenal">Quincenal</option>
+                <option value="mensual">Mensual</option>
+                <option value="trimestral">Trimestral</option>
+                <option value="semestral">Semestral</option>
+                <option value="anual">Anual</option>
+              </select>
+              <!-- Día del mes (inline, siempre al lado del select) -->
+              <input id="plDetalleDiaMesInput" type="number" min="1" max="31" class="form-control form-control-sm" placeholder="Día 1-31" style="width:84px;font-size:.72rem;padding:2px 6px;height:28px;display:none">
+              <!-- Mes inicio (inline) -->
+              <select id="plDetalleMesInicio" class="form-select form-select-sm" style="max-width:130px;font-size:.72rem;padding:2px 6px;height:28px;display:none">
+                <option value="1">Enero</option><option value="2">Febrero</option>
+                <option value="3">Marzo</option><option value="4">Abril</option>
+                <option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option>
+                <option value="9">Septiembre</option><option value="10">Octubre</option>
+                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+              <button type="button" id="plGuardarFrecuenciaDetalle" class="pl-btn pl-btn--primary" style="min-height:28px;padding:0 10px;font-size:.68rem;border-radius:7px"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+            <!-- Chips días semana (aparece debajo solo si semanal) -->
+            <div id="plDetalleDiasSemanaWrap" style="display:none;margin-top:5px">
+              <div style="font-size:.6rem;color:#5a7090;margin-bottom:3px">Días activos</div>
+              <div id="plDetalleDiasSemanaChips" class="d-flex gap-1 flex-wrap"></div>
+            </div>
+            <!-- Label mes inicio (aparece solo si trimestral/semestral/anual) -->
+            <div id="plDetalleMesInicioWrap" style="display:none"></div>
+            <div id="plDetalleMesInicioLabel" style="display:none;font-size:.6rem;color:#5a7090;margin-top:3px">Mes de inicio del ciclo</div>
+          </div>
+        </div>
+
+        <!-- Descripción compacta -->
+        <div style="background:#f6f9fc;border-radius:9px;padding:7px 10px;border:1px solid #e4ebf3;margin-bottom:8px">
+          <div style="font-size:.57rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8fa3b8;margin-bottom:3px">Descripción</div>
+          <p id="plDetalleDescripcion" style="margin:0;font-size:.75rem;color:#3b546d;white-space:pre-wrap;line-height:1.4"></p>
+          <div id="plDetalleDescripcionEdit" style="display:none;margin-top:5px" class="d-flex gap-1 align-items-start">
+            <textarea id="plDetalleDescripcionInput" class="form-control form-control-sm" rows="2" style="font-size:.75rem;resize:none"></textarea>
+            <button type="button" id="plGuardarDescripcionDetalle" class="pl-btn pl-btn--sm pl-btn--primary" style="min-height:28px;padding:0 8px;font-size:.65rem;border-radius:7px;white-space:nowrap"><i class="bi bi-check-lg"></i></button>
+          </div>
+        </div>
+
+        <!-- Historial -->
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#5a7090;margin-bottom:5px;display:flex;align-items:center;gap:5px">
+          <i class="bi bi-clock-history"></i> Historial de ejecuciones
+        </div>
+        <div id="plHistorialList" style="max-height:260px;overflow-y:auto;border:1px solid #e1e9f1;border-radius:9px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Completar Ejecución -->
+<div class="modal fade pl-modal" id="plModalCompletar" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1d7a3c 0%,#15602e 100%)"><h5 class="modal-title"><i class="bi bi-check-circle"></i> Registrar ejecución</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="plCompletarEjecucionId">
+        <input type="hidden" id="plCompletarResponsableId">
+        <p id="plCompletarTitulo" class="pl-text" style="font-size:.78rem;font-weight:700;color:#17324c;margin-bottom:8px"></p>
+        <div id="plCompletarAlertaResponsable" style="display:none;margin-bottom:10px;padding:7px 10px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;font-size:.74rem;color:#7a5c00">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#f9a825"></i> No eres el responsable asignado de esta actividad. Puedes registrar de todas formas.
+        </div>
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.75rem;font-weight:700;color:#5a7090">Estado</label>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="plCompletarEstado" id="plCompletarEstadoRealizada" value="completada" checked>
+              <label class="form-check-label" style="font-size:.8rem" for="plCompletarEstadoRealizada"><i class="bi bi-check-circle-fill text-success"></i> Realizada</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="plCompletarEstado" id="plCompletarEstadoNoRealizada" value="no_realizada">
+              <label class="form-check-label" style="font-size:.8rem" for="plCompletarEstadoNoRealizada"><i class="bi bi-x-circle-fill text-danger"></i> No Realizada</label>
+            </div>
+          </div>
+        </div>
+        <label class="form-label" style="font-size:.75rem">Observación (opcional)</label>
+        <textarea id="plCompletarObservacion" class="form-control" rows="3" placeholder="¿Algo que reportar sobre esta ejecución?"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plConfirmarCompletar" type="button" style="background:linear-gradient(135deg,#1d7a3c 0%,#15602e 100%)"><i class="bi bi-check-lg"></i> Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Proyecto -->
+<div class="modal fade pl-modal" id="plModalProyecto" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder2-open"></i> <span id="plProyModalTitulo">Nuevo proyecto</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="plProyProyectoId">
+        <div class="mb-2"><label class="form-label">Nombre</label><input id="plProyNombre" class="form-control" placeholder="Nombre del proyecto"></div>
+        <div class="mb-2"><label class="form-label">Descripción</label><textarea id="plProyDescripcion" class="form-control" rows="2"></textarea></div>
+        <div class="row">
+          <div class="col-md-7 mb-2"><label class="form-label">Responsable</label><select id="plProyResponsable" class="form-select"><option value="">Sin asignar</option></select></div>
+          <div class="col-md-5 mb-2"><label class="form-label">Estado</label>
+            <select id="plProyEstado" class="form-select">
+              <option value="activo">Activo</option>
+              <option value="pausado">Pausado</option>
+              <option value="cerrado">Cerrado</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col mb-2"><label class="form-label">Inicio</label><input id="plProyInicio" type="date" class="form-control"></div>
+          <div class="col mb-2"><label class="form-label">Fin</label><input id="plProyFin" type="date" class="form-control"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="plEliminarProyectoModal" class="pl-btn pl-btn--danger pl-btn--sm me-auto" type="button" style="display:none"><i class="bi bi-trash"></i> Eliminar</button>
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plGuardarProyecto" type="button"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Columna -->
+<div class="modal fade pl-modal" id="plModalColumna" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-layout-three-columns"></i> Nueva columna</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-2"><label class="form-label">Nombre</label><input id="plColNombre" class="form-control" placeholder="Ej. En revisión"></div>
+        <div class="mb-1"><label class="form-label">Límite WIP (opcional)</label><input id="plColWip" type="number" min="1" class="form-control" placeholder="Máximo de tarjetas simultáneas"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plGuardarColumna" type="button"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tarjeta -->
+<div class="modal fade pl-modal" id="plModalTarjeta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-card-checklist"></i> <span id="plTarModalTitulo">Nueva tarjeta</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="plTarColumnaId">
+        <input type="hidden" id="plTarTarjetaId">
+        <div class="row g-2 mb-2">
+          <div class="col-12"><label class="form-label">Título / Asunto</label><input id="plTarTitulo" class="form-control" placeholder="¿Qué hay que hacer?"></div>
+          <div class="col-12"><label class="form-label">Descripción</label><textarea id="plTarDescripcion" class="form-control" rows="2"></textarea></div>
+          <div class="col-md-6"><label class="form-label">Proyecto (opcional)</label><select id="plTarProyecto" class="form-select"><option value="">Sin proyecto</option></select></div>
+          <div class="col-md-6"><label class="form-label">Tarea predecesora</label><select id="plTarPredecesora" class="form-select"><option value="">No Aplica</option></select></div>
+          <div class="col-md-4"><label class="form-label">Prioridad</label>
+            <select id="plTarPrioridad" class="form-select">
+              <option value="baja">Baja</option><option value="media" selected>Media</option><option value="alta">Alta</option><option value="urgente">Urgente</option>
+            </select>
+          </div>
+          <div class="col-md-4"><label class="form-label">Fecha inicio</label><input id="plTarInicio" type="date" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Fecha límite</label><input id="plTarFecha" type="date" class="form-control"></div>
+          <div class="col-12"><label class="form-label">Responsable</label><select id="plTarAsignado" class="form-select"><option value="">Sin asignar</option></select></div>
+        </div>
+        <!-- Checklist — activable con toggle -->
+        <div class="mb-2">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="plTarChecklistToggle" role="switch">
+            <label class="form-check-label" style="font-size:.8rem;font-weight:600" for="plTarChecklistToggle"><i class="bi bi-list-check"></i> Lista de verificación</label>
+          </div>
+        </div>
+        <div id="plTarChecklistSeccion" style="display:none;margin-bottom:10px;padding:10px 12px;background:#f7fafd;border-radius:10px;border:1px solid #e1e9f1">
+          <div id="plTarChecklistProgress" style="display:none">
+            <div class="pl-checklist-label"><span id="plTarClDone">0</span>/<span id="plTarClTotal">0</span> completadas</div>
+            <div class="pl-checklist-progress"><div class="pl-checklist-progress-bar" id="plTarClBar" style="width:0%"></div></div>
+          </div>
+          <div id="plTarChecklistList" class="pl-checklist-wrap"></div>
+          <div class="pl-checklist-add" id="plTarChecklistAdd">
+            <input id="plTarClNuevoTexto" class="form-control form-control-sm" placeholder="Nueva subtarea...">
+            <button type="button" id="plTarClAgregar" class="pl-btn pl-btn--sm pl-btn--primary"><i class="bi bi-plus-lg"></i></button>
+          </div>
+        </div>
+        <!-- Adjuntos tarjeta — solo visibles en modo edición -->
+        <div id="plTarAdjSeccion" style="display:none">
+          <label class="form-label"><i class="bi bi-paperclip"></i> Archivos adjuntos</label>
+          <div id="plTarAdjGrid" class="pl-adj-grid"></div>
+          <div class="pl-dropzone" id="plTarAdjDropzone">
+            <i class="bi bi-cloud-upload"></i>
+            Arrastra archivos aquí o <b>haz clic para seleccionar</b>
+            <input type="file" id="plTarAdjInput" multiple hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="plEliminarTarjetaModal" class="pl-btn pl-btn--danger pl-btn--sm me-auto" type="button" style="display:none"><i class="bi bi-trash"></i> Eliminar</button>
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plGuardarTarjeta" type="button"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nota (crear / editar) -->
+<div class="modal fade pl-modal" id="plModalNota" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-journal-text"></i> <span id="plNotaModalTitulo">Nueva nota</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="plNotaId">
+        <!-- Color -->
+        <div class="mb-2">
+          <label class="form-label">Color de la tarjeta</label>
+          <div class="pl-color-picker" id="plNotaColorPicker"></div>
+          <input type="hidden" id="plNotaColor" value="#ffffff">
+        </div>
+        <div class="mb-2"><label class="form-label">Título <span class="text-danger">*</span></label><input id="plNotaTitulo" class="form-control" placeholder="Título de la nota"></div>
+        <div class="mb-3"><label class="form-label">Contenido</label><textarea id="plNotaContenido" rows="4" class="form-control" placeholder="Escribe el contenido de la nota..."></textarea></div>
+        <!-- Adjuntos -->
+        <label class="form-label"><i class="bi bi-paperclip"></i> Archivos adjuntos</label>
+        <div id="plAdjGrid" class="pl-adj-grid"></div>
+        <div class="pl-dropzone" id="plAdjDropzone">
+          <i class="bi bi-cloud-upload"></i>
+          Arrastra archivos aquí o <b>haz clic para seleccionar</b>
+          <input type="file" id="plAdjInput" multiple hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip">
+        </div>
+        <!-- Historial de cambios -->
+        <div id="plNotaHistorialSeccion" style="display:none;margin-top:14px">
+          <div style="font-size:.8rem;font-weight:600;color:#4a6fa5;margin-bottom:6px"><i class="bi bi-clock-history"></i> Historial de cambios</div>
+          <div style="max-height:180px;overflow-y:auto">
+            <table class="pl-hist-table w-100">
+              <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
+              <tbody id="plNotaHistorialBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="plEliminarNotaModal" class="pl-btn pl-btn--danger pl-btn--sm me-auto" type="button" style="display:none"><i class="bi bi-trash"></i> Eliminar</button>
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--primary pl-btn--sm" id="plGuardarNota" type="button"><i class="bi bi-check-lg"></i> Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview overlay (imágenes y PDF) -->
+<div id="plPreviewOverlay">
+  <button id="plPreviewClose" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+  <div id="plPreviewContent"></div>
+</div>
+
+<!-- Modal Confirmación -->
+<div class="modal fade pl-modal" id="plModalConfirmar" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#dc3545 0%,#b3261e 100%)"><h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirmar</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><p id="plConfirmarTexto" style="font-size:.8rem;margin:0">¿Está seguro?</p></div>
+      <div class="modal-footer">
+        <button class="btn btn-light btn-sm" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="pl-btn pl-btn--danger pl-btn--sm" id="plConfirmarAceptar" type="button"><i class="bi bi-trash"></i> Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const API = "/planeador";
+  const state = { equipoId: null, equipos: [], rolActual: null, usuarios: [], miembrosEquipo: [] };
+  const MI_USUARIO_ID = {{ user_session.id | tojson }};
+  const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+  function el(id) { return document.getElementById(id); }
+  function esc(v) { return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function modal(id) { return bootstrap.Modal.getOrCreateInstance(el(id)); }
+  function str(v) { return v == null ? "" : String(v); }
+
+  // ── Toasts ──
+  function showToast(type, message) {
+    const wrap = el("plToastWrap");
+    const icon = type === "success" ? "bi-check-circle-fill" : type === "error" ? "bi-x-circle-fill" : "bi-info-circle-fill";
+    const node = document.createElement("div");
+    node.className = `pl-toast pl-toast--${type}`;
+    node.innerHTML = `<i class="bi ${icon}"></i><span>${esc(message)}</span>`;
+    wrap.appendChild(node);
+    setTimeout(() => {
+      node.classList.add("is-leaving");
+      setTimeout(() => node.remove(), 200);
+    }, 3500);
+  }
+
+  // ── Confirmación ──
+  function confirmar(texto) {
+    return new Promise(resolve => {
+      el("plConfirmarTexto").textContent = texto;
+      const dlg = modal("plModalConfirmar");
+      const btn = el("plConfirmarAceptar");
+      let resuelto = false;
+      const onAceptar = () => { resuelto = true; dlg.hide(); resolve(true); };
+      const onHidden = () => { btn.removeEventListener("click", onAceptar); el("plModalConfirmar").removeEventListener("hidden.bs.modal", onHidden); if (!resuelto) resolve(false); };
+      btn.addEventListener("click", onAceptar, { once: true });
+      el("plModalConfirmar").addEventListener("hidden.bs.modal", onHidden, { once: true });
+      dlg.show();
+    });
+  }
+
+  async function api(path, options) {
+    const resp = await fetch(API + path, Object.assign({ headers: { "Content-Type": "application/json" } }, options || {}));
+    if (!resp.ok) {
+      let detail = "Error " + resp.status;
+      try { const body = await resp.json(); detail = body.detail || detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    if (resp.status === 204) return null;
+    return resp.json();
+  }
+  function apiPost(path, data) { return api(path, { method: "POST", body: JSON.stringify(data || {}) }); }
+  function apiPut(path, data) { return api(path, { method: "PUT", body: JSON.stringify(data || {}) }); }
+  function apiDelete(path) { return api(path, { method: "DELETE" }); }
+
+  async function accion(fn, mensajeExito) {
+    try {
+      await fn();
+      if (mensajeExito) showToast("success", mensajeExito);
+      return true;
+    } catch (err) {
+      showToast("error", err.message || "Ocurrió un error inesperado");
+      return false;
+    }
+  }
+
+  function puedeEscribir() { return state.rolActual === "admin" || state.rolActual === "editor"; }
+  function esAdmin() { return state.rolActual === "admin"; }
+
+  // ── Avatares / nombres ──
+  function nombreUsuario(u) {
+    const nombres = str(u.nombres).trim();
+    const apellidos = str(u.apellidos).trim();
+    const completo = `${nombres} ${apellidos}`.trim();
+    return completo || str(u.username) || "Usuario";
+  }
+  function iniciales(nombre) {
+    const partes = String(nombre).trim().split(/\s+/).filter(Boolean);
+    if (!partes.length) return "?";
+    return (partes[0][0] + (partes[1] ? partes[1][0] : "")).toUpperCase();
+  }
+  function colorDesde(seed) {
+    let hash = 0;
+    const texto = String(seed || "");
+    for (let i = 0; i < texto.length; i++) hash = texto.charCodeAt(i) + ((hash << 5) - hash);
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue} 60% 45%)`;
+  }
+  function avatarHtml(nombre, seed) {
+    const ini = iniciales(nombre);
+    return `<span class="pl-avatar" style="background:${colorDesde(seed)}">${esc(ini)}</span>`;
+  }
+  function nombreResponsable(obj) {
+    if (!obj || !obj.responsable_nombre) return null;
+    return `${obj.responsable_nombre} ${obj.responsable_apellido || ""}`.trim();
+  }
+  function badgeRol(rol) {
+    const etiquetas = { admin: "Admin", editor: "Editor", lector: "Lector" };
+    return `<span class="pl-role-badge pl-role-badge--${rol}">${etiquetas[rol] || rol}</span>`;
+  }
+
+  // ── Equipos ──
+  async function cargarEquipos() {
+    state.equipos = await api("/equipos");
+    const select = el("plEquipoSelect");
+    select.innerHTML = state.equipos.map(e => `<option value="${e.id}">${esc(e.nombre)}</option>`).join("");
+    if (!state.equipos.length) {
+      el("plSinEquipos").style.display = "block";
+      el("plContenido").style.display = "none";
+      return;
+    }
+    el("plSinEquipos").style.display = "none";
+    el("plContenido").style.display = "block";
+    const guardado = localStorage.getItem("pl_equipo_id");
+    const existe = state.equipos.find(e => String(e.id) === guardado);
+    state.equipoId = existe ? existe.id : state.equipos[0].id;
+    select.value = state.equipoId;
+    await seleccionarEquipo(state.equipoId);
+  }
+
+  async function seleccionarEquipo(id) {
+    state.equipoId = Number(id);
+    localStorage.setItem("pl_equipo_id", String(state.equipoId));
+    const equipo = state.equipos.find(e => e.id === state.equipoId);
+    state.rolActual = equipo ? equipo.rol_equipo : null;
+    el("plBtnAdminEquipo").style.display = esAdmin() ? "inline-flex" : "none";
+    el("plBtnMigrarDiasHabiles").style.display = esAdmin() ? "inline-flex" : "none";
+    el("plRecFiltroTexto").value = ""; el("plRecFiltroFrecuencia").value = ""; el("plRecFiltroResponsable").value = "";
+    el("plTabFiltroTexto").value = ""; el("plTabFiltroResponsable").value = ""; el("plTabFiltroProyecto").value = "";
+    el("plProyFiltroTexto").value = ""; el("plProyFiltroEstado").value = ""; el("plProyFiltroResponsable").value = "";
+    await cargarMiembros();
+    await cargarProyectos();
+    await poblarFiltrosPersona();
+    await Promise.all([cargarRecurrentes(), cargarCargaSemanal(), cargarTablero(), cargarCargaTablero(), cargarNotas(), cargarArchivos()]);
+  }
+
+  el("plEquipoSelect").addEventListener("change", e => seleccionarEquipo(e.target.value));
+
+  el("plBtnNuevoEquipo").addEventListener("click", () => {
+    el("plEquipoNombre").value = ""; el("plEquipoArea").value = ""; el("plEquipoDescripcion").value = "";
+    modal("plModalEquipo").show();
+  });
+  el("plGuardarEquipo").addEventListener("click", async () => {
+    const nombre = el("plEquipoNombre").value.trim();
+    if (!nombre) { showToast("error", "El nombre del equipo es obligatorio"); return; }
+    const ok = await accion(async () => {
+      await apiPost("/equipos", { nombre, area: el("plEquipoArea").value.trim(), descripcion: el("plEquipoDescripcion").value.trim() });
+    }, "Equipo creado correctamente");
+    if (ok) { modal("plModalEquipo").hide(); await cargarEquipos(); }
+  });
+
+  // ── Administración de miembros ──
+  async function cargarUsuarios() {
+    if (state.usuarios.length) return;
+    state.usuarios = await api("/usuarios");
+  }
+
+  function poblarSelectResponsable(select, valorActual) {
+    if (!state.miembrosEquipo.length) {
+      select.innerHTML = '<option value="">Sin miembros en este equipo</option>';
+      return;
+    }
+    select.innerHTML = '<option value="">Sin asignar</option>' +
+      state.miembrosEquipo.map(m => `<option value="${m.usuario_id}">${esc(nombreUsuario(m))}</option>`).join("");
+    if (valorActual) select.value = String(valorActual);
+  }
+
+  async function abrirSelectsResponsable(...selects) {
+    await cargarMiembros();
+    selects.forEach(sel => poblarSelectResponsable(el(sel)));
+  }
+
+  el("plBtnAdminEquipo").addEventListener("click", async () => {
+    await cargarUsuarios();
+    const equipo = state.equipos.find(e => e.id === state.equipoId);
+    el("plAdminEquipoNombre").value = equipo ? equipo.nombre : "";
+    el("plAdminEquipoArea").value = equipo ? (equipo.area || "") : "";
+    el("plAdminEquipoDescripcion").value = equipo ? (equipo.descripcion || "") : "";
+    el("plMiembrosBuscar").value = "";
+    el("plNuevoMiembroBuscar").value = "";
+    el("plNuevoMiembroUsuarioId").value = "";
+    el("plNuevoMiembroResultados").style.display = "none";
+    await cargarMiembros();
+    modal("plModalAdmin").show();
+  });
+
+  el("plGuardarDatosEquipo").addEventListener("click", async () => {
+    const nombre = el("plAdminEquipoNombre").value.trim();
+    if (!nombre) { showToast("error", "El nombre del equipo es obligatorio"); return; }
+    await accion(async () => {
+      await apiPut(`/equipos/${state.equipoId}`, {
+        nombre,
+        area: el("plAdminEquipoArea").value.trim(),
+        descripcion: el("plAdminEquipoDescripcion").value.trim(),
+      });
+      await cargarEquipos();
+    }, "Datos del equipo actualizados");
+  });
+
+  function renderMiembros(filtro) {
+    const texto = str(filtro).toLowerCase();
+    const filtrados = state.miembrosEquipo.filter(m =>
+      !texto || nombreUsuario(m).toLowerCase().includes(texto) || str(m.username).toLowerCase().includes(texto)
+    );
+    el("plMiembrosCount").textContent = state.miembrosEquipo.length + (state.miembrosEquipo.length === 1 ? " miembro" : " miembros");
+    el("plMiembrosList").innerHTML = filtrados.map(m => `
+      <div class="pl-member-row">
+        <span class="pl-member-info">
+          ${avatarHtml(nombreUsuario(m), m.usuario_id)}
+          <span class="pl-member-name"><strong>${esc(nombreUsuario(m))}</strong> <small class="text-muted">· ${esc(m.username)}</small></span>
+        </span>
+        <span class="d-flex align-items-center gap-2">
+          <select class="form-select form-select-sm" style="width:108px" data-usuario="${m.usuario_id}">
+            <option value="lector" ${m.rol_equipo === "lector" ? "selected" : ""}>Lector</option>
+            <option value="editor" ${m.rol_equipo === "editor" ? "selected" : ""}>Editor</option>
+            <option value="admin" ${m.rol_equipo === "admin" ? "selected" : ""}>Admin</option>
+          </select>
+          <button class="btn btn-sm btn-outline-danger" data-eliminar="${m.usuario_id}" title="Quitar del equipo"><i class="bi bi-trash"></i></button>
+        </span>
+      </div>`).join("") || `<div class="pl-empty"><i class="bi bi-search"></i>Sin miembros que coincidan con "${esc(filtro)}"</div>`;
+
+    el("plMiembrosList").querySelectorAll("select[data-usuario]").forEach(sel => {
+      sel.addEventListener("change", async () => {
+        await accion(async () => {
+          await apiPut(`/equipos/${state.equipoId}/miembros/${sel.dataset.usuario}`, { usuario_id: Number(sel.dataset.usuario), rol_equipo: sel.value });
+          await cargarMiembros(el("plMiembrosBuscar").value);
+        }, "Rol actualizado");
+      });
+    });
+    el("plMiembrosList").querySelectorAll("[data-eliminar]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const okConfirm = await confirmar("¿Quitar a esta persona del equipo? Perderá acceso de inmediato.");
+        if (!okConfirm) return;
+        await accion(async () => {
+          await apiDelete(`/equipos/${state.equipoId}/miembros/${btn.dataset.eliminar}`);
+          await cargarMiembros(el("plMiembrosBuscar").value);
+        }, "Miembro eliminado");
+      });
+    });
+  }
+
+  async function cargarMiembros(filtro) {
+    state.miembrosEquipo = await api(`/equipos/${state.equipoId}/miembros`);
+    renderMiembros(filtro);
+  }
+
+  el("plMiembrosBuscar").addEventListener("input", () => renderMiembros(el("plMiembrosBuscar").value));
+
+  function renderResultadosMiembro(texto) {
+    const resultados = el("plNuevoMiembroResultados");
+    const yaMiembros = new Set(state.miembrosEquipo.map(m => m.usuario_id));
+    const candidatos = state.usuarios.filter(u => !yaMiembros.has(u.id));
+    const textoNorm = texto.trim().toLowerCase();
+    const coincidencias = (textoNorm
+      ? candidatos.filter(u => nombreUsuario(u).toLowerCase().includes(textoNorm) || str(u.username).toLowerCase().includes(textoNorm))
+      : candidatos
+    ).slice(0, 30);
+
+    if (!coincidencias.length) {
+      resultados.innerHTML = `<div class="pl-ac-empty"><i class="bi bi-emoji-frown"></i><br>${candidatos.length ? "Sin coincidencias para tu búsqueda" : "No hay más usuarios disponibles para agregar"}</div>`;
+      resultados.style.display = "block";
+      return;
+    }
+    resultados.innerHTML = coincidencias.map(u => `
+      <button type="button" class="pl-ac-item" data-pick="${u.id}">
+        ${avatarHtml(nombreUsuario(u), u.id)}
+        <span><strong>${esc(nombreUsuario(u))}</strong><br><small class="text-muted">${esc(u.username)}</small></span>
+      </button>
+    `).join("");
+    resultados.style.display = "block";
+    resultados.querySelectorAll("[data-pick]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const usuario = state.usuarios.find(u => String(u.id) === btn.dataset.pick);
+        el("plNuevoMiembroBuscar").value = usuario ? nombreUsuario(usuario) : "";
+        el("plNuevoMiembroUsuarioId").value = btn.dataset.pick;
+        resultados.style.display = "none";
+      });
+    });
+  }
+
+  el("plNuevoMiembroBuscar").addEventListener("input", () => {
+    el("plNuevoMiembroUsuarioId").value = "";
+    renderResultadosMiembro(el("plNuevoMiembroBuscar").value);
+  });
+  el("plNuevoMiembroBuscar").addEventListener("focus", () => {
+    renderResultadosMiembro(el("plNuevoMiembroBuscar").value);
+  });
+  document.addEventListener("click", (ev) => {
+    const wrap = el("plNuevoMiembroBuscar") && el("plNuevoMiembroBuscar").closest(".pl-autocomplete");
+    if (wrap && !wrap.contains(ev.target)) el("plNuevoMiembroResultados").style.display = "none";
+  });
+
+  el("plAgregarMiembro").addEventListener("click", async () => {
+    const usuario_id = Number(el("plNuevoMiembroUsuarioId").value);
+    const rol_equipo = el("plNuevoMiembroRol").value;
+    if (!usuario_id) { showToast("error", "Selecciona una persona de la lista antes de agregar"); return; }
+    const ok = await accion(async () => {
+      await apiPost(`/equipos/${state.equipoId}/miembros`, { usuario_id, rol_equipo });
+      await cargarMiembros(el("plMiembrosBuscar").value);
+    }, "Persona agregada al equipo");
+    if (ok) { el("plNuevoMiembroBuscar").value = ""; el("plNuevoMiembroUsuarioId").value = ""; }
+  });
+
+  // ── Tabs ──
+  document.querySelectorAll(".pl-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".pl-tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".pl-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelector(`.pl-panel[data-panel="${btn.dataset.tab}"]`).classList.add("active");
+    });
+  });
+
+  // ── Recurrentes ──
+  const ETIQUETAS_FRECUENCIA = { diaria: "Diaria", semanal: "Semanal", quincenal: "Quincenal", mensual: "Mensual", trimestral: "Trimestral", semestral: "Semestral", anual: "Anual" };
+  let recurrentesActuales = [];
+
+  function calcOcurrencias(a) {
+    if (a.frecuencia === "diaria")      return 5;
+    if (a.frecuencia === "semanal")     return (a.dias_semana || []).length;
+    if (a.frecuencia === "quincenal")   return 24 / 52;
+    if (a.frecuencia === "mensual")     return 12 / 52;
+    if (a.frecuencia === "trimestral")  return 4 / 52;
+    if (a.frecuencia === "semestral")   return 2 / 52;
+    if (a.frecuencia === "anual")       return 1 / 52;
+    return 0;
+  }
+
+  function badgeEstado(estado) {
+    const etiquetas = { pendiente: "Pendiente", completada: "Completada", omitida: "Omitida", no_realizada: "No Realizada" };
+    const iconos = { pendiente: "bi-hourglass-split", completada: "bi-check-circle-fill", omitida: "bi-dash-circle", no_realizada: "bi-x-circle-fill" };
+    return `<span class="pl-status pl-status--${estado}"><i class="bi ${iconos[estado] || "bi-circle"}"></i>${etiquetas[estado] || estado}</span>`;
+  }
+
+  function formatoMinutos(min) {
+    const m = Math.round(min || 0);
+    if (m < 60) return m + " min";
+    const horas = Math.floor(m / 60), restos = m % 60;
+    return restos ? `${horas}h ${restos}m` : `${horas}h`;
+  }
+
+  const MESES_CORTO = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const MESES_LARGO = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+  function mesesTrimestral(mesInicio) {
+    return Array.from({length:4},(_,i)=>MESES_CORTO[((mesInicio-1)+i*3)%12]).join(", ");
+  }
+  function mesesSemestral(mesInicio) {
+    return [MESES_CORTO[(mesInicio-1)%12], MESES_CORTO[((mesInicio-1)+6)%12]].join(", ");
+  }
+
+  function actualizarMesesPreview() {
+    const frec = el("plRecFrecuencia").value;
+    const mesI = parseInt(el("plRecMesInicio").value,10) || 1;
+    const prev = el("plRecMesesPreview");
+    if (frec === "trimestral") prev.textContent = `Ocurrirá en: ${mesesTrimestral(mesI)}`;
+    else if (frec === "semestral") prev.textContent = `Ocurrirá en: ${mesesSemestral(mesI)}`;
+    else if (frec === "anual") prev.textContent = `Ocurrirá en: ${MESES_LARGO[mesI-1]}`;
+    else prev.textContent = "";
+  }
+
+  function actualizarVisibilidadFrecuencia() {
+    const frec = el("plRecFrecuencia").value;
+    el("plRecDiasSemanaWrap").style.display = frec === "semanal" ? "block" : "none";
+    const conDia = ["quincenal","mensual","trimestral","semestral","anual"].includes(frec);
+    el("plRecDiaMesWrap").style.display = conDia ? "block" : "none";
+    const conMes = ["trimestral","semestral","anual"].includes(frec);
+    el("plRecMesInicioWrap").style.display = conMes ? "block" : "none";
+    if (frec === "trimestral") {
+      el("plRecMesInicioLabel").textContent = "Mes de inicio del ciclo trimestral";
+    } else if (frec === "semestral") {
+      el("plRecMesInicioLabel").textContent = "Mes de inicio del ciclo semestral";
+    } else {
+      el("plRecMesInicioLabel").textContent = "Mes";
+    }
+    actualizarMesesPreview();
+  }
+
+  function describirFrecuencia(r) {
+    if (r.frecuencia === "semanal") {
+      const dias = (r.dias_semana || []).slice().sort().map(i => DIAS_SEMANA[i]).join(", ");
+      return `Semanal · ${dias || "sin días"}`;
+    }
+    if (r.frecuencia === "quincenal") return `Quincenal · días ${r.dia_mes || "?"} y ${Math.min((r.dia_mes||1)+15,31)}`;
+    if (r.frecuencia === "mensual") return `Mensual · día ${r.dia_mes || "?"}`;
+    const mesI = r.mes_inicio || 1;
+    if (r.frecuencia === "trimestral") return `Trimestral · día ${r.dia_mes||"?"} · ${mesesTrimestral(mesI)}`;
+    if (r.frecuencia === "semestral") return `Semestral · día ${r.dia_mes||"?"} · ${mesesSemestral(mesI)}`;
+    if (r.frecuencia === "anual") return `Anual · ${MESES_LARGO[mesI-1]} ${r.dia_mes||"?"}`;
+    return "Diaria";
+  }
+
+  function formatoFechaCorta(fechaIso) {
+    if (!fechaIso) return "-";
+    const [y, m, d] = fechaIso.split("-");
+    return `${d}/${m}`;
+  }
+
+  function poblarFiltroResponsable() {
+    const select = el("plRecFiltroResponsable");
+    const actual = select.value;
+    const responsablesEnUso = new Map();
+    recurrentesActuales.forEach(r => {
+      if (r.responsable_id) responsablesEnUso.set(r.responsable_id, nombreResponsable(r));
+    });
+    select.innerHTML = '<option value="">Todos los responsables</option>' +
+      Array.from(responsablesEnUso.entries())
+        .sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([id, nombre]) => `<option value="${id}">${esc(nombre)}</option>`).join("");
+    select.value = actual && responsablesEnUso.has(Number(actual)) ? actual : "";
+  }
+
+  function filtrarRecurrentes() {
+    const texto = el("plRecFiltroTexto").value.trim().toLowerCase();
+    const frecuencia = el("plRecFiltroFrecuencia").value;
+    const responsableId = el("plRecFiltroResponsable").value;
+    const estadoVal = el("plRecFiltroEstado").value;
+    const vigencia = el("plRecFiltroVigencia").value;
+    const hoy = new Date().toISOString().slice(0, 10);
+    return recurrentesActuales.filter(r => {
+      if (texto && !r.titulo.toLowerCase().includes(texto)) return false;
+      if (frecuencia && r.frecuencia !== frecuencia) return false;
+      if (responsableId && String(r.responsable_id) !== responsableId) return false;
+      if (estadoVal !== "") {
+        const activo = estadoVal === "true";
+        if (r.activo !== activo) return false;
+      }
+      if (vigencia) {
+        const prox = r.proxima_ejecucion;
+        if (vigencia === "vencida" && !(prox && prox.fecha < hoy)) return false;
+        if (vigencia === "proxima" && !(prox && prox.fecha >= hoy)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderRecurrentes() {
+    const list = el("plRecurrentesList");
+    const filtradas = filtrarRecurrentes();
+    if (!recurrentesActuales.length) {
+      list.innerHTML = '<div class="pl-empty"><i class="bi bi-arrow-repeat"></i>Sin actividades recurrentes todavía.</div>';
+      return;
+    }
+    if (!filtradas.length) {
+      list.innerHTML = '<div class="pl-empty"><i class="bi bi-search"></i>Ninguna actividad coincide con los filtros aplicados.</div>';
+      return;
+    }
+    const hoy = new Date().toISOString().slice(0, 10);
+    list.innerHTML = filtradas.map(r => {
+      const nombre = nombreResponsable(r) || "Sin asignar";
+      const proxima = r.proxima_ejecucion;
+      const vencida = proxima && proxima.fecha < hoy;
+      return `
+      <div class="pl-rec-row ${!r.activo ? "is-inactiva" : ""}" data-detalle="${r.id}">
+        <button type="button" class="pl-rec-check ${!proxima ? "is-done" : ""}" data-completar="${proxima ? proxima.id : ""}" title="${proxima ? "Marcar como realizada" : "Sin ejecuciones pendientes"}" ${!puedeEscribir() || !proxima ? "disabled" : ""}>
+          <i class="bi ${proxima ? "bi-circle" : "bi-check-lg"}"></i>
+        </button>
+        <div class="pl-rec-main">
+          <div class="pl-rec-title-row">
+            <span class="pl-rec-title">${esc(r.titulo)}</span>
+            <span class="pl-tag">${esc(ETIQUETAS_FRECUENCIA[r.frecuencia] || r.frecuencia)}</span>
+          </div>
+          <div class="pl-rec-meta">
+            <span><i class="bi bi-arrow-repeat"></i> ${esc(describirFrecuencia(r))}</span>
+            <span><i class="bi bi-stopwatch"></i> ${formatoMinutos(r.duracion_minutos)}</span>
+          </div>
+        </div>
+        <div class="pl-rec-responsable">
+          ${avatarHtml(nombre, r.responsable_id)}
+          <span class="nombre">${esc(nombre)}<span class="rol-tag">Responsable</span></span>
+        </div>
+        <div class="pl-rec-estado">
+          <span class="pl-estado-badge pl-estado-badge--${r.activo ? "activa" : "inactiva"}"><i class="bi ${r.activo ? "bi-check-circle-fill" : "bi-pause-circle-fill"}"></i>${r.activo ? "Activa" : "Inactiva"}</span>
+        </div>
+        <div class="pl-rec-fecha ${vencida ? "is-overdue" : ""}">
+          <small>${!r.activo ? "" : (vencida ? "Vencida" : "Próxima")}</small>
+          <span class="fecha">${!r.activo ? "—" : (proxima ? formatoFechaCorta(proxima.fecha) : "Al día")}</span>
+        </div>
+        ${esAdmin() ? `<div class="pl-rec-actions"><button class="pl-btn pl-btn--sm pl-btn--danger" data-eliminar="${r.id}" title="Eliminar"><i class="bi bi-trash"></i></button></div>` : ""}
+      </div>`;
+    }).join("");
+
+    list.querySelectorAll("[data-completar]:not([disabled])").forEach(btn => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const fila = recurrentesActuales.find(r => r.proxima_ejecucion && String(r.proxima_ejecucion.id) === btn.dataset.completar);
+        abrirModalCompletar(btn.dataset.completar, fila ? fila.titulo : "", fila ? fila.responsable_id : null);
+      });
+    });
+    list.querySelectorAll("[data-eliminar]").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const okConfirm = await confirmar("¿Eliminar esta actividad recurrente? Se perderá su historial de ejecuciones.");
+        if (!okConfirm) return;
+        await accion(async () => {
+          await apiDelete(`/recurrentes/${btn.dataset.eliminar}`);
+          await Promise.all([cargarRecurrentes(), cargarCargaSemanal()]);
+        }, "Actividad recurrente eliminada");
+      });
+    });
+    list.querySelectorAll("[data-detalle]").forEach(row => {
+      row.addEventListener("click", () => abrirDetalleRecurrente(row.dataset.detalle));
+    });
+  }
+
+  async function cargarRecurrentes() {
+    recurrentesActuales = await api(`/equipos/${state.equipoId}/recurrentes/resumen`);
+    poblarFiltroResponsable();
+    renderRecurrentes();
+  }
+
+  el("plRecFiltroTexto").addEventListener("input", renderRecurrentes);
+  el("plRecFiltroFrecuencia").addEventListener("change", renderRecurrentes);
+  el("plRecFiltroResponsable").addEventListener("change", renderRecurrentes);
+  el("plRecFiltroEstado").addEventListener("change", renderRecurrentes);
+  el("plRecFiltroVigencia").addEventListener("change", renderRecurrentes);
+
+  async function cargarCargaSemanal() {
+    const carga = await api(`/equipos/${state.equipoId}/recurrentes/carga`);
+    const cont = el("plCargaSemanal");
+    if (!carga.length) { cont.innerHTML = '<div class="pl-empty" style="padding:14px"><i class="bi bi-clock-history"></i>Sin datos todavía.</div>'; return; }
+    const maxMin = Math.max(...carga.map(c => c.minutos_semana), 1);
+    cont.innerHTML = carga.map(c => {
+      const nombre = `${c.nombres || ""} ${c.apellidos || ""}`.trim() || "Usuario";
+      const pct = Math.max(4, Math.round((c.minutos_semana / maxMin) * 100));
+      return `
+      <div class="pl-carga-row">
+        ${avatarHtml(nombre, c.usuario_id)}
+        <div class="pl-carga-info">
+          <div style="display:flex;justify-content:space-between;gap:6px">
+            <span style="font-size:.7rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nombre)}</span>
+            <span class="pl-carga-time">${formatoMinutos(c.minutos_semana)}</span>
+          </div>
+          <div class="pl-carga-bar"><span style="width:${pct}%"></span></div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderChipsDiasSemana(seleccionados) {
+    const sel = new Set(seleccionados || []);
+    el("plRecDiasSemanaChips").innerHTML = DIAS_SEMANA.map((d, i) => `
+      <button type="button" class="pl-btn pl-btn--sm ${sel.has(i) ? "pl-btn--primary" : "pl-btn--soft"}" data-dia="${i}">${d}</button>
+    `).join("");
+    el("plRecDiasSemanaChips").querySelectorAll("[data-dia]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("pl-btn--primary");
+        btn.classList.toggle("pl-btn--soft");
+      });
+    });
+  }
+
+  el("plBtnMigrarDiasHabiles").addEventListener("click", async () => {
+    if (!await confirmar("¿Mover todas las ejecuciones pendientes que caen en festivos, sábados o domingos al siguiente día hábil? Esta acción actualiza la base de datos.")) return;
+    await accion(async () => {
+      const res = await apiPost(`/equipos/${state.equipoId}/recurrentes/migrar-dias-habiles`, {});
+      await cargarRecurrentes();
+      showToast("success", res.message || "Ejecuciones actualizadas");
+    }, null);
+  });
+
+  el("plBtnNuevaRecurrente").addEventListener("click", async () => {
+    await abrirSelectsResponsable("plRecResponsable");
+    el("plRecTitulo").value = ""; el("plRecDescripcion").value = "";
+    el("plRecDiaMes").value = ""; el("plRecDuracion").value = "30";
+    el("plRecFrecuencia").value = "diaria";
+    el("plRecMesInicio").value = "1";
+    renderChipsDiasSemana([1, 2, 3, 4, 5]);
+    actualizarVisibilidadFrecuencia();
+    modal("plModalRecurrente").show();
+  });
+  el("plRecFrecuencia").addEventListener("change", actualizarVisibilidadFrecuencia);
+  el("plRecMesInicio").addEventListener("change", actualizarMesesPreview);
+  el("plGuardarRecurrente").addEventListener("click", async () => {
+    const titulo = el("plRecTitulo").value.trim();
+    if (!titulo) { showToast("error", "El título es obligatorio"); return; }
+    if (!el("plRecResponsable").value) { showToast("error", "Debes asignar un responsable: es obligatorio"); return; }
+    const frecuencia = el("plRecFrecuencia").value;
+    const payload = {
+      titulo,
+      descripcion: el("plRecDescripcion").value.trim(),
+      frecuencia,
+      responsable_id: Number(el("plRecResponsable").value),
+      duracion_minutos: parseInt(el("plRecDuracion").value, 10) || 30,
+    };
+    if (frecuencia === "semanal") {
+      payload.dias_semana = Array.from(el("plRecDiasSemanaChips").querySelectorAll(".pl-btn--primary")).map(b => Number(b.dataset.dia));
+      if (!payload.dias_semana.length) { showToast("error", "Selecciona al menos un día de la semana"); return; }
+    }
+    if (["quincenal","mensual","trimestral","semestral","anual"].includes(frecuencia)) {
+      payload.dia_mes = parseInt(el("plRecDiaMes").value, 10) || null;
+      if (!payload.dia_mes) { showToast("error", "Indica el día del mes"); return; }
+    }
+    if (["trimestral","semestral","anual"].includes(frecuencia)) {
+      payload.mes_inicio = parseInt(el("plRecMesInicio").value, 10) || 1;
+    }
+    const ok = await accion(async () => {
+      await apiPost(`/equipos/${state.equipoId}/recurrentes`, payload);
+      await Promise.all([cargarRecurrentes(), cargarCargaSemanal()]);
+    }, "Actividad recurrente creada");
+    if (ok) modal("plModalRecurrente").hide();
+  });
+
+  // ── Detalle / historial ──
+  let detalleActividadId = null;
+
+  async function abrirDetalleRecurrente(actividadId) {
+    const actividad = recurrentesActuales.find(r => String(r.id) === String(actividadId));
+    if (!actividad) return;
+    detalleActividadId = actividad.id;
+    if (puedeEscribir()) {
+      el("plDetalleTitulo").style.display = "none";
+      el("plDetalleTituloEdit").style.display = "flex";
+      el("plDetalleTituloInput").value = actividad.titulo;
+    } else {
+      el("plDetalleTituloEdit").style.display = "none";
+      el("plDetalleTitulo").style.display = "";
+      el("plDetalleTitulo").textContent = actividad.titulo;
+    }
+    const desc = (actividad.descripcion || "").trim();
+    el("plDetalleDescripcion").textContent = desc || "Sin descripción";
+    el("plDetalleDescripcion").style.color = desc ? "#3b546d" : "#b0c4d8";
+    if (puedeEscribir()) {
+      el("plDetalleDescripcionEdit").style.display = "flex";
+      el("plDetalleDescripcionInput").value = desc;
+    } else {
+      el("plDetalleDescripcionEdit").style.display = "none";
+    }
+
+    if (puedeEscribir()) {
+      el("plDetalleResponsable").style.display = "none";
+      el("plDetalleResponsableEdit").style.display = "flex";
+      await cargarMiembros();
+      poblarSelectResponsable(el("plDetalleResponsableSelect"), actividad.responsable_id);
+    } else {
+      el("plDetalleResponsableEdit").style.display = "none";
+      el("plDetalleResponsable").style.display = "inline";
+      el("plDetalleResponsable").textContent = nombreResponsable(actividad) || "Sin asignar";
+    }
+
+    if (puedeEscribir()) {
+      el("plDetalleEstado").style.display = "none";
+      el("plDetalleEstadoEdit").style.display = "flex";
+      el("plDetalleEstadoSelect").value = String(!!actividad.activo);
+    } else {
+      el("plDetalleEstadoEdit").style.display = "none";
+      el("plDetalleEstado").style.display = "inline";
+      el("plDetalleEstado").innerHTML = `<span class="pl-estado-badge pl-estado-badge--${actividad.activo ? "activa" : "inactiva"}">${actividad.activo ? "Activa" : "Inactiva"}</span>`;
+    }
+
+    function renderDetalleDiasSemanaChips(seleccionados) {
+      const sel = new Set(seleccionados || []);
+      el("plDetalleDiasSemanaChips").innerHTML = DIAS_SEMANA.map((d, i) => `
+        <button type="button" class="pl-btn pl-btn--sm ${sel.has(i) ? "pl-btn--primary" : "pl-btn--soft"}" data-ddet="${i}">${d}</button>
+      `).join("");
+      el("plDetalleDiasSemanaChips").querySelectorAll("[data-ddet]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          btn.classList.toggle("pl-btn--primary");
+          btn.classList.toggle("pl-btn--soft");
+        });
+      });
+    }
+    function actualizarCamposFrecDetalle(frec) {
+      const esSemanal = frec === "semanal";
+      const conDia    = ["quincenal","mensual","trimestral","semestral","anual"].includes(frec);
+      const conMes    = ["trimestral","semestral","anual"].includes(frec);
+      el("plDetalleDiasSemanaWrap").style.display = esSemanal ? "" : "none";
+      el("plDetalleDiaMesInput").style.display    = conDia    ? "" : "none";
+      el("plDetalleMesInicio").style.display      = conMes    ? "" : "none";
+      const lbl = el("plDetalleMesInicioLabel");
+      if (conMes) {
+        lbl.style.display = "";
+        lbl.textContent = frec === "trimestral" ? "Mes de inicio del ciclo trimestral"
+                        : frec === "semestral"  ? "Mes de inicio del ciclo semestral"
+                        : "Mes de inicio";
+      } else {
+        lbl.style.display = "none";
+      }
+    }
+    function mostrarMetaFrecuencia(a) {
+      if (puedeEscribir()) {
+        el("plDetalleFrecuencia").style.display = "none";
+        el("plDetalleFrecuenciaEdit").style.display = "";
+        el("plDetalleFrecuenciaSelect").value = a.frecuencia;
+        actualizarCamposFrecDetalle(a.frecuencia);
+        renderDetalleDiasSemanaChips(a.dias_semana);
+        el("plDetalleDiaMesInput").value = a.dia_mes || "";
+        el("plDetalleMesInicio").value = String(a.mes_inicio || 1);
+        el("plDetalleDuracion").style.display = "none";
+        el("plDetalleDuracionEdit").style.display = "flex";
+        el("plDetalleDuracionInput").value = a.duracion_minutos || 30;
+      } else {
+        el("plDetalleFrecuenciaEdit").style.display = "none";
+        el("plDetalleFrecuencia").style.display = "inline";
+        el("plDetalleFrecuencia").textContent = describirFrecuencia(a);
+        el("plDetalleDuracionEdit").style.display = "none";
+        el("plDetalleDuracion").style.display = "inline";
+        el("plDetalleDuracion").textContent = formatoMinutos(a.duracion_minutos);
+      }
+    }
+    mostrarMetaFrecuencia(actividad);
+    el("plDetalleFrecuenciaSelect").onchange = function() {
+      actualizarCamposFrecDetalle(this.value);
+      if (this.value === "semanal") renderDetalleDiasSemanaChips([]);
+    };
+    el("plDetalleCargaSemanal").textContent = formatoMinutos(actividad.duracion_minutos * calcOcurrencias(actividad));
+
+    el("plHistorialList").innerHTML = '<div class="pl-loading"><i class="bi bi-arrow-repeat"></i>Cargando historial...</div>';
+    modal("plModalRecurrenteDetalle").show();
+
+    try {
+      const historial = await api(`/recurrentes/${actividadId}/ejecuciones`);
+      if (!historial.length) {
+        el("plHistorialList").innerHTML = '<div class="pl-empty"><i class="bi bi-calendar-x"></i>Sin ejecuciones registradas.</div>';
+        return;
+      }
+      const filas = historial.map(h => {
+        const completadoPor = h.completado_por_nombre ? `${h.completado_por_nombre} ${h.completado_por_apellido || ""}`.trim() : null;
+        const hora = h.completado_en ? esc(String(h.completado_en).slice(0, 16).replace("T", " ")) : "";
+        const puedeRemarcar = puedeEscribir() && h.estado === "no_realizada";
+        return `<tr>
+          <td class="pl-hist-fecha">${esc(h.fecha)}</td>
+          <td class="pl-hist-estado">${badgeEstado(h.estado)}</td>
+          <td class="pl-hist-usuario">
+            ${completadoPor
+              ? `<div class="pl-hist-usuario-name">${avatarHtml(completadoPor, h.completado_por)} ${esc(completadoPor)}</div>
+                 ${hora ? `<div class="pl-hist-usuario-time"><i class="bi bi-clock"></i> ${hora}</div>` : ""}`
+              : `<span style="color:#bcc8d4;font-size:.65rem">—</span>`}
+          </td>
+          <td class="pl-hist-obs">
+            ${h.observaciones
+              ? `<div class="pl-hist-obs-text" title="${esc(h.observaciones)}"><i class="bi bi-chat-left-quote" style="font-size:.6rem;color:#8fa3b8"></i> ${esc(h.observaciones)}</div>`
+              : `<span style="color:#bcc8d4;font-size:.65rem">—</span>`}
+          </td>
+          <td style="width:36px;text-align:center">
+            ${puedeRemarcar
+              ? `<button type="button" class="btn btn-sm" style="padding:2px 6px;font-size:.65rem;background:#e9f8ee;color:#1d7a3c;border:1px solid #b2dfdb;border-radius:6px" data-remarcar="${h.id}" data-responsable="${h.responsable_id || ""}" title="Marcar como Realizada"><i class="bi bi-arrow-repeat"></i></button>`
+              : ""}
+          </td>
+        </tr>`;
+      }).join("");
+      el("plHistorialList").innerHTML = `
+        <table class="pl-hist-table">
+          <thead><tr>
+            <th>Fecha</th><th>Estado</th><th>Usuario</th><th>Observación</th><th></th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table>`;
+      el("plHistorialList").querySelectorAll("[data-remarcar]").forEach(btn => {
+        btn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const actividad = recurrentesActuales.find(r => r.id === detalleActividadId);
+          abrirModalCompletar(btn.dataset.remarcar, actividad ? actividad.titulo : "", btn.dataset.responsable);
+        });
+      });
+    } catch (err) {
+      el("plHistorialList").innerHTML = `<div class="pl-empty"><i class="bi bi-exclamation-triangle"></i>${esc(err.message)}</div>`;
+    }
+  }
+
+  el("plGuardarTituloDetalle").addEventListener("click", async () => {
+    if (!detalleActividadId) return;
+    const titulo = el("plDetalleTituloInput").value.trim();
+    if (!titulo) { showToast("error", "El título no puede estar vacío"); return; }
+    await accion(async () => {
+      await apiPut(`/recurrentes/${detalleActividadId}`, { titulo });
+      await cargarRecurrentes();
+      showToast("success", "Nombre actualizado");
+    }, null);
+  });
+
+  el("plGuardarResponsableDetalle").addEventListener("click", async () => {
+    const responsable_id = el("plDetalleResponsableSelect").value;
+    if (!responsable_id) { showToast("error", "El responsable es obligatorio: selecciona una persona"); return; }
+    if (!detalleActividadId) return;
+    await accion(async () => {
+      await apiPut(`/recurrentes/${detalleActividadId}`, { responsable_id: Number(responsable_id) });
+      await Promise.all([cargarRecurrentes(), cargarCargaSemanal()]);
+      const actualizada = recurrentesActuales.find(r => r.id === detalleActividadId);
+      if (actualizada) el("plDetalleResponsable").textContent = nombreResponsable(actualizada) || "Sin asignar";
+    }, "Responsable actualizado");
+  });
+
+  el("plGuardarEstadoDetalle").addEventListener("click", async () => {
+    if (!detalleActividadId) return;
+    const activo = el("plDetalleEstadoSelect").value === "true";
+    await accion(async () => {
+      await apiPut(`/recurrentes/${detalleActividadId}`, { activo });
+      await Promise.all([cargarRecurrentes(), cargarCargaSemanal()]);
+    }, `Actividad marcada como ${activo ? "activa" : "inactiva"}`);
+  });
+
+  el("plGuardarDescripcionDetalle").addEventListener("click", async () => {
+    if (!detalleActividadId) return;
+    const descripcion = el("plDetalleDescripcionInput").value.trim();
+    await accion(async () => {
+      await apiPut(`/recurrentes/${detalleActividadId}`, { descripcion });
+      await cargarRecurrentes();
+      el("plDetalleDescripcion").textContent = descripcion || "Sin descripción";
+      el("plDetalleDescripcion").style.color = descripcion ? "#3b546d" : "#b0c4d8";
+    }, "Descripción actualizada");
+  });
+
+  el("plGuardarFrecuenciaDetalle").addEventListener("click", async () => {
+    if (!detalleActividadId) return;
+    const frecuencia = el("plDetalleFrecuenciaSelect").value;
+    const payload = { frecuencia, recalcular: true };
+    if (frecuencia === "semanal") {
+      const dias = Array.from(el("plDetalleDiasSemanaChips").querySelectorAll(".pl-btn--primary")).map(b => Number(b.dataset.ddet));
+      if (!dias.length) { showToast("error", "Selecciona al menos un día de la semana"); return; }
+      payload.dias_semana = dias;
+    }
+    if (["quincenal","mensual","trimestral","semestral","anual"].includes(frecuencia)) {
+      payload.dia_mes = Number(el("plDetalleDiaMesInput").value) || null;
+      if (!payload.dia_mes) { showToast("error", "Indica el día del mes"); return; }
+    }
+    if (["trimestral","semestral","anual"].includes(frecuencia)) {
+      payload.mes_inicio = Number(el("plDetalleMesInicio").value) || 1;
+    }
+    await accion(async () => {
+      await apiPut(`/recurrentes/${detalleActividadId}`, payload);
+      await Promise.all([cargarRecurrentes(), cargarCargaSemanal()]);
+      const act = recurrentesActuales.find(r => r.id === detalleActividadId);
+      if (act) el("plDetalleCargaSemanal").textContent = formatoMinutos(act.duracion_minutos * calcOcurrencias(act));
+    }, "Frecuencia actualizada y ejecuciones recalculadas");
+  });
+
+  el("plGuardarDuracionDetalle").addEventListener("click", async () => {
+    if (!detalleActividadId) return;
+    const duracion_minutos = Number(el("plDetalleDuracionInput").value) || 30;
+    await accion(async () => {
+      await apiPut(`/recurrentes/${detalleActividadId}`, { duracion_minutos });
+      await Promise.all([cargarRecurrentes(), cargarCargaSemanal()]);
+      const act = recurrentesActuales.find(r => r.id === detalleActividadId);
+      if (act) el("plDetalleCargaSemanal").textContent = formatoMinutos(act.duracion_minutos * calcOcurrencias(act));
+    }, "Duración actualizada");
+  });
+
+  function abrirModalCompletar(ejecucionId, titulo, responsableId) {
+    el("plCompletarEjecucionId").value = ejecucionId;
+    el("plCompletarResponsableId").value = responsableId || "";
+    el("plCompletarTitulo").textContent = titulo;
+    el("plCompletarObservacion").value = "";
+    el("plCompletarEstadoRealizada").checked = true;
+    const esResponsable = !responsableId || String(responsableId) === String(MI_USUARIO_ID);
+    el("plCompletarAlertaResponsable").style.display = esResponsable ? "none" : "";
+    const btn = el("plConfirmarCompletar");
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
+    modal("plModalCompletar").show();
+  }
+
+  el("plConfirmarCompletar").addEventListener("click", async () => {
+    const ejecucionId = el("plCompletarEjecucionId").value;
+    if (!ejecucionId) return;
+    const btn = el("plConfirmarCompletar");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Guardando...';
+    const estadoSel = document.querySelector('input[name="plCompletarEstado"]:checked');
+    const estado = estadoSel ? estadoSel.value : "completada";
+    const etiqueta = estado === "completada" ? "Actividad marcada como realizada" : "Actividad registrada como No Realizada";
+    const ok = await accion(async () => {
+      await apiPost(`/ejecuciones/${ejecucionId}/completar`, {
+        estado,
+        observaciones: el("plCompletarObservacion").value.trim() || null,
+      });
+      await Promise.all([cargarRecurrentes(), cargarCargaSemanal()]);
+    }, etiqueta);
+    if (ok) {
+      modal("plModalCompletar").hide();
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-lg"></i> Confirmar';
+    }
+  });
+
+  // ── Scrumban ──
+  let proyectosActuales = [];
+  let tableroActual = null;
+  const colsCollapsed = new Set();
+
+  function poblarFiltrosTablero() {
+    const selResp = el("plTabFiltroResponsable");
+    const valResp = selResp.value;
+    selResp.innerHTML = '<option value="">Todos los responsables</option>' +
+      state.miembrosEquipo.map(m => `<option value="${m.usuario_id}">${esc(nombreUsuario(m))}</option>`).join("");
+    selResp.value = valResp;
+
+    const selProy = el("plTabFiltroProyecto");
+    const valProy = selProy.value;
+    selProy.innerHTML = '<option value="">Todos los proyectos</option>' +
+      proyectosActuales.map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join("");
+    selProy.value = valProy;
+  }
+
+  function filtrarTarjetasTablero(tarjetas) {
+    const texto = el("plTabFiltroTexto").value.trim().toLowerCase();
+    const responsableId = el("plTabFiltroResponsable").value;
+    const proyectoId = el("plTabFiltroProyecto").value;
+    const anio = el("plPersonaAnio").value;
+    const mes  = el("plPersonaMes").value;
+    return tarjetas.filter(t => {
+      if (texto && !t.titulo.toLowerCase().includes(texto)) return false;
+      if (responsableId && String(t.asignado_a) !== responsableId) return false;
+      if (proyectoId && String(t.proyecto_id) !== proyectoId) return false;
+      if (anio || mes) {
+        if (!t.fecha_inicio) return false;
+        const [tAnio, tMes] = t.fecha_inicio.split("-");
+        if (anio && tAnio !== anio) return false;
+        if (mes  && tMes  !== mes.padStart(2, "0")) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderTablero() {
+    const board = el("plBoard");
+    if (!tableroActual) { board.innerHTML = '<div class="pl-empty"><i class="bi bi-kanban"></i>Sin tablero.</div>'; return; }
+    const hoy = new Date().toISOString().slice(0, 10);
+    const ultimaColumnaId = tableroActual.columnas.length ? tableroActual.columnas[tableroActual.columnas.length - 1].id : null;
+    board.innerHTML = tableroActual.columnas.map(col => {
+      const tarjetasFiltradas = filtrarTarjetasTablero(col.tarjetas).sort((a, b) => {
+        const pa = a.proyecto_nombre || "￿", pb = b.proyecto_nombre || "￿";
+        if (pa !== pb) return pa.localeCompare(pb);
+        const fa = a.fecha_limite || "9999-99-99", fb = b.fecha_limite || "9999-99-99";
+        return fa.localeCompare(fb);
+      });
+      const collapsed = colsCollapsed.has(col.id);
+      return `
+      <div class="pl-col${collapsed ? " is-collapsed" : ""}" data-col-id="${col.id}">
+        <div class="pl-col-head">
+          <span class="pl-col-name-wrap">
+            <span class="pl-col-name">${esc(col.nombre)}</span>
+            <span class="pl-col-count">${tarjetasFiltradas.length}${col.wip_limit ? "/" + col.wip_limit : ""}</span>
+          </span>
+          <div class="pl-col-head-btns">
+            <button class="pl-col-toggle" data-toggle-col="${col.id}" title="${collapsed ? "Expandir columna" : "Contraer columna"}">
+              <i class="bi bi-chevron-${collapsed ? "down" : "up"}"></i>
+            </button>
+            ${puedeEscribir() ? `<button class="pl-btn pl-btn--sm pl-btn--soft pl-col-add-btn" data-nueva-tarjeta="${col.id}" title="Nueva tarjeta"><i class="bi bi-plus-lg"></i></button>` : ""}
+          </div>
+        </div>
+        <div class="pl-col-body" data-columna="${col.id}">
+          ${tarjetasFiltradas.map(t => {
+            const asignado = t.asignado_nombre ? `${t.asignado_nombre} ${t.asignado_apellido || ""}`.trim() : null;
+            const completada = t.columna_id === ultimaColumnaId;
+            const vencida = !completada && t.fecha_limite && t.fecha_limite < hoy;
+            const vencimientoBadge = !completada && t.fecha_limite
+              ? `<span class="pl-venc-badge pl-venc-badge--${vencida ? "vencida" : "vigente"}"><i class="bi ${vencida ? "bi-exclamation-circle-fill" : "bi-check-circle-fill"}"></i>${vencida ? "Vencida" : "Vigente"}</span>`
+              : "";
+            return `
+            <div class="pl-card-item" draggable="true" data-tarjeta="${t.id}">
+              <span class="pl-tag pl-tag--${t.prioridad}">${esc(t.prioridad)}</span>
+              <b>${esc(t.titulo)}</b>
+              ${t.proyecto_nombre ? `<div class="pl-card-proyecto"><i class="bi bi-folder2"></i> ${esc(t.proyecto_nombre)}</div>` : ""}
+              ${asignado ? `<div>${avatarHtml(asignado, t.asignado_a)} <small>${esc(asignado)}</small></div>` : ""}
+              ${t.fecha_inicio || t.fecha_limite ? `<small style="color:#7e93a8">
+                ${t.fecha_inicio ? `<i class="bi bi-calendar-plus"></i> ${esc(t.fecha_inicio)}` : ""}
+                ${t.fecha_inicio && t.fecha_limite ? " → " : ""}
+                ${t.fecha_limite ? `<i class="bi bi-calendar-event"></i> ${esc(t.fecha_limite)}` : ""}
+              </small>` : ""}
+              ${vencimientoBadge}
+            </div>`;
+          }).join("") || '<div class="pl-empty" style="padding:14px 6px;font-size:.66rem"><i class="bi bi-inbox" style="font-size:1.1rem"></i>Sin tarjetas</div>'}
+        </div>
+      </div>`;
+    }).join("") || '<div class="pl-empty"><i class="bi bi-kanban"></i>Sin columnas. Crea la primera.</div>';
+
+    board.querySelectorAll("[data-toggle-col]").forEach(btn => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const colId = Number(btn.dataset.toggleCol);
+        const colEl = board.querySelector(`.pl-col[data-col-id="${colId}"]`);
+        if (!colEl) return;
+        if (colsCollapsed.has(colId)) {
+          colsCollapsed.delete(colId);
+          colEl.classList.remove("is-collapsed");
+          btn.title = "Contraer columna";
+          btn.querySelector("i").className = "bi bi-chevron-up";
+        } else {
+          colsCollapsed.add(colId);
+          colEl.classList.add("is-collapsed");
+          btn.title = "Expandir columna";
+          btn.querySelector("i").className = "bi bi-chevron-down";
+        }
+      });
+    });
+
+    board.querySelectorAll("[data-nueva-tarjeta]").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        await abrirModalTarjeta({ columna_id: btn.dataset.nuevaTarjeta });
+      });
+    });
+
+    board.querySelectorAll(".pl-card-item").forEach(card => {
+      card.addEventListener("click", () => {
+        const tarjeta = tableroActual.columnas.flatMap(c => c.tarjetas).find(t => String(t.id) === card.dataset.tarjeta);
+        if (tarjeta) abrirModalTarjeta(tarjeta);
+      });
+      card.addEventListener("dragstart", ev => {
+        card.classList.add("dragging");
+        ev.dataTransfer.setData("text/plain", card.dataset.tarjeta);
+      });
+      card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    });
+    board.querySelectorAll(".pl-col-body").forEach(zone => {
+      zone.addEventListener("dragover", ev => { ev.preventDefault(); zone.classList.add("drag-over"); });
+      zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+      zone.addEventListener("drop", async ev => {
+        ev.preventDefault();
+        zone.classList.remove("drag-over");
+        if (!puedeEscribir()) return;
+        const tarjetaId = ev.dataTransfer.getData("text/plain");
+        await accion(async () => {
+          await apiPut(`/tarjetas/${tarjetaId}`, { columna_id: Number(zone.dataset.columna) });
+          await Promise.all([cargarTablero(), cargarCargaTablero()]);
+        });
+      });
+    });
+  }
+
+  async function cargarTablero() {
+    tableroActual = await api(`/equipos/${state.equipoId}/tablero`);
+    poblarFiltrosTablero();
+    renderTablero();
+  }
+
+  const COLOR_COLUMNA_DEFECTO = "#7eb2ff";
+
+  // Asigna un color semántico a cada columna según su nombre
+  function colorColumna(nombre, fallback) {
+    const n = (nombre || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    if (/\b(hecho|completad|done|terminad|finaliz|cerrad)\b/.test(n)) return "#22c55e";  // verde
+    if (/\b(curso|progreso|proceso|activ|haciendo|doing|wip)\b/.test(n)) return "#3b82f6"; // azul
+    if (/\b(revision|revisado|review|testing|prueba|qa)\b/.test(n)) return "#f59e0b";     // naranja
+    if (/\b(bloqueado|blocked|parad|pausad|hold)\b/.test(n)) return "#ef4444";            // rojo
+    if (/\b(por hacer|backlog|pendiente|to.?do|nuevo|queue)\b/.test(n)) return "#94a3b8"; // gris
+    return fallback || COLOR_COLUMNA_DEFECTO;
+  }
+
+  async function cargarCargaTablero() {
+    const anio = el("plPersonaAnio").value;
+    const mes  = el("plPersonaMes").value;
+    const qs   = new URLSearchParams();
+    if (anio) qs.set("anio", anio);
+    if (mes)  qs.set("mes",  mes);
+    const qstr = qs.toString() ? "?" + qs.toString() : "";
+    const personas = await api(`/equipos/${state.equipoId}/tablero/resumen-personas${qstr}`);
+    const cont = el("plTableroCargaPersonas");
+    if (!personas.length) {
+      cont.innerHTML = '<div class="pl-empty" style="padding:14px"><i class="bi bi-bar-chart-steps"></i>Sin tareas asignadas todavía.</div>';
+      return;
+    }
+    cont.innerHTML = personas.map(p => {
+      const nombre = `${p.nombres || ""} ${p.apellidos || ""}`.trim() || "Usuario";
+      const total = p.total || 1;
+      const cols = p.columnas || [];
+      const pctHecho = Math.round((p.completadas / total) * 100);
+
+      // Barra apilada por columna — delgada (4px), cada segmento con color semántico
+      const colsConColor = cols.map(c => ({ ...c, _color: colorColumna(c.nombre, c.color) }));
+      const barSegs = colsConColor.map((c, idx) => {
+        const pct = Math.max(0, Math.round((c.total / total) * 100));
+        if (!pct) return "";
+        const isFirst = idx === 0 || !cols.slice(0, idx).some(x => x.total > 0);
+        const isLast  = idx === cols.length - 1 || !cols.slice(idx + 1).some(x => x.total > 0);
+        const br = isFirst && isLast ? "border-radius:999px"
+                 : isFirst           ? "border-radius:999px 0 0 999px"
+                 : isLast            ? "border-radius:0 999px 999px 0" : "";
+        return `<span style="width:${pct}%;background:${c._color};${br};transition:width .4s ease" title="${esc(c.nombre)}: ${c.total}"></span>`;
+      }).join("");
+
+      // Leyenda: solo columnas con tarjetas, con color semántico
+      const leyenda = colsConColor.filter(c => c.total > 0).map(c =>
+        `<span title="${esc(c.nombre)}: ${c.total} tarjeta${c.total !== 1 ? "s" : ""}">
+           <i style="background:${c._color};border-radius:3px;width:8px;height:8px;display:inline-block;flex:none"></i>
+           ${esc(c.nombre)} <b style="color:#3b546d">${c.total}</b>
+         </span>`
+      ).join("");
+
+      const vencBadge = (p.vencidas || 0) > 0
+        ? `<span style="font-size:.6rem;font-weight:800;color:#b3261e;background:#fdecec;border-radius:999px;padding:1px 7px;margin-left:4px"><i class="bi bi-exclamation-triangle-fill"></i> ${p.vencidas} venc.</span>` : "";
+
+      return `
+      <div class="pl-persona-carga">
+        <div class="pl-persona-carga-head">
+          ${avatarHtml(nombre, p.usuario_id)}
+          <span class="nombre" style="flex:1">${esc(nombre)}</span>
+          <span class="pl-persona-pct" style="color:#1d7a3c">${pctHecho}%${vencBadge}</span>
+        </div>
+        <div class="pl-stack-bar" style="height:4px;border-radius:999px;overflow:hidden;display:flex;background:#e2e8f0;gap:1px">${barSegs}</div>
+        <div class="pl-persona-legend" style="margin-top:5px;font-size:.59rem">${leyenda}</div>
+      </div>`;
+    }).join("");
+  }
+
+  const MESES_NOMBRES = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                         "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+  async function poblarFiltrosPersona() {
+    const selA = el("plPersonaAnio");
+    const selM = el("plPersonaMes");
+    selA.innerHTML = '<option value="">Año</option>';
+    selM.innerHTML = '<option value="">Mes</option>';
+    try {
+      const datos = await api(`/equipos/${state.equipoId}/tablero/fechas-inicio`);
+      datos.anios.forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a; opt.textContent = a;
+        selA.appendChild(opt);
+      });
+      datos.meses.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m; opt.textContent = MESES_NOMBRES[m] || m;
+        selM.appendChild(opt);
+      });
+    } catch (_) { /* sin datos de fecha_inicio: selects vacíos es correcto */ }
+  }
+
+  // Acordeón lateral "Por persona"
+  const personaLayout = el("plPersonaAside").closest(".pl-recurrentes-layout");
+  function colapsarPersona(colapsar) {
+    el("plPersonaAside").classList.toggle("is-collapsed", colapsar);
+    personaLayout.classList.toggle("aside-collapsed", colapsar);
+  }
+  el("plBtnTogglePersona").addEventListener("click", () => colapsarPersona(true));
+  el("plBtnExpandPersona").addEventListener("click", () => colapsarPersona(false));
+  el("plPersonaTab").addEventListener("click", () => colapsarPersona(false));
+
+  el("plPersonaAnio").addEventListener("change", () => { cargarCargaTablero(); renderTablero(); });
+  el("plPersonaMes").addEventListener("change",  () => { cargarCargaTablero(); renderTablero(); });
+
+  el("plTabFiltroTexto").addEventListener("input", renderTablero);
+  el("plTabFiltroResponsable").addEventListener("change", renderTablero);
+  el("plTabFiltroProyecto").addEventListener("change", renderTablero);
+
+  el("plBtnNuevaColumna").addEventListener("click", () => {
+    el("plColNombre").value = ""; el("plColWip").value = "";
+    modal("plModalColumna").show();
+  });
+  el("plGuardarColumna").addEventListener("click", async () => {
+    const nombre = el("plColNombre").value.trim();
+    if (!nombre) { showToast("error", "El nombre de la columna es obligatorio"); return; }
+    const ok = await accion(async () => {
+      await apiPost(`/equipos/${state.equipoId}/columnas`, { nombre, wip_limit: parseInt(el("plColWip").value, 10) || null });
+      await cargarTablero();
+    }, "Columna creada");
+    if (ok) modal("plModalColumna").hide();
+  });
+
+  // ── Adjuntos de tarjeta ──
+  let tarjetaPendingFiles = [];
+  let tarjetaArchivosActuales = [];
+
+  function renderTarAdjGrid() {
+    const grid = el("plTarAdjGrid");
+    const htmlExistentes = tarjetaArchivosActuales.map(a => {
+      const url = `${API}/archivos/${a.id}/download`;
+      let thumb;
+      if (esImagen(a.nombre_archivo)) thumb = `<img class="pl-adj-thumb" src="${url}" alt="${esc(a.nombre_archivo)}">`;
+      else if (esPdf(a.nombre_archivo)) thumb = `<div class="pl-adj-thumb-pdf"><i class="bi bi-file-earmark-pdf"></i></div>`;
+      else thumb = `<div class="pl-adj-thumb-file"><i class="bi ${iconoArchivo(a.nombre_archivo)}"></i></div>`;
+      return `<div class="pl-adj-item" data-tarch-id="${a.id}">
+        ${thumb}
+        <div class="pl-adj-name" title="${esc(a.nombre_archivo)}">${esc(a.nombre_archivo)}</div>
+        ${puedeEscribir() ? `<button class="pl-adj-del" data-del-tarch="${a.id}" title="Eliminar"><i class="bi bi-x"></i></button>` : ""}
+      </div>`;
+    }).join("");
+    const htmlPending = tarjetaPendingFiles.map((f, i) => {
+      let thumb;
+      if (esImagen(f.name)) thumb = `<img class="pl-adj-thumb" src="${URL.createObjectURL(f)}">`;
+      else if (esPdf(f.name)) thumb = `<div class="pl-adj-thumb-pdf"><i class="bi bi-file-earmark-pdf"></i></div>`;
+      else thumb = `<div class="pl-adj-thumb-file"><i class="bi ${iconoArchivo(f.name)}"></i></div>`;
+      return `<div class="pl-adj-item" data-tar-pending="${i}">
+        ${thumb}
+        <div class="pl-adj-name" title="${esc(f.name)}">${esc(f.name)}</div>
+        <button class="pl-adj-del" data-del-tar-pending="${i}" title="Quitar"><i class="bi bi-x"></i></button>
+      </div>`;
+    }).join("");
+    grid.innerHTML = htmlExistentes + htmlPending;
+
+    grid.querySelectorAll("[data-tarch-id]").forEach(item => {
+      item.addEventListener("click", e => {
+        if (e.target.closest("[data-del-tarch]")) return;
+        const a = tarjetaArchivosActuales.find(x => String(x.id) === item.dataset.tarchId);
+        if (a) abrirPreview(a);
+      });
+    });
+    grid.querySelectorAll("[data-del-tarch]").forEach(btn => {
+      btn.addEventListener("click", async e => {
+        e.stopPropagation();
+        if (!await confirmar("¿Eliminar este archivo adjunto?")) return;
+        await accion(async () => {
+          await apiDelete(`/archivos/${btn.dataset.delTarch}`);
+          tarjetaArchivosActuales = tarjetaArchivosActuales.filter(a => String(a.id) !== btn.dataset.delTarch);
+          renderTarAdjGrid();
+        }, "Archivo eliminado");
+      });
+    });
+    grid.querySelectorAll("[data-del-tar-pending]").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        tarjetaPendingFiles.splice(Number(btn.dataset.delTarPending), 1);
+        renderTarAdjGrid();
+      });
+    });
+  }
+
+  const tarDropzone = el("plTarAdjDropzone");
+  const tarAdjInput = el("plTarAdjInput");
+  tarDropzone.addEventListener("click", () => tarAdjInput.click());
+  tarDropzone.addEventListener("dragover", e => { e.preventDefault(); tarDropzone.classList.add("dragover"); });
+  tarDropzone.addEventListener("dragleave", () => tarDropzone.classList.remove("dragover"));
+  tarDropzone.addEventListener("drop", e => {
+    e.preventDefault(); tarDropzone.classList.remove("dragover");
+    [...e.dataTransfer.files].forEach(f => tarjetaPendingFiles.push(f));
+    renderTarAdjGrid();
+  });
+  tarAdjInput.addEventListener("change", () => {
+    [...tarAdjInput.files].forEach(f => tarjetaPendingFiles.push(f));
+    tarAdjInput.value = "";
+    renderTarAdjGrid();
+  });
+
+  async function subirPendingFilesTarjeta(tarjetaId) {
+    for (const file of tarjetaPendingFiles) {
+      const formData = new FormData();
+      formData.append("file", file);
+      const resp = await fetch(`${API}/tarjetas/${tarjetaId}/archivos`, { method: "POST", body: formData });
+      if (!resp.ok) throw new Error(`No se pudo subir: ${file.name}`);
+    }
+    tarjetaPendingFiles = [];
+  }
+
+  // ── Checklist de tarjeta ──
+  let checklistActual = [];
+  let checklistPending = [];
+
+  function actualizarProgressChecklist() {
+    const total = checklistActual.length;
+    const done  = checklistActual.filter(i => i.completado).length;
+    const wrap  = el("plTarChecklistProgress");
+    if (total === 0) { wrap.style.display = "none"; return; }
+    wrap.style.display = "";
+    el("plTarClDone").textContent  = done;
+    el("plTarClTotal").textContent = total;
+    el("plTarClBar").style.width   = Math.round((done / total) * 100) + "%";
+  }
+
+  function renderChecklistList() {
+    const list   = el("plTarChecklistList");
+    const tarjId = el("plTarTarjetaId").value;
+    const esEdic = !!tarjId;
+
+    if (esEdic) {
+      list.innerHTML = checklistActual.map(item => `
+        <div class="pl-checklist-item${item.completado ? " is-done" : ""}" data-cl-id="${item.id}">
+          <input type="checkbox" ${item.completado ? "checked" : ""} data-cl-check="${item.id}">
+          <span class="pl-cl-texto" data-cl-span="${item.id}">${esc(item.texto)}</span>
+          <input class="form-control form-control-sm pl-cl-edit-input" data-cl-edit-input="${item.id}" value="${esc(item.texto)}" style="display:none;flex:1;font-size:.78rem;padding:2px 6px">
+          ${puedeEscribir() ? `
+          <button class="pl-cl-edit" data-cl-edit="${item.id}" title="Editar" style="background:none;border:none;color:#7ea8c9;cursor:pointer;padding:0 2px;font-size:.75rem;opacity:0;transition:opacity .15s"><i class="bi bi-pencil"></i></button>
+          <button class="pl-cl-edit-ok" data-cl-edit-ok="${item.id}" title="Guardar" style="display:none;background:none;border:none;color:#1d7a3c;cursor:pointer;padding:0 2px;font-size:.75rem"><i class="bi bi-check-lg"></i></button>
+          <button class="pl-cl-del" data-cl-del="${item.id}" title="Eliminar"><i class="bi bi-x"></i></button>` : ""}
+        </div>`).join("");
+
+      list.querySelectorAll("[data-cl-check]").forEach(chk => {
+        chk.addEventListener("change", async () => {
+          const id = Number(chk.dataset.clCheck);
+          await accion(async () => {
+            const updated = await apiPut(`/checklist/${id}`, { completado: chk.checked });
+            const idx = checklistActual.findIndex(i => i.id === id);
+            if (idx !== -1) checklistActual[idx] = updated;
+            renderChecklistList();
+            actualizarProgressChecklist();
+          });
+        });
+      });
+
+      list.querySelectorAll("[data-cl-edit]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.clEdit;
+          const span = list.querySelector(`[data-cl-span="${id}"]`);
+          const inp = list.querySelector(`[data-cl-edit-input="${id}"]`);
+          const ok = list.querySelector(`[data-cl-edit-ok="${id}"]`);
+          span.style.display = "none"; inp.style.display = ""; ok.style.display = ""; btn.style.display = "none";
+          inp.focus();
+        });
+      });
+
+      list.querySelectorAll("[data-cl-edit-ok]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const id = Number(btn.dataset.clEditOk);
+          const inp = list.querySelector(`[data-cl-edit-input="${id}"]`);
+          const texto = inp.value.trim();
+          if (!texto) return;
+          await accion(async () => {
+            const updated = await apiPut(`/checklist/${id}`, { texto });
+            const idx = checklistActual.findIndex(i => i.id === id);
+            if (idx !== -1) checklistActual[idx] = updated;
+            renderChecklistList();
+          }, "Subtarea actualizada");
+        });
+      });
+
+      list.querySelectorAll("[data-cl-del]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (!await confirmar("¿Eliminar esta subtarea?")) return;
+          const id = Number(btn.dataset.clDel);
+          await accion(async () => {
+            await apiDelete(`/checklist/${id}`);
+            checklistActual = checklistActual.filter(i => i.id !== id);
+            renderChecklistList();
+            actualizarProgressChecklist();
+          }, "Subtarea eliminada");
+        });
+      });
+
+      // Mostrar botón editar al hover via CSS no alcanza para dinámicos; usar mouseenter
+      list.querySelectorAll("[data-cl-edit]").forEach(btn => {
+        const row = btn.closest(".pl-checklist-item");
+        row.addEventListener("mouseenter", () => { if (btn.style.display !== "none") btn.style.opacity = "1"; });
+        row.addEventListener("mouseleave", () => { btn.style.opacity = "0"; });
+      });
+    } else {
+      list.innerHTML = checklistPending.map((texto, i) => `
+        <div class="pl-checklist-item" data-cl-pending="${i}">
+          <input type="checkbox" disabled>
+          <span class="pl-cl-texto">${esc(texto)}</span>
+          <button class="pl-cl-del" data-cl-del-pending="${i}" title="Quitar"><i class="bi bi-x"></i></button>
+        </div>`).join("");
+
+      list.querySelectorAll("[data-cl-del-pending]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          checklistPending.splice(Number(btn.dataset.clDelPending), 1);
+          renderChecklistList();
+        });
+      });
+    }
+    actualizarProgressChecklist();
+  }
+
+  function inicializarChecklist(tarjeta) {
+    const esEdic    = !!tarjeta.id;
+    checklistActual  = esEdic ? (tarjeta.checklist || []) : [];
+    checklistPending = [];
+    const tieneItems = checklistActual.length > 0;
+    el("plTarChecklistToggle").checked = tieneItems;
+    el("plTarChecklistSeccion").style.display = tieneItems ? "" : "none";
+    renderChecklistList();
+  }
+
+  el("plTarChecklistToggle").addEventListener("change", () => {
+    const activo = el("plTarChecklistToggle").checked;
+    el("plTarChecklistSeccion").style.display = activo ? "" : "none";
+    if (!activo) { checklistPending = []; renderChecklistList(); }
+  });
+
+  el("plTarClAgregar").addEventListener("click", async () => {
+    const texto  = el("plTarClNuevoTexto").value.trim();
+    if (!texto) return;
+    const tarjId = el("plTarTarjetaId").value;
+    if (tarjId) {
+      await accion(async () => {
+        const nuevo = await apiPost(`/tarjetas/${tarjId}/checklist`, { texto });
+        checklistActual.push(nuevo);
+        renderChecklistList();
+      }, "Subtarea agregada");
+    } else {
+      checklistPending.push(texto);
+      renderChecklistList();
+    }
+    el("plTarClNuevoTexto").value = "";
+  });
+
+  el("plTarClNuevoTexto").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); el("plTarClAgregar").click(); }
+  });
+
+  async function crearChecklistPendientes(tarjetaId) {
+    for (const texto of checklistPending) {
+      await apiPost(`/tarjetas/${tarjetaId}/checklist`, { texto });
+    }
+    checklistPending = [];
+  }
+
+  async function abrirModalTarjeta(tarjeta) {
+    const esEdicion = !!tarjeta.id;
+    el("plTarTarjetaId").value = esEdicion ? tarjeta.id : "";
+    el("plTarColumnaId").value = tarjeta.columna_id;
+    el("plTarModalTitulo").textContent = esEdicion ? "Editar tarjeta" : "Nueva tarjeta";
+    el("plTarTitulo").value = esEdicion ? tarjeta.titulo : "";
+    el("plTarDescripcion").value = esEdicion ? (tarjeta.descripcion || "") : "";
+    el("plTarPrioridad").value = esEdicion ? tarjeta.prioridad : "media";
+    el("plTarInicio").value = esEdicion && tarjeta.fecha_inicio ? tarjeta.fecha_inicio : "";
+    el("plTarFecha").value = esEdicion && tarjeta.fecha_limite ? tarjeta.fecha_limite : "";
+    el("plTarProyecto").innerHTML = '<option value="">Sin proyecto</option>' +
+      proyectosActuales.map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join("");
+    el("plTarProyecto").value = esEdicion && tarjeta.proyecto_id ? String(tarjeta.proyecto_id) : "";
+    // Predecesora: todas las tarjetas del tablero, ordenadas alfabéticamente y agrupadas por proyecto
+    const todasTarjetas = tableroActual ? tableroActual.columnas.flatMap(c => c.tarjetas) : [];
+    const candidatas = todasTarjetas
+      .filter(t => !esEdicion || t.id !== tarjeta.id)
+      .sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "es"));
+    const grupProy = {};
+    const sinProy = [];
+    candidatas.forEach(t => {
+      if (t.proyecto_id) {
+        const pn = t.proyecto_nombre || `Proyecto ${t.proyecto_id}`;
+        if (!grupProy[pn]) grupProy[pn] = [];
+        grupProy[pn].push(t);
+      } else { sinProy.push(t); }
+    });
+    let predeHTML = '<option value="">No Aplica</option>';
+    Object.keys(grupProy).sort().forEach(pn => {
+      predeHTML += `<optgroup label="${esc(pn)}">`;
+      grupProy[pn].forEach(t => { predeHTML += `<option value="${t.id}">${esc(t.titulo)}</option>`; });
+      predeHTML += "</optgroup>";
+    });
+    if (sinProy.length) {
+      if (Object.keys(grupProy).length) predeHTML += `<optgroup label="Sin proyecto">`;
+      sinProy.forEach(t => { predeHTML += `<option value="${t.id}">${esc(t.titulo)}</option>`; });
+      if (Object.keys(grupProy).length) predeHTML += "</optgroup>";
+    }
+    el("plTarPredecesora").innerHTML = predeHTML;
+    el("plTarPredecesora").value = esEdicion && tarjeta.predecesora_id ? String(tarjeta.predecesora_id) : "";
+    await abrirSelectsResponsable("plTarAsignado");
+    el("plTarAsignado").value = esEdicion && tarjeta.asignado_a ? String(tarjeta.asignado_a) : "";
+    el("plEliminarTarjetaModal").style.display = esEdicion && esAdmin() ? "inline-flex" : "none";
+
+    // Adjuntos: solo en edición
+    // Checklist
+    inicializarChecklist(tarjeta);
+
+    // Adjuntos: solo en edición
+    tarjetaPendingFiles = [];
+    tarjetaArchivosActuales = [];
+    el("plTarAdjSeccion").style.display = esEdicion ? "" : "none";
+    if (esEdicion) {
+      try {
+        tarjetaArchivosActuales = await api(`/tarjetas/${tarjeta.id}/archivos`);
+      } catch (_) { tarjetaArchivosActuales = []; }
+      renderTarAdjGrid();
+    }
+    modal("plModalTarjeta").show();
+  }
+
+  el("plGuardarTarjeta").addEventListener("click", async () => {
+    const titulo = el("plTarTitulo").value.trim();
+    if (!titulo) { showToast("error", "El título de la tarjeta es obligatorio"); return; }
+    const tarjetaId = el("plTarTarjetaId").value;
+    const payload = {
+      proyecto_id: el("plTarProyecto").value ? Number(el("plTarProyecto").value) : null,
+      predecesora_id: el("plTarPredecesora").value ? Number(el("plTarPredecesora").value) : null,
+      titulo,
+      descripcion: el("plTarDescripcion").value.trim(),
+      prioridad: el("plTarPrioridad").value,
+      asignado_a: el("plTarAsignado").value ? Number(el("plTarAsignado").value) : null,
+      fecha_inicio: el("plTarInicio").value || null,
+      fecha_limite: el("plTarFecha").value || null,
+    };
+    const ok = await accion(async () => {
+      let idFinal = tarjetaId;
+      if (tarjetaId) {
+        await apiPut(`/tarjetas/${tarjetaId}`, payload);
+      } else {
+        payload.columna_id = Number(el("plTarColumnaId").value);
+        const nueva = await apiPost("/tarjetas", payload);
+        idFinal = nueva.id;
+      }
+      if (idFinal && checklistPending.length) await crearChecklistPendientes(idFinal);
+      if (idFinal && tarjetaPendingFiles.length) await subirPendingFilesTarjeta(idFinal);
+      await Promise.all([cargarTablero(), cargarCargaTablero(), poblarFiltrosPersona()]);
+    }, tarjetaId ? "Tarjeta actualizada" : "Tarjeta creada");
+    if (ok) modal("plModalTarjeta").hide();
+  });
+
+  el("plEliminarTarjetaModal").addEventListener("click", async () => {
+    const tarjetaId = el("plTarTarjetaId").value;
+    if (!tarjetaId) return;
+    const okConfirm = await confirmar("¿Eliminar esta tarjeta del tablero?");
+    if (!okConfirm) return;
+    const ok = await accion(async () => {
+      await apiDelete(`/tarjetas/${tarjetaId}`);
+      await Promise.all([cargarTablero(), cargarCargaTablero()]);
+    }, "Tarjeta eliminada");
+    if (ok) modal("plModalTarjeta").hide();
+  });
+
+  // ── Proyectos ──
+  const ESTADO_CONFIG = {
+    activo:  { clase: "completada", color: "#1d7a3c", label: "Activo"  },
+    pausado: { clase: "pendiente",  color: "#b06b00", label: "Pausado" },
+    cerrado: { clase: "omitida",    color: "#6c757d", label: "Cerrado" },
+  };
+
+  function diasRestantes(fechaFin) {
+    if (!fechaFin) return null;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const diff = Math.round((new Date(fechaFin) - new Date(hoy)) / 86400000);
+    return diff;
+  }
+
+  function diasBadge(p) {
+    if (!p.fecha_fin || p.estado === "cerrado") return "";
+    const dias = diasRestantes(p.fecha_fin);
+    if (dias < 0)  return `<span class="dias-badge dias-badge--venc"><i class="bi bi-exclamation-circle"></i> Vencido hace ${Math.abs(dias)}d</span>`;
+    if (dias <= 7) return `<span class="dias-badge dias-badge--warn"><i class="bi bi-clock"></i> ${dias}d restantes</span>`;
+    return `<span class="dias-badge dias-badge--ok"><i class="bi bi-check-circle"></i> ${dias}d restantes</span>`;
+  }
+
+  function poblarFiltroProyResponsable() {
+    const sel = el("plProyFiltroResponsable");
+    const val = sel.value;
+    const usados = new Map();
+    proyectosActuales.forEach(p => {
+      if (p.responsable_id) usados.set(p.responsable_id, nombreResponsable(p));
+    });
+    sel.innerHTML = '<option value="">Todos los responsables</option>' +
+      Array.from(usados.entries()).sort((a,b) => a[1].localeCompare(b[1]))
+        .map(([id, nom]) => `<option value="${id}">${esc(nom)}</option>`).join("");
+    sel.value = usados.has(Number(val)) ? val : "";
+  }
+
+  function filtrarProyectos() {
+    const texto = el("plProyFiltroTexto").value.trim().toLowerCase();
+    const estado = el("plProyFiltroEstado").value;
+    const respId = el("plProyFiltroResponsable").value;
+    return proyectosActuales.filter(p => {
+      if (texto && !p.nombre.toLowerCase().includes(texto) && !(p.descripcion || "").toLowerCase().includes(texto)) return false;
+      if (estado && p.estado !== estado) return false;
+      if (respId && String(p.responsable_id) !== respId) return false;
+      return true;
+    });
+  }
+
+  function renderProyectos() {
+    const list = el("plProyectosList");
+    const filtrados = filtrarProyectos();
+    if (!proyectosActuales.length) {
+      list.innerHTML = '<div class="pl-empty"><i class="bi bi-folder2-open"></i>Sin proyectos todavía.</div>';
+    } else if (!filtrados.length) {
+      list.innerHTML = '<div class="pl-empty"><i class="bi bi-search"></i>Ningún proyecto coincide con los filtros.</div>';
+    } else {
+      list.innerHTML = filtrados.map(p => {
+        const cfg = ESTADO_CONFIG[p.estado] || ESTADO_CONFIG.activo;
+        const resp = nombreResponsable(p);
+        return `
+        <div class="pl-proy-row" data-proy-id="${p.id}">
+          <div class="pl-proy-accent" style="background:${esc(p.color || cfg.color)}"></div>
+          <div class="pl-proy-main">
+            <div class="nombre">${esc(p.nombre)}</div>
+            ${p.descripcion ? `<div class="desc">${esc(p.descripcion)}</div>` : ""}
+            <div class="fechas">
+              ${p.fecha_inicio ? `<i class="bi bi-calendar3"></i> ${esc(p.fecha_inicio)}` : ""}
+              ${p.fecha_inicio && p.fecha_fin ? `<i class="bi bi-arrow-right"></i>` : ""}
+              ${p.fecha_fin ? `${esc(p.fecha_fin)}` : ""}
+              ${diasBadge(p)}
+            </div>
+          </div>
+          <div class="pl-proy-responsable">
+            ${resp ? avatarHtml(resp, p.responsable_id) + `<span class="nombre">${esc(resp)}<span class="rol-tag">Responsable</span></span>` : `<span style="font-size:.66rem;color:#9fb2c5">Sin asignar</span>`}
+          </div>
+          <div class="pl-proy-estado">
+            <span class="pl-status pl-status--${cfg.clase}">${esc(cfg.label)}</span>
+          </div>
+          ${puedeEscribir() ? `<button class="pl-btn pl-btn--sm pl-btn--soft" data-editar-proy="${p.id}" title="Editar"><i class="bi bi-pencil"></i></button>` : "<div></div>"}
+        </div>`;
+      }).join("");
+
+      list.querySelectorAll("[data-editar-proy]").forEach(btn => {
+        btn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const p = proyectosActuales.find(x => String(x.id) === btn.dataset.editarProy);
+          if (p) abrirModalProyecto(p);
+        });
+      });
+      list.querySelectorAll("[data-proy-id]").forEach(row => {
+        row.addEventListener("click", () => {
+          const p = proyectosActuales.find(x => String(x.id) === row.dataset.proyId);
+          if (p) abrirModalProyecto(p);
+        });
+      });
+    }
+
+    // Resumen lateral
+    const cont = el("plProyectosResumen");
+    const total = proyectosActuales.length;
+    if (!total) { cont.innerHTML = '<div class="pl-empty" style="padding:14px"><i class="bi bi-pie-chart"></i>Sin datos.</div>'; return; }
+    const conteo = { activo: 0, pausado: 0, cerrado: 0 };
+    proyectosActuales.forEach(p => { if (conteo[p.estado] !== undefined) conteo[p.estado]++; });
+    const pctCerrado = Math.round((conteo.cerrado / total) * 100);
+    cont.innerHTML = `
+      <div style="text-align:center;padding:10px 0 14px">
+        <div style="font-size:1.6rem;font-weight:800;color:#17324c">${total}</div>
+        <div style="font-size:.64rem;color:#7e93a8;text-transform:uppercase;letter-spacing:.04em">proyectos en total</div>
+        <div style="margin-top:8px;font-size:.7rem;color:#1d7a3c;font-weight:700">${pctCerrado}% completados</div>
+        <div class="pl-carga-bar" style="margin-top:4px"><span style="width:${pctCerrado}%;background:#1d7a3c"></span></div>
+      </div>
+      ${Object.entries(conteo).map(([estado, n]) => {
+        const cfg = ESTADO_CONFIG[estado];
+        const pct = total ? Math.round((n / total) * 100) : 0;
+        return `
+        <div class="pl-resumen-estado">
+          <span class="pl-resumen-dot" style="background:${cfg.color}"></span>
+          <span class="pl-resumen-label">${cfg.label}</span>
+          <span class="pl-resumen-count">${n}</span>
+        </div>
+        <div class="pl-resumen-pct-bar"><span style="width:${pct}%;background:${cfg.color}"></span></div>`;
+      }).join("")}`;
+  }
+
+  async function cargarProyectos() {
+    proyectosActuales = await api(`/equipos/${state.equipoId}/proyectos`);
+    poblarFiltroProyResponsable();
+    renderProyectos();
+  }
+
+  el("plProyFiltroTexto").addEventListener("input", renderProyectos);
+  el("plProyFiltroEstado").addEventListener("change", renderProyectos);
+  el("plProyFiltroResponsable").addEventListener("change", renderProyectos);
+
+  async function abrirModalProyecto(p) {
+    const esEdicion = !!p.id;
+    el("plProyProyectoId").value = esEdicion ? p.id : "";
+    el("plProyModalTitulo").textContent = esEdicion ? "Editar proyecto" : "Nuevo proyecto";
+    el("plProyNombre").value = esEdicion ? p.nombre : "";
+    el("plProyDescripcion").value = esEdicion ? (p.descripcion || "") : "";
+    el("plProyEstado").value = esEdicion ? (p.estado || "activo") : "activo";
+    el("plProyInicio").value = esEdicion && p.fecha_inicio ? p.fecha_inicio : "";
+    el("plProyFin").value = esEdicion && p.fecha_fin ? p.fecha_fin : "";
+    await abrirSelectsResponsable("plProyResponsable");
+    el("plProyResponsable").value = esEdicion && p.responsable_id ? String(p.responsable_id) : "";
+    el("plEliminarProyectoModal").style.display = esEdicion && esAdmin() ? "inline-flex" : "none";
+    modal("plModalProyecto").show();
+  }
+
+  el("plBtnNuevoProyecto").addEventListener("click", () => abrirModalProyecto({}));
+
+  el("plGuardarProyecto").addEventListener("click", async () => {
+    const nombre = el("plProyNombre").value.trim();
+    if (!nombre) { showToast("error", "El nombre del proyecto es obligatorio"); return; }
+    const proyectoId = el("plProyProyectoId").value;
+    const payload = {
+      nombre,
+      descripcion: el("plProyDescripcion").value.trim(),
+      estado: el("plProyEstado").value,
+      responsable_id: el("plProyResponsable").value ? Number(el("plProyResponsable").value) : null,
+      fecha_inicio: el("plProyInicio").value || null,
+      fecha_fin: el("plProyFin").value || null,
+    };
+    const ok = await accion(async () => {
+      if (proyectoId) {
+        await apiPut(`/proyectos/${proyectoId}`, payload);
+      } else {
+        await apiPost(`/equipos/${state.equipoId}/proyectos`, payload);
+      }
+      await cargarProyectos();
+    }, proyectoId ? "Proyecto actualizado" : "Proyecto creado");
+    if (ok) modal("plModalProyecto").hide();
+  });
+
+  el("plEliminarProyectoModal").addEventListener("click", async () => {
+    const proyectoId = el("plProyProyectoId").value;
+    if (!proyectoId) return;
+    const ok2 = await confirmar("¿Eliminar este proyecto? Las tarjetas asociadas quedarán sin proyecto.");
+    if (!ok2) return;
+    const ok = await accion(async () => {
+      await apiDelete(`/proyectos/${proyectoId}`);
+      await cargarProyectos();
+    }, "Proyecto eliminado");
+    if (ok) modal("plModalProyecto").hide();
+  });
+
+  // ── Notas / archivos ──
+  const NOTA_COLORES = [
+    { v: "#ffffff", n: "Blanco"      }, { v: "#fffbe6", n: "Amarillo"    },
+    { v: "#fff3cd", n: "Dorado"      }, { v: "#fef0e0", n: "Durazno"     },
+    { v: "#fce8e8", n: "Rosa"        }, { v: "#fde8f5", n: "Fucsia"      },
+    { v: "#f3e8fb", n: "Lavanda"     }, { v: "#e8edfb", n: "Azul"        },
+    { v: "#e3f4fb", n: "Celeste"     }, { v: "#d9f2fb", n: "Cielo"       },
+    { v: "#e8f8ee", n: "Verde"       }, { v: "#d9f5e5", n: "Menta"       },
+    { v: "#eafaf1", n: "Jade"        }, { v: "#f0f4f9", n: "Gris perla"  },
+    { v: "#e8e0d8", n: "Arena"       }, { v: "#f5ece4", n: "Crema"       },
+  ];
+
+  // Inicializar selector de colores
+  (function() {
+    const picker = el("plNotaColorPicker");
+    NOTA_COLORES.forEach(c => {
+      const sw = document.createElement("div");
+      sw.className = "pl-color-swatch";
+      sw.style.background = c.v;
+      sw.title = c.n;
+      sw.dataset.color = c.v;
+      sw.addEventListener("click", () => {
+        picker.querySelectorAll(".pl-color-swatch").forEach(s => s.classList.remove("selected"));
+        sw.classList.add("selected");
+        el("plNotaColor").value = c.v;
+      });
+      picker.appendChild(sw);
+    });
+    // Default blanco
+    picker.firstElementChild && picker.firstElementChild.classList.add("selected");
+  })();
+
+  function setNotaColor(color) {
+    const c = color || "#ffffff";
+    el("plNotaColor").value = c;
+    const picker = el("plNotaColorPicker");
+    picker.querySelectorAll(".pl-color-swatch").forEach(sw => {
+      sw.classList.toggle("selected", sw.dataset.color === c);
+    });
+  }
+
+  function iconoArchivo(nombre) {
+    const ext = (nombre.split(".").pop() || "").toLowerCase();
+    const mapa = {
+      pdf: "bi-file-earmark-pdf", xlsx: "bi-file-earmark-excel", xls: "bi-file-earmark-excel",
+      csv: "bi-file-earmark-spreadsheet", doc: "bi-file-earmark-word", docx: "bi-file-earmark-word",
+      png: "bi-file-earmark-image", jpg: "bi-file-earmark-image", jpeg: "bi-file-earmark-image",
+      gif: "bi-file-earmark-image", webp: "bi-file-earmark-image", bmp: "bi-file-earmark-image",
+      zip: "bi-file-earmark-zip", ppt: "bi-file-earmark-ppt", pptx: "bi-file-earmark-ppt",
+    };
+    return mapa[ext] || "bi-file-earmark";
+  }
+  function formatoTamano(bytes) {
+    if (!bytes) return "";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+  function esImagen(nombre) {
+    return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(nombre);
+  }
+  function esPdf(nombre) {
+    return /\.pdf$/i.test(nombre);
+  }
+
+  // Preview overlay
+  el("plPreviewClose").addEventListener("click", () => {
+    el("plPreviewOverlay").classList.remove("show");
+    el("plPreviewContent").innerHTML = "";
+  });
+  el("plPreviewOverlay").addEventListener("click", (e) => {
+    if (e.target === el("plPreviewOverlay")) {
+      el("plPreviewOverlay").classList.remove("show");
+      el("plPreviewContent").innerHTML = "";
+    }
+  });
+  function abrirPreview(archivo) {
+    const url = `${API}/archivos/${archivo.id}/download`;
+    const content = el("plPreviewContent");
+    if (esImagen(archivo.nombre_archivo)) {
+      content.innerHTML = `<img src="${url}" alt="${esc(archivo.nombre_archivo)}">`;
+    } else if (esPdf(archivo.nombre_archivo)) {
+      content.innerHTML = `<iframe src="${url}"></iframe>`;
+    } else {
+      window.open(url, "_blank");
+      return;
+    }
+    el("plPreviewOverlay").classList.add("show");
+  }
+
+  // Adjuntos en el modal
+  let pendingFiles = [];   // archivos por subir en modo crear
+  let notaArchivosActuales = [];  // archivos ya guardados en modo editar
+
+  function renderAdjGrid() {
+    const grid = el("plAdjGrid");
+    const notaId = el("plNotaId").value;
+    const esEdicion = !!notaId;
+
+    // Archivos existentes (edición)
+    const htmlExistentes = notaArchivosActuales.map(a => {
+      const url = `${API}/archivos/${a.id}/download`;
+      let thumb;
+      if (esImagen(a.nombre_archivo)) {
+        thumb = `<img class="pl-adj-thumb" src="${url}" alt="${esc(a.nombre_archivo)}">`;
+      } else if (esPdf(a.nombre_archivo)) {
+        thumb = `<div class="pl-adj-thumb-pdf"><i class="bi bi-file-earmark-pdf"></i></div>`;
+      } else {
+        thumb = `<div class="pl-adj-thumb-file"><i class="bi ${iconoArchivo(a.nombre_archivo)}"></i></div>`;
+      }
+      return `<div class="pl-adj-item" data-arch-id="${a.id}">
+        ${thumb}
+        <div class="pl-adj-name" title="${esc(a.nombre_archivo)}">${esc(a.nombre_archivo)}</div>
+        ${puedeEscribir() ? `<button class="pl-adj-del" data-del-arch="${a.id}" title="Eliminar"><i class="bi bi-x"></i></button>` : ""}
+      </div>`;
+    }).join("");
+
+    // Archivos pendientes (creación)
+    const htmlPending = pendingFiles.map((f, i) => {
+      let thumb;
+      if (esImagen(f.name)) {
+        const url = URL.createObjectURL(f);
+        thumb = `<img class="pl-adj-thumb" src="${url}">`;
+      } else if (esPdf(f.name)) {
+        thumb = `<div class="pl-adj-thumb-pdf"><i class="bi bi-file-earmark-pdf"></i></div>`;
+      } else {
+        thumb = `<div class="pl-adj-thumb-file"><i class="bi ${iconoArchivo(f.name)}"></i></div>`;
+      }
+      return `<div class="pl-adj-item" data-pending="${i}">
+        ${thumb}
+        <div class="pl-adj-name" title="${esc(f.name)}">${esc(f.name)}</div>
+        <button class="pl-adj-del" data-del-pending="${i}" title="Quitar"><i class="bi bi-x"></i></button>
+      </div>`;
+    }).join("");
+
+    grid.innerHTML = htmlExistentes + htmlPending;
+
+    // Clic para preview en existentes
+    grid.querySelectorAll("[data-arch-id]").forEach(item => {
+      item.addEventListener("click", (e) => {
+        if (e.target.closest("[data-del-arch]")) return;
+        const a = notaArchivosActuales.find(x => String(x.id) === item.dataset.archId);
+        if (a) abrirPreview(a);
+      });
+    });
+
+    // Eliminar archivo existente
+    grid.querySelectorAll("[data-del-arch]").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const ok = await confirmar("¿Eliminar este archivo adjunto?");
+        if (!ok) return;
+        await accion(async () => {
+          await apiDelete(`/archivos/${btn.dataset.delArch}`);
+          notaArchivosActuales = notaArchivosActuales.filter(a => String(a.id) !== btn.dataset.delArch);
+          renderAdjGrid();
+        }, "Archivo eliminado");
+      });
+    });
+
+    // Quitar pending
+    grid.querySelectorAll("[data-del-pending]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        pendingFiles.splice(Number(btn.dataset.delPending), 1);
+        renderAdjGrid();
+      });
+    });
+  }
+
+  // Dropzone
+  const dropzone = el("plAdjDropzone");
+  const adjInput = el("plAdjInput");
+  dropzone.addEventListener("click", () => adjInput.click());
+  dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("dragover"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", e => {
+    e.preventDefault(); dropzone.classList.remove("dragover");
+    [...e.dataTransfer.files].forEach(f => pendingFiles.push(f));
+    renderAdjGrid();
+  });
+  adjInput.addEventListener("change", () => {
+    [...adjInput.files].forEach(f => pendingFiles.push(f));
+    adjInput.value = "";
+    renderAdjGrid();
+  });
+
+  async function subirPendingFiles(notaId) {
+    for (const file of pendingFiles) {
+      const formData = new FormData();
+      formData.append("file", file);
+      const resp = await fetch(`${API}/equipos/${state.equipoId}/archivos?nota_id=${notaId}`, { method: "POST", body: formData });
+      if (!resp.ok) throw new Error(`No se pudo subir: ${file.name}`);
+    }
+    pendingFiles = [];
+  }
+
+  // Render notas agrupadas por fecha
+  let notasActuales = [];
+  let filtroFechaNota = null;
+
+  function renderNotas() {
+    const contenido = el("plNotasContenido");
+    // Ordenar más reciente primero
+    let notas = [...notasActuales].sort((a, b) =>
+      String(b.creado_en || "").localeCompare(String(a.creado_en || ""))
+    );
+    if (filtroFechaNota) notas = notas.filter(n => String(n.creado_en || "").slice(0, 10) === filtroFechaNota);
+
+    if (!notas.length) {
+      contenido.innerHTML = '<div class="pl-empty"><i class="bi bi-journal-text"></i>Sin notas' + (filtroFechaNota ? ' para esta fecha.' : ' todavía.') + '</div>';
+      return;
+    }
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    const ayer = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const fechaLabel = filtroFechaNota
+      ? (filtroFechaNota === hoy ? "Hoy" : filtroFechaNota === ayer ? "Ayer" : filtroFechaNota)
+      : null;
+
+    const cards = notas.map(n => {
+      const bg = n.color || "#ffffff";
+      const clips = (n.archivos || []).length;
+      const fecha = String(n.creado_en || "").slice(0, 10);
+      const fechaStr = fecha === hoy ? "Hoy" : fecha === ayer ? "Ayer" : fecha;
+      // Mostrar último usuario que modificó (o creó) la nota
+      const modNombre = n.modificado_por_nombre
+        ? `${n.modificado_por_nombre} ${n.modificado_por_apellido || ""}`.trim()
+        : (n.creado_por_nombre ? `${n.creado_por_nombre} ${n.creado_por_apellido || ""}`.trim() : null);
+      const modId = n.modificado_por_id || n.creado_por;
+      const modFecha = n.ultima_modificacion ? String(n.ultima_modificacion).slice(0, 10) : fechaStr;
+      const modFechaLabel = modFecha === hoy ? "Hoy" : modFecha === ayer ? "Ayer" : modFecha;
+      return `<div class="pl-note" style="background:${esc(bg)}" data-nota-id="${n.id}">
+        <div class="pl-note-titulo"><i class="bi bi-sticky" style="opacity:.5"></i> ${esc(n.titulo)}</div>
+        <div class="pl-note-body">${esc(n.contenido || "")}</div>
+        <div class="pl-note-footer">
+          <span>${modNombre ? avatarHtml(modNombre, modId) + " " + esc(modNombre) : `<small style="color:#b0c4d8">${esc(modFechaLabel)}</small>`}</span>
+          <span class="pl-note-clips">${clips > 0 ? `<i class="bi bi-paperclip"></i>${clips}` : ""}</span>
+        </div>
+      </div>`;
+    }).join("");
+
+    contenido.innerHTML = (fechaLabel
+      ? `<div class="pl-notas-filtro-label"><i class="bi bi-calendar3"></i> ${esc(fechaLabel)} — ${notas.length} nota${notas.length !== 1 ? "s" : ""}</div>`
+      : "") +
+      `<div class="pl-notes-grid">${cards}</div>`;
+
+    contenido.querySelectorAll("[data-nota-id]").forEach(card => {
+      card.addEventListener("click", () => {
+        const nota = notasActuales.find(n => String(n.id) === card.dataset.notaId);
+        if (nota) abrirModalNota(nota);
+      });
+    });
+  }
+
+  function renderFechasNav() {
+    const nav = el("plNotasFechasNav");
+    const conteo = {};
+    notasActuales.forEach(n => {
+      const f = String(n.creado_en || "").slice(0, 10);
+      conteo[f] = (conteo[f] || 0) + 1;
+    });
+    const fechas = Object.entries(conteo).sort((a, b) => b[0].localeCompare(a[0]));
+    const hoy = new Date().toISOString().slice(0, 10);
+    const ayer = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+    nav.innerHTML = `<div class="pl-fecha-nav-item${!filtroFechaNota ? " active" : ""}" data-fecha="">
+        <span>Todas</span><span class="pl-fecha-nav-badge">${notasActuales.length}</span>
+      </div>` +
+      fechas.map(([f, cnt]) => {
+        const label = f === hoy ? "Hoy" : f === ayer ? "Ayer" : f;
+        return `<div class="pl-fecha-nav-item${filtroFechaNota === f ? " active" : ""}" data-fecha="${f}">
+          <span>${esc(label)}</span><span class="pl-fecha-nav-badge">${cnt}</span>
+        </div>`;
+      }).join("");
+
+    nav.querySelectorAll("[data-fecha]").forEach(item => {
+      item.addEventListener("click", () => {
+        filtroFechaNota = item.dataset.fecha || null;
+        renderFechasNav();
+        renderNotas();
+      });
+    });
+  }
+
+  async function cargarNotas() {
+    notasActuales = await api(`/equipos/${state.equipoId}/notas`);
+    renderFechasNav();
+    renderNotas();
+  }
+
+  async function abrirModalNota(nota = null) {
+    const esEdicion = nota && nota.id;
+    el("plNotaId").value = esEdicion ? nota.id : "";
+    el("plNotaModalTitulo").textContent = esEdicion ? "Editar nota" : "Nueva nota";
+    el("plNotaTitulo").value = esEdicion ? nota.titulo : "";
+    el("plNotaContenido").value = esEdicion ? (nota.contenido || "") : "";
+    setNotaColor(esEdicion ? nota.color : "#ffffff");
+    pendingFiles = [];
+    notaArchivosActuales = esEdicion ? [...(nota.archivos || [])] : [];
+    renderAdjGrid();
+    el("plEliminarNotaModal").style.display = esEdicion && esAdmin() ? "inline-flex" : "none";
+    // Historial de cambios
+    const histSec = el("plNotaHistorialSeccion");
+    const histBody = el("plNotaHistorialBody");
+    if (esEdicion) {
+      histSec.style.display = "block";
+      histBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted" style="padding:6px">Cargando...</td></tr>`;
+      api(`/notas/${nota.id}/historial`).then(rows => {
+        if (!rows || !rows.length) {
+          histBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted" style="padding:6px">Sin registros</td></tr>`;
+          return;
+        }
+        histBody.innerHTML = rows.map(h => {
+          const fecha = String(h.creado_en || "").replace("T", " ").slice(0, 16);
+          const usuario = `${h.nombres || ""} ${h.apellidos || ""}`.trim() || "—";
+          return `<tr>
+            <td style="white-space:nowrap">${esc(fecha)}</td>
+            <td>${esc(usuario)}</td>
+            <td>${esc(h.accion || "")}</td>
+            <td style="color:#555">${esc(h.detalle || "")}</td>
+          </tr>`;
+        }).join("");
+      }).catch(() => {
+        histBody.innerHTML = `<tr><td colspan="4" class="text-center text-danger" style="padding:6px">Error al cargar historial</td></tr>`;
+      });
+    } else {
+      histSec.style.display = "none";
+      histBody.innerHTML = "";
+    }
+    modal("plModalNota").show();
+  }
+
+  el("plBtnNuevaNota").addEventListener("click", () => abrirModalNota(null));
+
+  el("plGuardarNota").addEventListener("click", async () => {
+    const titulo = el("plNotaTitulo").value.trim();
+    if (!titulo) { showToast("error", "El título es obligatorio"); return; }
+    const notaId = el("plNotaId").value;
+    const payload = {
+      titulo,
+      contenido: el("plNotaContenido").value.trim(),
+      color: el("plNotaColor").value || "#ffffff",
+    };
+    const ok = await accion(async () => {
+      let id = notaId;
+      if (notaId) {
+        await apiPut(`/notas/${notaId}`, payload);
+      } else {
+        const nueva = await apiPost(`/equipos/${state.equipoId}/notas`, payload);
+        id = nueva.id;
+      }
+      if (pendingFiles.length) await subirPendingFiles(id);
+      await cargarNotas();
+    }, notaId ? "Nota actualizada" : "Nota creada");
+    if (ok) modal("plModalNota").hide();
+  });
+
+  el("plEliminarNotaModal").addEventListener("click", async () => {
+    const notaId = el("plNotaId").value;
+    if (!notaId) return;
+    const ok = await confirmar("¿Eliminar esta nota y todos sus archivos adjuntos?");
+    if (!ok) return;
+    await accion(async () => {
+      await apiDelete(`/notas/${notaId}`);
+      await cargarNotas();
+    }, "Nota eliminada");
+    modal("plModalNota").hide();
+  });
+
+  async function cargarArchivos() { /* archivos van dentro de cada nota */ }
+
+  // ══════════════════════════════════════════════════════
+  // CALENDARIO
+  // ══════════════════════════════════════════════════════
+  let calDatos = { recurrentes: [], tarjetas: [], eventos: [] };
+  let calFechaActual = new Date();
+  let calDiaSeleccionado = null;
+  let calRecMap = {}, calTarMap = {}, calEvtMap = {};
+
+  // ── Festivos Colombia ─────────────────────────────────
+  const CAL_FIJOS   = [[1,1],[5,1],[7,20],[8,7],[12,8],[12,25]];
+  const CAL_LUNES   = [[1,6],[3,19],[6,29],[8,15],[10,12],[11,1],[11,11]];
+
+  function calPascua(y) {
+    const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+    const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+    const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+    const mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1;
+    return new Date(y, mes-1, dia);
+  }
+
+  function calSigLunes(d) {
+    const r=new Date(d), dow=r.getDay();
+    if(dow===1) return r;
+    r.setDate(r.getDate()+(dow===0?1:8-dow));
+    return r;
+  }
+
+  function calFestivos(y) {
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const set = new Set();
+    CAL_FIJOS.forEach(([m,d])=>set.add(fmt(new Date(y,m-1,d))));
+    CAL_LUNES.forEach(([m,d])=>set.add(fmt(calSigLunes(new Date(y,m-1,d)))));
+    const p=calPascua(y);
+    [-3,-2,39,60,68].forEach(off=>{ const d=new Date(p); d.setDate(d.getDate()+off); set.add(fmt(d)); });
+    return set;
+  }
+
+  function calIso(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // ── Cargar datos ──────────────────────────────────────
+  async function cargarCalendario() {
+    if (!state.equipoId) return;
+    const y=calFechaActual.getFullYear(), m=calFechaActual.getMonth();
+    const desde=calIso(new Date(y,m,1)), hasta=calIso(new Date(y,m+1,0));
+    calDatos = await api(`/equipos/${state.equipoId}/calendario?desde=${desde}&hasta=${hasta}`);
+    // Indexar por fecha
+    calRecMap={}; calTarMap={}; calEvtMap={};
+    calDatos.recurrentes.forEach(r=>{ const f=String(r.fecha).slice(0,10); (calRecMap[f]=calRecMap[f]||[]).push(r); });
+    calDatos.tarjetas.forEach(t=>{ const f=String(t.fecha).slice(0,10); (calTarMap[f]=calTarMap[f]||[]).push(t); });
+    calDatos.eventos.forEach(e=>{ const f=String(e.fecha||e.fecha_str).slice(0,10); (calEvtMap[f]=calEvtMap[f]||[]).push(e); });
+    poblarCalFiltroResponsable();
+    renderCalendario();
+    if (calDiaSeleccionado) mostrarDetalleCalendario(calDiaSeleccionado);
+  }
+
+  // ── Render grilla ─────────────────────────────────────
+  function renderCalendario() {
+    const y=calFechaActual.getFullYear(), m=calFechaActual.getMonth();
+    const festSet=calFestivos(y);
+    const hoy=calIso(new Date());
+    el("plCalMesLabel").textContent=new Date(y,m,1).toLocaleDateString("es-CO",{month:"long",year:"numeric"});
+
+    const primerDia=new Date(y,m,1), ultimoDia=new Date(y,m+1,0);
+    let startDow=primerDia.getDay(); startDow=startDow===0?6:startDow-1;
+
+    const cells=[];
+    for(let i=0;i<startDow;i++) cells.push({d:new Date(y,m,1-(startDow-i)),other:true});
+    for(let d=1;d<=ultimoDia.getDate();d++) cells.push({d:new Date(y,m,d),other:false});
+    const rem=(7-(cells.length%7))%7;
+    for(let i=1;i<=rem;i++) cells.push({d:new Date(y,m+1,i),other:true});
+
+    const calTipo=el("plCalFiltroTipo").value;
+    const calRespId=el("plCalFiltroResponsable").value;
+    function filtCal(arr,tipo,idKey){
+      if(calTipo && calTipo!==tipo) return [];
+      if(!calRespId) return arr;
+      return arr.filter(x=>String(x[idKey]||x.responsable_id||x.asignado_a||"")===calRespId);
+    }
+
+    el("plCalGrid").innerHTML=cells.map(cell=>{
+      const f=calIso(cell.d);
+      const isSun=cell.d.getDay()===0, isFes=festSet.has(f);
+      const isHoy=f===hoy, isSel=f===calDiaSeleccionado;
+      const recs=filtCal(calRecMap[f]||[],"rec","responsable_id");
+      const tars=filtCal(calTarMap[f]||[],"tar","asignado_a");
+      const evts=filtCal(calEvtMap[f]||[],"evt","creado_por");
+      const maxDots=6, total=recs.length+tars.length+evts.length;
+      let dots="";
+      recs.slice(0,3).forEach(()=>dots+=`<span class="pl-cal-dot pl-cal-dot--rec"></span>`);
+      tars.slice(0,2).forEach(()=>dots+=`<span class="pl-cal-dot pl-cal-dot--tar"></span>`);
+      evts.slice(0,2).forEach(()=>dots+=`<span class="pl-cal-dot pl-cal-dot--evt"></span>`);
+      const more=total>maxDots?`<span class="pl-cal-more">+${total-maxDots}</span>`:"";
+      let cls="pl-cal-day";
+      if(cell.other) cls+=" is-other-month";
+      if(!cell.other&&isSun) cls+=" is-sunday";
+      if(!cell.other&&isFes) cls+=" is-holiday";
+      if(isHoy) cls+=" is-today";
+      if(isSel) cls+=" is-selected";
+      return `<div class="${cls}" data-fecha="${f}">
+        <div class="pl-cal-day-num">${cell.d.getDate()}</div>
+        ${isFes&&!cell.other?`<div class="pl-cal-day-fes">Festivo</div>`:""}
+        <div class="pl-cal-dots">${dots}${more}</div>
+      </div>`;
+    }).join("");
+
+    el("plCalGrid").querySelectorAll(".pl-cal-day:not(.is-other-month)").forEach(c=>{
+      c.addEventListener("click",()=>{
+        el("plCalGrid").querySelectorAll(".pl-cal-day").forEach(x=>x.classList.remove("is-selected"));
+        c.classList.add("is-selected");
+        calDiaSeleccionado=c.dataset.fecha;
+        mostrarDetalleCalendario(c.dataset.fecha);
+      });
+    });
+  }
+
+  async function poblarCalFiltroResponsable() {
+    const sel=el("plCalFiltroResponsable");
+    const actual=sel.value;
+    try {
+      const miembros=await api(`/equipos/${state.equipoId}/miembros`);
+      const personas=new Map();
+      // Todos los miembros del equipo, independientemente de si tienen eventos
+      miembros.forEach(m=>{
+        const nombre=`${m.nombres||m.nombre||""} ${m.apellidos||m.apellido||""}`.trim()||m.email||"Usuario";
+        personas.set(String(m.usuario_id),nombre);
+      });
+      sel.innerHTML='<option value="">Todos los responsables</option>'+
+        Array.from(personas.entries()).sort((a,b)=>a[1].localeCompare(b[1])).map(([id,n])=>`<option value="${id}">${esc(n)}</option>`).join("");
+      if(actual && personas.has(actual)) sel.value=actual;
+    } catch(_) {
+      // Fallback: construir desde los eventos cargados
+      const personas=new Map();
+      Object.values(calRecMap).flat().forEach(r=>{ if(r.responsable_id) personas.set(String(r.responsable_id),`${r.responsable_nombre||""} ${r.responsable_apellido||""}`.trim()); });
+      Object.values(calTarMap).flat().forEach(t=>{ if(t.asignado_a) personas.set(String(t.asignado_a),`${t.asignado_nombre||""} ${t.asignado_apellido||""}`.trim()); });
+      sel.innerHTML='<option value="">Todos los responsables</option>'+
+        Array.from(personas.entries()).sort((a,b)=>a[1].localeCompare(b[1])).map(([id,n])=>`<option value="${id}">${esc(n)}</option>`).join("");
+      if(actual && personas.has(actual)) sel.value=actual;
+    }
+  }
+
+  // ── Panel de detalle ──────────────────────────────────
+  function mostrarDetalleCalendario(fecha) {
+    const det=el("plCalDetalle");
+    const calTipo=el("plCalFiltroTipo").value;
+    const calRespId=el("plCalFiltroResponsable").value;
+    function filt(arr,tipo,idKey){ if(calTipo&&calTipo!==tipo) return []; if(!calRespId) return arr; return arr.filter(x=>String(x[idKey]||"")===calRespId); }
+    const recs=filt(calRecMap[fecha]||[],"rec","responsable_id");
+    const tars=filt(calTarMap[fecha]||[],"tar","asignado_a");
+    const evts=filt(calEvtMap[fecha]||[],"evt","creado_por");
+    const [y,mo,d]=fecha.split("-").map(Number);
+    const obj=new Date(y,mo-1,d);
+    const y2=obj.getFullYear();
+    const isFes=calFestivos(y2).has(fecha), isSun=obj.getDay()===0;
+    const label=obj.toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long"});
+
+    let header=`<div class="pl-cal-detalle-header"><div class="pl-cal-det-fecha">
+      <span style="text-transform:capitalize;font-size:.8rem">${esc(label)}</span>
+      ${isFes?`<span class="pl-cal-det-badge">Festivo</span>`:isSun?`<span class="pl-cal-det-badge">Domingo</span>`:""}
+    </div></div>`;
+    let html=``;
+
+    if(recs.length){
+      html+=`<div class="pl-cal-det-section">
+        <div class="pl-cal-det-section-title" style="color:#4a6fa5">
+          <span class="pl-cal-dot pl-cal-dot--rec"></span> Recurrentes (${recs.length})
+        </div>
+        ${recs.map(r=>`<div class="pl-cal-det-item pl-cal-det-item--rec">
+          <div class="pl-cal-det-item-body">
+            <div>${esc(r.titulo)}</div>
+            <div class="pl-cal-det-item-obs">${badgeEstado(r.estado)}${r.responsable_nombre?` · ${esc(r.responsable_nombre+' '+(r.responsable_apellido||''))}`:""}</div>
+          </div>
+        </div>`).join("")}
+      </div>`;
+    }
+
+    if(tars.length){
+      html+=`<div class="pl-cal-det-section">
+        <div class="pl-cal-det-section-title" style="color:#e07000">
+          <span class="pl-cal-dot pl-cal-dot--tar"></span> Scrumban — fecha límite (${tars.length})
+        </div>
+        ${tars.map(t=>`<div class="pl-cal-det-item pl-cal-det-item--tar">
+          <div class="pl-cal-det-item-body">
+            <div>${esc(t.titulo)}</div>
+            <div class="pl-cal-det-item-obs">${esc(t.columna_nombre||"")}${t.asignado_nombre?` · ${esc(t.asignado_nombre+' '+(t.asignado_apellido||''))}`:""}</div>
+          </div>
+        </div>`).join("")}
+      </div>`;
+    }
+
+    if(evts.length){
+      html+=`<div class="pl-cal-det-section">
+        <div class="pl-cal-det-section-title" style="color:#7c3aed">
+          <span class="pl-cal-dot pl-cal-dot--evt"></span> Eventos (${evts.length})
+        </div>
+        ${evts.map(e=>`<div class="pl-cal-det-item pl-cal-det-item--evt">
+          <div class="pl-cal-det-item-body">
+            <div>${esc(e.titulo)}</div>
+            ${e.observacion?`<div class="pl-cal-det-item-obs">${esc(e.observacion)}</div>`:""}
+          </div>
+          <div style="display:flex;gap:2px;flex-shrink:0">
+            ${puedeEscribir()?`<button class="pl-cal-det-icon-btn" style="color:#7c3aed" data-edit-evt="${e.id}" title="Editar"><i class="bi bi-pencil" style="font-size:.7rem"></i></button>`:""}
+            ${esAdmin()?`<button class="pl-cal-det-icon-btn" style="color:#c62828" data-del-evt="${e.id}" title="Eliminar"><i class="bi bi-trash" style="font-size:.7rem"></i></button>`:""}
+          </div>
+        </div>`).join("")}
+      </div>`;
+    }
+
+    if(!recs.length&&!tars.length&&!evts.length){
+      html+=`<div style="text-align:center;color:#9ab0c8;font-size:.72rem;padding:20px 0">
+        <i class="bi bi-calendar-check" style="display:block;font-size:1.6rem;opacity:.3;margin-bottom:6px"></i>Sin actividades este día
+      </div>`;
+    }
+
+    let footer="";
+    if(puedeEscribir()){
+      footer=`<div class="pl-cal-detalle-footer">
+        <button class="pl-btn pl-btn--primary pl-btn--sm w-100" id="plCalBtnNuevoEvt" type="button">
+          <i class="bi bi-plus-lg"></i> Nuevo evento
+        </button>
+      </div>`;
+    }
+
+    det.innerHTML=header+`<div class="pl-cal-detalle-scroll">${html}</div>`+footer;
+
+    const btnNew=document.getElementById("plCalBtnNuevoEvt");
+    if(btnNew) btnNew.addEventListener("click",()=>abrirModalEvento(null,fecha));
+
+    det.querySelectorAll("[data-edit-evt]").forEach(btn=>{
+      btn.addEventListener("click",e=>{
+        e.stopPropagation();
+        const evt=evts.find(ev=>String(ev.id)===btn.dataset.editEvt);
+        if(evt) abrirModalEvento(evt,fecha);
+      });
+    });
+
+    det.querySelectorAll("[data-del-evt]").forEach(btn=>{
+      btn.addEventListener("click",async e=>{
+        e.stopPropagation();
+        const ok=await confirmar("¿Eliminar este evento del calendario?");
+        if(!ok) return;
+        await accion(async()=>{
+          await apiDelete(`/eventos/${btn.dataset.delEvt}`);
+          await cargarCalendario();
+        },"Evento eliminado");
+      });
+    });
+  }
+
+  // ── Modal evento ──────────────────────────────────────
+  function abrirModalEvento(evento=null, fechaDefault=null) {
+    el("plCalEvtId").value=evento?evento.id:"";
+    el("plCalEvtModalTitulo").textContent=evento?"Editar evento":"Nuevo evento";
+    el("plCalEvtTitulo").value=evento?evento.titulo:"";
+    el("plCalEvtObs").value=evento?(evento.observacion||""):"";
+    el("plCalEvtFecha").value=evento?String(evento.fecha||evento.fecha_str||"").slice(0,10):(fechaDefault||calIso(new Date()));
+    modal("plModalCalEvt").show();
+  }
+
+  el("plCalGuardarEvt").addEventListener("click",async()=>{
+    const titulo=el("plCalEvtTitulo").value.trim();
+    if(!titulo){showToast("error","El título es obligatorio");return;}
+    const evtId=el("plCalEvtId").value;
+    const payload={titulo, observacion:el("plCalEvtObs").value.trim()||null, fecha:el("plCalEvtFecha").value};
+    const ok=await accion(async()=>{
+      if(evtId) await apiPut(`/eventos/${evtId}`,payload);
+      else await apiPost(`/equipos/${state.equipoId}/eventos`,payload);
+      await cargarCalendario();
+    },evtId?"Evento actualizado":"Evento creado");
+    if(ok) modal("plModalCalEvt").hide();
+  });
+
+  el("plCalPrev").addEventListener("click",()=>{
+    calFechaActual=new Date(calFechaActual.getFullYear(),calFechaActual.getMonth()-1,1);
+    cargarCalendario();
+  });
+  el("plCalNext").addEventListener("click",()=>{
+    calFechaActual=new Date(calFechaActual.getFullYear(),calFechaActual.getMonth()+1,1);
+    cargarCalendario();
+  });
+  el("plCalFiltroTipo").addEventListener("change",()=>{ renderCalendario(); if(calDiaSeleccionado) mostrarDetalleCalendario(calDiaSeleccionado); });
+  el("plCalFiltroResponsable").addEventListener("change",()=>{ renderCalendario(); if(calDiaSeleccionado) mostrarDetalleCalendario(calDiaSeleccionado); });
+
+  // Toggle ocultar/mostrar sábado y domingo
+  (function(){
+    const btn=el("plCalBtnFinde");
+    const lbl=el("plCalFindeLabel");
+    // Buscamos el contenedor .pl-cal-main donde aplica la clase CSS
+    const calMain=document.querySelector(".pl-cal-main");
+    let oculto=false;
+    btn.addEventListener("click",()=>{
+      oculto=!oculto;
+      calMain.classList.toggle("pl-cal-hide-finde",oculto);
+      lbl.textContent=oculto?"Mostrar finde":"Ocultar finde";
+      btn.classList.toggle("pl-btn--primary",oculto);
+      btn.classList.toggle("pl-btn--soft",!oculto);
+      renderCalendario();
+    });
+  })();
+
+  // Cargar calendario al cambiar de pestaña
+  document.querySelectorAll(".pl-tab").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      if(btn.dataset.tab==="calendario") cargarCalendario();
+    });
+  });
+
+  cargarEquipos().catch(err => showToast("error", err.message || "No se pudieron cargar los equipos"));
+})();
+</script>
+{% endblock %}

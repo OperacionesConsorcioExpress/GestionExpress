@@ -2,6 +2,54 @@
 
 {% block title %}Gestión de Roles Storage{% endblock %}
 
+{% macro matrix_table(containers, scope) %}
+<div class="mb-3">
+    <label class="form-label fw-semibold">Permisos por contenedor</label>
+    <input type="text" class="form-control form-control-sm mb-2 matrix-search" data-matrix="{{ scope }}"
+           placeholder="Buscar contenedor...">
+    <div class="border rounded" style="max-height: 30vh; overflow-y:auto;">
+        <table class="table table-sm table-hover mb-0 permisos-matrix" data-matrix="{{ scope }}" style="font-size:11.5px;">
+            <thead class="table-light" style="position:sticky; top:0; z-index:1;">
+                <tr>
+                    <th style="width:30px;"><input type="checkbox" class="matrix-all" title="Incluir todos los visibles"></th>
+                    <th>Contenedor</th>
+                    <th class="text-center" style="width:46px;" title="Marcar Ver en todos los visibles">
+                        <input type="checkbox" class="matrix-col" data-accion="ver"><div>Ver</div>
+                    </th>
+                    <th class="text-center" style="width:52px;" title="Marcar Editar en todos los visibles">
+                        <input type="checkbox" class="matrix-col" data-accion="editar"><div>Editar</div>
+                    </th>
+                    <th class="text-center" style="width:62px;" title="Marcar Descargar en todos los visibles">
+                        <input type="checkbox" class="matrix-col" data-accion="descargar"><div>Descargar</div>
+                    </th>
+                    <th class="text-center" style="width:56px;" title="Marcar Eliminar en todos los visibles">
+                        <input type="checkbox" class="matrix-col" data-accion="eliminar"><div>Eliminar</div>
+                    </th>
+                    <th class="text-center" style="width:52px;" title="Marcar Cargar en todos los visibles">
+                        <input type="checkbox" class="matrix-col" data-accion="cargar"><div>Cargar</div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for container in containers %}
+                <tr data-container="{{ container }}">
+                    <td><input type="checkbox" class="m-incluir"></td>
+                    <td class="text-truncate" style="max-width:200px;" title="{{ container }}">{{ container }}</td>
+                    <td class="text-center"><input type="checkbox" class="m-accion" data-accion="ver"></td>
+                    <td class="text-center"><input type="checkbox" class="m-accion" data-accion="editar"></td>
+                    <td class="text-center"><input type="checkbox" class="m-accion" data-accion="descargar"></td>
+                    <td class="text-center"><input type="checkbox" class="m-accion" data-accion="eliminar"></td>
+                    <td class="text-center"><input type="checkbox" class="m-accion" data-accion="cargar"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <small class="text-muted"><span class="matrix-count" data-matrix="{{ scope }}">0</span> de {{ containers|length }} contenedor(es) incluido(s)</small>
+</div>
+<input type="hidden" name="permisos_json" class="matrix-json-input" data-matrix="{{ scope }}">
+{% endmacro %}
+
 {% block content %}
 <div class="container-fluid d-flex flex-column" style="height: 90vh;">
     <div class="row justify-content-between align-items-center mb-4">
@@ -33,45 +81,11 @@
                 </div>
                 <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh;">
                     <form id="createRoleStorageForm" action="/roles_storage" method="post">
-                        <input type="hidden" name="role_storage_id" value="">
                         <div class="mb-3">
                             <label for="roleStorageName" class="form-label">Nombre del Rol Storage</label>
                             <input type="text" class="form-control" id="roleStorageName" name="role_storage_name" placeholder="Ingrese el nombre del rol storage" required>
                         </div>
-                        <div class="mb-3">
-                            <label for="containers" class="form-label">Contenedores a Asignar</label>
-                            <select multiple class="form-select" id="containers" name="containers" style="height: 25vh;" required>
-                                {% for container in containers %}
-                                    <option value="{{ container }}">{{ container }}</option>
-                                {% endfor %}
-                            </select>
-                            <small class="form-text text-muted">Mantenga presionado Ctrl o Cmd para seleccionar varios contenedores.</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Acciones permitidas en el módulo</label>
-                            <div class="border rounded p-2" style="background:#f8f9fa;">
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="accion_ver" id="accion_ver" value="on" checked>
-                                    <label class="form-check-label" for="accion_ver"><i class="bi bi-eye text-success"></i> Ver archivo</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="accion_editar" id="accion_editar" value="on">
-                                    <label class="form-check-label" for="accion_editar"><i class="bi bi-pencil text-warning"></i> Editar archivo</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="accion_descargar" id="accion_descargar" value="on" checked>
-                                    <label class="form-check-label" for="accion_descargar"><i class="bi bi-download text-primary"></i> Descargar</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="accion_eliminar" id="accion_eliminar" value="on">
-                                    <label class="form-check-label" for="accion_eliminar"><i class="bi bi-trash text-danger"></i> Eliminar</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="accion_cargar" id="accion_cargar" value="on">
-                                    <label class="form-check-label" for="accion_cargar"><i class="bi bi-cloud-upload text-info"></i> Cargar archivos</label>
-                                </div>
-                            </div>
-                        </div>
+                        {{ matrix_table(containers, 'create') }}
                         <button type="submit" class="btn btn-success w-100">Guardar</button>
                     </form>
                 </div>
@@ -89,9 +103,9 @@
                         <thead class="table-light" style="position: sticky; top: 0; z-index: 1; margin-top: 0; padding: 0;">
                             <tr>
                                 <th style="width: 4%;">ID</th>
-                                <th style="width: 18%;">Nombre</th>
-                                <th style="width: 32%;">Contenedores</th>
-                                <th style="width: 28%;">Acciones Módulo</th>
+                                <th style="width: 14%;">Nombre</th>
+                                <th style="width: 36%;">Contenedores</th>
+                                <th style="width: 18%;">Acciones por contenedor</th>
                                 <th style="width: 18%; text-align:center;">Opciones</th>
                             </tr>
                         </thead>
@@ -99,23 +113,30 @@
                             {% for role in roles_storage %}
                             {% set conts = role[2] if role[2] else '' %}
                             {% set lista = conts.split(',') if conts else [] %}
+                            {% set r = resumen_acciones.get(role[0]) %}
                             <tr>
                                 <td>{{ role[0] }}</td>
                                 <td>{{ role[1] }}</td>
                                 <td>
                                 {% if lista and lista|length > 0 %}
-                                    <span title="{{ conts }}">{{ conts|truncate(80, True, '...') }}</span>
+                                    <div title="{{ conts }}" style="display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; font-size:11px; line-height:1.35;">{{ conts.replace(',', ', ') }}</div>
                                     <div><small class="text-muted">{{ lista|length }} contenedor(es)</small></div>
                                 {% else %}
                                     <em>—</em>
                                 {% endif %}
                                 </td>
-                                <td style="font-size:11px;">
-                                    {% if role[3] %}<span class="badge bg-success me-1"><i class="bi bi-eye"></i> Ver</span>{% endif %}
-                                    {% if role[4] %}<span class="badge bg-warning text-dark me-1"><i class="bi bi-pencil"></i> Editar</span>{% endif %}
-                                    {% if role[5] %}<span class="badge bg-primary me-1"><i class="bi bi-download"></i> Descargar</span>{% endif %}
-                                    {% if role[6] %}<span class="badge bg-danger me-1"><i class="bi bi-trash"></i> Eliminar</span>{% endif %}
-                                    {% if role[7] %}<span class="badge bg-info text-dark"><i class="bi bi-cloud-upload"></i> Cargar</span>{% endif %}
+                                <td style="font-size:10.5px;">
+                                    {% if r and r.total > 0 %}
+                                    <div class="d-flex flex-column gap-1 align-items-start">
+                                        <span class="badge bg-success" title="Contenedores con permiso de Ver">Ver {{ r.ver }}/{{ r.total }}</span>
+                                        <span class="badge bg-warning text-dark" title="Contenedores con permiso de Editar">Editar {{ r.editar }}/{{ r.total }}</span>
+                                        <span class="badge bg-primary" title="Contenedores con permiso de Descargar">Descargar {{ r.descargar }}/{{ r.total }}</span>
+                                        <span class="badge bg-danger" title="Contenedores con permiso de Eliminar">Eliminar {{ r.eliminar }}/{{ r.total }}</span>
+                                        <span class="badge bg-info text-dark" title="Contenedores con permiso de Cargar">Cargar {{ r.cargar }}/{{ r.total }}</span>
+                                    </div>
+                                    {% else %}
+                                    <em>—</em>
+                                    {% endif %}
                                 </td>
                                 <td class="text-center col-acciones" style="white-space: nowrap;">
                                     <button type="button" class="btn btn-primary btn-sm px-2 py-1 me-1"
@@ -137,7 +158,7 @@
 
 <!-- Modal para editar rol_storage -->
 <div class="modal fade" id="editRoleStorageModal" tabindex="-1" aria-labelledby="editRoleStorageModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form id="editRoleStorageForm" method="post">
                 <input type="hidden" id="editRoleStorageIdHidden" name="role_storage_id" value="">
@@ -160,42 +181,7 @@
                         <input type="text" class="form-control" id="editRoleStorageName" name="role_storage_name" required>
                     </div>
 
-                    <!-- Contenedores para el rol_storage -->
-                    <div class="mb-3">
-                        <label for="editContainers" class="form-label">Contenedores a Asignar</label>
-                        <select multiple class="form-select" id="editContainers" name="containers" required>
-                            {% for container in containers %}
-                                <option value="{{ container }}">{{ container }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- Acciones permitidas -->
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Acciones permitidas en el módulo</label>
-                        <div class="border rounded p-2" style="background:#f8f9fa;">
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" name="accion_ver" id="edit_accion_ver" value="on">
-                                <label class="form-check-label" for="edit_accion_ver"><i class="bi bi-eye text-success"></i> Ver archivo</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" name="accion_editar" id="edit_accion_editar" value="on">
-                                <label class="form-check-label" for="edit_accion_editar"><i class="bi bi-pencil text-warning"></i> Editar archivo</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" name="accion_descargar" id="edit_accion_descargar" value="on">
-                                <label class="form-check-label" for="edit_accion_descargar"><i class="bi bi-download text-primary"></i> Descargar</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" name="accion_eliminar" id="edit_accion_eliminar" value="on">
-                                <label class="form-check-label" for="edit_accion_eliminar"><i class="bi bi-trash text-danger"></i> Eliminar</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" name="accion_cargar" id="edit_accion_cargar" value="on">
-                                <label class="form-check-label" for="edit_accion_cargar"><i class="bi bi-cloud-upload text-info"></i> Cargar archivos</label>
-                            </div>
-                        </div>
-                    </div>
+                    {{ matrix_table(containers, 'edit') }}
                 </div>
 
                 <div class="modal-footer">
@@ -208,6 +194,145 @@
 </div>
 
 <script>
+    /* ══════════════════════════════════════
+       MATRIZ DE PERMISOS POR CONTENEDOR
+       Componente genérico reutilizado por los scopes "create" y "edit"
+       ══════════════════════════════════════ */
+    (function () {
+        function tableOf(scope) { return document.querySelector('table.permisos-matrix[data-matrix="' + scope + '"]'); }
+        function rowsOf(table) { return table.querySelectorAll('tbody tr'); }
+        function visibleRowsOf(table) {
+            return Array.prototype.filter.call(rowsOf(table), function (tr) { return tr.style.display !== 'none'; });
+        }
+        function updateCount(scope) {
+            var table = tableOf(scope);
+            var n = Array.prototype.filter.call(rowsOf(table), function (tr) { return tr.querySelector('.m-incluir').checked; }).length;
+            var countEl = document.querySelector('.matrix-count[data-matrix="' + scope + '"]');
+            if (countEl) countEl.textContent = n;
+        }
+        function precargarDefaults(tr) {
+            var anyChecked = Array.prototype.some.call(tr.querySelectorAll('.m-accion'), function (a) { return a.checked; });
+            if (!anyChecked) {
+                tr.querySelector('.m-accion[data-accion="ver"]').checked = true;
+                tr.querySelector('.m-accion[data-accion="descargar"]').checked = true;
+            }
+        }
+        function setRowIncluded(tr, included) {
+            tr.querySelector('.m-incluir').checked = included;
+            if (included) precargarDefaults(tr);
+            else tr.querySelectorAll('.m-accion').forEach(function (cb) { cb.checked = false; });
+        }
+
+        document.querySelectorAll('table.permisos-matrix').forEach(function (table) {
+            var scope = table.getAttribute('data-matrix');
+
+            table.addEventListener('change', function (e) {
+                var t = e.target;
+
+                if (t.classList.contains('m-incluir')) {
+                    var tr = t.closest('tr');
+                    if (t.checked) precargarDefaults(tr);
+                    else tr.querySelectorAll('.m-accion').forEach(function (cb) { cb.checked = false; });
+                    updateCount(scope);
+
+                } else if (t.classList.contains('m-accion')) {
+                    var tr = t.closest('tr');
+                    if (t.checked) tr.querySelector('.m-incluir').checked = true;
+                    updateCount(scope);
+
+                } else if (t.classList.contains('matrix-all')) {
+                    var checked = t.checked;
+                    visibleRowsOf(table).forEach(function (tr) { setRowIncluded(tr, checked); });
+                    updateCount(scope);
+
+                } else if (t.classList.contains('matrix-col')) {
+                    var accion = t.getAttribute('data-accion'), checked = t.checked;
+                    visibleRowsOf(table).forEach(function (tr) {
+                        tr.querySelector('.m-accion[data-accion="' + accion + '"]').checked = checked;
+                        if (checked) tr.querySelector('.m-incluir').checked = true;
+                    });
+                    updateCount(scope);
+                }
+            });
+        });
+
+        document.querySelectorAll('input.matrix-search').forEach(function (input) {
+            input.addEventListener('input', function () {
+                var scope = input.getAttribute('data-matrix');
+                var table = tableOf(scope);
+                var v = input.value.toLowerCase();
+                rowsOf(table).forEach(function (tr) {
+                    tr.style.display = tr.dataset.container.toLowerCase().includes(v) ? '' : 'none';
+                });
+            });
+        });
+
+        function serializeMatrix(scope) {
+            var table = tableOf(scope), permisos = {};
+            rowsOf(table).forEach(function (tr) {
+                if (!tr.querySelector('.m-incluir').checked) return;
+                permisos[tr.dataset.container] = {
+                    ver: tr.querySelector('.m-accion[data-accion="ver"]').checked,
+                    editar: tr.querySelector('.m-accion[data-accion="editar"]').checked,
+                    descargar: tr.querySelector('.m-accion[data-accion="descargar"]').checked,
+                    eliminar: tr.querySelector('.m-accion[data-accion="eliminar"]').checked,
+                    cargar: tr.querySelector('.m-accion[data-accion="cargar"]').checked,
+                };
+            });
+            return permisos;
+        }
+
+        function resetMatrix(scope) {
+            var table = tableOf(scope);
+            rowsOf(table).forEach(function (tr) { setRowIncluded(tr, false); tr.style.display = ''; });
+            table.querySelectorAll('thead input[type=checkbox]').forEach(function (cb) { cb.checked = false; });
+            var search = document.querySelector('input.matrix-search[data-matrix="' + scope + '"]');
+            if (search) search.value = '';
+            updateCount(scope);
+        }
+
+        function loadMatrix(scope, permisosPorContenedor) {
+            resetMatrix(scope);
+            var table = tableOf(scope);
+            permisosPorContenedor = permisosPorContenedor || {};
+            rowsOf(table).forEach(function (tr) {
+                var p = permisosPorContenedor[tr.dataset.container];
+                if (!p) return;
+                tr.querySelector('.m-incluir').checked = true;
+                tr.querySelector('.m-accion[data-accion="ver"]').checked = !!p.ver;
+                tr.querySelector('.m-accion[data-accion="editar"]').checked = !!p.editar;
+                tr.querySelector('.m-accion[data-accion="descargar"]').checked = !!p.descargar;
+                tr.querySelector('.m-accion[data-accion="eliminar"]').checked = !!p.eliminar;
+                tr.querySelector('.m-accion[data-accion="cargar"]').checked = !!p.cargar;
+            });
+            updateCount(scope);
+        }
+
+        window.PermisosMatrix = { serializeMatrix: serializeMatrix, resetMatrix: resetMatrix, loadMatrix: loadMatrix };
+    })();
+
+    /* ── Envío del formulario de creación: serializa la matriz a JSON ── */
+    document.getElementById('createRoleStorageForm').addEventListener('submit', function (e) {
+        var permisos = window.PermisosMatrix.serializeMatrix('create');
+        if (Object.keys(permisos).length === 0) {
+            e.preventDefault();
+            alert('Debe incluir al menos un contenedor.');
+            return;
+        }
+        document.querySelector('input.matrix-json-input[data-matrix="create"]').value = JSON.stringify(permisos);
+    });
+
+    /* ── Envío del formulario de edición: serializa la matriz a JSON ── */
+    document.getElementById('editRoleStorageForm').addEventListener('submit', function (e) {
+        var permisos = window.PermisosMatrix.serializeMatrix('edit');
+        if (Object.keys(permisos).length === 0) {
+            e.preventDefault();
+            alert('Debe incluir al menos un contenedor.');
+            return;
+        }
+        document.querySelector('input.matrix-json-input[data-matrix="edit"]').value = JSON.stringify(permisos);
+    });
+
     // Función para abrir el modal de edición y cargar los datos del rol seleccionado
     document.getElementById('editRoleStorageModal').addEventListener('show.bs.modal', function (event) {
         const button = event.relatedTarget;
@@ -216,10 +341,7 @@
         // Restablecer los valores del modal antes de cargar nuevos datos
         document.getElementById('editRoleStorageId').value = '';
         document.getElementById('editRoleStorageName').value = '';
-        const editContainers = document.getElementById('editContainers');
-        Array.from(editContainers.options).forEach(option => option.selected = false);
-        ['edit_accion_ver','edit_accion_editar','edit_accion_descargar','edit_accion_eliminar','edit_accion_cargar']
-            .forEach(id => { document.getElementById(id).checked = false; });
+        window.PermisosMatrix.resetMatrix('edit');
 
         // Solicitar datos del rol_storage seleccionado
         fetch(`/roles_storage/${roleId}/datos`)
@@ -228,17 +350,7 @@
                 document.getElementById('editRoleStorageId').value = data.id_rol_storage;
                 document.getElementById('editRoleStorageName').value = data.nombre_rol_storage;
 
-                // Seleccionar los contenedores asignados
-                Array.from(editContainers.options).forEach(option => {
-                    option.selected = data.contenedores_asignados.includes(option.value);
-                });
-
-                // Precargar acciones permitidas
-                document.getElementById('edit_accion_ver').checked      = !!data.accion_ver;
-                document.getElementById('edit_accion_editar').checked    = !!data.accion_editar;
-                document.getElementById('edit_accion_descargar').checked = !!data.accion_descargar;
-                document.getElementById('edit_accion_eliminar').checked  = !!data.accion_eliminar;
-                document.getElementById('edit_accion_cargar').checked    = !!data.accion_cargar;
+                window.PermisosMatrix.loadMatrix('edit', data.permisos_por_contenedor);
 
                 // Actualizamos el formulario para que apunte a la ruta correcta de edición
                 document.getElementById('editRoleStorageForm').action = `/roles_storage/${roleId}/editar`;

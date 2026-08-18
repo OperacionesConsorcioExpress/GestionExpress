@@ -247,6 +247,8 @@
                 <div id="tokensSql"></div>
                 <div style="font-size:9px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; margin-top:10px;">✏️ Input del revisor</div>
                 <div id="tokensInput"></div>
+                <div style="font-size:9px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; margin-top:10px;">🧾 Datos del formulario de objeción</div>
+                <div id="tokensFormulario"></div>
             </div>
             </div>
         </div>
@@ -428,7 +430,18 @@
     hora_ini_teorica:'05:30', servicio:'SV-001', vehiculo_real:'1234',
     sentido:'A', conductor:'C-5678', cop_nombre:'COP NORTE',
     componente:'COMP 1', zona:'ZONA 2', fecha:'2025-01-15', id_ics:'103338422',
+    ticket_sirci:'TK00123456', novedad_ticket:'Falla de validador en ruta',
     };
+
+    // Tokens que resuelve el formulario del modal de objeción (no están en sne.nota_tokens).
+    // {ticket_sirci} y {novedad_ticket} solo se diligencian con la Nota Objeción
+    // "SIRCI con ticket"; si la plantilla es de otro motivo quedarán sin resolver.
+    const TOKENS_FORMULARIO = [
+    { token:'{km_objetado}',    descripcion:'Km a objetar digitado en el modal de objeción' },
+    { token:'{km_no_objetado}', descripcion:'Km no objetado calculado en el modal de objeción' },
+    { token:'{ticket_sirci}',   descripcion:'Ticket SIRCI digitado en el modal (Nota Objeción "SIRCI con ticket")' },
+    { token:'{novedad_ticket}', descripcion:'Novedad del ticket digitada en el modal (Nota Objeción "SIRCI con ticket")' },
+    ];
 
     // ── Toast ──────────────────────────────────────────────────────────────────
     var _tTimer;
@@ -650,6 +663,13 @@
     document.getElementById('tokensDirectos').innerHTML = directos.length ? directos.map(function(t){ return chip(t,''); }).join('') : vacio;
     document.getElementById('tokensSql').innerHTML      = sqls.length     ? sqls.map(function(t){ return chip(t,'tok-chip-sql'); }).join('') : vacio;
     document.getElementById('tokensInput').innerHTML    = inputs.length   ? inputs.map(function(t){ return chip(t,'tok-chip-input'); }).join('') : vacio;
+    // Tokens resueltos por el formulario de objeción (no viven en sne.nota_tokens).
+    // Se omiten los que ya estén registrados en BD para no duplicar chips.
+    var registrados = tokens.map(function(t){ return t.token; });
+    var formulario  = TOKENS_FORMULARIO.filter(function(t){ return registrados.indexOf(t.token) === -1; });
+    document.getElementById('tokensFormulario').innerHTML = formulario.length
+        ? formulario.map(function(t){ return chip(t,'tok-chip-input'); }).join('')
+        : vacio;
     }
 
     // ══════════════════════════════════════════════════════════════════════════

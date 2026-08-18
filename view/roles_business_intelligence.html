@@ -1,0 +1,391 @@
+{% extends "components/layout.html" %}
+{% block title %}Gestión de Roles Business Intelligence{% endblock %}
+
+{% block head %}
+<style>
+    .card-body-alta {
+        overflow-y: auto;
+        height: 70vh;
+        padding-top: 0;
+    }
+
+    .toolbar-select {
+        display: flex;
+        gap: .5rem;
+        align-items: center;
+        margin-bottom: .5rem;
+        flex-wrap: wrap;
+    }
+
+    .contador-seleccion {
+        font-size: 12px;
+        color: #555;
+    }
+
+    .tabla-roles th,
+    .tabla-roles td {
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    .col-acciones {
+        white-space: nowrap;
+    }
+
+    .col-acciones .btn {
+        padding: .2rem .45rem;
+        font-size: .75rem;
+        line-height: 1.1;
+    }
+
+    .col-acciones .d-inline-flex>* {
+        margin-right: .25rem;
+    }
+
+    .col-acciones .d-inline-flex>*:last-child {
+        margin-right: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid d-flex flex-column" style="height: 90vh;">
+    <div class="row justify-content-between align-items-center mb-4">
+        <h1 class="col-auto" style="font-size: 22px; font-family: 'Century Gothic', sans-serif;">Gestión de Roles de
+            Acceso Business Intelligence - HUB</h1>
+        <h1 class="col-auto" style="font-size: 14px; font-family: 'Century Gothic', sans-serif;">¡Hola, {{
+            user_session.nombres }} {{ user_session.apellidos }}!</h1>
+        <img src="/static/Consorcio.png" alt="Consorcio Icon" class="col-auto" style="max-width: 100px; height: auto;">
+    </div>
+
+    {% if success_message %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{ success_message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endif %}
+
+    {% if error_message %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ error_message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endif %}
+
+    <div class="row flex-grow-1">
+
+        {# ── Formulario Crear Rol ────────────────────────────────────── #}
+        <div class="col-lg-5 d-flex flex-column" style="height: 80vh;">
+            <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"
+                        style="font-size: 18px; font-family: 'Century Gothic', sans-serif; font-weight: bold;">
+                        <i class="bi bi-bar-chart-line me-2"></i>Crear Nuevo Rol BI
+                    </h4>
+                </div>
+
+                <div class="card-body flex-grow-1 d-flex flex-column" style="overflow-y: auto; height: 70vh;">
+                    <form id="formCrearRolBI" action="/roles_bi" method="post">
+
+                        <div class="mb-3">
+                            <label for="nombreRol" class="form-label">Nombre del Rol</label>
+                            <input type="text" class="form-control" id="nombreRol" name="nombre_rol"
+                                placeholder="Ej.: Analistas de Operaciones" required>
+                        </div>
+
+                        <div class="mb-1 d-flex justify-content-between align-items-center">
+                            <label for="selectGraficasCrear" class="form-label mb-0">
+                                Visualizaciones (Área — Nombre)
+                            </label>
+                            <span id="contadorCrear" class="contador-seleccion">0 seleccionados</span>
+                        </div>
+
+                        <div class="toolbar-select">
+                            <input type="text" class="form-control form-control-sm" id="filtroCrear"
+                                placeholder="Filtrar visualizaciones...">
+                            <button type="button" class="btn btn-sm btn-success"
+                                id="btnSeleccionarTodoCrear">Seleccionar todo</button>
+                            <button type="button" class="btn btn-sm btn-secondary" id="btnLimpiarCrear">Limpiar</button>
+                        </div>
+
+                        <select multiple class="form-select" id="selectGraficasCrear" name="graficas"
+                            style="height: 35vh;" required>
+                            {% for grupo in opciones_graficas %}
+                            <optgroup label="{{ grupo.area }}">
+                                {% for g in grupo.graficas %}
+                                <option value="{{ g.id }}">{{ g.nombre }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+
+                        <small class="form-text text-muted">
+                            Mantenga presionado Ctrl o Cmd para seleccionar varias visualizaciones.
+                        </small>
+                        <button type="submit" class="btn btn-success w-100 mt-3">
+                            <i class="bi bi-floppy me-1"></i>Guardar Rol
+                        </button>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {# ── Tabla de Roles Existentes ───────────────────────────────── #}
+        <div class="col-lg-7 d-flex flex-column" style="height: 80vh;">
+            <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0"
+                        style="font-size: 18px; font-family: 'Century Gothic', sans-serif; font-weight: bold;">
+                        <i class="bi bi-list-check me-2"></i>Roles BI Existentes
+                    </h4>
+                </div>
+
+                <div class="card-body flex-grow-1 d-flex flex-column"
+                    style="overflow-y: auto; height: 70vh; padding-top: 0;">
+                    <table class="table table-hover table-striped tabla-roles"
+                        style="font-size: 12px; table-layout: fixed; width: 100%;">
+                        <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th style="width: 5%;">ID</th>
+                                <th style="width: 18%;">Nombre</th>
+                                <th style="width: 50%;">Visualizaciones Asignadas</th>
+                                <th style="width: 9%;">Estado</th>
+                                <th style="width: 18%; text-align:center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rol in roles %}
+                            <tr>
+                                <td>{{ rol.id }}</td>
+                                <td>{{ rol.nombre }}</td>
+                                <td>
+                                    {% if rol.nombres_graficas and rol.nombres_graficas|length > 0 %}
+                                    {% set texto = rol.nombres_graficas|join(', ') %}
+                                    <span title="{{ texto }}">{{ texto|truncate(130, True, '...') }}</span>
+                                    <div>
+                                        <small class="text-muted">
+                                            {{ rol.nombres_graficas|length }} visualización(es)
+                                        </small>
+                                    </div>
+                                    {% else %}
+                                    <em>—</em>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if rol.estado == 1 %}
+                                    <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center col-acciones">
+                                    <div class="d-inline-flex align-items-center flex-nowrap">
+                                        <button type="button" class="btn btn-primary btn-sm px-2 py-1"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditarRolBI"
+                                            data-rol-id="{{ rol.id }}">
+                                            Editar
+                                        </button>
+                                        {% if rol.estado == 1 %}
+                                        <form action="/roles_bi/{{ rol.id }}/inactivar" method="post"
+                                            class="d-inline m-0 p-0">
+                                            <button type="submit"
+                                                class="btn btn-warning btn-sm px-2 py-1">Inactivar</button>
+                                        </form>
+                                        {% else %}
+                                        <form action="/roles_bi/{{ rol.id }}/activar" method="post"
+                                            class="d-inline m-0 p-0">
+                                            <button type="submit"
+                                                class="btn btn-success btn-sm px-2 py-1">Activar</button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{# ── Modal Editar Rol ──────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalEditarRolBI" tabindex="-1" aria-labelledby="modalEditarRolBILabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="formEditarRolBI" method="post">
+                <input type="hidden" id="idRolOculto" name="id_rol" value="">
+
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalEditarRolBILabel">
+                        <i class="bi bi-pencil-square me-2"></i>Editar Rol BI
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">ID del Rol</label>
+                        <input type="text" class="form-control" id="idRolLectura" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nombreRolEditar" class="form-label">Nombre del Rol</label>
+                        <input type="text" class="form-control" id="nombreRolEditar" name="nombre_rol" required>
+                    </div>
+
+                    <div class="mb-1 d-flex justify-content-between align-items-center">
+                        <label for="selectGraficasEditar" class="form-label mb-0">
+                            Visualizaciones
+                        </label>
+                        <span id="contadorEditar" class="contador-seleccion">0 seleccionados</span>
+                    </div>
+
+                    <div class="toolbar-select">
+                        <input type="text" class="form-control form-control-sm" id="filtroEditar"
+                            placeholder="Filtrar visualizaciones...">
+                        <button type="button" class="btn btn-sm btn-success" id="btnSeleccionarTodoEditar">Seleccionar
+                            todo</button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="btnLimpiarEditar">Limpiar</button>
+                    </div>
+
+                    <select multiple class="form-select" id="selectGraficasEditar" name="graficas" style="height: 32vh;"
+                        required>
+                        {# Opciones clonadas desde #selectGraficasCrear (ver script) #}
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-floppy me-1"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ── Clonar optgroups + options del select crear → select modal editar ─────
+    ;(function () {
+        const origen  = document.getElementById('selectGraficasCrear');
+        const destino = document.getElementById('selectGraficasEditar');
+        if (origen && destino) {
+            // Clonar todos los hijos (optgroup y option) respetando la jerarquía
+            Array.from(origen.children).forEach(hijo => destino.appendChild(hijo.cloneNode(true)));
+        }
+    })();
+
+    // ── Filtro con soporte de <optgroup> ──────────────────────────────────────
+    function filtrarOpciones(inputEl, selectEl) {
+        const termino = (inputEl.value || '').toLowerCase();
+        Array.from(selectEl.querySelectorAll('optgroup')).forEach(grupo => {
+            const textoGrupo = grupo.label.toLowerCase();
+            let visiblesEnGrupo = 0;
+            Array.from(grupo.querySelectorAll('option')).forEach(opt => {
+                // La opción es visible si coincide ella misma O si el grupo coincide
+                const visible = !termino
+                    || opt.text.toLowerCase().includes(termino)
+                    || textoGrupo.includes(termino);
+                opt.hidden = !visible;
+                if (visible) visiblesEnGrupo++;
+            });
+            // Ocultar el grupo completo si ninguna opción es visible
+            grupo.style.display = visiblesEnGrupo > 0 ? '' : 'none';
+        });
+        // Manejar selects sin optgroup (solo options directas)
+        Array.from(selectEl.children).forEach(hijo => {
+            if (hijo.tagName === 'OPTION') {
+                hijo.hidden = termino ? !hijo.text.toLowerCase().includes(termino) : false;
+            }
+        });
+    }
+
+    function seleccionarTodo(selectEl) {
+        Array.from(selectEl.options).forEach(opt => { if (!opt.hidden) opt.selected = true; });
+        actualizarContador(selectEl);
+    }
+
+    function limpiarSeleccion(selectEl) {
+        Array.from(selectEl.options).forEach(opt => opt.selected = false);
+        actualizarContador(selectEl);
+    }
+
+    function actualizarContador(selectEl) {
+        const total = Array.from(selectEl.options).filter(o => o.selected).length;
+        const spanId = selectEl.id === 'selectGraficasCrear' ? 'contadorCrear' : 'contadorEditar';
+        const span = document.getElementById(spanId);
+        if (span) span.textContent = `${total} seleccionados`;
+    }
+
+    // ── Wiring: formulario Crear ───────────────────────────────────────────────
+    const selectCrear = document.getElementById('selectGraficasCrear');
+    const filtroCrear = document.getElementById('filtroCrear');
+    const btnSelCrear = document.getElementById('btnSeleccionarTodoCrear');
+    const btnLimpCrear = document.getElementById('btnLimpiarCrear');
+
+    if (selectCrear) {
+        selectCrear.addEventListener('change', () => actualizarContador(selectCrear));
+        window.addEventListener('load', () => actualizarContador(selectCrear));
+    }
+    if (filtroCrear && selectCrear) filtroCrear.addEventListener('input', () => filtrarOpciones(filtroCrear, selectCrear));
+    if (btnSelCrear && selectCrear) btnSelCrear.addEventListener('click', () => seleccionarTodo(selectCrear));
+    if (btnLimpCrear && selectCrear) btnLimpCrear.addEventListener('click', () => limpiarSeleccion(selectCrear));
+
+    // ── Wiring: modal Editar ───────────────────────────────────────────────────
+    const modalEditar = document.getElementById('modalEditarRolBI');
+    if (modalEditar) {
+        modalEditar.addEventListener('show.bs.modal', function (evento) {
+            const boton = evento.relatedTarget;
+            const idRol = boton.getAttribute('data-rol-id');
+
+            // Reset campos
+            document.getElementById('idRolLectura').value = '';
+            document.getElementById('nombreRolEditar').value = '';
+            const selectEd = document.getElementById('selectGraficasEditar');
+            Array.from(selectEd.options).forEach(opt => { opt.selected = false; opt.hidden = false; });
+
+            // Cargar datos del servidor
+            fetch(`/roles_bi/${idRol}/datos`)
+                .then(resp => {
+                    if (!resp.ok) throw new Error('No se pudo cargar el rol');
+                    return resp.json();
+                })
+                .then(data => {
+                    document.getElementById('idRolLectura').value = data.id;
+                    document.getElementById('nombreRolEditar').value = data.nombre_rol_bi;
+
+                    // Marcar visualizaciones asignadas (valor = ruta string)
+                    const asignadas = new Set(data.graficas || []);
+                    Array.from(selectEd.options).forEach(opt => {
+                        opt.selected = asignadas.has(opt.value);
+                    });
+
+                    // Apuntar el form a la ruta correcta
+                    document.getElementById('formEditarRolBI').action = `/roles_bi/${idRol}/editar`;
+                    actualizarContador(selectEd);
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('No se pudo cargar la información del rol.');
+                });
+        });
+    }
+
+    const selectEditar = document.getElementById('selectGraficasEditar');
+    const filtroEditar = document.getElementById('filtroEditar');
+    const btnSelEditar = document.getElementById('btnSeleccionarTodoEditar');
+    const btnLimpEditar = document.getElementById('btnLimpiarEditar');
+
+    if (selectEditar) selectEditar.addEventListener('change', () => actualizarContador(selectEditar));
+    if (filtroEditar && selectEditar) filtroEditar.addEventListener('input', () => filtrarOpciones(filtroEditar, selectEditar));
+    if (btnSelEditar && selectEditar) btnSelEditar.addEventListener('click', () => seleccionarTodo(selectEditar));
+    if (btnLimpEditar && selectEditar) btnLimpEditar.addEventListener('click', () => limpiarSeleccion(selectEditar));
+</script>
+{% endblock %}

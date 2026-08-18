@@ -3,6 +3,117 @@
 {% block title %}Gestión de Usuarios{% endblock %}
 
 {% block content %}
+<style>
+    /* ── Parametrizaciones por módulo (flota de asistencia y COP bitácora) ── */
+    .bmt-cop-card {
+        border: 1px solid #e4ebf5;
+        border-left: 4px solid #1f3a6d;
+        border-radius: 10px;
+        background: #f8fafc;
+        padding: .6rem .7rem;
+        margin-bottom: .7rem;
+    }
+
+    .bmt-cop-titulo {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        font-family: 'Century Gothic', sans-serif;
+        font-size: .82rem;
+        font-weight: 700;
+        color: #1f3a6d;
+        margin-bottom: .15rem;
+    }
+
+    .bmt-cop-ayuda {
+        font-size: .70rem;
+        color: #64748b;
+        margin: 0 0 .45rem;
+    }
+
+    .bmt-cop-cascada {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: .35rem;
+        align-items: center;
+    }
+
+    .bmt-cop-cascada select,
+    .bmt-cop-cascada button {
+        font-size: .76rem;
+    }
+
+    /* Los botones de las dos secciones quedan del mismo tamaño */
+    .bmt-cop-cascada button {
+        white-space: nowrap;
+    }
+
+    .bmt-cop-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .3rem;
+        margin-top: .5rem;
+        max-height: 190px;
+        overflow-y: auto;
+    }
+
+    .bmt-cop-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        background: #e0e7ff;
+        border: 1px solid #c7d2fe;
+        color: #3730a3;
+        border-radius: 999px;
+        padding: .12rem .5rem;
+        font-size: .70rem;
+        font-weight: 600;
+    }
+
+    .bmt-cop-chip button {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        opacity: .7;
+    }
+
+    .bmt-cop-chip button:hover {
+        opacity: 1;
+    }
+
+    .bmt-cop-vacio {
+        font-size: .70rem;
+        color: #94a3b8;
+        font-style: italic;
+    }
+
+    .bmt-cop-check {
+        margin-top: .55rem;
+        padding-top: .5rem;
+        border-top: 1px dashed #dbe3ee;
+        font-size: .74rem;
+    }
+
+    /* Modal de edición al 80% con las parametrizaciones a la derecha */
+    .bmt-modal-80 {
+        max-width: 80vw;
+        width: 80vw;
+        margin: 4vh auto;
+    }
+
+    .bmt-config-col {
+        border-left: 1px solid #e4ebf5;
+    }
+
+    @media (max-width: 991px) {
+        .bmt-config-col { border-left: none; }
+        .bmt-modal-80 { max-width: 96vw; width: 96vw; }
+    }
+</style>
+
 <div class="container-fluid d-flex flex-column" style="height: 90vh;">
     <div class="row justify-content-between align-items-center mb-4">
         <h1 class="col-auto" style="font-size: 22px; font-family: 'Century Gothic', sans-serif;">Gestión de Usuarios</h1>
@@ -95,48 +206,118 @@
                                 </select>
                             </div>
                             
-                            <!-- Roles Power Bi  -->
+                            <!-- Roles Power BI  -->
                             <div class="col-md-6 mb-3">
                                 <label for="rol_powerbi" class="form-label">Rol Power BI</label>
                                 <select class="form-select" id="rol_powerbi" name="rol_powerbi" required>
-                                <option value="0" selected>No Asignar</option>
-                                {% for r in roles_powerbi %}
-                                    <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
-                                {% endfor %}
+                                    <option value="0" selected>No Asignar</option>
+                                    {% for r in roles_powerbi %}
+                                        <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Rol Business Intelligence -->
+                            <div class="col-md-6 mb-3">
+                                <label for="rol_bi" class="form-label">Rol Business Intelligence</label>
+                                <select class="form-select" id="rol_bi" name="rol_bi" required>
+                                    <option value="0" selected>No Asignar</option>
+                                    {% for r in roles_bi %}
+                                        <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                         </div>   
                         
                         <!-- === Flota de Asistencia (agregar/eliminar) === -->
-                        <div class="col-12 mb-3">
-                            <label class="form-label fw-bold" style="font-family:'Century Gothic',sans-serif;font-size:.85rem;display:block;margin-bottom:.25rem;">Flota de Asistencia Checklit y Preoperacionales</label>
-                            <div class="d-flex gap-2 align-items-start" style="font-family:'Century Gothic',sans-serif;font-size:.85rem;">
-                                <select id="flotaProcesoSelect" class="form-select" style="max-width:420px;">
-                                <option value=""style="font-size:.50rem;">— Seleccione proceso/subproceso —</option>
+                        <div class="col-12 mb-3 bmt-cop-card">
+                            <label class="bmt-cop-titulo">
+                                <i class="bi bi-clipboard-check-fill"></i>
+                                Flota de Asistencia Checklit y Preoperacionales
+                            </label>
+                            <p class="bmt-cop-ayuda">
+                                Procesos y subprocesos que el usuario podrá atender en Checklist y Preoperacionales.
+                            </p>
+
+                            <div class="bmt-cop-cascada">
+                                <select id="flotaProcesoSelect" class="form-select form-select-sm"
+                                        style="grid-column: span 2;">
+                                <option value="" style="font-size:.50rem;">— Seleccione proceso/subproceso —</option>
                                 {% for p in procesos %}
                                     <option value="{{ p[0] }}" style="font-size:.85rem;">{{ p[1] }} — {{ p[2] }} ({{ p[0] }})</option>
                                 {% endfor %}
                                 </select>
-                                <button type="button" class="btn btn-outline-primary" id="btnAddFlota">Agregar</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddFlota">
+                                    <i class="bi bi-plus-lg"></i> Agregar
+                                </button>
+                            </div>
+
+                            <!-- Contenedor de chips (selecciones) -->
+                            <!-- Aquí se inyectan inputs ocultos name="procesos_asignados[]" por cada chip -->
+                            <div id="flotaChips" class="bmt-cop-chips"></div>
                         </div>
 
-                        <!-- Contenedor de chips (selecciones) -->
-                        <div id="flotaChips" class="mt-2 d-flex flex-wrap gap-2"></div>
-                        <!-- Aquí se inyectan inputs ocultos name="procesos_asignados[]" por cada chip -->
+                        <!-- === Centros de Operación para Bitácora de Mantenimiento === -->
+                        <div class="col-12 mb-3 bmt-cop-card">
+                            <label class="bmt-cop-titulo">
+                                <i class="bi bi-diagram-3-fill"></i>
+                                Centros de Operación para Bitácora de Mantenimiento
+                            </label>
+                            <p class="bmt-cop-ayuda">
+                                Seleccione en cascada el componente, la zona y el COP. El usuario solo verá
+                                y gestionará los vehículos asignados a los COP que agregue aquí.
+                            </p>
+
+                            <div class="bmt-cop-cascada">
+                                <select id="copComponente" class="form-select form-select-sm">
+                                    <option value="">— Componente —</option>
+                                </select>
+                                <select id="copZona" class="form-select form-select-sm">
+                                    <option value="">— Zona —</option>
+                                </select>
+                                <select id="copCop" class="form-select form-select-sm">
+                                    <option value="">— COP —</option>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddCop">
+                                    <i class="bi bi-plus-lg"></i> Agregar
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddCopTodos"
+                                        title="Agregar todos los COP del filtro actual">
+                                    <i class="bi bi-check2-all"></i> Todos
+                                </button>
+                            </div>
+
+                            <div id="copChips" class="bmt-cop-chips"></div>
+
+                            <div class="form-check bmt-cop-check">
+                                <input class="form-check-input" type="checkbox" value="1"
+                                       id="permiteFechaRetroactiva" name="permite_fecha_retroactiva">
+                                <label class="form-check-label" for="permiteFechaRetroactiva">
+                                    Permitir registrar <b>Fecha del Cambio</b> con más de 2 días de antigüedad
+                                </label>
+                            </div>
                         </div>
 
                         <button type="submit" class="btn btn-success w-100">Guardar</button>
                     </form>
 
-                    <!-- Aquí comienza el formulario para cargar las licencias Power BI, justo debajo del formulario de creación de usuarios -->
+                    <!-- Carga masiva de personal desvinculado -->
                     <div style="margin-top: 20px; border-top: 2px solid #bebebe; padding-top: 20px;">
-                        <form id="licencias-form" enctype="multipart/form-data">
-                            <h5 style="font-size: 14px; margin-bottom: 10px;">Solo para Cargar archivo de Licencias Power BI Consorcio Express:</h5>
-                            
-                            <!-- Contenedor flex para el input y el botón -->
-                            <div style="display: flex; align-items: center;">
-                                <input type="file" id="licencias_file" name="file" accept=".xlsx" class="form-control" style="margin-right: 10px; width: 70%; height: 35px;">
-                                <button type="submit" class="btn btn-primary" style="white-space: nowrap; height: 35px;">Cargar Licencias BI</button>
+                        <form id="retirados-form" enctype="multipart/form-data">
+                            <h5 style="font-size: 14px; margin-bottom: 4px; font-family: 'Century Gothic', sans-serif;">
+                                <i class="bi bi-person-dash-fill text-danger me-1"></i>
+                                Cargar cédulas de personal desvinculado de Consorcio Express
+                            </h5>
+                            <p style="font-size: 11px; color: #6c757d; margin-bottom: 10px;">
+                                Archivo <code>.xlsx</code> con columna <strong>CEDULA</strong>. Los usuarios encontrados quedarán inactivos.
+                            </p>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="file" id="retirados_file" name="file" accept=".xlsx"
+                                       class="form-control" style="height: 35px;">
+                                <button type="submit" id="btn-retirados" class="btn btn-danger"
+                                        style="white-space: nowrap; height: 35px; min-width: 130px;">
+                                    <i class="bi bi-upload me-1"></i> Procesar
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -169,12 +350,13 @@
                         <thead class="table-light" style="position: sticky; top: 0; z-index: 1; margin-top: 0; padding: 0;">
                         <tr>
                             <th style="width: 3px;">ID</th>
-                            <th style="width: 12%;">Username</th>
-                            <th style="width: 35px;">Nombre</th>
-                            <th style="width: 35px;">Apellidos</th>
+                            <th style="width: 10%;">Username</th>
+                            <th style="width: 30px;">Nombre</th>
+                            <th style="width: 30px;">Apellidos</th>
                             <th style="width: 3px;">Rol</th>
                             <th style="width: 3px;">Blob</th>
-                            <th style="width: 3px;">BI</th>
+                            <th style="width: 3px;" title="Rol Power BI">PBI</th>
+                            <th style="width: 3px;" title="Rol Business Intelligence">BI</th>
                             <th style="width: 8px;">Estado</th>
                             <th style="width: 45px;" class="text-center">Acciones</th>
                         </tr>
@@ -187,9 +369,10 @@
                             <td>{{ usuario[3] }}</td> <!-- Username -->
                             <td>{{ usuario[1] }}</td> <!-- Nombres -->
                             <td>{{ usuario[2] }}</td> <!-- Apellidos -->
-                            <td>{{ usuario[4] }}</td> <!-- Rol Sistema-->
+                            <td>{{ usuario[4] }}</td> <!-- Rol Sistema -->
                             <td>{{ usuario[6] }}</td> <!-- Storage -->
                             <td>{{ usuario[7] }}</td> <!-- Power BI -->
+                            <td>{{ usuario[8] }}</td> <!-- Rol BI -->
                             <td>{{ 'Activo' if usuario[5] == 1 else 'Inactivo' }}</td> <!-- Estado -->
                             <td class="text-center">
                             <button type="button" class="btn btn-sm btn-outline-primary"
@@ -197,12 +380,21 @@
                                     data-user-id="{{ usuario[0] }}">
                                 <i class="fas fa-edit"></i> Editar
                             </button>
+                            {% if usuario[5] == 1 %}
                             <form action="/registrarse/{{ usuario[0] }}/inactivar" method="post" style="display:inline;"
                                     onsubmit="return confirm('¿Está seguro de que desea inactivar este usuario?');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">
-                                <i class="fas fa-ban"></i> Inactivar
+                                    <i class="fas fa-ban"></i> Inactivar
                                 </button>
                             </form>
+                            {% else %}
+                            <form action="/registrarse/{{ usuario[0] }}/activar" method="post" style="display:inline;"
+                                    onsubmit="return confirm('¿Está seguro de que desea activar este usuario?');">
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-check-circle"></i> Activar
+                                </button>
+                            </form>
+                            {% endif %}
                             </td>
                         </tr>
                         {% else %}
@@ -223,7 +415,7 @@
 
 <!-- Modal para editar usuario -->
 <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog bmt-modal-80">
         <div class="modal-content">
             <form id="editUserForm" method="post">
                 <input type="hidden" id="editUserIdHidden" name="user_id" value="">
@@ -234,6 +426,9 @@
                 </div>
 
                 <div class="modal-body">
+                  <div class="row g-3">
+                   <!-- Columna izquierda: datos del usuario -->
+                   <div class="col-lg-7">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="editUserIdDisplay" class="form-label">ID</label>
@@ -294,27 +489,84 @@
                             </select>
                         </div>
 
-                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editUserRolBI" class="form-label">Rol Business Intelligence</label>
+                            <select class="form-select" id="editUserRolBI" name="rol_bi" required>
+                                <option value="0">No Asignar</option>
+                                {% for r in roles_bi %}
+                                <option value="{{ r[0] }}">{{ r[1] }} ({{ r[0] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                         <div class="col-md-6 mb-3">
                             <label for="editUserPassword" class="form-label">Contraseña (opcional)</label>
                             <input type="password" class="form-control" id="editUserPassword" name="password_user">
                         </div>
-                        
                     </div>
-                </div>
+                   </div>
 
-                <div class="col-12 mb-3">
-                    <label class="form-label fw-bold" style="font-family:'Century Gothic',sans-serif;font-size:.85rem;display:block;margin-bottom:.25rem;">Flota de Asistencia Checklit y Preoperacionales</label>
-                    <div class="d-flex gap-2 align-items-start">
-                        <select id="editFlotaProcesoSelect" class="form-select" style="max-width:420px;">
-                        <option value="">— Seleccione proceso/subproceso —</option>
-                        {% for p in procesos %}
-                            <option value="{{ p[0] }}" style="font-size:.85rem;">{{ p[1] }} — {{ p[2] }} ({{ p[0] }})</option>
-                        {% endfor %}
-                        </select>
-                        <button type="button" class="btn btn-outline-primary" id="editBtnAddFlota">Agregar</button>
+                   <!-- Columna derecha: parametrizaciones por módulo -->
+                   <div class="col-lg-5 bmt-config-col">
+
+                    <div class="bmt-cop-card">
+                        <label class="bmt-cop-titulo">
+                            <i class="bi bi-clipboard-check-fill"></i>
+                            Flota de Asistencia Checklit y Preoperacionales
+                        </label>
+                        <p class="bmt-cop-ayuda">Procesos y subprocesos que el usuario podrá atender.</p>
+                        <div class="bmt-cop-cascada">
+                            <select id="editFlotaProcesoSelect" class="form-select form-select-sm"
+                                    style="grid-column: span 2;">
+                            <option value="">— Seleccione proceso/subproceso —</option>
+                            {% for p in procesos %}
+                                <option value="{{ p[0] }}" style="font-size:.85rem;">{{ p[1] }} — {{ p[2] }} ({{ p[0] }})</option>
+                            {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="editBtnAddFlota">
+                                <i class="bi bi-plus-lg"></i> Agregar
+                            </button>
+                        </div>
+                        <div id="editFlotaChips" class="bmt-cop-chips"></div>
                     </div>
-                    <div id="editFlotaChips" class="mt-2 d-flex flex-wrap gap-2"></div>
+
+                    <div class="bmt-cop-card">
+                        <label class="bmt-cop-titulo">
+                            <i class="bi bi-diagram-3-fill"></i>
+                            Centros de Operación para Bitácora de Mantenimiento
+                        </label>
+                        <p class="bmt-cop-ayuda">
+                            El usuario solo verá y gestionará los vehículos de los COP que agregue aquí.
+                        </p>
+                        <div class="bmt-cop-cascada">
+                            <select id="editCopComponente" class="form-select form-select-sm">
+                                <option value="">— Componente —</option>
+                            </select>
+                            <select id="editCopZona" class="form-select form-select-sm">
+                                <option value="">— Zona —</option>
+                            </select>
+                            <select id="editCopCop" class="form-select form-select-sm">
+                                <option value="">— COP —</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="editBtnAddCop">
+                                <i class="bi bi-plus-lg"></i> Agregar
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="editBtnAddCopTodos"
+                                    title="Agregar todos los COP del filtro actual">
+                                <i class="bi bi-check2-all"></i> Todos
+                            </button>
+                        </div>
+                        <div id="editCopChips" class="bmt-cop-chips"></div>
+                        <div class="form-check bmt-cop-check">
+                            <input class="form-check-input" type="checkbox" value="1"
+                                   id="editPermiteFechaRetroactiva" name="permite_fecha_retroactiva">
+                            <label class="form-check-label" for="editPermiteFechaRetroactiva">
+                                Permitir registrar <b>Fecha del Cambio</b> con más de 2 días de antigüedad
+                            </label>
+                        </div>
+                    </div>
+
+                   </div>
+                  </div>
                 </div>
 
                 <div class="modal-footer">
@@ -349,6 +601,7 @@
         document.getElementById('editUserPassword').value = '';
         document.getElementById('editUserRolStorage').value = '0';
         document.getElementById('editUserRolPowerBI').value = '0';
+        document.getElementById('editUserRolBI').value = '0';
 
         // Limpia chips por si el modal se reabre
         const chips = document.getElementById('editFlotaChips');
@@ -370,6 +623,7 @@
             document.getElementById('editUserEstado').value = data.estado;
             document.getElementById('editUserRolStorage').value = data.rol_storage || '0';
             document.getElementById('editUserRolPowerBI').value = data.rol_powerbi || '0';
+            document.getElementById('editUserRolBI').value = data.rol_bi || '0';
             document.getElementById('editUserPassword').value = '';
             document.getElementById('editUserForm').action = `/registrarse/${userId}/editar`;
 
@@ -385,51 +639,93 @@
 </script>
 
 
-<!-- Script para manejar la carga de licencias Power BI -->
+<!-- Script para carga masiva de personal retirado -->
 <script>
-    // Capturar la respuesta del formulario y mostrar la notificación
-    document.getElementById('licencias-form').addEventListener('submit', async function (e) {
-        e.preventDefault();  // Evitar la recarga de la página
-        
+document.getElementById('retirados-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const archivo = document.getElementById('retirados_file').files[0];
+    if (!archivo) {
+        mostrarNotificacion('danger', '<i class="bi bi-exclamation-triangle-fill me-1"></i>Seleccione un archivo .xlsx antes de continuar.');
+        return;
+    }
+
+    const btn = document.getElementById('btn-retirados');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando…';
+
+    try {
         const formData = new FormData(this);
-        
-        // Realizar la solicitud
-        const response = await fetch('/cargar_licencias', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        // Mostrar notificación según el resultado
-        const notification = document.getElementById('notification');
-        if (result.message) {
-            notification.innerHTML = `
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    ${result.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>`;
-        } else if (result.error) {
-            notification.innerHTML = `
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    ${result.error}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        const response = await fetch('/cargar_retirados', { method: 'POST', body: formData });
+        const result   = await response.json();
+
+        if (result.error) {
+            mostrarNotificacion('danger', `<i class="bi bi-x-circle-fill me-1"></i>${result.error}`);
+            return;
+        }
+
+        // ── Construir resumen de resultado ────────────────────────────
+        const { total_cedulas, desactivados, no_encontrados,
+                lista_desactivados, lista_no_encontrados } = result;
+
+        let detalle = '';
+
+        if (desactivados > 0) {
+            detalle += `
+                <div class="mt-2">
+                    <strong>Usuarios desactivados (${desactivados}):</strong>
+                    <div style="max-height:80px;overflow-y:auto;font-size:11px;background:#f8f9fa;
+                                border:1px solid #dee2e6;border-radius:4px;padding:4px 8px;margin-top:4px;">
+                        ${lista_desactivados.join(' &nbsp;·&nbsp; ')}
+                    </div>
                 </div>`;
         }
-        
-        // Cerrar automáticamente la notificación después de 3 segundos
+
+        if (no_encontrados > 0) {
+            detalle += `
+                <div class="mt-2">
+                    <strong>Cédulas no encontradas en el sistema (${no_encontrados}):</strong>
+                    <div style="max-height:60px;overflow-y:auto;font-size:11px;background:#f8f9fa;
+                                border:1px solid #dee2e6;border-radius:4px;padding:4px 8px;margin-top:4px;color:#6c757d;">
+                        ${lista_no_encontrados.join(' &nbsp;·&nbsp; ')}
+                    </div>
+                </div>`;
+        }
+
+        const tipo    = desactivados > 0 ? 'success' : 'warning';
+        const icono   = desactivados > 0 ? 'check-circle-fill' : 'exclamation-triangle-fill';
+        const resumen = `<i class="bi bi-${icono} me-1"></i>
+            <strong>${total_cedulas}</strong> cédulas procesadas —
+            <strong>${desactivados}</strong> usuarios desactivados —
+            <strong>${no_encontrados}</strong> no encontradas.
+            ${detalle}`;
+
+        mostrarNotificacion(tipo, resumen, desactivados > 0);
+
+    } catch (err) {
+        mostrarNotificacion('danger', `<i class="bi bi-x-circle-fill me-1"></i>Error inesperado: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-upload me-1"></i> Procesar';
+    }
+});
+
+function mostrarNotificacion(tipo, html, recargar = false) {
+    const notification = document.getElementById('notification');
+    notification.innerHTML = `
+        <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+            ${html}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+
+    if (recargar) {
         setTimeout(() => {
-            const alertElement = document.querySelector('.alert');
-            if (alertElement) {
-                alertElement.classList.remove('show');
-                alertElement.classList.add('fade');
-                setTimeout(() => {
-                    alertElement.remove();  // Remover el elemento del DOM
-                    window.location.reload();  // Recargar la página
-                }, 300);  
-            }
-        }, 3000);  // Espera 3 segundos antes de cerrar la notificación y recargar
-    });
+            const el = notification.querySelector('.alert');
+            if (el) { el.classList.remove('show'); }
+            setTimeout(() => window.location.reload(), 400);
+        }, 5000);
+    }
+}
 </script>
 
 <!-- Script para manejar el envío del formulario de creación de usuarios -->
@@ -524,22 +820,34 @@
     const chips = document.getElementById('flotaChips');
     const btnAdd = document.getElementById('btnAddFlota');
 
+    // Mensaje cuando no hay procesos asignados (igual que en COP)
+    function pintarVacio() {
+        if (!chips) return;
+        const vacio = chips.querySelector('.bmt-cop-vacio');
+        if (chips.querySelectorAll('.bmt-cop-chip').length) {
+            if (vacio) vacio.remove();
+        } else if (!vacio) {
+            chips.innerHTML = '<span class="bmt-cop-vacio">Sin procesos asignados.</span>';
+        }
+    }
+
     function addChip(id, label) {
         // evitar duplicados
         if (chips.querySelector(`[data-id="${id}"]`)) return;
 
+        // Mismo diseño de chip que los Centros de Operación
         const chip = document.createElement('span');
-        chip.className = 'badge bg-secondary d-flex align-items-center gap-2';
-        chip.style.fontSize = '0.7rem';
-        chip.style.fontFamily = "'Century Gothic', sans-serif";
+        chip.className = 'bmt-cop-chip';
         chip.dataset.id = id;
         chip.innerHTML = `
+        <i class="bi bi-clipboard-check-fill"></i>
         <span>${label}</span>
-        <button type="button" class="btn-close btn-close-white btn-sm" aria-label="Eliminar"></button>
+        <button type="button" title="Quitar"><i class="bi bi-x-lg"></i></button>
         <input type="hidden" name="procesos_asignados[]" value="${id}">
         `;
-        chip.querySelector('button').addEventListener('click', () => chip.remove());
+        chip.querySelector('button').addEventListener('click', () => { chip.remove(); pintarVacio(); });
         chips.appendChild(chip);
+        pintarVacio();
     }
 
     if (btnAdd) {
@@ -551,6 +859,8 @@
         addChip(id, label);
         });
     }
+
+    pintarVacio();
     })();
 </script>
 
@@ -559,18 +869,30 @@
     function flotaEdit_addChip(id, label) {
     const chips = document.getElementById('editFlotaChips');
     if (chips.querySelector(`[data-id="${id}"]`)) return;
+    // Mismo diseño de chip que los Centros de Operación
     const chip = document.createElement('span');
-    chip.className = 'badge bg-secondary d-flex align-items-center gap-2';
-    chip.style.fontSize = '0.7rem';
-    chip.style.fontFamily = "'Century Gothic', sans-serif";
+    chip.className = 'bmt-cop-chip';
     chip.dataset.id = id;
     chip.innerHTML = `
+        <i class="bi bi-clipboard-check-fill"></i>
         <span>${label}</span>
-        <button type="button" class="btn-close btn-close-white btn-sm" aria-label="Eliminar"></button>
+        <button type="button" title="Quitar"><i class="bi bi-x-lg"></i></button>
         <input type="hidden" name="procesos_asignados[]" value="${id}">
     `;
-    chip.querySelector('button').addEventListener('click', () => chip.remove());
+    chip.querySelector('button').addEventListener('click', () => { chip.remove(); flotaEdit_pintarVacio(); });
     chips.appendChild(chip);
+    flotaEdit_pintarVacio();
+    }
+
+    function flotaEdit_pintarVacio() {
+    const chips = document.getElementById('editFlotaChips');
+    if (!chips) return;
+    const vacio = chips.querySelector('.bmt-cop-vacio');
+    if (chips.querySelectorAll('.bmt-cop-chip').length) {
+        if (vacio) vacio.remove();
+    } else if (!vacio) {
+        chips.innerHTML = '<span class="bmt-cop-vacio">Sin procesos asignados.</span>';
+    }
     }
 
     document.getElementById('editBtnAddFlota')?.addEventListener('click', ()=>{
@@ -598,8 +920,159 @@
         };
 
         asignados.forEach(id => flotaEdit_addChip(id, labelOf(id)));
+        flotaEdit_pintarVacio();
     }
 </script>
 
+<!-- ══════════════════════════════════════════════════════════════════════
+     CENTROS DE OPERACIÓN PARA BITÁCORA DE MANTENIMIENTO
+     Cascada Componente → Zona → COP con chips, para el formulario de
+     creación (prefijo "cop") y para el modal de edición (prefijo "editCop").
+     ══════════════════════════════════════════════════════════════════════ -->
+<script>
+    (function () {
+        "use strict";
+
+        // Catálogo completo de COP con su componente y zona
+        const COPS = {{ cops_bitacora | default([]) | tojson }};
+
+        function unicos(lista, clave, etiqueta) {
+            const vistos = new Map();
+            lista.forEach(r => { if (r[clave] && !vistos.has(r[clave])) vistos.set(r[clave], r[etiqueta]); });
+            return [...vistos.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+        }
+
+        function llenarSelect(sel, opciones, etiquetaVacia) {
+            if (!sel) return;
+            sel.innerHTML = `<option value="">${etiquetaVacia}</option>`;
+            opciones.forEach(([valor, texto]) => {
+                const o = document.createElement('option');
+                o.value = valor; o.textContent = texto;
+                sel.appendChild(o);
+            });
+        }
+
+        // Construye el bloque completo para un prefijo de ids
+        function crearGestorCop(ids) {
+            const selComp = document.getElementById(ids.componente);
+            const selZona = document.getElementById(ids.zona);
+            const selCop = document.getElementById(ids.cop);
+            const chips = document.getElementById(ids.chips);
+            const btnAdd = document.getElementById(ids.boton);
+            const btnTodos = document.getElementById(ids.botonTodos);
+            if (!selComp || !chips) return null;
+
+            const seleccionados = new Set();
+
+            function filtrados() {
+                const c = selComp.value, z = selZona.value;
+                return COPS.filter(r => (!c || String(r.id_componente) === c)
+                                     && (!z || String(r.id_zona) === z));
+            }
+
+            function refrescarZonas() {
+                llenarSelect(selZona, unicos(filtrados(), 'id_zona', 'zona'), '— Zona —');
+                refrescarCops();
+            }
+
+            function refrescarCops() {
+                llenarSelect(selCop, unicos(filtrados(), 'id_cop', 'cop'), '— COP —');
+            }
+
+            function pintarChips() {
+                chips.innerHTML = '';
+                if (!seleccionados.size) {
+                    chips.innerHTML = '<span class="bmt-cop-vacio">Sin centros de operación asignados.</span>';
+                    return;
+                }
+                [...seleccionados].forEach(id => {
+                    const dato = COPS.find(r => String(r.id_cop) === String(id)) || {};
+                    const chip = document.createElement('span');
+                    chip.className = 'bmt-cop-chip';
+                    chip.innerHTML = `<i class="bi bi-geo-alt-fill"></i>`
+                        + `<span>${dato.cop || ('COP ' + id)}`
+                        + (dato.zona ? ` · ${dato.zona}` : '') + `</span>`
+                        + `<button type="button" title="Quitar"><i class="bi bi-x-lg"></i></button>`
+                        + `<input type="hidden" name="cops_bitacora[]" value="${id}">`;
+                    chip.querySelector('button').addEventListener('click', () => {
+                        seleccionados.delete(String(id));
+                        pintarChips();
+                    });
+                    chips.appendChild(chip);
+                });
+            }
+
+            function agregar(id) {
+                if (id) seleccionados.add(String(id));
+            }
+
+            selComp.addEventListener('change', refrescarZonas);
+            selZona.addEventListener('change', refrescarCops);
+
+            btnAdd && btnAdd.addEventListener('click', () => {
+                if (!selCop.value) { alert('Seleccione un COP para agregar.'); return; }
+                agregar(selCop.value);
+                pintarChips();
+            });
+
+            btnTodos && btnTodos.addEventListener('click', () => {
+                const lista = filtrados();
+                if (!lista.length) { alert('No hay COP para el filtro seleccionado.'); return; }
+                lista.forEach(r => agregar(r.id_cop));
+                pintarChips();
+            });
+
+            // Estado inicial
+            llenarSelect(selComp, unicos(COPS, 'id_componente', 'componente'), '— Componente —');
+            refrescarZonas();
+            pintarChips();
+
+            return {
+                establecer(ids_cop) {
+                    seleccionados.clear();
+                    (ids_cop || []).forEach(id => seleccionados.add(String(id)));
+                    pintarChips();
+                },
+                limpiar() { seleccionados.clear(); pintarChips(); }
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Formulario de creación
+            window.copCrear = crearGestorCop({
+                componente: 'copComponente', zona: 'copZona', cop: 'copCop',
+                chips: 'copChips', boton: 'btnAddCop', botonTodos: 'btnAddCopTodos'
+            });
+
+            // Modal de edición
+            window.copEditar = crearGestorCop({
+                componente: 'editCopComponente', zona: 'editCopZona', cop: 'editCopCop',
+                chips: 'editCopChips', boton: 'editBtnAddCop', botonTodos: 'editBtnAddCopTodos'
+            });
+
+            // Al abrir el modal se precargan los COP y el permiso del usuario
+            const modal = document.getElementById('editUserModal');
+            if (!modal) return;
+
+            modal.addEventListener('show.bs.modal', function (evento) {
+                const userId = evento.relatedTarget && evento.relatedTarget.getAttribute('data-user-id');
+                if (!userId) return;
+
+                window.copEditar && window.copEditar.limpiar();
+                const check = document.getElementById('editPermiteFechaRetroactiva');
+                if (check) check.checked = false;
+
+                fetch(`/registrarse/${userId}/datos`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(datos => {
+                        if (!datos) return;
+                        window.copEditar && window.copEditar.establecer(datos.cops_bitacora || []);
+                        if (check) check.checked = !!datos.permite_fecha_retroactiva;
+                    })
+                    .catch(e => console.error('[COP] precarga:', e));
+            });
+        });
+    })();
+</script>
 
 {% endblock %}
