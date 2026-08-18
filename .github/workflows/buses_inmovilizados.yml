@@ -1,0 +1,159 @@
+name: Proceso Buses Inmovilizados (Blob -> PostgreSQL)
+
+on:
+  schedule:
+    # Cada hora entre 4:00 y 23:00 Bogotá (UTC-5) => 09:00-23:00 y 00:00-04:00 UTC
+    - cron: "0 9-23,0-4 * * *"
+
+  # Permite ejecución manual desde GitHub UI
+  workflow_dispatch:
+    inputs:
+      origenes:
+        description: "Fuentes a procesar separadas por coma (vacío = las 4)"
+        required: false
+        default: ""
+        type: string
+      anio:
+        description: "Año de la carpeta a procesar (vacío = año actual)"
+        required: false
+        default: ""
+        type: string
+      modo_verbose:
+        description: "Modo verbose (0=no, 1=sí)"
+        required: false
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "1"
+
+jobs:
+  buses_inmovilizados:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    steps:
+      # ==========================================
+      # 1. CHECKOUT DEL REPOSITORIO
+      # ==========================================
+      - name: 📦 Checkout repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ==========================================
+      # 2. CONFIGURAR PYTHON 3.12
+      # ==========================================
+      - name: 🐍 Setup Python 3.12.4
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.4"
+          cache: "pip"
+
+      # ==========================================
+      # 3. INSTALAR DEPENDENCIAS
+      # ==========================================
+      - name: 📦 Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas==2.2.2
+          pip install openpyxl==3.1.2
+          pip install psycopg2-binary==2.9.10
+          pip install azure-storage-blob==12.28.0
+          pip install python-dotenv==1.0.1
+          # database/database_manager.py levanta HTTPException de FastAPI:
+          # sin este paquete el job ni siquiera se puede importar.
+          pip install fastapi==0.112.0
+          echo "✅ Dependencias instaladas"
+
+      # ==========================================
+      # 4. VERIFICAR PAQUETES
+      # ==========================================
+      - name: 🔍 Verificar paquetes
+        run: |
+          python -c "import pandas as pd; print(f'✅ Pandas: {pd.__version__}')"
+          python -c "import openpyxl; print(f'✅ openpyxl: {openpyxl.__version__}')"
+          python -c "import psycopg2; print(f'✅ psycopg2: {psycopg2.__version__}')"
+          python -c "from azure.storage.blob import BlobServiceClient; print('✅ Azure Blob Storage')"
+          python -c "import fastapi; print(f'✅ fastapi: {fastapi.__version__}')"
+          python -c "from jobs.buses_inmovilizados import ejecutar_job_buses_inmovilizados; print('✅ Job importable')"
+
+      # ==========================================
+      # 5. EJECUTAR JOB BUSES INMOVILIZADOS
+      # ==========================================
+      - name: 🚀 Ejecutar job buses inmovilizados
+        env:
+          DATABASE_PATH: ${{ secrets.DATABASE_PATH_DEDICATED }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+
+          INMOV_ORIGENES: ${{ github.event.inputs.origenes || '' }}
+          INMOV_ANIO: ${{ github.event.inputs.anio || '' }}
+          INMOV_VERBOSE: ${{ github.event.inputs.modo_verbose || '0' }}
+
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔄 Iniciando proceso de buses inmovilizados"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📁 Fuentes: ${INMOV_ORIGENES:-las 4}"
+          echo "📅 Año: ${INMOV_ANIO:-actual}"
+          echo "👤 Ejecutado por: ${GITHUB_ACTOR}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          python -c "
+          import os
+          from datetime import date
+          from jobs.buses_inmovilizados import ejecutar_job_buses_inmovilizados
+
+          origenes = [o.strip() for o in os.getenv('INMOV_ORIGENES', '').split(',') if o.strip()] or None
+          anio     = int(os.getenv('INMOV_ANIO') or 0) or None
+          verbose  = os.getenv('INMOV_VERBOSE', '0') == '1'
+
+          print('✅ Módulo importado correctamente')
+          print(f'   Fuentes: {origenes or \"todas\"}')
+          print(f'   Año: {anio or date.today().year}')
+          print()
+
+          ejecutar_job_buses_inmovilizados(
+              origenes=origenes,
+              anio=anio,
+              ejecutado_por=os.getenv('GITHUB_ACTOR', 'workflow'),
+              verbose=verbose,
+          )
+          "
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Proceso completado exitosamente"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ==========================================
+      # 6. NOTIFICACIÓN EN CASO DE ERROR
+      # ==========================================
+      - name: 📧 Notificar error
+        if: failure()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "❌ ERROR: El proceso de buses inmovilizados falló"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔗 Ver detalles en:"
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ==========================================
+      # 7. RESUMEN DE EJECUCIÓN
+      # ==========================================
+      - name: 📊 Resumen de ejecución
+        if: success()
+        run: |
+          echo "### ✅ Ejecución Exitosa - Buses Inmovilizados" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐍 Python: $(python --version)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📁 Fuentes: ${INMOV_ORIGENES:-las 4}" >> $GITHUB_STEP_SUMMARY
+          echo "- 📅 Año: ${INMOV_ANIO:-actual}" >> $GITHUB_STEP_SUMMARY
+          echo "- 👤 Ejecutado por: ${GITHUB_ACTOR}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🕐 Fecha: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
