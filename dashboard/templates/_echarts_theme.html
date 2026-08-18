@@ -1,0 +1,144 @@
+<script>
+    /* ─────────────────────────────────────────────────────────────────────────────
+    GE_BI  —  Centralizador de estilos y configuración para Apache ECharts
+    ─────────────────────────────────────────────────────────────────────────────
+    Modifica SOLO este archivo para cambiar:
+        · Paleta de colores
+        · Fuente tipográfica
+        · Opciones base (tooltip, leyenda, cuadrícula, toolbox)
+    Los cambios se reflejan automáticamente en TODAS las visualizaciones.
+    ───────────────────────────────────────────────────────────────────────────── */
+
+    const GE_BI = {
+
+        /* ── Paleta corporativa GestiónExpress ── */
+        paleta: [
+            '#25397A',  /* azul corporativo oscuro  */
+            '#16A038',  /* verde corporativo oscuro */
+            '#3F5DB2',  /* azul corporativo medio   */
+            '#2BC14B',  /* verde corporativo medio  */
+            '#5076E2',  /* azul corporativo claro   */
+            '#3EE561',  /* verde corporativo brillante */
+            '#83A4FF',  /* azul corporativo suave   */
+            '#5BF47B',  /* verde corporativo suave  */
+        ],
+
+        /* ── Tipografía ─────────────────────────────────────────────── */
+        fuente: "'Segoe UI','Century Gothic',Arial,sans-serif",
+
+        /* ── Tokens de color reutilizables ──────────────────────────── */
+        colores: {
+            primario:    '#25397A',
+            acento:      '#3F5DB2',
+            exito:       '#16A038',
+            advertencia: '#f39c12',
+            peligro:     '#c0392b',
+            texto:       '#172033',
+            textoSuave:  '#667085',
+            borde:       '#e4ebf5',
+            superficie:  '#ffffff',
+            fondo:       '#f4f7fb',
+        },
+
+        /* ── Configuración de carga estándar para chart.showLoading() ── */
+        cargando: {
+            text: 'Cargando datos…',
+            color: '#25397A',
+            textColor: '#172033',
+            maskColor: 'rgba(255,255,255,0.85)',
+            fontSize: 12,
+            showSpinner: true,
+            spinnerRadius: 10,
+            lineWidth: 3,
+        },
+
+        /* ──────────────────────────────────────────────────────────────
+        base(opciones)
+        Retorna las opciones base que toda visualización debe extender.
+        Uso: grafica.setOption(GE_BI.base({ series: [...] }))
+        Los valores de "opciones" se combinan profundamente con los
+        valores predeterminados, por lo que basta con pasar solo
+        lo que cambia.
+        ─────────────────────────────────────────────────────────────── */
+        base(opciones) {
+            const predeterminado = {
+                color: this.paleta,
+                backgroundColor: 'transparent',
+                textStyle: {
+                    fontFamily: this.fuente,
+                    color: this.colores.texto,
+                    fontSize: 11,
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: this.colores.superficie,
+                    borderColor: this.colores.borde,
+                    borderWidth: 1,
+                    textStyle: {
+                        fontFamily: this.fuente,
+                        fontSize: 11,
+                        color: this.colores.texto,
+                    },
+                    extraCssText: 'box-shadow:0 4px 16px rgba(15,23,42,.12);border-radius:8px;padding:8px 12px;',
+                },
+                legend: {
+                    top: 6,
+                    left: 'center',
+                    textStyle: {
+                        fontFamily: this.fuente,
+                        fontSize: 11,
+                        color: this.colores.texto,
+                    },
+                    icon: 'roundRect',
+                    itemHeight: 8,
+                    itemWidth: 14,
+                    itemGap: 12,
+                },
+                grid: {
+                    left: '2%',
+                    right: '4%',
+                    bottom: '6%',
+                    top: '44px',
+                    containLabel: true,
+                },
+                toolbox: {
+                    right: 8,
+                    top: 4,
+                    feature: {
+                        saveAsImage: {
+                            title: 'Guardar imagen',
+                            pixelRatio: 2,
+                            iconStyle: { borderColor: '#25397A' },
+                        },
+                        dataZoom: {
+                            yAxisIndex: 'none',
+                            title: { zoom: 'Zoom', back: 'Restablecer' },
+                            iconStyle: { borderColor: '#25397A' },
+                        },
+                    },
+                },
+            };
+            return _combinarProfundo(predeterminado, opciones || {});
+        },
+    };
+
+    /* ────────────────────────────────────────────────────────────────────────────
+    _combinarProfundo(destino, fuente)
+    Mezcla profunda: los objetos se fusionan nivel a nivel;
+    los arreglos y primitivos se sobreescriben directamente.
+    ──────────────────────────────────────────────────────────────────────────── */
+    function _combinarProfundo(destino, fuente) {
+        const resultado = Object.assign({}, destino);
+        for (const clave of Object.keys(fuente)) {
+            const valorFuente = fuente[clave];
+            const valorDestino = destino[clave];
+            const esObjeto = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+            if (esObjeto(valorFuente) && esObjeto(valorDestino)) {
+                resultado[clave] = _combinarProfundo(valorDestino, valorFuente);
+            } else {
+                resultado[clave] = valorFuente;
+            }
+        }
+        return resultado;
+    }
+</script>

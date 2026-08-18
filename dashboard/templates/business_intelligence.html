@@ -1,0 +1,236 @@
+{% extends "components/layout.html" %}
+{% block title %}Business Intelligence · HUB{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/dashboard/static/css/bi_dashboard.css">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+{% include "_echarts_theme.html" %}
+{% endblock %}
+
+{% block content %}
+
+{% include "_bi_menu.html" %}
+
+<div id="bi-contenido">
+
+    {# ── Pantalla de bienvenida ─────────────────────────────────────────── #}
+    <div id="bi-bienvenida">
+        <div class="bi-tarjeta-bienvenida">
+            <i class="bi bi-bar-chart-line"></i>
+            <h2>Business Intelligence</h2>
+            <p>
+                Selecciona una visualización del menú lateral para comenzar.<br>
+                Usa el botón <strong>BI HUB</strong> en el borde izquierdo.
+            </p>
+        </div>
+    </div>
+
+    {# ── Pantalla de carga de partial ──────────────────────────────────── #}
+    <div id="bi-cargando" style="display:none;">
+        <div class="bi-tarjeta-carga">
+            <div class="bi-titulo-carga">Cargando visualización</div>
+            <div class="bi-nombre-carga" id="bi-nombre-carga">–</div>
+            <div class="bi-puntos-carga">
+                <div class="bi-punto"></div>
+                <div class="bi-punto"></div>
+                <div class="bi-punto"></div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Contenedor activo de la gráfica ───────────────────────────────── #}
+    <div id="bi-contenedor-grafica" style="display:none;"></div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        /* ── Referencias al DOM ──────────────────────────────────────────── */
+        var panelMenu = document.getElementById('bi-panel-menu');
+        var fondoPanel = document.getElementById('bi-fondo-panel');
+        var botonAbrir = document.getElementById('bi-abrir-menu');
+        var botonCerrar = document.getElementById('bi-cerrar-menu');
+        var inputBusqueda = document.getElementById('bi-input-busqueda');
+        var msgSinResultados = document.getElementById('bi-msg-sin-resultados');
+        var pantallaBienvenida = document.getElementById('bi-bienvenida');
+        var pantallaCarga = document.getElementById('bi-cargando');
+        var nombreCarga = document.getElementById('bi-nombre-carga');
+        var contenedor = document.getElementById('bi-contenedor-grafica');
+        var nombreActivo = document.getElementById('bi-nombre-activo');
+        var areas = document.querySelectorAll('.bi-area');
+        var enlacesGraficas = document.querySelectorAll('.bi-enlace-grafica');
+
+        /* ── Abrir / cerrar panel ────────────────────────────────────────── */
+        function abrirMenu() {
+            panelMenu.classList.add('abierto');
+            fondoPanel.classList.add('visible');
+            botonAbrir.style.display = 'none';
+        }
+
+        function cerrarMenu() {
+            panelMenu.classList.remove('abierto');
+            fondoPanel.classList.remove('visible');
+            botonAbrir.style.display = '';
+            if (inputBusqueda) {
+                inputBusqueda.value = '';
+                filtrarMenu('');
+            }
+        }
+
+        botonAbrir.addEventListener('click', abrirMenu);
+        botonCerrar.addEventListener('click', cerrarMenu);
+        fondoPanel.addEventListener('click', cerrarMenu);
+
+        /* ── Acordeón de áreas ───────────────────────────────────────────── */
+        areas.forEach(function (area) {
+            var encabezado = area.querySelector('.bi-area-encabezado');
+            var listaGraficas = area.querySelector('.bi-lista-graficas');
+            if (!encabezado || !listaGraficas) return;
+
+            encabezado.addEventListener('click', function () {
+                var estaAbierto = listaGraficas.classList.contains('visible');
+
+                /* Cerrar todos */
+                areas.forEach(function (a) {
+                    a.querySelector('.bi-lista-graficas').classList.remove('visible');
+                    a.querySelector('.bi-area-encabezado').classList.remove('abierto');
+                });
+
+                /* Abrir el clicado si estaba cerrado */
+                if (!estaAbierto) {
+                    listaGraficas.classList.add('visible');
+                    encabezado.classList.add('abierto');
+                }
+            });
+        });
+
+        /* ── Búsqueda en el menú ─────────────────────────────────────────── */
+        function filtrarMenu(termino) {
+            termino = (termino || '').toLowerCase().trim();
+            var encontrados = 0;
+
+            areas.forEach(function (area) {
+                var items = area.querySelectorAll('.bi-item-grafica');
+                var visiblesArea = 0;
+
+                items.forEach(function (item) {
+                    var nombre = (item.querySelector('.bi-enlace-grafica').dataset.nombre || '').toLowerCase();
+                    var mostrar = !termino || nombre.includes(termino);
+                    item.style.display = mostrar ? '' : 'none';
+                    if (mostrar) visiblesArea++;
+                });
+
+                area.style.display = visiblesArea > 0 ? '' : 'none';
+
+                if (termino && visiblesArea > 0) {
+                    area.querySelector('.bi-lista-graficas').classList.add('visible');
+                    area.querySelector('.bi-area-encabezado').classList.add('abierto');
+                }
+
+                encontrados += visiblesArea;
+            });
+
+            if (msgSinResultados) {
+                msgSinResultados.style.display = (termino && encontrados === 0) ? 'block' : 'none';
+            }
+        }
+
+        if (inputBusqueda) {
+            inputBusqueda.addEventListener('input', function () { filtrarMenu(this.value); });
+        }
+
+        /* ── Estados visuales ────────────────────────────────────────────── */
+        function mostrarBienvenida() {
+            pantallaBienvenida.style.display = '';
+            contenedor.style.display = 'none';
+        }
+
+        function ocultarBienvenida() {
+            pantallaBienvenida.style.display = 'none';
+        }
+
+        function mostrarCarga(nombre) {
+            pantallaCarga.style.display = '';
+            nombreCarga.textContent = nombre || '–';
+        }
+
+        function ocultarCarga() {
+            pantallaCarga.style.display = 'none';
+        }
+
+        function mostrarGrafica() {
+            contenedor.style.display = '';
+        }
+
+        /* ── Destruir instancias ECharts previas ─────────────────────────── */
+        function destruirInstancias() {
+            contenedor.querySelectorAll('.bi-lienzo, .bi-lienzo-grande, .bi-lienzo-pequeno')
+                .forEach(function (elemento) {
+                    var instancia = echarts.getInstanceByDom(elemento);
+                    if (instancia) instancia.dispose();
+                });
+        }
+
+        /* ── Ejecutar <script> inyectados vía innerHTML ──────────────────── */
+        function ejecutarScripts(nodo) {
+            nodo.querySelectorAll('script').forEach(function (scriptAntiguo) {
+                var scriptNuevo = document.createElement('script');
+                scriptNuevo.textContent = scriptAntiguo.textContent;
+                scriptAntiguo.parentNode.replaceChild(scriptNuevo, scriptAntiguo);
+            });
+        }
+
+        /* ── Cargar visualización parcial desde el servidor ─────────────── */
+        async function cargarVisualizacion(ruta, nombre) {
+            ocultarBienvenida();
+            mostrarCarga(nombre);
+            contenedor.style.display = 'none';
+            destruirInstancias();
+
+            try {
+                var respuesta = await fetch('/bi/partial/' + ruta);
+                if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+
+                var html = await respuesta.text();
+                contenedor.innerHTML = html;
+                ejecutarScripts(contenedor);
+                ocultarCarga();
+                mostrarGrafica();
+            } catch (error) {
+                contenedor.innerHTML =
+                    '<div style="padding:32px;text-align:center;color:#667085;">' +
+                    '<i class="bi bi-exclamation-triangle" style="font-size:32px;color:#f39c12;display:block;margin-bottom:12px;"></i>' +
+                    'No fue posible cargar la visualización.<br>' +
+                    '<small style="color:#94a3b8;">' + error.message + '</small>' +
+                    '</div>';
+                ocultarCarga();
+                mostrarGrafica();
+            }
+        }
+
+        /* ── Clic en enlace de gráfica ───────────────────────────────────── */
+        enlacesGraficas.forEach(function (enlace) {
+            enlace.addEventListener('click', function (evento) {
+                evento.preventDefault();
+
+                var ruta = this.dataset.ruta;
+                var nombre = this.dataset.nombre;
+
+                /* Marcar como activo */
+                enlacesGraficas.forEach(function (e) { e.classList.remove('activo'); });
+                this.classList.add('activo');
+                if (nombreActivo) nombreActivo.textContent = nombre;
+
+                cerrarMenu();
+                cargarVisualizacion(ruta, nombre);
+            });
+        });
+
+        /* ── Estado inicial ──────────────────────────────────────────────── */
+        mostrarBienvenida();
+        ocultarCarga();
+    });
+</script>
+
+{% endblock %}

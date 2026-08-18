@@ -1,0 +1,78 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+_bi_menu.html — Panel lateral de navegación del módulo BI
+Variables requeridas en el contexto Jinja2:
+menu_bi : dict { "Área": { "icono": str, "graficas": [{"nombre","ruta","icono"}] } }
+total_graficas : int
+El JS de interacción (abrir/cerrar/buscar/cargar) vive en business_intelligence.html
+───────────────────────────────────────────────────────────────────────────── #}
+
+{# ── Botón flotante para abrir el menú ── #}
+<button id="bi-abrir-menu" title="Abrir menú Business Intelligence">
+    <span class="bi-etiqueta-boton">
+        <i class="bi bi-bar-chart-line"></i>
+        Business Intelligence · HUB
+    </span>
+</button>
+
+{# ── Fondo semitransparente al abrir el panel ── #}
+<div id="bi-fondo-panel"></div>
+
+{# ── Panel lateral ── #}
+<div id="bi-panel-menu">
+
+    <div class="bi-menu-encabezado">
+        <div class="bi-menu-titulo">
+            <i class="bi bi-graph-up" style="color:#fff;font-size:16px;flex-shrink:0;"></i>
+            <span>Áreas de Trabajo · BI</span>
+        </div>
+        <button id="bi-cerrar-menu">
+            <i class="bi bi-x-lg"></i> Cerrar
+        </button>
+    </div>
+
+    <div class="bi-menu-buscador">
+        <i class="bi bi-search bi-icono-busqueda"></i>
+        <input type="text" id="bi-input-busqueda" placeholder="Buscar visualización…" autocomplete="off">
+    </div>
+
+    <div class="bi-menu-lista" id="bi-cuerpo-menu">
+
+        {% for nombre_area, config in menu_bi.items() %}
+        <div class="bi-area" data-area="{{ nombre_area }}">
+
+            <div class="bi-area-encabezado">
+                <div class="bi-area-icono">
+                    <i class="bi {{ config.icono }}"></i>
+                </div>
+                <span class="bi-area-nombre" title="{{ nombre_area }}">{{ nombre_area }}</span>
+                <span class="bi-area-conteo">{{ config.graficas | length }}</span>
+                <i class="bi bi-chevron-down bi-area-flecha"></i>
+            </div>
+
+            <ul class="bi-lista-graficas">
+                {% for grafica in config.graficas %}
+                <li class="bi-item-grafica">
+                    <a href="#" class="bi-enlace-grafica" data-ruta="{{ grafica.ruta }}"
+                        data-nombre="{{ grafica.nombre }}" title="{{ grafica.nombre }}">
+                        <i class="bi {{ grafica.icono }}" style="font-size:11px;flex-shrink:0;"></i>
+                        {{ grafica.nombre }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+
+        </div>
+        {% endfor %}
+
+        <div class="bi-sin-resultados" id="bi-msg-sin-resultados" style="display:none;">
+            Sin resultados para tu búsqueda
+        </div>
+
+    </div>
+
+    <div class="bi-menu-pie">
+        <span>{{ total_graficas }} visualizaciones disponibles</span>
+        <span id="bi-nombre-activo" style="color:#1f3a6d;font-weight:700;font-size:10px;"></span>
+    </div>
+
+</div>

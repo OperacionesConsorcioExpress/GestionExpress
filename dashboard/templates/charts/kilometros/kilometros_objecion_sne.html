@@ -1,0 +1,1418 @@
+<!-- Dashboard Objeción SNE · Área Kilómetros
+     Datos: /monitor/api/dashboard/... (mismos endpoints de sne_monitor.html)
+     Excluidos: Comportamiento Revisor · Cumplimiento Km Objetado x Colaborador · Tendencia Resultado x Revisor
+-->
+<style>
+  .objs {
+    --c1: #25397A;
+    --c2: #3F5DB2;
+    --cx: #5076E2;
+    --bg: #f4f7fb;
+    --sf: #fff;
+    --sfs: #f8fbff;
+    --bo: #dbe4f1;
+    --tx: #122033;
+    --txs: #64748b;
+    --sh: 0 10px 24px rgba(15, 23, 42, .06);
+    --r1: 20px;
+    --r2: 16px;
+    font-family: 'Century Gothic', Arial, sans-serif;
+    padding: .6rem;
+  }
+
+  .objs * {
+    box-sizing: border-box;
+  }
+
+  /* hero — compacto, dentro del ancho de la sección de gráficas */
+  .objs .hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: .55rem 1rem;
+    border-radius: var(--r2);
+    margin-bottom: .7rem;
+    background: linear-gradient(135deg, #25397A 0%, #3F5DB2 55%, #5076E2 100%);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .1);
+  }
+
+  .objs .hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -40px -46px auto;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, .18), rgba(255, 255, 255, 0));
+  }
+
+  .objs .hero-c {
+    position: relative;
+    z-index: 1;
+  }
+
+  .objs .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .3rem .7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .15);
+    border: 1px solid rgba(255, 255, 255, .18);
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+
+  .objs .hero-title {
+    margin: 0 0 .1rem;
+    font-size: 1.02rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .objs .hero-sub {
+    margin: 0;
+    font-size: .72rem;
+    color: rgba(255, 255, 255, .86);
+  }
+
+  /* filtros */
+  .objs .fc {
+    background: var(--sf);
+    border: 1px solid rgba(219, 228, 241, .9);
+    border-radius: var(--r2);
+    box-shadow: var(--sh);
+    padding: .85rem;
+    margin-bottom: .8rem;
+  }
+
+  .objs .ftb {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .7rem;
+    flex-wrap: wrap;
+    margin-bottom: .75rem;
+  }
+
+  .objs .ftb-title {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    margin: 0;
+    font-size: .85rem;
+    font-weight: 800;
+    color: var(--tx);
+  }
+
+  .objs .ftb-acts {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
+  .objs .fgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: .6rem;
+  }
+
+  .objs .ff {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+  }
+
+  .objs .ff label {
+    font-size: .65rem;
+    font-weight: 700;
+    color: var(--txs);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .objs .fi,
+  .objs .fs {
+    width: 100%;
+    min-height: 34px;
+    padding: .38rem .6rem;
+    border-radius: 9px;
+    border: 1px solid var(--bo);
+    background: var(--sfs);
+    color: var(--tx);
+    font-size: .73rem;
+    outline: none;
+    font-family: inherit;
+  }
+
+  /* layout: filtros fijos a la izquierda, resultados con scroll a la derecha */
+  .objs {
+    --os-top: .6rem;
+  }
+
+  .objs .layout {
+    position: relative;
+  }
+
+  /* position:fixed (no sticky): el contenedor #bi-contenido del armazón usa
+     overflow:auto sin altura fija, lo que rompe el "stuck" de position:sticky.
+     El left se calcula en JS (ajustarPosicionFiltros) para alinear con la columna. */
+  .objs .side {
+    position: fixed;
+    top: var(--os-top);
+    left: var(--os-left, .6rem);
+    width: 252px;
+    z-index: 40;
+  }
+
+  .objs .side .fc {
+    margin-bottom: 0;
+    max-height: calc(100vh - var(--os-top) - .6rem);
+    overflow-y: auto;
+  }
+
+  .objs .layout>main {
+    margin-left: calc(252px + .9rem);
+  }
+
+  .objs .fgrid-v {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+
+  .objs .side-acts {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    margin-top: .85rem;
+  }
+
+  .objs .side-acts .btn {
+    width: 100%;
+  }
+
+  @media(max-width:960px) {
+    .objs .side {
+      position: static;
+      width: auto;
+    }
+
+    .objs .side .fc {
+      max-height: none;
+      overflow-y: visible;
+    }
+
+    .objs .layout>main {
+      margin-left: 0;
+    }
+  }
+
+  /* tarjetas KPI — resultados generales (compactas, 8 en una fila) */
+  .objs .kpirow {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: .5rem;
+    margin-bottom: .7rem;
+  }
+
+  @media(max-width:1300px) {
+    .objs .kpirow {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media(max-width:640px) {
+    .objs .kpirow {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .objs .kpi {
+    min-width: 0;
+    background: var(--sf);
+    border: 1px solid rgba(219, 228, 241, .9);
+    border-radius: 12px;
+    box-shadow: var(--sh);
+    padding: .55rem .6rem;
+    transition: box-shadow .15s, transform .15s;
+  }
+
+  .objs .kpi:hover {
+    box-shadow: 0 14px 30px rgba(15, 23, 42, .09);
+    transform: translateY(-1px);
+  }
+
+  .objs .kpi-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .3rem;
+  }
+
+  .objs .kpi-lbl {
+    font-size: .55rem;
+    font-weight: 700;
+    color: var(--txs);
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    line-height: 1.2;
+  }
+
+  .objs .kpi-ic {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .64rem;
+    flex-shrink: 0;
+  }
+
+  .objs .kpi-val {
+    font-size: .98rem;
+    font-weight: 800;
+    color: var(--tx);
+    margin: .28rem 0 .2rem;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .objs .kpi-sub {
+    font-size: .64rem;
+    line-height: 1.35;
+    color: var(--txs);
+    padding-top: .3rem;
+    border-top: 1px solid var(--bo);
+  }
+
+  .objs .kpi-sub strong {
+    color: var(--tx);
+    font-weight: 700;
+  }
+
+  /* botones */
+  .objs .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .38rem;
+    min-height: 34px;
+    padding: .45rem .8rem;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    font-size: .73rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .objs .btn-p {
+    background: var(--c1);
+    color: #fff;
+  }
+
+  .objs .btn-p:hover {
+    background: #1a2a5e;
+  }
+
+  .objs .btn-g {
+    background: transparent;
+    color: var(--txs);
+    border-color: var(--bo);
+  }
+
+  .objs .btn-g:hover {
+    background: #f1f5f9;
+  }
+
+  /* tabs */
+  .objs .tabs {
+    display: flex;
+    gap: .3rem;
+    flex-wrap: wrap;
+    margin-bottom: .75rem;
+  }
+
+  .objs .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: .38rem;
+    padding: .42rem .85rem;
+    border-radius: 9px;
+    border: 1px solid var(--bo);
+    background: var(--sf);
+    color: var(--txs);
+    font-size: .73rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .14s;
+  }
+
+  .objs .tab.on,
+  .objs .tab:hover {
+    background: var(--c1);
+    color: #fff;
+    border-color: var(--c1);
+  }
+
+  /* grids dashboard */
+  .objs .dg {
+    display: grid;
+    gap: .9rem;
+    margin-bottom: .9rem;
+  }
+
+  .objs .dg2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media(max-width:860px) {
+    .objs .dg2 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* card gráfica */
+  .objs .cc {
+    background: var(--sf);
+    border: 1px solid rgba(219, 228, 241, .9);
+    border-radius: var(--r2);
+    box-shadow: var(--sh);
+    overflow: hidden;
+  }
+
+  .objs .cc-h {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .6rem .85rem;
+    background: var(--sf);
+    border-bottom: 1px solid var(--bo);
+  }
+
+  .objs .cc-h .bi {
+    color: var(--cc, var(--c1));
+    font-size: .85rem;
+  }
+
+  .objs .cc-t {
+    font-size: .78rem;
+    font-weight: 800;
+    color: var(--c1);
+    flex: 1;
+  }
+
+  .objs .cc-b {
+    padding: .6rem;
+  }
+
+  .objs .cc-fs-btn {
+    width: 26px;
+    height: 26px;
+    background: rgba(37, 57, 122, .06);
+    border: 1px solid rgba(37, 57, 122, .16);
+    border-radius: 6px;
+    color: var(--c1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    flex-shrink: 0;
+    transition: background .13s;
+  }
+
+  .objs .cc-fs-btn:hover {
+    background: rgba(37, 57, 122, .14);
+  }
+
+  /* lienzo */
+  .objs .cv {
+    height: 260px;
+    position: relative;
+  }
+
+  .objs .cv>div {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* pills — sobre fondo blanco (.cc-b) */
+  .objs .pgroup {
+    display: flex;
+    gap: .22rem;
+    flex-wrap: wrap;
+    padding: .45rem .65rem .1rem;
+  }
+
+  .objs .pill {
+    padding: .2rem .58rem;
+    border-radius: 999px;
+    border: 1px solid #c8d6ee;
+    background: #edf1fb;
+    color: var(--c1);
+    font-size: .65rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .12s;
+  }
+
+  .objs .pill.on,
+  .objs .pill:hover {
+    background: var(--c1);
+    color: #fff;
+    border-color: var(--c1);
+  }
+
+  /* pill-s: botones de filtro de rutas (dentro del route-filter) */
+  .objs .pill-s {
+    background: rgba(37, 57, 122, .07);
+    color: var(--c1);
+    border-color: rgba(37, 57, 122, .18);
+  }
+
+  .objs .pill-s:hover {
+    background: rgba(37, 57, 122, .15);
+  }
+
+  /* route filter */
+  .objs .rf {
+    padding: .28rem .6rem 0;
+  }
+
+  .objs .rf-bar {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+    flex-wrap: wrap;
+  }
+
+  .objs .rf-sum {
+    font-size: .63rem;
+    color: rgba(255, 255, 255, .7);
+    font-weight: 700;
+  }
+
+  .objs .rf-menu {
+    display: none;
+    position: absolute;
+    z-index: 70;
+    min-width: 230px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 11px;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, .14);
+    padding: .5rem;
+    margin-top: .2rem;
+  }
+
+  .objs .rf-menu.on {
+    display: block;
+  }
+
+  .objs .rf-inp {
+    width: 100%;
+    min-height: 26px;
+    padding: .22rem .45rem;
+    border-radius: 7px;
+    border: 1px solid #e2e8f0;
+    font-size: .67rem;
+    outline: none;
+    margin-bottom: .3rem;
+    font-family: inherit;
+  }
+
+  .objs .rf-list {
+    max-height: 175px;
+    overflow-y: auto;
+  }
+
+  .objs .rf-item {
+    display: flex;
+    align-items: center;
+    gap: .38rem;
+    padding: .2rem .15rem;
+    font-size: .67rem;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  /* fullscreen */
+  .objs .fs-card {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9990 !important;
+    border-radius: 0 !important;
+    overflow-y: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .objs .fs-card .cc-b {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .objs .fs-card .cv {
+    flex: 1;
+    min-height: 0;
+    height: auto !important;
+  }
+</style>
+
+<div class="objs">
+
+  <div class="layout">
+    <!-- FILTROS (barra lateral fija) -->
+    <aside class="side">
+      <section class="fc">
+        <div class="ftb">
+          <h2 class="ftb-title"><i class="bi bi-funnel"></i> Filtros</h2>
+        </div>
+        <div class="fgrid-v">
+          <div class="ff"><label>Fecha inicio</label><input type="date" id="os-fi" class="fi" onchange="OS.loadRutas();OS.loadUsuarios();"></div>
+          <div class="ff"><label>Fecha fin</label><input type="date" id="os-ff" class="fi" onchange="OS.loadRutas();OS.loadUsuarios();"></div>
+          <div class="ff"><label>Componente</label>
+            <select id="os-comp" onchange="OS.loadZonas()" class="fs">
+              <option value="">-- Todos --</option>
+            </select>
+          </div>
+          <div class="ff"><label>Zona</label>
+            <select id="os-zona" onchange="OS.loadCop()" class="fs">
+              <option value="">-- Todas --</option>
+            </select>
+          </div>
+          <div class="ff"><label>COP</label>
+            <select id="os-cop" class="fs">
+              <option value="">-- Todos --</option>
+            </select>
+          </div>
+          <div class="ff"><label>Ruta</label>
+            <select id="os-ruta" class="fs">
+              <option value="">-- Todas --</option>
+            </select>
+          </div>
+          <div class="ff"><label>Asignador</label>
+            <select id="os-asig" class="fs">
+              <option value="">-- Todos --</option>
+            </select>
+          </div>
+          <div class="ff"><label>Estado asignación</label>
+            <select id="os-estasig" class="fs">
+              <option value="">-- Todos --</option>
+              <option value="0">Por asignar</option>
+              <option value="1">Asignado</option>
+              <option value="2">Vencido s/a</option>
+            </select>
+          </div>
+          <div class="ff"><label>Revisor</label>
+            <select id="os-rev" class="fs">
+              <option value="">-- Todos --</option>
+            </select>
+          </div>
+          <div class="ff"><label>Estado objeción</label>
+            <select id="os-estobj" class="fs">
+              <option value="">-- Todos --</option>
+              <option value="0">Pendiente</option>
+              <option value="1">Objetado</option>
+              <option value="2">Vencido</option>
+            </select>
+          </div>
+        </div>
+        <div class="side-acts">
+          <button onclick="OS.cargar()" class="btn btn-p"><i class="bi bi-search"></i> Consultar</button>
+          <button onclick="OS.limpiar()" class="btn btn-g"><i class="bi bi-arrow-counterclockwise"></i> Limpiar</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- CONTENIDO CON SCROLL: título + KPI + gráficos + tablas -->
+    <main>
+      <div class="hero">
+        <div class="hero-c">
+          <h1 class="hero-title">Dashboard · Objeción SNE</h1>
+          <p class="hero-sub">Viajes objetados, kilómetros, resultados por ruta y estimación de ingresos.</p>
+        </div>
+      </div>
+      <div id="os-kpis" class="kpirow"></div>
+      <div id="os-resultados"></div>
+    </main>
+  </div>
+
+</div><!-- /objs -->
+
+<script>
+  (function () {
+    'use strict';
+    var API = '/monitor/api';
+    var _ch = {};  /* instancias echarts */
+
+    /* ── utilidades ─────────────────────────────────────── */
+    var q = function (id) { return document.getElementById(id); };
+    var N = function (v) { var n = Number(v); return isFinite(n) ? n : 0; };
+    var fI = function (v) { return Math.round(N(v)).toLocaleString('es-CO'); };
+    var fK = function (v) { return N(v).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
+    var fP = function (v) { return N(v).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; };
+    var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    var GET = function (url) { return fetch(url).then(function (r) { return r.json(); }); };
+    var fmtD = function (d) { if (!d || isNaN(d.getTime())) return ''; return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    var MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    /* cargar XLSX sin document.write */
+    if (typeof XLSX === 'undefined') { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; document.head.appendChild(s); }
+
+    /* ── Estado ─────────────────────────────────────────── */
+    var D = {
+      gran: { reg: 'dia', km: 'dia', kma: 'dia', exito: 'dia', ing: 'dia' },
+      mMot: 'motivo',
+      mRuta: { bp: 'sne', hi: 'sne', sc: 'sne' },
+      rutasSel: { bp: [], hi: [], sc: [] },
+      ninguna: { bp: false, hi: false, sc: false },
+      data: { reg: [], km: [], mot: {}, rutas: [], bp: { sne: [], asignado: [], objetado: [] }, kma: [], exito: [], ing: [] }
+    };
+    var GR = {};
+
+    /* ── query string filtros ───────────────────────────── */
+    function qs() {
+      var p = [];
+      var fi = (q('os-fi') || {}).value, ff = (q('os-ff') || {}).value;
+      if (fi) p.push('fecha_ini=' + fi);
+      if (ff) p.push('fecha_fin=' + ff);
+      var comp = (q('os-comp') || {}).value, zona = (q('os-zona') || {}).value;
+      var cop = (q('os-cop') || {}).value, ruta = (q('os-ruta') || {}).value;
+      var asig = (q('os-asig') || {}).value, eas = (q('os-estasig') || {}).value;
+      var rev = (q('os-rev') || {}).value, eo = (q('os-estobj') || {}).value;
+      if (comp) p.push('componente=' + encodeURIComponent(comp));
+      if (zona) p.push('zona=' + encodeURIComponent(zona));
+      if (cop) p.push('id_cop=' + cop);
+      if (ruta) p.push('id_linea=' + ruta);
+      if (asig) p.push('usuario_asigna=' + asig);
+      if (eas !== '') p.push('estado_asignacion=' + eas);
+      if (rev) p.push('usuario_revisor=' + rev);
+      if (eo !== '') p.push('estado_objecion=' + eo);
+      return p.length ? '?' + p.join('&') : '';
+    }
+
+    /* ── selects cascada ────────────────────────────────── */
+    function fillSel(sel, items, vk, lk) {
+      if (!sel) return; var old = sel.value;
+      while (sel.options.length > 1) sel.remove(1);
+      items.forEach(function (it) { var o = document.createElement('option'); o.value = it[vk]; o.text = it[lk]; sel.appendChild(o); });
+      sel.value = old;
+    }
+    /* fillSelStr: para endpoints que devuelven una lista plana de strings (componentes, zonas) */
+    function fillSelStr(sel, items) {
+      if (!sel) return; var old = sel.value;
+      while (sel.options.length > 1) sel.remove(1);
+      items.forEach(function (v) { var o = document.createElement('option'); o.value = v; o.text = v; sel.appendChild(o); });
+      sel.value = old;
+    }
+    function fechaParams() {
+      var p = [], fi = (q('os-fi') || {}).value, ff = (q('os-ff') || {}).value;
+      if (fi) p.push('fecha_ini=' + fi);
+      if (ff) p.push('fecha_fin=' + ff);
+      return p;
+    }
+
+    /* ── init filtros ───────────────────────────────────── */
+    function initFiltros() {
+      var now = new Date(), ini = new Date(now); ini.setDate(now.getDate() - 30);
+      var fi = q('os-fi'), ff = q('os-ff');
+      if (fi) fi.value = fmtD(ini);
+      if (ff) ff.value = fmtD(now);
+      GET(API + '/filtros/componentes').then(function (j) { fillSelStr(q('os-comp'), j.data || []); });
+      OS.loadRutas();
+      OS.loadUsuarios();
+    }
+
+    /* ── HTML del dashboard (idéntico al de sne_monitor) ─ */
+    function dashHtml() {
+      function rf(key) {
+        return '<div class="rf" style="position:relative;">'
+          + '<div class="rf-bar">'
+          + '<button type="button" class="pill pill-s" onclick="OS.togRFMenu(\'' + key + '\',event)">Rutas</button>'
+          + '<span id="os-rfs-' + key + '" class="rf-sum">Todas</span>'
+          + '<button type="button" class="pill pill-s" onclick="OS.selAllRoutes(\'' + key + '\')">Todas</button>'
+          + '<button type="button" class="pill pill-s" onclick="OS.clearRoutes(\'' + key + '\')">Limpiar</button>'
+          + '</div>'
+          + '<div id="os-rfm-' + key + '" class="rf-menu">'
+          + '<input id="os-rfi-' + key + '" class="rf-inp" type="text" placeholder="Buscar ruta..." oninput="OS.renderRouteMenu(\'' + key + '\')">'
+          + '<div id="os-rfl-' + key + '" class="rf-list"></div>'
+          + '</div></div>';
+      }
+      function card(id, title, icon, color, extra) {
+        return '<div id="os-card-' + id + '" class="cc" style="--cc:' + color + ';">'
+          + '<div class="cc-h">'
+          + '<i class="bi ' + icon + '"></i>'
+          + '<span class="cc-t">' + title + '</span>'
+          + '<button class="cc-fs-btn" onclick="OS.toggleFs(\'' + id + '\')"><i class="bi bi-arrows-fullscreen"></i></button>'
+          + '</div>'
+          + '<div class="cc-b">'
+          + extra
+          + '<div class="cv" id="os-cv-' + id + '"><div id="os-ch-' + id + '" style="width:100%;height:100%;"></div></div>'
+          + '</div></div>';
+      }
+      function pills(key, labels) {
+        return '<div class="pgroup">' + labels.map(function (l, i) {
+          var vals = ['dia', 'mes', 'ano'];
+          return '<button id="os-gran-' + key + '-' + vals[i] + '" onclick="OS.gran(\'' + key + '\',\'' + vals[i] + '\')" class="pill' + (i === 0 ? ' on' : '') + '">' + l + '</button>';
+        }).join('') + '</div>';
+      }
+      function pillsBp(key, ids) {
+        var labs = [['sne', 'Km SNE'], ['asignado', 'Km Asig.'], ['objetado', 'Km Obj.']];
+        return '<div class="pgroup">' + labs.map(function (l, i) {
+          return '<button id="os-mbp-' + key + '-' + l[0] + '" onclick="OS.modoBp(\'' + key + '\',\'' + l[0] + '\')" class="pill' + (i === 0 ? ' on' : '') + '">' + l[1] + '</button>';
+        }).join('') + '</div>';
+      }
+      /* ── tarjeta tabla detalle por ruta ─── */
+      var tablaRutCard = ''
+        + '<div id="os-card-tablarut" class="cc" style="--cc:#25397A;">'
+        + '<div class="cc-h"><i class="bi bi-table"></i>'
+        + '<span class="cc-t">Detalle por Ruta</span>'
+        + '<button onclick="OS.exportTabla()" style="margin-left:auto;background:rgba(37,57,122,.07);border:1px solid rgba(37,57,122,.18);border-radius:6px;color:#25397A;font-size:.65rem;font-weight:700;padding:.2rem .5rem;cursor:pointer;display:inline-flex;align-items:center;gap:.28rem;"><i class="bi bi-file-earmark-excel"></i> Excel</button>'
+        + '<button class="cc-fs-btn" onclick="OS.toggleFs(\'tablarut\')" style="margin-left:.3rem;"><i class="bi bi-arrows-fullscreen"></i></button>'
+        + '</div>'
+        + '<div class="cc-b" style="padding:0;">'
+        + '<div id="os-cv-tablarut" class="cv" style="height:260px;overflow-y:auto;overflow-x:auto;">'
+        + '<div id="os-tabla-rut"></div>'
+        + '</div></div></div>';
+
+      return ''
+        /* Fila 1 — Viajes | Km */
+        + '<div class="dg dg2">'
+        + card('reg', 'Comportamiento Viajes Objetados', 'bi-people-fill', '#25397A', pills('reg', ['Día', 'Mes', 'Año']))
+        + card('km', 'Comportamiento Kilómetros Objetados', 'bi-speedometer2', '#16A038', pills('km', ['Día', 'Mes', 'Año']))
+        + '</div>'
+        /* Fila 2 — Motivos | Rutas */
+        + '<div class="dg dg2">'
+        + card('mot', 'Distribución Km por Motivo / Responsable', 'bi-pie-chart-fill', '#3F5DB2',
+          '<div class="pgroup"><button id="os-bmot" onclick="OS.setModo(\'motivo\')" class="pill on">Por Motivo</button>'
+          + '<button id="os-bresp" onclick="OS.setModo(\'responsable\')" class="pill">Por Responsable</button></div>')
+        + card('rut', 'Objeción por Ruta (Km)', 'bi-map-fill', '#2BC14B', '')
+        + '</div>'
+        /* Fila 3 — Boxplot | Histograma */
+        + '<div class="dg dg2">'
+        + card('bp', 'Boxplot Km SNE por Ruta', 'bi-boxes', '#25397A', pillsBp('bp') + rf('bp'))
+        + card('hi', 'Histograma Km por Viajes', 'bi-bar-chart-steps', '#16A038', pillsBp('hi') + rf('hi'))
+        + '</div>'
+        /* Fila 4 — Scatter | Detalle por Ruta */
+        + '<div class="dg dg2">'
+        + card('sc', 'Concentración Viajes vs Km por Ruta', 'bi-bullseye', '#3F5DB2', pillsBp('sc') + rf('sc'))
+        + tablaRutCard
+        + '</div>'
+        /* Fila 5 — Km Aceptados | Éxito */
+        + '<div class="dg dg2">'
+        + card('kma', 'Comportamiento Kilómetros Aceptados', 'bi-check-circle-fill', '#2BC14B', pills('kma', ['Día', 'Mes', 'Año']))
+        + card('exito', 'Éxito de Objeción Contundente', 'bi-trophy-fill', '#25397A', pills('exito', ['Día', 'Mes', 'Año']))
+        + '</div>'
+        /* Fila 6 — Estimación Ingresos (ancho completo) */
+        + '<div class="dg">'
+        + card('ing', 'Estimación de Ingresos', 'bi-cash-stack', '#16A038', pills('ing', ['Día', 'Mes', 'Año']))
+        + '</div>';
+    }
+
+    /* ── ECharts helpers ─────────────────────────────────── */
+    function ec(id) {
+      var dom = document.getElementById('os-ch-' + id); if (!dom) return null;
+      var ex = echarts.getInstanceByDom(dom); if (ex) ex.dispose();
+      var inst = echarts.init(dom); _ch[id] = inst; return inst;
+    }
+    function noData(id, txt) {
+      var inst = ec(id); if (!inst) return;
+      inst.setOption({ title: { text: txt || 'Sin datos', left: 'center', top: 'middle', textStyle: { color: '#94a3b8', fontSize: 13, fontWeight: 700 } }, xAxis: { show: false }, yAxis: { show: false }, series: [] }, true);
+    }
+    function lineOpt() {
+      return {
+        backgroundColor: '#fff', tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+        legend: { top: 4, right: 8, textStyle: { fontSize: 11 } },
+        grid: { top: 36, bottom: 50, left: 50, right: 55, containLabel: false },
+        xAxis: { type: 'category', axisLabel: { fontSize: 10, rotate: 30 }, axisTick: { alignWithLabel: true } },
+        yAxis: [{ type: 'value', axisLabel: { fontSize: 10 } }, { type: 'value', name: '%', min: 0, max: 100, axisLabel: { formatter: '{value}%', fontSize: 10 }, splitLine: { show: false } }]
+      };
+    }
+    function areaSerie(name, data, color) {
+      return {
+        name: name, type: 'line', smooth: true, yAxisIndex: 0, data: data,
+        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: color + '99' }, { offset: 1, color: color + '0d' }]) },
+        lineStyle: { color: color, width: 2 }, itemStyle: { color: color }, symbol: 'circle', symbolSize: 4
+      };
+    }
+    function pctSerie(data) {
+      return {
+        name: '% Cumpl.', type: 'line', smooth: true, yAxisIndex: 1, data: data,
+        lineStyle: { color: '#5076E2', width: 1.5, type: 'dashed' }, itemStyle: { color: '#5076E2' },
+        symbol: 'none', tooltip: { valueFormatter: function (v) { return v != null ? v.toFixed(1) + '%' : '—'; } }
+      };
+    }
+
+    /* ── Agrupación mes/año ──────────────────────────────── */
+    function agMes(data, fields, pctFn) {
+      var map = {};
+      data.forEach(function (d) {
+        var k = (d.fecha || '').substring(0, 7); if (!k) return;
+        if (!map[k]) { map[k] = {}; fields.forEach(function (f) { map[k][f] = 0; }); }
+        fields.forEach(function (f) { map[k][f] += parseFloat(d[f]) || 0; });
+      });
+      return Object.keys(map).sort().map(function (k) {
+        var g = map[k]; var p = k.split('-');
+        var lbl = p.length === 2 ? (MES[parseInt(p[1], 10) - 1] || p[1]) + ' ' + p[0] : k;
+        return Object.assign({ fecha: lbl, pct_cump: pctFn ? pctFn(g) : 0 }, g);
+      });
+    }
+    function agAnio(data, fields, pctFn) {
+      var map = {};
+      data.forEach(function (d) {
+        var k = (d.fecha || '').substring(0, 4); if (!k) return;
+        if (!map[k]) { map[k] = {}; fields.forEach(function (f) { map[k][f] = 0; }); }
+        fields.forEach(function (f) { map[k][f] += parseFloat(d[f]) || 0; });
+      });
+      return Object.keys(map).sort().map(function (k) {
+        var g = map[k]; return Object.assign({ fecha: k, pct_cump: pctFn ? pctFn(g) : 0 }, g);
+      });
+    }
+    function applyGran(raw, key, fields, pctFn) {
+      return D.gran[key] === 'mes' ? agMes(raw, fields, pctFn) : D.gran[key] === 'ano' ? agAnio(raw, fields, pctFn) : raw;
+    }
+
+    /* ── fetch todos ─────────────────────────────────────── */
+    function fetchAll() {
+      var s = qs();
+      fKpis(s);
+      fReg(s); fKm(s); fMot(s); fRut(s);
+      fBP('bp', s); fBP('hi', s); fBP('sc', s);
+      fKma(s); fExito(s); fIng(s);
+    }
+
+    /* ── KPI · Resultados generales (tarjetas resumen) ───── */
+    function fKpis(s) {
+      GET(API + '/asignaciones' + s).then(function (j) {
+        if (!j.ok || !j.data.length) { rKpisVacio(); return; }
+        rKpis(j.data);
+      }).catch(rKpisVacio);
+    }
+    function rKpisVacio() {
+      var el = q('os-kpis'); if (!el) return;
+      el.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1rem;color:#94a3b8;font-size:.75rem;">Sin datos para los filtros seleccionados.</div>';
+    }
+    function kpiTile(color, icon, label, value, sub) {
+      return '<div class="kpi" style="border-left:3px solid ' + color + ';">'
+        + '<div class="kpi-top"><span class="kpi-lbl">' + label + '</span>'
+        + '<span class="kpi-ic" style="background:' + color + '1a;color:' + color + ';"><i class="bi ' + icon + '"></i></span></div>'
+        + '<div class="kpi-val">' + value + '</div>'
+        + (sub ? '<div class="kpi-sub">' + sub + '</div>' : '')
+        + '</div>';
+    }
+    function rKpis(rows) {
+      var el = q('os-kpis'); if (!el) return;
+      var sum = function (k) { return rows.reduce(function (a, r) { return a + N(r[k]); }, 0); };
+      var tot = sum('total_registros'), totalKm = sum('total_km');
+      var asig = sum('asignados'), obj = sum('objetados'), mi = sum('manejo_interno');
+      var kmAsig = sum('km_revision_asignados'), kmObj = sum('km_objetados'), kmMi = sum('km_manejo_interno');
+      var kmPorAsignar = sum('km_por_asignar'), kmVencSA = sum('km_vencidos_sin_asignar');
+      var kmPorObjetar = sum('km_por_objetar'), kmVencObj = sum('km_vencidos_asignados');
+      var vjPorAsignar = sum('por_asignar'), vjVencSA = sum('vencidos_sin_asignar');
+      var vjPorObjetar = sum('por_objetar');
+      var pctAsigVj = tot ? asig / tot * 100 : 0, pctCumplVj = asig ? obj / asig * 100 : 0;
+      var pctAsigKm = totalKm ? kmAsig / totalKm * 100 : 0, pctCumplKm = kmAsig ? kmObj / kmAsig * 100 : 0;
+      var rutasAf = {}, rutasAs = {};
+      rows.forEach(function (r) { var rt = r.ruta_comercial || 'Sin Ruta'; rutasAf[rt] = true; if (N(r.asignados) > 0) rutasAs[rt] = true; });
+
+      el.innerHTML =
+        kpiTile('#25397A', 'bi-signpost-split', 'Viajes Totales', fI(tot), 'Asignados: <strong>' + fI(asig) + '</strong> · <strong>' + fP(pctAsigVj) + '</strong>')
+        + kpiTile('#16A038', 'bi-patch-check', 'Viajes Objetados', fI(obj), 'M Interno: <strong>' + fI(mi) + '</strong> · % Cumpl: <strong>' + fP(pctCumplVj) + '</strong>')
+        + kpiTile('#3F5DB2', 'bi-speedometer2', 'Kilómetros Totales', fK(totalKm) + ' km', 'Asignados: <strong>' + fK(kmAsig) + ' km</strong> · <strong>' + fP(pctAsigKm) + '</strong>')
+        + kpiTile('#2BC14B', 'bi-map-fill', 'Kilómetros Objetados', fK(kmObj) + ' km', 'M Interno: <strong>' + fK(kmMi) + ' km</strong> · % Cumpl: <strong>' + fP(pctCumplKm) + '</strong>')
+        + kpiTile('#b45309', 'bi-map', 'Rutas Afectadas', fI(Object.keys(rutasAf).length), 'Con asignación: <strong>' + fI(Object.keys(rutasAs).length) + '</strong>')
+        + kpiTile('#991b1b', 'bi-hourglass-split', 'Km Pendientes', fK(kmPorAsignar + kmPorObjetar), 'Por asignar: <strong>' + fK(kmPorAsignar) + '</strong> · Por objetar: <strong>' + fK(kmPorObjetar) + '</strong>')
+        + kpiTile('#5076E2', 'bi-exclamation-triangle', 'Km Vencidos', fK(kmVencSA + kmVencObj), 'Sin asignar: <strong>' + fK(kmVencSA) + '</strong> · Objeción: <strong>' + fK(kmVencObj) + '</strong>')
+        + kpiTile('#324A8E', 'bi-collection', 'Viajes Pendientes', fI(vjPorAsignar + vjPorObjetar), 'Por asignar: <strong>' + fI(vjPorAsignar) + '</strong> · Por objetar: <strong>' + fI(vjPorObjetar) + '</strong>');
+    }
+
+    /* ── Chart: Registros ───────────────────────────────── */
+    function fReg(s) {
+      GET(API + '/dashboard/registros' + s).then(function (j) {
+        if (!j.ok || !j.data.length) { noData('reg', 'Sin datos con los filtros'); return; }
+        D.data.reg = j.data; rReg();
+      }).catch(function () { noData('reg', 'Error al cargar'); });
+    }
+    function rReg() {
+      var raw = D.data.reg || []; if (!raw.length) return;
+      var pct = function (g) { return g.ids_asignados ? g.ids_revisados / g.ids_asignados * 100 : 0; };
+      var data = applyGran(raw, 'reg', ['ids_asignados', 'ids_revisados'], pct);
+      var f = [], a = [], r = [], p = [];
+      data.forEach(function (d) { f.push(d.fecha); a.push(d.ids_asignados); r.push(d.ids_revisados); p.push(d.pct_cump); });
+      var inst = ec('reg'); if (!inst) return;
+      var o = lineOpt(); o.xAxis.data = f;
+      o.series = [areaSerie('Asignados', a, '#25397A'), areaSerie('Objetados', r, '#16A038'), pctSerie(p)];
+      inst.setOption(o);
+    }
+    GR.reg = rReg;
+
+    /* ── Chart: Kilómetros ──────────────────────────────── */
+    function fKm(s) {
+      GET(API + '/dashboard/kilometros' + s).then(function (j) {
+        if (!j.ok || !j.data.length) { noData('km', 'Sin datos con los filtros'); return; }
+        D.data.km = j.data; rKm();
+      }).catch(function () { noData('km', 'Error al cargar'); });
+    }
+    function rKm() {
+      var raw = D.data.km || []; if (!raw.length) return;
+      var pct = function (g) { return g.km_revision ? g.km_objetado / g.km_revision * 100 : 0; };
+      var data = applyGran(raw, 'km', ['km_revision', 'km_objetado'], pct);
+      var f = [], kr = [], ko = [], p = [];
+      data.forEach(function (d) { f.push(d.fecha); kr.push(d.km_revision); ko.push(d.km_objetado); p.push(d.pct_cump); });
+      var inst = ec('km'); if (!inst) return;
+      var o = lineOpt(); o.xAxis.data = f;
+      o.series = [areaSerie('Km Asignado', kr, '#3F5DB2'), areaSerie('Km Objetado', ko, '#25397A'), pctSerie(p)];
+      inst.setOption(o);
+    }
+    GR.km = rKm;
+
+    /* ── Chart: Motivos ─────────────────────────────────── */
+    var PC = ['#25397A', '#16A038', '#3F5DB2', '#2BC14B', '#5076E2', '#3EE561', '#83A4FF', '#5BF47B', '#324A8E', '#A2F9B5', '#BBCCF9', '#1a2a5e'];
+    function fMot(s) {
+      GET(API + '/dashboard/motivos' + s).then(function (j) {
+        if (!j.ok) return; D.data.mot = j.data; rMot(D.mMot);
+      });
+    }
+    function rMot(modo) {
+      var src = (modo === 'motivo' ? D.data.mot.por_motivo : D.data.mot.por_responsable) || [];
+      var inst = ec('mot'); if (!inst) return;
+      if (!src.length) { noData('mot', 'Sin datos con los filtros'); return; }
+      var items = src.slice(0, 12).map(function (d, i) {
+        return { name: d.etiqueta || '—', value: parseFloat(d.km_total) || 0, itemStyle: { color: PC[i % PC.length] } };
+      });
+      inst.setOption({
+        backgroundColor: '#fff',
+        tooltip: { trigger: 'item', formatter: '{b}: {c} km ({d}%)' },
+        legend: { orient: 'vertical', right: 4, top: 'middle', textStyle: { fontSize: 10 }, type: 'scroll', width: 130 },
+        series: [{
+          type: 'pie', radius: ['30%', '68%'], center: ['38%', '50%'], roseType: 'area', label: { show: false },
+          itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 }, data: items
+        }]
+      });
+    }
+
+    /* ── Chart: Rutas ───────────────────────────────────── */
+    function fRut(s) {
+      GET(API + '/dashboard/rutas' + s).then(function (j) {
+        if (!j.ok) return; D.data.rutas = j.data; rRut(j.data); rTabla(j.data);
+      });
+    }
+    function rRut(rows) {
+      if (!rows || !rows.length) { noData('rut', 'Sin datos con los filtros'); return; }
+      var inst = ec('rut'); if (!inst) return;
+      var map = {};
+      rows.forEach(function (r) {
+        var k = r.ruta_comercial || 'Sin Ruta'; if (!map[k]) map[k] = { kr: 0, ko: 0 };
+        map[k].kr += parseFloat(r.km_revision) || 0; map[k].ko += parseFloat(r.km_objetado) || 0;
+      });
+      var labels = Object.keys(map).sort(function (a, b) { return Math.max(map[b].kr, map[b].ko) - Math.max(map[a].kr, map[a].ko); }).slice(0, 15);
+      var tot = labels.map(function (k) { return Math.max(N(map[k].kr), N(map[k].ko)); });
+      var ko = labels.map(function (k, i) { return Math.min(N(map[k].ko), tot[i]); });
+      var kp = labels.map(function (k, i) { return Math.max(tot[i] - ko[i], 0); });
+      var pc = labels.map(function (k, i) { return tot[i] > 0 ? (ko[i] / tot[i] * 100) : 0; });
+      inst.setOption({
+        backgroundColor: '#fff',
+        legend: { top: 2, right: 8, icon: 'roundRect', itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 11, color: '#334155', fontWeight: 700 } },
+        grid: { top: 34, bottom: 18, left: 118, right: 26, containLabel: false },
+        xAxis: { type: 'value', axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { lineStyle: { color: 'rgba(148,163,184,.16)' } } },
+        yAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, color: '#0f172a', fontWeight: 700, interval: 0 }, axisTick: { show: false }, axisLine: { show: false } },
+        tooltip: {
+          trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15,23,42,.96)', borderWidth: 0, textStyle: { color: '#f8fafc', fontSize: 11 }, padding: [10, 12],
+          formatter: function (params) {
+            var i = params && params.length ? params[0].dataIndex : 0;
+            return '<div style="font-weight:800;margin-bottom:6px;">' + esc(labels[i]) + '</div>'
+              + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km Objetado</span><strong>' + fK(ko[i]) + '</strong></div>'
+              + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Km restante</span><strong>' + fK(kp[i]) + '</strong></div>'
+              + '<div style="display:flex;justify-content:space-between;gap:16px;"><span>Total</span><strong>' + fK(tot[i]) + '</strong></div>'
+              + '<div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;color:#93c5fd;"><span>% Obj</span><strong>' + fP(pc[i]) + '</strong></div>';
+          }
+        },
+        series: [
+          {
+            name: 'Km Objetado', type: 'bar', stack: 's', data: ko, barWidth: 18,
+            itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: '#25397A' }, { offset: 1, color: '#3F5DB2' }]), borderRadius: [9, 0, 0, 9] },
+            label: { show: true, position: 'insideLeft', color: '#fff', fontSize: 10, fontWeight: 800, formatter: function (p) { var v = pc[p.dataIndex] || 0; return v >= 10 ? fP(v) : ''; } }, emphasis: { focus: 'series' }
+          },
+          {
+            name: 'Km restante', type: 'bar', stack: 's', data: kp, barWidth: 18,
+            itemStyle: { color: '#BBCCF9', borderColor: '#83A4FF', borderWidth: 1, borderRadius: [0, 9, 9, 0] },
+            label: { show: true, position: 'right', color: '#334155', fontSize: 10, fontWeight: 700, formatter: function (p) { return fK(tot[p.dataIndex]); } }, emphasis: { focus: 'series' }
+          }
+        ]
+      }, true);
+    }
+
+    /* ── Tabla Detalle por Ruta ─────────────────────────── */
+    var RSORT = { key: null, dir: -1 };
+    function rTabla(rows) {
+      var el = document.getElementById('os-tabla-rut'); if (!el) return;
+      if (!rows || !rows.length) { el.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.8rem;">Sin datos.</div>'; return; }
+      var sorted = rows.slice();
+      if (RSORT.key) { var sk = RSORT.key, sd = RSORT.dir; sorted.sort(function (a, b) { var av = a[sk], bv = b[sk]; if (typeof av === 'string') return sd * av.localeCompare(bv, 'es', { sensitivity: 'base' }); return sd * ((parseFloat(av) || 0) - (parseFloat(bv) || 0)); }); }
+      var TH = function (t, k, al) { var ac = RSORT.key === k; return '<th onclick="OS.sortTabla(\'' + k + '\')" style="position:sticky;top:0;background:' + (ac ? '#e3e9f8' : '#f4f7fc') + ';color:#25397A;font-size:.65rem;font-weight:800;padding:.32rem .45rem;white-space:nowrap;text-align:' + (al || 'center') + ';border-bottom:2px solid #dbe4f1;border-right:1px solid #e7edf7;cursor:pointer;">' + t + '</th>'; };
+      var badge = function (v) { var c = v >= 80 ? '#dcfce7' : v >= 50 ? '#fef9c3' : '#fee2e2'; var tc = v >= 80 ? '#166534' : v >= 50 ? '#854d0e' : '#7f1d1d'; return '<span style="background:' + c + ';color:' + tc + ';border-radius:10px;padding:.1rem .38rem;font-weight:700;font-size:.63rem;">' + v.toFixed(1) + '%</span>'; };
+      var thead = '<thead><tr>' + TH('Año', 'anio') + TH('Mes', 'mes') + TH('Ruta', 'ruta_comercial', 'left') + TH("ID's A", 'ids_asignados') + TH("ID's O", 'ids_revisados') + TH("% ID's", 'pct_cump_ids') + TH('Km Rev.', 'km_revision', 'right') + TH('Km Obj.', 'km_objetado', 'right') + TH('% Km', 'pct_cump_km') + TH('Km Ac.', 'km_aceptado', 'right') + TH('% Éxito', 'pct_exito') + '</tr></thead>';
+      var body = sorted.map(function (r, i) {
+        var bg = i % 2 === 0 ? '#f8fafc' : '#fff';
+        return '<tr style="background:' + bg + ';" onmouseover="this.style.background=\'#e8edf8\'" onmouseout="this.style.background=\'' + bg + '\'">'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + r.anio + '</td>'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + MES[(r.mes || 1) - 1] + '</td>'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;font-weight:600;border-bottom:1px solid #f1f5f9;">' + (r.ruta_comercial || '—') + '</td>'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + r.ids_asignados + '</td>'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + r.ids_revisados + '</td>'
+          + '<td style="padding:.26rem .45rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + badge(parseFloat(r.pct_cump_ids || 0)) + '</td>'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;text-align:right;border-bottom:1px solid #f1f5f9;font-family:monospace;">' + fK(r.km_revision) + '</td>'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;text-align:right;border-bottom:1px solid #f1f5f9;font-family:monospace;">' + fK(r.km_objetado) + '</td>'
+          + '<td style="padding:.26rem .45rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + badge(parseFloat(r.pct_cump_km || 0)) + '</td>'
+          + '<td style="padding:.26rem .45rem;font-size:.66rem;text-align:right;border-bottom:1px solid #f1f5f9;font-family:monospace;">' + parseFloat(r.km_aceptado || 0).toFixed(1).replace('.', ',') + '</td>'
+          + '<td style="padding:.26rem .45rem;text-align:center;border-bottom:1px solid #f1f5f9;">' + badge(parseFloat(r.pct_exito || 0)) + '</td>'
+          + '</tr>';
+      }).join('');
+      el.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + thead + '<tbody>' + body + '</tbody></table>';
+    }
+
+    /* ── Route analytics ─────────────────────────────────── */
+    function fBP(key, s) {
+      var modo = D.mRuta[key] || 'sne';
+      var sep = s ? '&' : '?';
+      GET(API + '/dashboard/boxplot-rutas' + s + sep + 'modo=' + encodeURIComponent(modo)).then(function (j) {
+        if (!j.ok) { noData(key === 'bp' ? 'bp' : key === 'hi' ? 'hi' : 'sc', 'Sin datos con los filtros'); return; }
+        D.data.bp[modo] = j.data || [];
+        rBPChart(key);
+      }).catch(function () { noData(key === 'bp' ? 'bp' : key === 'hi' ? 'hi' : 'sc', 'Sin datos con los filtros'); });
+    }
+    function bpRows(key) { return D.data.bp[D.mRuta[key] || 'sne'] || []; }
+    function bpAvail(key) { var s = {}; bpRows(key).forEach(function (r) { s[r.ruta_comercial || 'Sin Ruta'] = true; }); return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'es'); }); }
+    function bpFiltered(key) {
+      if (D.ninguna[key]) return [];
+      var rows = bpRows(key), routes = bpAvail(key);
+      var sel = (D.rutasSel[key] || []).filter(function (r) { return routes.indexOf(r) >= 0; });
+      D.rutasSel[key] = sel;
+      if (!sel.length || sel.length === routes.length) return rows;
+      return rows.filter(function (r) { return sel.indexOf(r.ruta_comercial || 'Sin Ruta') >= 0; });
+    }
+    function rBPChart(key) {
+      var rows = bpFiltered(key), modo = D.mRuta[key] || 'sne';
+      if (key === 'bp') rBoxplot(rows, modo);
+      if (key === 'hi') rHist(rows, modo);
+      if (key === 'sc') rScatter(rows, modo);
+      rfSum(key);
+    }
+    function rfSum(key) {
+      var el = document.getElementById('os-rfs-' + key); if (!el) return;
+      if (D.ninguna[key]) { el.textContent = 'Ninguna'; return; }
+      var routes = bpAvail(key), sel = D.rutasSel[key] || [];
+      el.textContent = (!sel.length || sel.length === routes.length) ? 'Todas' : sel.length === 1 ? sel[0] : sel.length + ' rutas';
+    }
+
+    /* ── Boxplot ─────────────────────────────────────────── */
+    function qtl(sorted, q) { if (!sorted.length) return 0; if (sorted.length === 1) return sorted[0]; var pos = (sorted.length - 1) * q; var base = Math.floor(pos); var rest = pos - base; return sorted[base + 1] !== undefined ? sorted[base] + rest * (sorted[base + 1] - sorted[base]) : sorted[base]; }
+    function rBoxplot(rows, modo) {
+      var inst = ec('bp'); if (!inst) return;
+      if (!rows || !rows.length) { noData('bp', 'Sin datos con los filtros'); return; }
+      var groups = {}; rows.forEach(function (r) { var ruta = r.ruta_comercial || 'Sin Ruta'; var val = N(r.km_valor); if (!groups[ruta]) groups[ruta] = []; if (val > 0) groups[ruta].push(val); });
+      var stats = Object.keys(groups).map(function (ruta) { var vals = groups[ruta].slice().sort(function (a, b) { return a - b; }); if (!vals.length) return null; return { ruta: ruta, min: vals[0], q1: qtl(vals, .25), median: qtl(vals, .5), q3: qtl(vals, .75), max: vals[vals.length - 1] }; }).filter(Boolean).sort(function (a, b) { return a.ruta.localeCompare(b.ruta, 'es'); });
+      if (!stats.length) { noData('bp', 'Sin datos con los filtros'); return; }
+      var labels = stats.map(function (d) { return d.ruta; }), boxData = stats.map(function (d) { return [d.min, d.q1, d.median, d.q3, d.max]; });
+      var cm = { sne: '#25397A', asignado: '#3F5DB2', objetado: '#16A038' };
+      var tm = { sne: 'Kilometros SNE', asignado: 'Km Asignados', objetado: 'Km Objetados' };
+      inst.setOption({
+        backgroundColor: '#fff', animationDuration: 350,
+        tooltip: {
+          trigger: 'item', confine: true, backgroundColor: 'rgba(15,23,42,.96)', borderWidth: 0, textStyle: { color: '#f8fafc', fontSize: 11 }, padding: [10, 12],
+          formatter: function (p) { var s = stats[p.dataIndex || 0]; return '<b>' + esc(s.ruta) + '</b><br>Min:' + fK(s.min) + '<br>Q1:' + fK(s.q1) + '<br>Med:' + fK(s.median) + '<br>Q3:' + fK(s.q3) + '<br>Max:' + fK(s.max); }
+        },
+        grid: { top: 20, bottom: 52, left: 120, right: 20, containLabel: false },
+        xAxis: { type: 'value', name: tm[modo], nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 }, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { lineStyle: { color: 'rgba(148,163,184,.16)' } } },
+        yAxis: { type: 'category', data: labels, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { fontSize: 10, color: '#0f172a', fontWeight: 700, interval: 0 } },
+        dataZoom: [{ type: 'inside', yAxisIndex: 0 }, { type: 'slider', yAxisIndex: 0, right: 2, width: 12, start: 0, end: Math.min(100, Math.max(30, (12 / labels.length) * 100)) }],
+        series: [{
+          type: 'boxplot', data: boxData, itemStyle: { color: echarts.color.modifyAlpha(cm[modo] || '#25397A', .22), borderColor: cm[modo] || '#25397A', borderWidth: 2 },
+          emphasis: { itemStyle: { color: echarts.color.modifyAlpha(cm[modo] || '#25397A', .34), borderColor: cm[modo] || '#25397A' } }
+        }]
+      }, true);
+    }
+
+    /* ── Histograma ──────────────────────────────────────── */
+    function rHist(rows, modo) {
+      var inst = ec('hi'); if (!inst) return;
+      if (!rows || !rows.length) { noData('hi', 'Sin datos con los filtros'); return; }
+      var map = {}; rows.forEach(function (r) { var rt = r.ruta_comercial || 'Sin Ruta', km = N(r.km_valor); if (!map[rt]) map[rt] = { km: 0, viajes: 0 }; map[rt].km += km; map[rt].viajes += 1; });
+      var rl = Object.keys(map).map(function (k) { return map[k]; }).filter(function (d) { return d.km > 0; });
+      if (!rl.length) { noData('hi', 'Sin datos con los filtros'); return; }
+      var kvs = rl.map(function (d) { return d.km; }), rMin = Math.min.apply(null, kvs), rMax = Math.max.apply(null, kvs);
+      function niceStep(range, target) { if (range <= 0) return 1; var rough = range / target, mag = Math.pow(10, Math.floor(Math.log10(rough))); for (var i = 0, fs = [1, 2, 2.5, 5, 10]; i < fs.length; i++) { if (fs[i] * mag >= rough) return fs[i] * mag; } return 10 * mag; }
+      var tB = Math.max(5, Math.min(10, Math.round(Math.sqrt(rl.length)))), step = niceStep(rMax - rMin, tB);
+      var nMin = Math.floor(rMin / step) * step, nMax = Math.ceil(rMax / step) * step; if (nMax <= nMin) nMax = nMin + step;
+      var bins = Math.round((nMax - nMin) / step); if (bins < 1) bins = 1;
+      var ranges = []; for (var i = 0; i < bins; i++) { var from = nMin + i * step; ranges.push({ from: from, to: from + step, viajes: 0, kmSum: 0, rutas: 0 }); }
+      rl.forEach(function (d) { var idx = Math.min(ranges.length - 1, Math.floor((d.km - nMin) / step)); if (idx < 0) idx = 0; ranges[idx].viajes += d.viajes; ranges[idx].kmSum += d.km; ranges[idx].rutas += 1; });
+      var cm = { sne: '#25397A', asignado: '#3F5DB2', objetado: '#16A038' };
+      var tm = { sne: 'Km SNE', asignado: 'Km Asignados', objetado: 'Km Objetados' };
+      var labels = ranges.map(function (r) { return fK(r.from) + ' – ' + fK(r.to); }), vD = ranges.map(function (r) { return r.viajes; }), kmD = ranges.map(function (r) { return Math.round(r.kmSum * 10) / 10; }), rD = ranges.map(function (r) { return r.rutas; });
+      inst.setOption({
+        backgroundColor: '#fff',
+        tooltip: {
+          trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15,23,42,.96)', borderWidth: 0, textStyle: { color: '#f8fafc', fontSize: 11 },
+          formatter: function (p) { var i = p && p.length ? p[0].dataIndex : 0; return '<b>' + esc(labels[i]) + ' km</b><br>Rutas: ' + fI(rD[i]) + '<br>Viajes: ' + fI(vD[i]) + '<br>Km: ' + fK(kmD[i]); }
+        },
+        grid: { top: 26, bottom: 62, left: 52, right: 18, containLabel: false },
+        xAxis: { type: 'category', data: labels, name: 'Km por Ruta', nameLocation: 'middle', nameGap: 42, nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 }, axisLabel: { fontSize: 9, color: '#64748b', rotate: 32, interval: 0 }, axisTick: { alignWithLabel: true } },
+        yAxis: { type: 'value', name: 'Viajes', nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 }, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { lineStyle: { color: 'rgba(148,163,184,.16)' } } },
+        series: [{
+          type: 'bar', data: vD, barMaxWidth: 28,
+          itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: echarts.color.modifyAlpha(cm[modo] || '#25397A', .92) }, { offset: 1, color: echarts.color.modifyAlpha(cm[modo] || '#25397A', .55) }]), borderRadius: [8, 8, 0, 0] },
+          label: { show: true, position: 'top', fontSize: 9, color: '#475569', formatter: function (p) { return p.value > 0 ? fI(p.value) : ''; } }
+        }]
+      }, true);
+    }
+
+    /* ── Scatter ─────────────────────────────────────────── */
+    function rScatter(rows, modo) {
+      var inst = ec('sc'); if (!inst) return;
+      if (!rows || !rows.length) { noData('sc', 'Sin datos con los filtros'); return; }
+      var map = {}; rows.forEach(function (r) { var rt = r.ruta_comercial || 'Sin Ruta', km = N(r.km_valor); if (!map[rt]) map[rt] = { ruta: rt, km: 0, viajes: 0 }; map[rt].km += km; map[rt].viajes += 1; });
+      var pts = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.km - a.km; });
+      if (!pts.length) { noData('sc', 'Sin datos con los filtros'); return; }
+      var tm = { sne: 'Km SNE', asignado: 'Km Asignados', objetado: 'Km Objetados' };
+      var mxKm = pts.reduce(function (acc, it) { return Math.max(acc, it.km); }, 0) || 1;
+      var pal = ['#25397A', '#16A038', '#3F5DB2', '#2BC14B', '#5076E2', '#3EE561', '#83A4FF', '#5BF47B', '#324A8E', '#A2F9B5', '#BBCCF9', '#1a2a5e'];
+      inst.setOption({
+        backgroundColor: '#fff',
+        grid: { top: 26, bottom: 58, left: 56, right: 24, containLabel: false },
+        tooltip: {
+          trigger: 'item', backgroundColor: 'rgba(15,23,42,.96)', borderWidth: 0, textStyle: { color: '#f8fafc', fontSize: 11 },
+          formatter: function (p) { var d = p.data || {}; return '<b>' + esc(d.ruta || '') + '</b><br>' + esc(tm[modo] || 'Km') + ': ' + fK(d.value[0]) + '<br>Viajes: ' + fI(d.value[1]); }
+        },
+        xAxis: { type: 'value', name: tm[modo], nameLocation: 'middle', nameGap: 30, nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 }, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { lineStyle: { color: 'rgba(148,163,184,.16)' } } },
+        yAxis: { type: 'value', name: 'Cantidad de viajes', nameTextStyle: { color: '#475569', fontSize: 11, fontWeight: 700 }, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { lineStyle: { color: 'rgba(148,163,184,.12)' } } },
+        series: [{ type: 'scatter', data: pts.map(function (item, idx) { var sc = Math.sqrt(item.km / mxKm); return { ruta: item.ruta, value: [parseFloat(item.km.toFixed(3)), item.viajes], symbolSize: Math.max(10, Math.min(22, 9 + (sc * 13))), itemStyle: { color: echarts.color.modifyAlpha(pal[idx % pal.length], .74), borderColor: pal[idx % pal.length], borderWidth: 1.35 } }; }), emphasis: { focus: 'series' } }]
+      }, true);
+    }
+
+    /* ── Chart: Km Aceptados ────────────────────────────── */
+    function fKma(s) {
+      GET(API + '/dashboard/kilometros-aceptados' + s).then(function (j) {
+        if (!j.ok || !j.data.length) { noData('kma', 'Sin datos con los filtros'); return; }
+        D.data.kma = j.data; rKma();
+      }).catch(function () { noData('kma', 'Error al cargar'); });
+    }
+    function rKma() {
+      var raw = D.data.kma || []; if (!raw.length) return;
+      var pct = function (g) { return g.km_objetado ? g.km_aceptado / g.km_objetado * 100 : 0; };
+      var data = applyGran(raw, 'kma', ['km_objetado', 'km_aceptado'], pct);
+      var f = [], ko = [], ka = [], p = [];
+      data.forEach(function (d) { f.push(d.fecha); ko.push(d.km_objetado); ka.push(d.km_aceptado); p.push(d.pct_cump); });
+      var inst = ec('kma'); if (!inst) return;
+      var o = lineOpt(); o.xAxis.data = f;
+      o.series = [areaSerie('Km Objetados', ko, '#3F5DB2'), areaSerie('Km Aceptados', ka, '#16A038'), pctSerie(p)];
+      inst.setOption(o);
+    }
+    GR.kma = rKma;
+
+    /* ── Chart: Éxito ───────────────────────────────────── */
+    function fExito(s) {
+      GET(API + '/dashboard/exito-objecion' + s).then(function (j) {
+        if (!j.ok || !j.data.length) { noData('exito', 'Sin datos con los filtros'); return; }
+        D.data.exito = j.data; rExito();
+      }).catch(function () { noData('exito', 'Error al cargar'); });
+    }
+    function rExito() {
+      var raw = D.data.exito || []; if (!raw.length) return;
+      var pct = function (g) { return g.km_revision ? g.km_aceptado / g.km_revision * 100 : 0; };
+      var data = applyGran(raw, 'exito', ['km_revision', 'km_aceptado'], pct);
+      var f = [], kr = [], ka = [], p = [];
+      data.forEach(function (d) { f.push(d.fecha); kr.push(d.km_revision); ka.push(d.km_aceptado); p.push(d.pct_cump); });
+      var inst = ec('exito'); if (!inst) return;
+      var o = lineOpt(); o.xAxis.data = f;
+      o.series = [areaSerie('Km Revisión', kr, '#25397A'), areaSerie('Km Aceptados', ka, '#2BC14B'), pctSerie(p)];
+      inst.setOption(o);
+    }
+    GR.exito = rExito;
+
+    /* ── Chart: Ingresos ────────────────────────────────── */
+    function fIng(s) {
+      GET(API + '/dashboard/estimacion-ingresos' + s).then(function (j) {
+        if (!j.ok || !j.data.length) { noData('ing', 'Sin datos con los filtros'); return; }
+        D.data.ing = j.data; rIng();
+      }).catch(function () { noData('ing', 'Error al cargar'); });
+    }
+    function rIng() {
+      var raw = D.data.ing || []; if (!raw.length) return;
+      var pct = function (g) { return g.ingresos_objetado ? g.ingresos_aceptado / g.ingresos_objetado * 100 : 0; };
+      var data = applyGran(raw, 'ing', ['ingresos_objetado', 'ingresos_aceptado'], pct);
+      var f = [], io = [], ia = [], p = [];
+      data.forEach(function (d) { f.push(d.fecha); io.push(d.ingresos_objetado); ia.push(d.ingresos_aceptado); p.push(d.pct_cump); });
+      var inst = ec('ing'); if (!inst) return;
+      var fmtP = function (v) { return '$ ' + N(v).toLocaleString('es-CO', { maximumFractionDigits: 0 }); };
+      inst.setOption({
+        backgroundColor: '#fff',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, formatter: function (params) { var out = '<div style="font-weight:700;margin-bottom:4px;">' + params[0].name + '</div>'; params.forEach(function (p) { var val = p.seriesIndex === 2 ? (p.value != null ? p.value.toFixed(1) + '%' : '--') : fmtP(p.value); out += '<div>' + p.marker + ' ' + p.seriesName + ': <strong>' + val + '</strong></div>'; }); return out; } },
+        legend: { top: 4, right: 8, textStyle: { fontSize: 11 } },
+        grid: { top: 36, bottom: 50, left: 80, right: 60, containLabel: false },
+        xAxis: { type: 'category', data: f, axisLabel: { fontSize: 10, rotate: 30 }, axisTick: { alignWithLabel: true } },
+        yAxis: [{ type: 'value', axisLabel: { fontSize: 9, formatter: function (v) { return fmtP(v); } } }, { type: 'value', name: '%', min: 0, max: 100, axisLabel: { formatter: '{value}%', fontSize: 10 }, splitLine: { show: false } }],
+        series: [areaSerie('$$ Km Objetado', io, '#3F5DB2'), areaSerie('$$ Km Aceptado', ia, '#16A038'), { name: '% Cumpl.', type: 'line', smooth: true, yAxisIndex: 1, data: p, lineStyle: { color: '#5076E2', width: 1.5, type: 'dashed' }, itemStyle: { color: '#5076E2' }, symbol: 'none' }]
+      });
+    }
+    GR.ing = rIng;
+
+    /* ── Fullscreen ──────────────────────────────────────── */
+    function toggleFs(key) {
+      var el = document.getElementById('os-card-' + key); if (!el) return;
+      var isFs = el.classList.contains('fs-card');
+      document.querySelectorAll('.objs .fs-card').forEach(function (c) { c.classList.remove('fs-card'); });
+      if (!isFs) el.classList.add('fs-card');
+      setTimeout(function () { Object.values(_ch).forEach(function (i) { if (i && !i.isDisposed()) i.resize(); }); }, 50);
+    }
+
+    /* ── Namespace público ───────────────────────────────── */
+    window.OS = {
+      cargar: function () { fetchAll(); },
+      limpiar: function () {
+        ['os-fi', 'os-ff', 'os-comp', 'os-zona', 'os-cop', 'os-ruta', 'os-asig', 'os-estasig', 'os-rev', 'os-estobj'].forEach(function (id) { var el = q(id); if (el) el.value = ''; });
+        initFiltros();
+      },
+      loadZonas: function () {
+        var comp = (q('os-comp') || {}).value;
+        GET(API + '/filtros/zonas' + (comp ? '?componente=' + encodeURIComponent(comp) : '')).then(function (j) { fillSelStr(q('os-zona'), j.data || []); });
+        var copSel = q('os-cop'); if (copSel) copSel.innerHTML = '<option value="">-- Todos --</option>';
+      },
+      loadCop: function () {
+        var p = []; var zona = (q('os-zona') || {}).value, comp = (q('os-comp') || {}).value;
+        if (comp) p.push('componente=' + encodeURIComponent(comp));
+        if (zona) p.push('zona=' + encodeURIComponent(zona));
+        GET(API + '/filtros/cop' + (p.length ? '?' + p.join('&') : '')).then(function (j) { fillSel(q('os-cop'), (j.data || []), 'id', 'cop'); });
+      },
+      loadRutas: function () {
+        GET(API + '/filtros/rutas' + (fechaParams().length ? '?' + fechaParams().join('&') : '')).then(function (j) { fillSel(q('os-ruta'), (j.data || []), 'id_linea', 'ruta_comercial'); });
+      },
+      loadUsuarios: function () {
+        var s = fechaParams().length ? '?' + fechaParams().join('&') : '';
+        GET(API + '/usuarios-asignadores' + s).then(function (j) { fillSel(q('os-asig'), (j.data || []), 'id', 'nombre_completo'); });
+        GET(API + '/usuarios-revisores' + s).then(function (j) { fillSel(q('os-rev'), (j.data || []), 'id', 'nombre_completo'); });
+      },
+      gran: function (key, val) {
+        D.gran[key] = val;
+        ['dia', 'mes', 'ano'].forEach(function (v) { var btn = document.getElementById('os-gran-' + key + '-' + v); if (btn) btn.classList.toggle('on', v === val); });
+        if (GR[key]) GR[key]();
+      },
+      setModo: function (modo) {
+        D.mMot = modo;
+        var bm = document.getElementById('os-bmot'), br = document.getElementById('os-bresp');
+        if (bm && br) { bm.classList.toggle('on', modo === 'motivo'); br.classList.toggle('on', modo !== 'motivo'); }
+        rMot(modo);
+      },
+      modoBp: function (key, modo) {
+        D.mRuta[key] = modo;
+        ['sne', 'asignado', 'objetado'].forEach(function (n) { var b = document.getElementById('os-mbp-' + key + '-' + n); if (b) b.classList.toggle('on', modo === n); });
+        D.rutasSel[key] = [];
+        fBP(key, qs());
+      },
+      togRFMenu: function (key, ev) {
+        if (ev) ev.stopPropagation();
+        document.querySelectorAll('.objs .rf-menu.on').forEach(function (m) { if (m.id !== 'os-rfm-' + key) m.classList.remove('on'); });
+        var menu = document.getElementById('os-rfm-' + key); if (!menu) return;
+        menu.classList.toggle('on'); if (menu.classList.contains('on')) OS.renderRouteMenu(key);
+      },
+      renderRouteMenu: function (key) {
+        var list = document.getElementById('os-rfl-' + key); if (!list) return;
+        var search = ((document.getElementById('os-rfi-' + key) || {}).value || '').toLowerCase();
+        var routes = bpAvail(key), sel = D.rutasSel[key] || [], isNone = D.ninguna[key];
+        list.innerHTML = routes.filter(function (r) { return !search || r.toLowerCase().indexOf(search) >= 0; }).map(function (r) {
+          var checked = !isNone && (!sel.length || sel.indexOf(r) >= 0);
+          return '<label class="rf-item"><input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="OS.togRouteOpt(\'' + key + '\',decodeURIComponent(\'' + encodeURIComponent(r) + '\'),this.checked)"><span>' + esc(r) + '</span></label>';
+        }).join('') || '<div style="text-align:center;padding:.8rem;color:#94a3b8;font-size:.75rem;">Sin rutas</div>';
+        rfSum(key);
+      },
+      togRouteOpt: function (key, ruta, checked) {
+        var wasNone = D.ninguna[key]; D.ninguna[key] = false;
+        var routes = bpAvail(key), sel = (D.rutasSel[key] || []).slice();
+        if (!wasNone && !sel.length) sel = routes.slice();
+        if (checked && sel.indexOf(ruta) < 0) sel.push(ruta);
+        if (!checked) sel = sel.filter(function (r) { return r !== ruta; });
+        D.rutasSel[key] = sel.length === routes.length ? routes.slice() : sel;
+        OS.renderRouteMenu(key); rBPChart(key);
+      },
+      selAllRoutes: function (key) { D.ninguna[key] = false; D.rutasSel[key] = bpAvail(key); OS.renderRouteMenu(key); rBPChart(key); },
+      clearRoutes: function (key) { D.ninguna[key] = false; D.rutasSel[key] = []; var s = document.getElementById('os-rfi-' + key); if (s) s.value = ''; OS.renderRouteMenu(key); rBPChart(key); },
+      sortTabla: function (key) { if (RSORT.key === key) RSORT.dir *= -1; else { RSORT.key = key; RSORT.dir = -1; } rTabla(D.data.rutas || []); },
+      exportTabla: function () {
+        var rows = D.data.rutas || []; if (!rows.length) return;
+        var sorted = rows.slice();
+        if (RSORT.key) { var sk = RSORT.key, sd = RSORT.dir; sorted.sort(function (a, b) { var av = a[sk], bv = b[sk]; if (typeof av === 'string') return sd * av.localeCompare(bv, 'es', { sensitivity: 'base' }); return sd * ((parseFloat(av) || 0) - (parseFloat(bv) || 0)); }); }
+        var header = ['Año', 'Mes', 'Ruta', "ID's A", "ID's O", "% ID's", 'Km Rev.', 'Km Obj.', '% Km', 'Km Ac.', '% Éxito'];
+        var matrix = [header].concat(sorted.map(function (r) { return [r.anio, MES[(r.mes || 1) - 1], r.ruta_comercial || '', r.ids_asignados || 0, r.ids_revisados || 0, parseFloat(r.pct_cump_ids || 0), parseFloat(r.km_revision || 0), parseFloat(r.km_objetado || 0), parseFloat(r.pct_cump_km || 0), parseFloat(r.km_aceptado || 0), parseFloat(r.pct_exito || 0)]; }));
+        if (typeof XLSX !== 'undefined' && XLSX.utils) { var wb = XLSX.utils.book_new(); var ws = XLSX.utils.aoa_to_sheet(matrix); XLSX.utils.book_append_sheet(wb, ws, 'Detalle'); XLSX.writeFile(wb, 'detalle_rutas.xlsx'); return; }
+        var csv = matrix.map(function (row) { return row.map(function (c) { var t = String(c == null ? '' : c).replace(/"/g, '""'); return /[;"\n]/.test(t) ? '"' + t + '"' : t; }).join(';'); }).join('\r\n');
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'detalle_rutas.csv'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 250);
+      },
+      toggleFs: toggleFs
+    };
+
+    document.addEventListener('click', function (ev) {
+      if (!ev.target.closest('.objs .rf-menu') && !ev.target.closest('.objs [onclick*="togRFMenu"]')) {
+        document.querySelectorAll('.objs .rf-menu.on').forEach(function (m) { m.classList.remove('on'); });
+      }
+    });
+
+    /* ── Posición del panel fijo de filtros ──────────────────────────────
+       position:fixed (no sticky) porque el contenedor #bi-contenido del
+       armazón usa overflow:auto sin altura fija, lo que impide que
+       position:sticky quede "pegado" al hacer scroll. Se calcula el
+       top (debajo de la barra superior del sitio) y el left (alineado
+       con la columna de filtros) directamente contra el viewport. ── */
+    function ajustarPosicionFiltros(wrap) {
+      if (!wrap) return;
+      var layout = wrap.querySelector('.layout');
+      if (!layout) return;
+      var tb = document.querySelector('.gx-topbar');
+      var hTop = tb ? tb.getBoundingClientRect().height : 0;
+      var rect = layout.getBoundingClientRect();
+      wrap.style.setProperty('--os-top', (hTop + 10) + 'px');
+      wrap.style.setProperty('--os-left', rect.left + 'px');
+    }
+
+    /* ── Init ───────────────────────────────────────────── */
+    (function init() {
+      /* 1. Inyectar HTML del dashboard */
+      var cont = document.getElementById('os-resultados');
+      if (!cont) return;
+      cont.innerHTML = dashHtml();
+
+      /* 2. Resize observer sobre el contenedor raíz */
+      var wrap = cont.closest('.objs');
+      if (wrap) {
+        var ro = new ResizeObserver(function () {
+          Object.values(_ch).forEach(function (i) { if (i && !i.isDisposed()) i.resize(); });
+          ajustarPosicionFiltros(wrap);
+        });
+        ro.observe(wrap);
+        ajustarPosicionFiltros(wrap);
+        window.addEventListener('resize', function () { ajustarPosicionFiltros(wrap); });
+      }
+
+      /* 3. Init filtros y cargar datos */
+      initFiltros();
+      fetchAll();
+    })();
+
+  })();
+</script>

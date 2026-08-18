@@ -1,0 +1,94 @@
+<!-- ══════════════════════════════════════════════════════════════════════
+    DASHBOARD · Demanda de Pasajeros CEXP — Pasajeros
+    Área BI : Pasajeros
+    CSS     : bi_dashboard.css  (.bi-*)
+    Tema    : _echarts_theme.html  (GE_BI.base · GE_BI.paleta · GE_BI.colores)
+    Backend : dashboard/model/pasajeros/bi_demanda_pasajeros_cexp.py · GET /api/bi/pasajeros/demanda_pasajeros_cexp
+    Estado  : Plantilla — pendiente de desarrollo (lienzo limpio, sin datos de muestra)
+══════════════════════════════════════════════════════════════════════ -->
+
+<div class="bi-tarjeta-grafica">
+
+    <div class="bi-encabezado-grafica">
+        <div class="bi-titulo-grafica">
+            <i class="bi bi-people-fill" style="margin-right:.4rem;color:var(--bi-primario,#25397A);"></i>
+            Demanda de Pasajeros CEXP
+        </div>
+        <div class="bi-fila-kpi">
+            <span class="bi-chip-kpi azul" id="chip-demanda_pasajeros_cexp-total">Total: –</span>
+            <span class="bi-chip-kpi verde" id="chip-demanda_pasajeros_cexp-periodo">Período: –</span>
+            <span class="bi-chip-kpi rojo" id="chip-demanda_pasajeros_cexp-estado">En desarrollo</span>
+        </div>
+    </div>
+
+    <!-- Lienzo principal -->
+    <div id="lienzo-demanda_pasajeros_cexp" class="bi-lienzo-grande"></div>
+
+</div>
+
+<script>
+(async function () {
+    'use strict';
+
+    var elemento = document.getElementById('lienzo-demanda_pasajeros_cexp');
+    if (!elemento) return;
+
+    var grafica = echarts.init(elemento);
+    grafica.showLoading(GE_BI.cargando);
+
+    var respuesta = null;
+    try {
+        respuesta = await fetch('/api/bi/pasajeros/demanda_pasajeros_cexp').then(function (r) { return r.json(); });
+    } catch (error) {
+        respuesta = null;
+    }
+
+    grafica.hideLoading();
+
+    var datos = (respuesta && respuesta.ok && Array.isArray(respuesta.datos)) ? respuesta.datos : [];
+
+    grafica.setOption(GE_BI.base({
+        backgroundColor: GE_BI.colores.superficie,
+
+        title: [
+            {
+                text: 'Demanda de Pasajeros CEXP',
+                subtext: 'Plantilla — pendiente de desarrollo · conectar consulta en bi_demanda_pasajeros_cexp.py',
+                left: 'center',
+                top: 8,
+                textStyle: {
+                    color: GE_BI.colores.primario,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    fontFamily: GE_BI.fuente,
+                },
+                subtextStyle: {
+                    color: GE_BI.colores.textoSuave,
+                    fontSize: 11,
+                    fontFamily: GE_BI.fuente,
+                },
+            },
+            {
+                text: datos.length ? '' : 'Sin datos disponibles',
+                left: 'center',
+                top: 'middle',
+                textStyle: {
+                    color: GE_BI.colores.textoSuave,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontFamily: GE_BI.fuente,
+                },
+            },
+        ],
+
+        xAxis: { show: false },
+        yAxis: { show: false },
+        series: [],
+    }));
+
+    var obs = new ResizeObserver(function () {
+        if (!grafica.isDisposed()) grafica.resize();
+    });
+    obs.observe(elemento);
+})();
+</script>
