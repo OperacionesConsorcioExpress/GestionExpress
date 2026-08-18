@@ -1,5 +1,5 @@
 ######################### Importar librerías necesarias #################################
-import os, logging
+import os, logging, threading
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form, Depends
@@ -15,26 +15,34 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from lib.verifcar_clave import check_user
 
 ################### Importar Controladores Endpoint ##########################
+from dashboard import router_bi
 from controller.route_usuarios import router_usuarios
 from controller.route_asigna_ccz import router_asigna_ccz
 #from controller.route_chatbot import chatbot_router # Comentar
 #from controller.route_NPL_chatbot import npl_router # Comentar
 from controller.route_checklist import checklist_router
 from controller.route_roles_powerbi import router_roles_powerbi
+from controller.route_roles_business_intelligence import router_roles_bi
 from controller.route_powerbi import router_powerbi
 from controller.route_blobstorage import router_blobstorage
+from controller.route_estado_buses import router_estado_buses
+from controller.route_estado_bitacora_mtto import router_estado_bitacora_mtto
 from controller.route_clausulas import router_clausulas
 from controller.route_sgi import router_sgi
 from controller.route_cop import router_cop
 from controller.route_buses import router_buses
 from controller.route_rutas import router_rutas
+from controller.route_tarifas import router_tarifas
 from controller.route_eds import router_eds
 from controller.route_eds_kilometros import router_eds_kilometros
+from controller.route_planeador import router_planeador
 from controller.route_sne_motivos import router_sne_motivos
 from controller.route_sne_plantillas import router_sne_plantillas
 from controller.route_sne_asignacion import router_sne_asignacion
 from controller.route_sne_objecion import router_sne_objecion
 from controller.route_sne_monitor import router_sne_monitor
+from controller.route_sne_ficha_rutas import router_sne_ficha_rutas
+from controller.route_sne_noticias import router_sne_noticias
 
 ##################### Importar Modelos Backend ##########################
 from database.database_manager import get_db_connection, get_pool_status, close_pool, reset_circuit_breaker
@@ -51,6 +59,26 @@ AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 async def lifespan(app: FastAPI):
     # ── Startup ──
     print("🟢 [main] Aplicación iniciando...")
+
+    # Dashboard BI de kilómetros. Ambas tareas van en hilos daemon para no
+    # retrasar el arranque; si fallan, el tablero sigue funcionando por su
+    # cuenta (solo pierde el adelanto de trabajo).
+    def _arrancar_bi():
+        # 1. Mantener al día las materializadas del dashboard. Los ETL que
+        #    cargan las tablas de origen corren fuera de este repositorio y el
+        #    servidor no tiene pg_cron. Cada modelo BI registra la suya al
+        #    importarse; aquí solo se dispara el vigilante.
+        import dashboard.router  # noqa: F401 — importa los modelos y sus registros
+        from dashboard.database.refresco_bi import iniciar_refresco_automatico
+        # El vigilante comprueba nada más arrancar, así que no hace falta un
+        # refresco previo aquí: duplicaba el intento (y el error, si fallaba).
+        iniciar_refresco_automatico()
+        # 2. Dejar los catálogos de filtro calculados antes de la primera visita.
+        from dashboard.model.kilometros.bi_kilometros_eliminados_no_ejecutados import precalentar_cache
+        precalentar_cache()
+
+    threading.Thread(target=_arrancar_bi, name="bi-arranque", daemon=True).start()
+
     yield
     # ── Shutdown ──
     close_pool()
@@ -60,6 +88,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"), max_age=1800) # la sesión expira después de 30 minutos (1800 segundos) de inactividad
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/cargues", StaticFiles(directory="cargues"), name="cargues")
+app.mount("/dashboard/static", StaticFiles(directory="dashboard/static"), name="dashboard_static")
 templates = Jinja2Templates(directory="./view")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -83,7 +113,6 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 # Monitorea el estado real de la app y la base de datos Azure App Service 
 # Campos clave en la respuesta:
 #   circuit_breaker → CLOSED=ok | OPEN=bloqueado | HALF=recuperando
-
 @app.get("/health")
 def health_check():
     db_status = get_pool_status()
@@ -101,7 +130,6 @@ def health_check():
 #   1. GET  /health                  → verificar db_ping = "ok"
 #   2. POST /reset-circuit-breaker   → resetear estado OPEN → CLOSED
 #   3. GET  /health                  → confirmar circuit_breaker = "CLOSED"
-
 @app.get("/reset-circuit-breaker")
 def admin_reset_circuit_breaker():
     resultado = reset_circuit_breaker()
@@ -127,26 +155,35 @@ def login(req: Request, username: str = Form(...), password_user: str = Form(...
         # Obtén la información completa del usuario desde la base de datos
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM usuarios WHERE username = %s", (username,))
+                cur.execute("""
+                    SELECT id, nombres, apellidos, username, rol,
+                           password_user, estado, rol_storage, rol_powerbi,
+                           COALESCE(rol_bi, 0)
+                    FROM usuarios WHERE username = %s
+                """, (username,))
                 user_data = cur.fetchone()
 
         if user_data:
-            estado = user_data[6]  # campo de estado del usuario
-            rol = user_data[4]  # es el id_rol del usuario
-            rol_storage = user_data[7]  # es el id_rol_storage del usuario
-            rol_powerbi  = user_data[8] # es el id_rol_powerbi del usuario
-            
+            # [0]=id [1]=nombres [2]=apellidos [3]=username [4]=rol
+            # [5]=password_user [6]=estado [7]=rol_storage [8]=rol_powerbi [9]=rol_bi
+            estado      = user_data[6]
+            rol         = user_data[4]
+            rol_storage = user_data[7]
+            rol_powerbi = user_data[8]
+            rol_bi      = user_data[9]
+
             # Verificamos si el estado del usuario es activo (1)
             if estado == 1:
                 # Guardar la sesión del usuario, incluyendo el rol
                 req.session['user'] = {
-                    "id": user_data[0], 
-                    "username": username,
-                    "nombres": nombres,
-                    "apellidos": apellidos,
-                    "rol": rol,
+                    "id":         user_data[0],
+                    "username":   username,
+                    "nombres":    nombres,
+                    "apellidos":  apellidos,
+                    "rol":        rol,
                     "rol_storage": rol_storage,
-                    "rol_powerbi": int(rol_powerbi or 0)
+                    "rol_powerbi": int(rol_powerbi or 0),
+                    "rol_bi":     int(rol_bi or 0),
                 }
 
                 #print("Sesión del usuario:", req.session['user']) 
@@ -170,7 +207,7 @@ async def logout(request: Request): # Limpiar cualquier estado de sesión
     response.delete_cookie("access_token") # Eliminar la cookie de sesión o token de acceso
     return response
 
-###################### ADMINISTRACIÓN DE USUARIOS ########################
+###################### ADMINISTRACIÓN DE USUARIOS y ROLES ########################
 app.include_router(router_usuarios)
 @app.get("/inicio", response_class=HTMLResponse)
 def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
@@ -180,43 +217,35 @@ def registrarse(req: Request, user_session: dict = Depends(get_user_session)):
 
 ############################### MODULO DE ROLES POWER BI #################################
 app.include_router(router_roles_powerbi)
-@app.get("/roles_powerbi", response_class=HTMLResponse)
-def roles_powerbi(req: Request, user_session: dict = Depends(get_user_session)):
+
+#################### MODULO DE ROLES BUSINESS INTELLIGENCE #############################
+app.include_router(router_roles_bi)
+@app.get("/roles_business_intelligence", response_class=HTMLResponse)
+def roles_business_intelligence(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("roles_powerbi.html", {"request": req, "user_session": user_session})
+    return templates.TemplateResponse("roles_business_intelligence.html", {"request": req, "user_session": user_session})
 
 ######################## ASINGNACION DE CONTROLES EN CENTRO DE CONTROL ########################
 app.include_router(router_asigna_ccz)
-@app.get("/asignacion", response_class=HTMLResponse)
-def asignacion(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("asignacion.html", {"request": req, "user_session": user_session})
 
-############### SECCIÓN POWER_BI POR MEDIO DE IFRAME Y API PARA OBTENER URLS DE REPORTES SEGÚN ROL ###############
+######## SECCIÓN POWER_BI POR MEDIO DE IFRAME Y API PARA OBTENER URLS DE REPORTES SEGÚN ROL #########
 app.include_router(router_powerbi)
-@router_powerbi.get("/powerbi", response_class=HTMLResponse)
-def get_powerbi(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("powerbi.html", {"request": req, "user_session": user_session})
+
+############### SECCIÓN BUSINESS INTELLIGENCE POR MEDIO DE APACHE ECHART JS ###############
+app.include_router(router_bi)
 
 ################## TRANSFERENCIA DE DATOS EN BLOB STORAGE ####################
 app.include_router(router_blobstorage)
-@router_blobstorage.get("/containers", response_class=HTMLResponse)
-def get_containers(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("containers.html", {"request": req, "user_session": user_session})
 
 ################## SECCIÓN JURIDICO ####################
 app.include_router(router_clausulas)
-@router_clausulas.get("/juridico", response_class=HTMLResponse)
-def control_clausulas(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("juridico.html", {"request": req, "user_session": user_session})
+
+################## ESTADO GESTIÓN BUSES OPERATIVOS E INOPERATIVOS ####################
+app.include_router(router_estado_buses)
+
+################## BITÁCORA DE MANTENIMIENTO (GESTIÓN DE FLOTA) ####################
+app.include_router(router_estado_bitacora_mtto)
 
 ################### PROCESAMIENTO DE TEXTO (NPL) PARA CHATBOT ########################
 '''
@@ -238,28 +267,14 @@ async def get_chatbot(req: Request, user_session: dict = Depends(get_user_sessio
     return templates.TemplateResponse("chatbot.html", {"request": req, "user_session": user_session})
 '''
 ############################### MODULO DE CHECKLIST #################################
-app.include_router(checklist_router) 
-@app.get("/checklist", response_class=HTMLResponse)
-def checklist(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("checklist.html", {"request": req, "user_session": user_session})
+app.include_router(checklist_router)
 
-############################### MODULO DE CENTROS DE OPERACIÓN   #################################
-app.include_router(router_cop) 
-@app.get("/centros_operacion", response_class=HTMLResponse)
-def cop(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("centro_operacion.html", {"request": req, "user_session": user_session})
+########################### MODULO DE CENTROS DE OPERACIÓN   ##########################
+app.include_router(router_cop)
 
 ############################### MODULO DE BUSES CEXP #################################
-app.include_router(router_buses) 
-@app.get("/buses_cexp", response_class=HTMLResponse)
-def buses_cexp(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("buses_cexp.html", {"request": req, "user_session": user_session})
+# La ruta "/buses_cexp" ya está definida en controller/route_buses.py
+app.include_router(router_buses)
 
 ############################### MODULO DE RUTAS CEXP #################################
 app.include_router(router_rutas) 
@@ -269,53 +284,32 @@ def rutas_cexp(req: Request, user_session: dict = Depends(get_user_session)):
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("rutas_cexp.html", {"request": req, "user_session": user_session})
 
+############################### MODULO DE TARIFAS CEXP #################################
+app.include_router(router_tarifas)
+
 ############################### MODULO DE SGI   #################################
-app.include_router(router_sgi) 
-@app.get("/sgi", response_class=HTMLResponse)
-def sgi(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("sgi.html", {"request": req, "user_session": user_session})
+app.include_router(router_sgi)
 
-############################# MODULO DE ESTACIÓN DE SERVICIO + SURTIDOR  ###############################
-app.include_router(router_eds) 
-@app.get("/eds_config", response_class=HTMLResponse)
-def eds(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("eds_config.html", {"request": req, "user_session": user_session})
+####################### MODULO DE ESTACIÓN DE SERVICIO + SURTIDOR  #######################
+app.include_router(router_eds)
+app.include_router(router_eds_kilometros)
 
-############################  MODULO DE REGISTRO COMBUSTIBLE   ###############################
-app.include_router(router_eds) 
-@app.get("/eds_registro", response_class=HTMLResponse)
-def eds(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("eds_registro.html", {"request": req, "user_session": user_session})
-
-app.include_router(router_eds_kilometros) 
-@app.get("/eds_kilometros", response_class=HTMLResponse)
-def eds(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("eds_kilometros.html", {"request": req, "user_session": user_session})
-
-######################  MODULO SNE SERVICIOS NO EJECUTADOS   #########################
-app.include_router(router_sne_motivos) 
-@app.get("/sne_motivos", response_class=HTMLResponse)
+###################### PLANEADOR DE ACTIVIDADES CEINF ##########################
+app.include_router(router_planeador) 
+@app.get("/planeador", response_class=HTMLResponse)
 def sne_motivos(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
         return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("sne_motivos.html", {"request": req, "user_session": user_session})
+    return templates.TemplateResponse("planeador.html", {"request": req, "user_session": user_session})
 
+######################  MODULO SNE SERVICIOS NO EJECUTADOS   #########################
+app.include_router(router_sne_motivos)
 app.include_router(router_sne_plantillas)
-@app.get("/sne_plantillas", response_class=HTMLResponse)
-def sne_plantillas(req: Request, user_session: dict = Depends(get_user_session)):
-    if not user_session:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("sne_plantillas.html", {"request": req, "user_session": user_session})
-
 app.include_router(router_sne_asignacion) 
+app.include_router(router_sne_monitor)
+app.include_router(router_sne_ficha_rutas)
+app.include_router(router_sne_noticias)
+
 @app.get("/sne_asignacion", response_class=HTMLResponse)
 def sne_asignancion(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
@@ -329,7 +323,6 @@ def sne_objecion(req: Request, user_session: dict = Depends(get_user_session)):
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("sne_objecion.html", {"request": req, "user_session": user_session})
 
-app.include_router(router_sne_monitor) 
 @app.get("/sne_monitor", response_class=HTMLResponse)
 def sne_monitor(req: Request, user_session: dict = Depends(get_user_session)):
     if not user_session:
