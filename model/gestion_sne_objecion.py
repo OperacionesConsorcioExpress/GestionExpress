@@ -17,6 +17,9 @@ SYNC_OBJECION_VENCIDA_LOCK_KEY = 540021
 TZ_BOGOTA = ZoneInfo("America/Bogota")
 logger = logging.getLogger(__name__)
 
+# Las columnas opcionales de Ticket SIRCI se verifican/crean una sola vez por proceso
+_COLS_TICKET_SIRCI_READY = False
+
 def ahora_bogota() -> datetime:
     return datetime.now(TZ_BOGOTA)
 
@@ -112,6 +115,66 @@ class GestionSneObjecion:
             self._col_cache[key] = self.cursor.fetchone() is not None
         return self._col_cache[key]
 
+    def _ensure_columnas_ticket_sirci(self) -> bool:
+        """
+        Crea (si faltan) las columnas opcionales de Ticket SIRCI en
+        sne.objecion_guardada. Solo aplican al motivo de nota "SIRCI con ticket".
+        Se ejecuta una única vez por proceso y se omite en conexiones de solo
+        lectura; retorna True si las columnas están disponibles.
+        """
+        global _COLS_TICKET_SIRCI_READY
+        if _COLS_TICKET_SIRCI_READY:
+            return True
+
+        if self._col_exists("sne", "objecion_guardada", "ticket_sirci") and \
+           self._col_exists("sne", "objecion_guardada", "novedad_ticket"):
+            _COLS_TICKET_SIRCI_READY = True
+            return True
+
+        try:
+            self.cursor.execute("SHOW transaction_read_only;")
+            row = self.cursor.fetchone()
+            valor = row["transaction_read_only"] if isinstance(row, dict) else row[0]
+            if str(valor).lower() in {"on", "true", "1"}:
+                logger.warning(
+                    "Conexión de solo lectura: se omite la creación de columnas "
+                    "ticket_sirci/novedad_ticket, se reintentará más adelante."
+                )
+                return False
+
+            self.cursor.execute(
+                """
+                ALTER TABLE sne.objecion_guardada
+                ADD COLUMN IF NOT EXISTS ticket_sirci VARCHAR(10)
+                """
+            )
+            self.cursor.execute(
+                """
+                ALTER TABLE sne.objecion_guardada
+                ADD COLUMN IF NOT EXISTS novedad_ticket TEXT
+                """
+            )
+            self.connection.commit()
+        except Exception as ex:
+            self.connection.rollback()
+            logger.warning(f"No se pudieron crear las columnas de Ticket SIRCI: {ex}")
+            return False
+
+        # Invalidar caché de columnas para que reflejen el nuevo estado
+        self._col_cache.pop(("sne", "objecion_guardada", "ticket_sirci"), None)
+        self._col_cache.pop(("sne", "objecion_guardada", "novedad_ticket"), None)
+        _COLS_TICKET_SIRCI_READY = True
+        return True
+
+    def _tiene_columnas_ticket_sirci(self) -> bool:
+        """True si sne.objecion_guardada ya tiene las columnas de Ticket SIRCI."""
+        if _COLS_TICKET_SIRCI_READY:
+            return True
+        return (
+            self._col_exists("sne", "objecion_guardada", "ticket_sirci")
+            and self._col_exists("sne", "objecion_guardada", "novedad_ticket")
+        )
+
     def _cop_joins_and_exprs(self):
         """Mismo patron que gestion_rutas para cop -> componente/zona."""
         has_id_comp = self._col_exists("config", "cop", "id_componente")
@@ -179,11 +242,11 @@ class GestionSneObjecion:
         params: list = [usuario_id]
 
         if tab == "revisar":
-            # Asignados (estado_asignacion=1) que aún NO fueron objetados
-            where += " AND gs.estado_asignacion = 1 AND (gs.estado_objecion IS DISTINCT FROM 1) "
+            # IS DISTINCT FROM maneja NULLs correctamente (NOT IN no los incluye)
+            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion IS DISTINCT FROM 1 AND gs.estado_objecion IS DISTINCT FROM 3 "
         elif tab == "revisados":
-            # Asignados que ya fueron objetados (estado_objecion=1)
-            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion = 1 "
+            # Asignados con objeción guardada (Objetado=1 o Manejo Interno=3)
+            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion IN (1, 3) "
         elif tab == "validar":
             # Tab en construcción: no retorna registros aún
             where += " AND 1 = 0 "
@@ -233,7 +296,7 @@ class GestionSneObjecion:
 
         Regla de negocio:
         - Solo cambia registros con estado_objecion = 0.
-        - Nunca toca estado_objecion = 1 porque ya fue objetado.
+        - Nunca toca estado_objecion = 1 (Objetado) ni 3 (Manejo Interno).
         """
         ahora = ahora_bogota()
         lock_adquirido = False
@@ -463,6 +526,66 @@ class GestionSneObjecion:
         )
         return self.cursor.fetchall()
 
+    def listar_rutas_en_datos(
+        self,
+        usuario_id: int,
+        fecha: str = None,
+        id_ics: int = None,
+        id_cop: int = None,
+        zona: str = None,
+        componente: str = None,
+        tab: str = "revisar",
+    ):
+        """
+        Rutas únicas presentes en los registros de sne.ics/gestion_sne
+        visibles para el usuario, respetando los mismos filtros que listar_ics.
+        Usado para poblar el select RUTA de forma independiente (sin necesitar COP).
+        """
+        joins_cop, comp_expr, zona_expr = self._cop_joins_and_exprs()
+
+        where = " WHERE gs.revisor = %s "
+        params: list = [usuario_id]
+
+        if tab == "revisar":
+            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion IS DISTINCT FROM 1 AND gs.estado_objecion IS DISTINCT FROM 3 "
+        elif tab == "revisados":
+            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion IN (1, 3) "
+        elif tab == "validar":
+            where += " AND 1 = 0 "
+
+        if fecha:
+            where += " AND i.fecha = %s "
+            params.append(fecha)
+        if id_ics:
+            where += " AND i.id_ics = %s "
+            params.append(int(id_ics))
+        if id_cop:
+            where += " AND r.id_cop = %s "
+            params.append(int(id_cop))
+        if zona:
+            where += f" AND UPPER({zona_expr}) = %s "
+            params.append(zona.strip().upper())
+        if componente:
+            where += f" AND UPPER({comp_expr}) = %s "
+            params.append(componente.strip().upper())
+
+        self.cursor.execute(
+            f"""
+            SELECT DISTINCT i.id_linea,
+                   COALESCE(r.ruta_comercial, i.id_linea::text) AS ruta_comercial
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i           ON i.id_ics  = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c   ON c.id = r.id_cop
+            {joins_cop}
+            {where}
+              AND i.id_linea IS NOT NULL
+            ORDER BY ruta_comercial
+            """,
+            params,
+        )
+        return self.cursor.fetchall()
+
     # ── Proceamiento de Mapas, trazados de rutas ───────────────────────────────────────────────
     def listar_posicionamientos(
         self,
@@ -533,7 +656,7 @@ class GestionSneObjecion:
 
         Logica de tabs:
         - revisar   -> revisor > 0 y estado_asignacion = 1 (pendiente)
-        - revisados -> estado_asignacion = 1 AND estado_objecion = 1 (ya objetado)
+        - revisados -> estado_asignacion = 1 AND estado_objecion IN (1, 3)
         - validar   -> en construcción (retorna vacío)
 
         NOTA: sne.gestion_sne NO tiene columna 'id'; la PK es id_ics.
@@ -551,11 +674,11 @@ class GestionSneObjecion:
         params: list = [usuario_id]
 
         if tab == "revisar":
-            # Asignados (estado_asignacion=1) que aún NO fueron objetados
-            where += " AND gs.estado_asignacion = 1 AND (gs.estado_objecion IS DISTINCT FROM 1) "
+            # IS DISTINCT FROM maneja NULLs correctamente (NOT IN no los incluye)
+            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion IS DISTINCT FROM 1 AND gs.estado_objecion IS DISTINCT FROM 3 "
         elif tab == "revisados":
-            # Asignados que ya fueron objetados (estado_objecion=1)
-            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion = 1 "
+            # Asignados con objeción guardada (Objetado=1 o Manejo Interno=3)
+            where += " AND gs.estado_asignacion = 1 AND gs.estado_objecion IN (1, 3) "
         elif tab == "validar":
             # Tab en construcción: no retorna registros aún
             where += " AND 1 = 0 "
@@ -648,12 +771,22 @@ class GestionSneObjecion:
         total = self.cursor.fetchone()["count"]
 
         offset = (pagina - 1) * tamano
-        order_sql = {
-            "km_revision_desc": "i.km_revision DESC NULLS LAST, gs.id_ics ASC",
-            "km_revision_asc": "i.km_revision ASC NULLS LAST, gs.id_ics ASC",
-            "id_ics_desc": "gs.id_ics DESC",
-            "id_ics_asc": "gs.id_ics ASC",
-        }.get(orden, "i.fecha DESC, gs.id_ics ASC")
+        _ORDER_MAP = {
+            "km_revision_desc":      "i.km_revision DESC NULLS LAST",
+            "km_revision_asc":       "i.km_revision ASC NULLS LAST",
+            "id_ics_desc":           "gs.id_ics DESC",
+            "id_ics_asc":            "gs.id_ics ASC",
+            "ruta_desc":             "r.ruta_comercial DESC NULLS LAST",
+            "motivo_desc":           "motivo_nombre DESC NULLS LAST",
+            "fecha_cierre_dp_desc":  "gs.fecha_cierre_dp DESC NULLS LAST",
+            "fecha_cierre_dp_asc":   "gs.fecha_cierre_dp ASC NULLS LAST",
+        }
+        orden_keys = [k.strip() for k in (orden or "").split(",") if k.strip() in _ORDER_MAP]
+        order_sql = (
+            ", ".join(_ORDER_MAP[k] for k in orden_keys) + ", i.fecha DESC, gs.id_ics ASC"
+            if orden_keys
+            else "i.fecha DESC, gs.id_ics ASC"
+        )
         sql = f"""
             SELECT
                 gs.id_ics,
@@ -755,6 +888,8 @@ class GestionSneObjecion:
                 row["estado_objecion_desc"] = "Objetado"
             elif estado == 2:
                 row["estado_objecion_desc"] = "Vencido"
+            elif estado == 3:
+                row["estado_objecion_desc"] = "Manejo Interno"
             elif estado == 0 or estado is None:
                 if fecha_cierre and fecha_cierre < ahora:
                     # Vencido: fecha_cierre ya pasó → auto-cambiar a 2
@@ -857,10 +992,10 @@ class GestionSneObjecion:
             f"""
             SELECT
                 COUNT(*)                                            AS total_asignados,
-                -- Pendientes = asignados que NO fueron objetados
-                COUNT(*) FILTER (WHERE gs.estado_objecion IS DISTINCT FROM 1)
+                -- Pendientes = asignados que NO fueron objetados ni con manejo interno
+                COUNT(*) FILTER (WHERE gs.estado_objecion NOT IN (1, 3) OR gs.estado_objecion IS NULL)
                                                                     AS total_pendientes,
-                COUNT(*) FILTER (WHERE gs.estado_objecion = 1)     AS total_objetados,
+                COUNT(*) FILTER (WHERE gs.estado_objecion IN (1, 3)) AS total_objetados,
                 COUNT(*) FILTER (
                     WHERE (gs.estado_objecion = 0 OR gs.estado_objecion IS NULL)
                       AND (gs.fecha_cierre_dp IS NULL OR gs.fecha_cierre_dp > NOW() AT TIME ZONE 'America/Bogota')
@@ -919,7 +1054,7 @@ class GestionSneObjecion:
             SELECT
                 i.fecha::text                                                AS fecha,
                 COUNT(gs.id_ics)                                            AS ids_asignados,
-                COUNT(gs.id_ics) FILTER (WHERE gs.estado_objecion = 1)     AS ids_revisados
+                COUNT(gs.id_ics) FILTER (WHERE gs.estado_objecion IN (1, 3)) AS ids_revisados
             FROM sne.gestion_sne gs
             JOIN sne.ics i ON i.id_ics = gs.id_ics
             LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
@@ -991,7 +1126,9 @@ class GestionSneObjecion:
 
     def dashboard_por_ruta(self, usuario_id, fecha_ini=None, fecha_fin=None,
                            id_linea=None, id_cop=None):
-        """Datos por año/mes/ruta para scatter chart y tabla."""
+        """Datos por año/mes/ruta para scatter chart y tabla (incluye km_aceptado)."""
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
         where, params = self._dash_where(usuario_id, fecha_ini, fecha_fin, id_linea, id_cop)
         self.cursor.execute(
             f"""
@@ -1000,10 +1137,11 @@ class GestionSneObjecion:
                 EXTRACT(MONTH FROM i.fecha)::int                            AS mes,
                 COALESCE(r.ruta_comercial::text, 'Sin Ruta')                AS ruta_comercial,
                 COUNT(gs.id_ics)                                            AS ids_asignados,
-                COUNT(gs.id_ics) FILTER (WHERE gs.estado_objecion = 1)     AS ids_revisados,
+                COUNT(gs.id_ics) FILTER (WHERE gs.estado_objecion IN (1, 3)) AS ids_revisados,
                 COALESCE(SUM(i.km_revision), 0)                             AS km_revision,
                 COALESCE(SUM(CASE WHEN gs.estado_objecion = 1
-                               THEN og_lat.km_objetado ELSE 0 END), 0)     AS km_objetado
+                               THEN og_lat.km_objetado ELSE 0 END), 0)     AS km_objetado,
+                {km_ac_expr}                                                AS km_aceptado
             FROM sne.gestion_sne gs
             JOIN sne.ics i ON i.id_ics = gs.id_ics
             LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
@@ -1014,6 +1152,108 @@ class GestionSneObjecion:
             {where}
             GROUP BY EXTRACT(YEAR FROM i.fecha), EXTRACT(MONTH FROM i.fecha), r.ruta_comercial
             ORDER BY anio, mes, ruta_comercial
+            """, params,
+        )
+        return [dict(r) for r in self.cursor.fetchall()]
+
+    def dashboard_comportamiento_km_aceptado(self, usuario_id, fecha_ini=None, fecha_fin=None,
+                                              id_linea=None, id_cop=None):
+        """Suma diaria de km_objetado vs km_aceptado (gestion_sne.km_aceptado)."""
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
+        where, params = self._dash_where(usuario_id, fecha_ini, fecha_fin, id_linea, id_cop)
+        self.cursor.execute(
+            f"""
+            SELECT
+                i.fecha::text AS fecha,
+                COALESCE(SUM(CASE WHEN gs.estado_objecion = 1
+                               THEN og_lat.km_objetado ELSE 0 END), 0) AS km_objetado,
+                {km_ac_expr}                                            AS km_aceptado
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN LATERAL (
+                SELECT km_objetado FROM sne.objecion_guardada
+                WHERE id_ics = gs.id_ics ORDER BY fecha_guardado DESC LIMIT 1
+            ) og_lat ON true
+            {where}
+            GROUP BY i.fecha
+            ORDER BY i.fecha
+            """, params,
+        )
+        return [dict(r) for r in self.cursor.fetchall()]
+
+    def dashboard_exito_objecion(self, usuario_id, fecha_ini=None, fecha_fin=None,
+                                  id_linea=None, id_cop=None):
+        """Suma diaria de km_revision vs km_aceptado para chart Éxito de Objeción Contundente."""
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
+        where, params = self._dash_where(usuario_id, fecha_ini, fecha_fin, id_linea, id_cop)
+        self.cursor.execute(
+            f"""
+            SELECT
+                i.fecha::text AS fecha,
+                COALESCE(SUM(i.km_revision), 0) AS km_revision,
+                {km_ac_expr}                     AS km_aceptado
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            {where}
+            GROUP BY i.fecha
+            ORDER BY i.fecha
+            """, params,
+        )
+        return [dict(r) for r in self.cursor.fetchall()]
+
+    def dashboard_estimacion_ingresos(self, usuario_id, fecha_ini=None, fecha_fin=None,
+                                       id_linea=None, id_cop=None):
+        """
+        Suma diaria de ingresos estimados:
+          ingresos_objetado = SUM(km_objetado * tarifa_por_bus_y_fecha)
+          ingresos_aceptado = SUM(km_aceptado * tarifa_por_bus_y_fecha)
+        La tarifa se obtiene cruzando vehiculo_real → buses_cexp → tipologia_bus + combustible
+        → config.tarifas (id_tipo_tarifa=1) con vigencia por fecha del ICS.
+        """
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(gs.km_aceptado, 0)" if has_km_ac else "0::numeric"
+        where, params = self._dash_where(usuario_id, fecha_ini, fecha_fin, id_linea, id_cop)
+        # Agregar filtro de estado_objecion=1 para ingresos
+        where_ing = where + " AND gs.estado_objecion = 1 "
+        self.cursor.execute(
+            f"""
+            SELECT
+                i.fecha::text AS fecha,
+                COALESCE(SUM(
+                    COALESCE(og.km_objetado, 0) * COALESCE(t_tar.tarifa, 0)
+                ), 0) AS ingresos_objetado,
+                COALESCE(SUM(
+                    {km_ac_expr} * COALESCE(t_tar.tarifa, 0)
+                ), 0) AS ingresos_aceptado
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN LATERAL (
+                SELECT km_objetado FROM sne.objecion_guardada
+                WHERE id_ics = gs.id_ics ORDER BY fecha_guardado DESC LIMIT 1
+            ) og ON true
+            LEFT JOIN config.buses_cexp b
+                ON UPPER(b.no_interno::text) = UPPER(i.vehiculo_real::text)
+            LEFT JOIN config.tipologia_bus tb
+                ON UPPER(COALESCE(tb.tipologia, '')) = UPPER(COALESCE(b.tipologia, ''))
+            LEFT JOIN config.combustible cb
+                ON UPPER(COALESCE(cb.combustible, '')) = UPPER(COALESCE(b.combustible, ''))
+            LEFT JOIN LATERAL (
+                SELECT tarifa FROM config.tarifas
+                WHERE id_tipo_tarifa = 1
+                  AND id_tipologia  = tb.id
+                  AND id_combustible = cb.id
+                  AND i.fecha >= desde
+                  AND (hasta IS NULL OR i.fecha <= hasta)
+                ORDER BY desde DESC LIMIT 1
+            ) t_tar ON true
+            {where_ing}
+            GROUP BY i.fecha
+            ORDER BY i.fecha
             """, params,
         )
         return [dict(r) for r in self.cursor.fetchall()]
@@ -1298,6 +1538,8 @@ class GestionSneObjecion:
         nota_objecion: str = None,
         tiempo_objecion_seg: int = None,
         ruta_reporte: str = None,
+        ticket_sirci: str = None,
+        novedad_ticket: str = None,
     ):
         """
         Guarda la objeción en sne.objecion_guardada y actualiza sne.gestion_sne.
@@ -1341,41 +1583,59 @@ class GestionSneObjecion:
         row_ics = self.cursor.fetchone()
         km_revision = float(row_ics["km_revision"]) if row_ics and row_ics["km_revision"] is not None else None
 
-        # INSERT en sne.objecion_guardada
+        # Columnas base del INSERT en sne.objecion_guardada
+        columnas = [
+            "id_ics", "km_revision", "km_objetado", "km_no_objetado",
+            "responsable_final", "motivo_final", "accion", "justificacion",
+            "nota_objecion", "usuario_registra", "fecha_guardado",
+            "tiempo_objecion_seg", "reporte",
+        ]
+        valores = [
+            id_ics, km_revision, km_objetado, km_no_objetado,
+            id_responsable, id_motivo, id_accion, id_justificacion,
+            nota_objecion, usuario_id, ahora,
+            tiempo_objecion_seg, ruta_reporte,
+        ]
+
+        # Columnas opcionales de Ticket SIRCI (solo si existen en la tabla)
+        if self._ensure_columnas_ticket_sirci() or self._tiene_columnas_ticket_sirci():
+            columnas += ["ticket_sirci", "novedad_ticket"]
+            valores += [
+                (ticket_sirci or None),
+                (novedad_ticket or None),
+            ]
+
         self.cursor.execute(
-            """
-            INSERT INTO sne.objecion_guardada (
-                id_ics, km_revision, km_objetado, km_no_objetado,
-                responsable_final, motivo_final, accion, justificacion,
-                nota_objecion, usuario_registra, fecha_guardado,
-                tiempo_objecion_seg, reporte
-            ) VALUES (
-                %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s,
-                %s, %s
-            )
+            f"""
+            INSERT INTO sne.objecion_guardada ({", ".join(columnas)})
+            VALUES ({", ".join(["%s"] * len(columnas))})
             """,
-            (
-                id_ics, km_revision, km_objetado, km_no_objetado,
-                id_responsable, id_motivo, id_accion, id_justificacion,
-                nota_objecion, usuario_id, ahora,
-                tiempo_objecion_seg, ruta_reporte,
-            ),
+            valores,
         )
 
-        # UPDATE sne.gestion_sne: marcar como objetado
-        # No se toca estado_asignacion — solo se actualiza estado_objecion
+        # Determinar estado según la acción seleccionada:
+        # "Manejo Interno" → 3, cualquier otra (incluye "Objetado") → 1
+        nuevo_estado = 1
+        if id_accion:
+            self.cursor.execute(
+                "SELECT accion FROM sne.acciones WHERE id_acc = %s",
+                (id_accion,),
+            )
+            row_acc = self.cursor.fetchone()
+            if row_acc and row_acc.get("accion", "").strip().lower() == "manejo interno":
+                nuevo_estado = 3
+
+        # UPDATE sne.gestion_sne — no se toca estado_asignacion
         self.cursor.execute(
             """
             UPDATE sne.gestion_sne
-            SET estado_objecion     = 1,
+            SET estado_objecion     = %s,
                 usuario_objeta      = %s,
                 fecha_hora_objecion = %s,
                 actualizado_en      = %s
             WHERE id_ics = %s
             """,
-            (usuario_id, ahora, ahora, id_ics),
+            (nuevo_estado, usuario_id, ahora, ahora, id_ics),
         )
 
         self.connection.commit()
@@ -1388,11 +1648,19 @@ class GestionSneObjecion:
         con los nombres descriptivos de responsable, motivo, acción y justificación.
         Se usa en el modal de la pestaña 'Revisados' para mostrar en modo lectura.
         """
+        # Las columnas de Ticket SIRCI son opcionales: si aún no existen se
+        # devuelven como NULL para no romper la consulta.
+        if self._tiene_columnas_ticket_sirci():
+            cols_ticket = "og.ticket_sirci, og.novedad_ticket,"
+        else:
+            cols_ticket = "NULL AS ticket_sirci, NULL AS novedad_ticket,"
+
         self.cursor.execute(
-            """
+            f"""
             SELECT
                 og.id,
                 og.id_ics,
+                {cols_ticket}
                 og.km_revision,
                 og.km_objetado,
                 og.km_no_objetado,
@@ -1422,3 +1690,135 @@ class GestionSneObjecion:
             (id_ics,),
         )
         return self.cursor.fetchone()
+
+    # -- Eliminación de objeción guardada ----------------------------------------
+    def eliminar_blob_objecion(self, blob_path: str) -> bool:
+        """Elimina el PDF de objeción del contenedor sne-informes-objecion."""
+        if not AZURE_STORAGE_CONNECTION_STRING:
+            return False
+        service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        container = service.get_container_client(CONTAINER_SNE_INFORMES)
+        blob = container.get_blob_client(blob_path)
+        blob.delete_blob()
+        return True
+
+    def eliminar_objecion(self, id_ics: int) -> str | None:
+        """
+        Elimina la objeción de un ICS de forma atómica:
+        1. Obtiene la ruta del PDF desde objecion_guardada.
+        2. Elimina todos los registros de sne.objecion_guardada para el id_ics.
+        3. Actualiza sne.gestion_sne: estado_objecion=0, usuario_objeta=NULL,
+           fecha_hora_objecion=NULL.
+        Retorna la ruta del blob para eliminarlo externamente (None si no hay PDF).
+        """
+        self.cursor.execute(
+            "SELECT reporte FROM sne.objecion_guardada WHERE id_ics = %s ORDER BY fecha_guardado DESC LIMIT 1",
+            (id_ics,),
+        )
+        row = self.cursor.fetchone()
+        ruta_reporte = row["reporte"] if row else None
+
+        self.cursor.execute(
+            "DELETE FROM sne.objecion_guardada WHERE id_ics = %s",
+            (id_ics,),
+        )
+
+        ahora = ahora_bogota()
+        self.cursor.execute(
+            """
+            UPDATE sne.gestion_sne
+            SET estado_objecion     = 0,
+                usuario_objeta      = NULL,
+                fecha_hora_objecion = NULL,
+                actualizado_en      = %s
+            WHERE id_ics = %s
+            """,
+            (ahora, id_ics),
+        )
+
+        self.connection.commit()
+        return ruta_reporte
+
+    def listar_transmitools_por_usuario(
+        self,
+        usuario_id: int,
+        fecha: str = None,
+        id_ics: int = None,
+        id_linea: int = None,
+        id_concesion: int = None,
+        id_cop: int = None,
+        zona: str = None,
+        componente: str = None,
+    ):
+        """
+        Retorna ICS del revisor con estado_asignacion=1 y estado_objecion=1,
+        con su estado_transmitools y datos del ICS para el monitor Transmitools.
+        """
+        joins_cop, comp_expr, zona_expr = self._cop_joins_and_exprs()
+        has_fht = self._col_exists("sne", "gestion_sne", "fecha_hora_transmitools")
+        fht_expr = (
+            "to_char(gs.fecha_hora_transmitools AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD HH24:MI')"
+            if has_fht else "NULL::text"
+        )
+
+        where = " WHERE gs.revisor = %s AND gs.estado_asignacion = 1 AND gs.estado_objecion = 1 "
+        params: list = [usuario_id]
+
+        if fecha:
+            where += " AND i.fecha = %s "
+            params.append(fecha)
+        if id_ics:
+            where += " AND i.id_ics = %s "
+            params.append(int(id_ics))
+        if id_linea:
+            where += " AND i.id_linea = %s "
+            params.append(int(id_linea))
+        if id_concesion:
+            where += " AND i.id_concesion = %s "
+            params.append(int(id_concesion))
+        if id_cop:
+            where += " AND r.id_cop = %s "
+            params.append(int(id_cop))
+        if zona:
+            where += f" AND UPPER({zona_expr}) = %s "
+            params.append(zona.strip().upper())
+        if componente:
+            where += f" AND UPPER({comp_expr}) = %s "
+            params.append(componente.strip().upper())
+
+        self.cursor.execute(
+            f"""
+            SELECT
+                gs.id_ics,
+                gs.estado_transmitools,
+                {fht_expr}                                               AS fecha_hora_transmitools,
+                i.fecha::text                                            AS fecha,
+                i.id_linea,
+                i.servicio,
+                i.tabla,
+                i.viaje_linea,
+                i.id_viaje,
+                i.sentido,
+                i.vehiculo_real,
+                i.hora_ini_teorica::text                                 AS hora_ini_teorica,
+                i.km_prog_ad,
+                i.conductor,
+                i.km_elim_eic,
+                i.km_ejecutado,
+                i.km_revision,
+                i.motivo,
+                r.ruta_comercial,
+                c.cop                                                    AS cop_nombre,
+                {comp_expr}                                              AS componente,
+                {zona_expr}                                              AS zona
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i           ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c   ON c.id = r.id_cop
+            {joins_cop}
+            {where}
+            ORDER BY gs.estado_transmitools NULLS LAST, gs.id_ics ASC
+            """,
+            params,
+        )
+        return self.cursor.fetchall()

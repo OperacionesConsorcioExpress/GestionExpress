@@ -8,6 +8,12 @@ from database.database_manager import get_db_connection
 load_dotenv()
 TZ_BOGOTA = ZoneInfo("America/Bogota")
 
+# Tope de duración de las consultas de reportes (ver GestionSneMonitor._timeout_reporte).
+# 200 s queda por debajo del corte de request de Azure App Service (~230 s): pasado ese
+# punto el usuario ya perdió la respuesta, así que no se pierde ningún reporte que hoy
+# funcione, pero la base de datos deja de quedar retenida.
+REPORTE_TIMEOUT_MS = int(os.getenv("SNE_REPORTE_TIMEOUT_MS", "200000"))
+
 class GestionSneMonitor:
     """
     Modelo para el Monitor SNE.
@@ -60,6 +66,19 @@ class GestionSneMonitor:
             )
             self._col_cache[key] = self.cursor.fetchone() is not None
         return self._col_cache[key]
+
+    def _timeout_reporte(self):
+        """
+        Acota en la propia sesión de PostgreSQL cuánto puede durar una consulta de
+        reporte. Cancelar el fetch desde el navegador no detiene la consulta en el
+        servidor: sin este tope, una consulta abandonada sigue reteniendo locks
+        sobre sne.ics y config.* hasta terminar.
+
+        Se usa SET LOCAL a propósito: revierte solo al cerrar la transacción, así no
+        se filtra a la siguiente petición que reutilice la conexión del pool (y es la
+        forma admitida cuando PgBouncer trabaja en modo transaction).
+        """
+        self.cursor.execute("SET LOCAL statement_timeout = %s", (REPORTE_TIMEOUT_MS,))
 
     def _cop_joins_and_exprs(self):
         """Retorna (joins_sql, comp_expr, zona_expr) según columnas reales en config.cop."""
@@ -427,6 +446,8 @@ class GestionSneMonitor:
                           zona=None, componente=None,
                           estado_asignacion=None, usuario_asigna=None,
                           estado_objecion=None) -> list:
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
         joins_cop, where, params = self._mon_where(
             fecha_ini, fecha_fin, id_linea, id_cop, usuario_id,
             zona, componente, estado_asignacion, usuario_asigna, estado_objecion
@@ -441,7 +462,8 @@ class GestionSneMonitor:
                 COUNT(gs.id_ics) FILTER (WHERE gs.estado_objecion = 1)        AS ids_revisados,
                 COALESCE(SUM(i.km_revision), 0)                                AS km_revision,
                 COALESCE(SUM(CASE WHEN gs.estado_objecion = 1
-                               THEN og_lat.km_objetado ELSE 0 END), 0)         AS km_objetado
+                               THEN og_lat.km_objetado ELSE 0 END), 0)         AS km_objetado,
+                {km_ac_expr}                                                   AS km_aceptado
             FROM sne.gestion_sne gs
             JOIN sne.ics i ON i.id_ics = gs.id_ics
             LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
@@ -454,6 +476,179 @@ class GestionSneMonitor:
             {where}
             GROUP BY EXTRACT(YEAR FROM i.fecha), EXTRACT(MONTH FROM i.fecha), r.ruta_comercial
             ORDER BY anio, mes, ruta_comercial
+            """,
+            params,
+        )
+        return [dict(r) for r in self.cursor.fetchall()]
+
+    def monitor_por_revisor(self, fecha_ini=None, fecha_fin=None,
+                             id_linea=None, id_cop=None, usuario_id=None,
+                             zona=None, componente=None,
+                             estado_asignacion=None, usuario_asigna=None,
+                             estado_objecion=None) -> list:
+        """Datos por año/mes/revisor para tabla Comportamiento Revisor."""
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
+        joins_cop, where, params = self._mon_where(
+            fecha_ini, fecha_fin, id_linea, id_cop, usuario_id,
+            zona, componente, estado_asignacion, usuario_asigna, estado_objecion
+        )
+        self.cursor.execute(
+            f"""
+            SELECT
+                EXTRACT(YEAR  FROM i.fecha)::int                                AS anio,
+                EXTRACT(MONTH FROM i.fecha)::int                                AS mes,
+                gs.revisor                                                      AS revisor_id,
+                COALESCE(u.nombres || ' ' || u.apellidos, 'ID ' || gs.revisor::text) AS revisor_nombre,
+                COUNT(gs.id_ics)                                               AS ids_asignados,
+                COUNT(gs.id_ics) FILTER (WHERE gs.estado_objecion = 1)        AS ids_revisados,
+                COUNT(gs.id_ics) FILTER (WHERE gs.estado_objecion IN (1, 3))  AS ids_obj_mi,
+                COALESCE(SUM(i.km_revision), 0)                                AS km_revision,
+                COALESCE(SUM(CASE WHEN gs.estado_objecion = 1
+                               THEN og_lat.km_objetado ELSE 0 END), 0)         AS km_objetado,
+                {km_ac_expr}                                                   AS km_aceptado
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c ON c.id = r.id_cop
+            LEFT JOIN public.usuarios u ON u.id = gs.revisor
+            {joins_cop}
+            LEFT JOIN LATERAL (
+                SELECT km_objetado FROM sne.objecion_guardada
+                WHERE id_ics = gs.id_ics ORDER BY fecha_guardado DESC LIMIT 1
+            ) og_lat ON true
+            {where}
+              AND gs.revisor IS NOT NULL AND gs.revisor <> 0
+            GROUP BY EXTRACT(YEAR FROM i.fecha), EXTRACT(MONTH FROM i.fecha),
+                     gs.revisor, u.nombres, u.apellidos
+            ORDER BY revisor_nombre, anio, mes
+            """,
+            params,
+        )
+        return [dict(r) for r in self.cursor.fetchall()]
+
+    def monitor_comportamiento_km_aceptado(self, fecha_ini=None, fecha_fin=None,
+                                            id_linea=None, id_cop=None, usuario_id=None,
+                                            zona=None, componente=None,
+                                            estado_asignacion=None, usuario_asigna=None,
+                                            estado_objecion=None) -> list:
+        """Suma diaria de km_objetado vs km_aceptado."""
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
+        joins_cop, where, params = self._mon_where(
+            fecha_ini, fecha_fin, id_linea, id_cop, usuario_id,
+            zona, componente, estado_asignacion, usuario_asigna, estado_objecion
+        )
+        self.cursor.execute(
+            f"""
+            SELECT
+                i.fecha::text AS fecha,
+                COALESCE(SUM(CASE WHEN gs.estado_objecion = 1
+                               THEN og_lat.km_objetado ELSE 0 END), 0) AS km_objetado,
+                {km_ac_expr}                                            AS km_aceptado
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c ON c.id = r.id_cop
+            {joins_cop}
+            LEFT JOIN LATERAL (
+                SELECT km_objetado FROM sne.objecion_guardada
+                WHERE id_ics = gs.id_ics ORDER BY fecha_guardado DESC LIMIT 1
+            ) og_lat ON true
+            {where}
+            GROUP BY i.fecha
+            ORDER BY i.fecha
+            """,
+            params,
+        )
+        return [dict(r) for r in self.cursor.fetchall()]
+
+    def monitor_exito_objecion(self, fecha_ini=None, fecha_fin=None,
+                                id_linea=None, id_cop=None, usuario_id=None,
+                                zona=None, componente=None,
+                                estado_asignacion=None, usuario_asigna=None,
+                                estado_objecion=None) -> list:
+        """Suma diaria de km_revision vs km_aceptado para Éxito de Objeción Contundente."""
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
+        joins_cop, where, params = self._mon_where(
+            fecha_ini, fecha_fin, id_linea, id_cop, usuario_id,
+            zona, componente, estado_asignacion, usuario_asigna, estado_objecion
+        )
+        self.cursor.execute(
+            f"""
+            SELECT
+                i.fecha::text AS fecha,
+                COALESCE(SUM(i.km_revision), 0) AS km_revision,
+                {km_ac_expr}                     AS km_aceptado
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c ON c.id = r.id_cop
+            {joins_cop}
+            {where}
+            GROUP BY i.fecha
+            ORDER BY i.fecha
+            """,
+            params,
+        )
+        return [dict(r) for r in self.cursor.fetchall()]
+
+    def monitor_estimacion_ingresos(self, fecha_ini=None, fecha_fin=None,
+                                     id_linea=None, id_cop=None, usuario_id=None,
+                                     zona=None, componente=None,
+                                     estado_asignacion=None, usuario_asigna=None,
+                                     estado_objecion=None) -> list:
+        """
+        Suma diaria de ingresos estimados:
+          ingresos_objetado = SUM(km_objetado × tarifa_por_bus_y_fecha)
+          ingresos_aceptado = SUM(km_aceptado × tarifa_por_bus_y_fecha)
+        Filtra a estado_objecion=1. Tarifa: config.tarifas con id_tipo_tarifa=1.
+        """
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr = "COALESCE(gs.km_aceptado, 0)" if has_km_ac else "0::numeric"
+        joins_cop, where, params = self._mon_where(
+            fecha_ini, fecha_fin, id_linea, id_cop, usuario_id,
+            zona, componente, estado_asignacion, usuario_asigna, estado_objecion
+        )
+        where_ing = where + " AND gs.estado_objecion = 1 "
+        self.cursor.execute(
+            f"""
+            SELECT
+                i.fecha::text AS fecha,
+                COALESCE(SUM(
+                    COALESCE(og.km_objetado, 0) * COALESCE(t_tar.tarifa, 0)
+                ), 0) AS ingresos_objetado,
+                COALESCE(SUM(
+                    {km_ac_expr} * COALESCE(t_tar.tarifa, 0)
+                ), 0) AS ingresos_aceptado
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c ON c.id = r.id_cop
+            {joins_cop}
+            LEFT JOIN LATERAL (
+                SELECT km_objetado FROM sne.objecion_guardada
+                WHERE id_ics = gs.id_ics ORDER BY fecha_guardado DESC LIMIT 1
+            ) og ON true
+            LEFT JOIN config.buses_cexp b
+                ON UPPER(b.no_interno::text) = UPPER(i.vehiculo_real::text)
+            LEFT JOIN config.tipologia_bus tb
+                ON UPPER(COALESCE(tb.tipologia, '')) = UPPER(COALESCE(b.tipologia, ''))
+            LEFT JOIN config.combustible cb
+                ON UPPER(COALESCE(cb.combustible, '')) = UPPER(COALESCE(b.combustible, ''))
+            LEFT JOIN LATERAL (
+                SELECT tarifa FROM config.tarifas
+                WHERE id_tipo_tarifa = 1
+                  AND id_tipologia   = tb.id
+                  AND id_combustible = cb.id
+                  AND i.fecha >= desde
+                  AND (hasta IS NULL OR i.fecha <= hasta)
+                ORDER BY desde DESC LIMIT 1
+            ) t_tar ON true
+            {where_ing}
+            GROUP BY i.fecha
+            ORDER BY i.fecha
             """,
             params,
         )
@@ -602,12 +797,13 @@ class GestionSneMonitor:
         if id_linea:
             conds.append("i.id_linea = %s"); params.append(int(id_linea))
         if id_cop:
-            conds.append("r.id_cop = %s"); params.append(int(id_cop))
+            conds.append("log.get_cop_at_date(i.id_linea, i.fecha::date) = %s"); params.append(int(id_cop))
         if zona and zona_expr != "NULL::text":
             conds.append(f"{zona_expr} = %s"); params.append(zona)
         if componente and comp_expr != "NULL::text":
             conds.append(f"{comp_expr} = %s"); params.append(componente)
         where = (" WHERE " + " AND ".join(conds)) if conds else ""
+        self._timeout_reporte()
         self.cursor.execute(
             f"""
             SELECT
@@ -636,8 +832,8 @@ class GestionSneMonitor:
                 {zona_expr}                     AS zona,
                 c.cop
             FROM sne.ics i
-            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea
-            LEFT JOIN config.cop c   ON c.id = r.id_cop
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c   ON c.id = log.get_cop_at_date(i.id_linea, i.fecha::date)
             {joins_cop}
             {where}
             ORDER BY i.fecha, i.id_ics
@@ -654,6 +850,197 @@ class GestionSneMonitor:
             rows.append(row)
         return rows
 
+    def reporte_sne_gestionado(
+        self,
+        fecha_ini=None, fecha_fin=None,
+        id_linea=None, id_cop=None,
+        zona=None, componente=None,
+        id_revisor=None, revisor_id=None,   # id_revisor = nuevo; revisor_id = alias legacy
+        id_asignador=None,
+        estado_asignacion=None,
+        estado_objecion=None,
+    ) -> list:
+        # soporte alias legacy
+        id_revisor = id_revisor or revisor_id
+        joins_cop, comp_expr, zona_expr = self._cop_joins_and_exprs()
+
+        has_fht   = self._col_exists("sne", "gestion_sne", "fecha_hora_transmitools")
+        has_fini  = self._col_exists("sne", "gestion_sne", "fecha_inicio_dp")
+        has_fcier = self._col_exists("sne", "gestion_sne", "fecha_cierre_dp")
+        has_fase  = self._col_exists("sne", "gestion_sne", "fase_dp_actual")
+        has_edo   = self._col_exists("sne", "gestion_sne", "estado_dp_actual")
+        has_fcamb = self._col_exists("sne", "gestion_sne", "fecha_cambio_dp")
+        has_km_ac = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        has_et    = self._col_exists("sne", "gestion_sne", "estado_transmitools")
+
+        def _ts(col):
+            return f"to_char({col} AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD HH24:MI')"
+
+        fht_expr   = _ts("gs.fecha_hora_transmitools") if has_fht   else "NULL::text"
+        fini_expr  = _ts("gs.fecha_inicio_dp")          if has_fini  else "NULL::text"
+        fcier_expr = _ts("gs.fecha_cierre_dp")           if has_fcier else "NULL::text"
+        fase_expr  = "gs.fase_dp_actual::text"           if has_fase  else "NULL::text"
+        edo_expr   = "gs.estado_dp_actual::text"         if has_edo   else "NULL::text"
+        fcamb_expr = _ts("gs.fecha_cambio_dp")           if has_fcamb else "NULL::text"
+        km_ac_expr = "ROUND(gs.km_aceptado::numeric, 3)" if has_km_ac else "NULL::numeric"
+        et_expr    = (
+            "CASE gs.estado_transmitools "
+            "WHEN 0 THEN 'Sin Gestión' "
+            "WHEN 1 THEN 'Envío Exitoso' "
+            "WHEN 2 THEN 'Procesando' "
+            "WHEN 3 THEN 'Error' "
+            "ELSE gs.estado_transmitools::text END"
+        ) if has_et else "NULL::text"
+
+        conds: list[str] = []
+        params: list = []
+        if fecha_ini:
+            conds.append("i.fecha >= %s"); params.append(fecha_ini)
+        if fecha_fin:
+            conds.append("i.fecha <= %s"); params.append(fecha_fin)
+        if id_linea:
+            conds.append("i.id_linea = %s"); params.append(int(id_linea))
+        if id_cop:
+            conds.append("log.get_cop_at_date(i.id_linea, i.fecha::date) = %s"); params.append(int(id_cop))
+        if zona and zona_expr != "NULL::text":
+            conds.append(f"{zona_expr} = %s"); params.append(zona)
+        if componente and comp_expr != "NULL::text":
+            conds.append(f"{comp_expr} = %s"); params.append(componente)
+        if id_revisor:
+            conds.append("gs.revisor = %s");          params.append(int(id_revisor))
+        if id_asignador:
+            conds.append("gs.usuario_asigna = %s");   params.append(int(id_asignador))
+        if estado_asignacion is not None:
+            conds.append("gs.estado_asignacion = %s"); params.append(int(estado_asignacion))
+        if estado_objecion is not None:
+            conds.append("gs.estado_objecion = %s");  params.append(int(estado_objecion))
+        where = (" WHERE " + " AND ".join(conds)) if conds else ""
+
+        self._timeout_reporte()
+        self.cursor.execute(
+            f"""
+            SELECT
+                i.id,
+                i.fecha::text                                               AS fecha,
+                i.id_ics,
+                i.id_linea,
+                r.ruta_comercial,
+                i.servicio,
+                i.tabla,
+                i.viaje_linea,
+                i.id_viaje,
+                i.sentido,
+                i.vehiculo_real,
+                i.hora_ini_teorica::text                                    AS hora_ini_teorica,
+                i.km_prog_ad,
+                i.conductor,
+                i.km_elim_eic,
+                i.km_ejecutado,
+                i.offset_inicio,
+                i.offset_fin,
+                i.km_revision,
+                i.motivo,
+                i.fecha_carga::text                                         AS fecha_carga,
+                {comp_expr}                                                 AS componente,
+                {zona_expr}                                                 AS zona,
+                c.cop,
+                COALESCE(u_rev.nombres  || ' ' || u_rev.apellidos,  '')    AS revisor,
+                CASE gs.estado_asignacion
+                    WHEN 0 THEN 'No Asignado'
+                    WHEN 1 THEN 'Asignado'
+                    WHEN 2 THEN 'Vencido'
+                    ELSE COALESCE(gs.estado_asignacion::text, '')
+                END                                                         AS estado_asignacion,
+                COALESCE(u_asig.nombres || ' ' || u_asig.apellidos, '')    AS usuario_asigna,
+                to_char(gs.fecha_hora_asignacion AT TIME ZONE 'America/Bogota',
+                        'YYYY-MM-DD HH24:MI')                              AS fecha_hora_asignacion,
+                CASE gs.estado_objecion
+                    WHEN 0 THEN 'No Objetado'
+                    WHEN 1 THEN 'Objetado'
+                    WHEN 2 THEN 'Vencido'
+                    WHEN 3 THEN 'Manejo Interno'
+                    ELSE COALESCE(gs.estado_objecion::text, '')
+                END                                                         AS estado_objecion,
+                COALESCE(u_obj.nombres  || ' ' || u_obj.apellidos,  '')    AS usuario_objeta,
+                to_char(gs.fecha_hora_objecion AT TIME ZONE 'America/Bogota',
+                        'YYYY-MM-DD HH24:MI')                              AS fecha_hora_objecion,
+                ROUND(og.km_objetado::numeric,    3)                       AS km_objetado,
+                ROUND(COALESCE(og.km_objetado, 0) * COALESCE(t_tar.tarifa, 0), 0) AS valor_km_objetado,
+                ROUND(og.km_no_objetado::numeric, 3)                       AS km_no_objetado,
+                rs.responsable                                              AS responsable_final,
+                me.motivo                                                   AS motivo_final,
+                ac.accion                                                   AS accion,
+                ju.justificacion                                            AS justificacion,
+                og.nota_objecion,
+                to_char(og.fecha_guardado AT TIME ZONE 'America/Bogota',
+                        'YYYY-MM-DD HH24:MI')                              AS fecha_guardado,
+                og.tiempo_objecion_seg,
+                og.reporte,
+                {et_expr}                                                   AS estado_transmitools,
+                {fht_expr}                                                  AS fecha_hora_transmitools,
+                {fini_expr}                                                 AS fecha_inicio_dp,
+                {fcier_expr}                                                AS fecha_cierre_dp,
+                {fase_expr}                                                 AS fase_dp_actual,
+                {edo_expr}                                                  AS estado_dp_actual,
+                {fcamb_expr}                                                AS fecha_cambio_dp,
+                {km_ac_expr}                                                AS km_aceptado,
+                ROUND(COALESCE({km_ac_expr}, 0) * COALESCE(t_tar.tarifa, 0), 0) AS valor_km_aceptado
+            FROM sne.ics i
+            LEFT JOIN config.rutas r     ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c       ON c.id = log.get_cop_at_date(i.id_linea, i.fecha::date)
+            {joins_cop}
+            LEFT JOIN sne.gestion_sne gs ON gs.id_ics = i.id_ics
+            LEFT JOIN public.usuarios u_rev  ON u_rev.id  = gs.revisor
+            LEFT JOIN public.usuarios u_asig ON u_asig.id = gs.usuario_asigna
+            LEFT JOIN public.usuarios u_obj  ON u_obj.id  = gs.usuario_objeta
+            LEFT JOIN LATERAL (
+                SELECT
+                    km_objetado, km_no_objetado,
+                    responsable_final, motivo_final, accion, justificacion,
+                    nota_objecion, fecha_guardado, tiempo_objecion_seg, reporte
+                FROM sne.objecion_guardada
+                WHERE id_ics = i.id_ics
+                ORDER BY fecha_guardado DESC
+                LIMIT 1
+            ) og ON true
+            LEFT JOIN config.buses_cexp b
+                ON UPPER(b.no_interno::text) = UPPER(i.vehiculo_real::text)
+            LEFT JOIN config.tipologia_bus tb
+                ON UPPER(COALESCE(tb.tipologia, '')) = UPPER(COALESCE(b.tipologia, ''))
+            LEFT JOIN config.combustible cb
+                ON UPPER(COALESCE(cb.combustible, '')) = UPPER(COALESCE(b.combustible, ''))
+            LEFT JOIN LATERAL (
+                SELECT tarifa FROM config.tarifas
+                WHERE id_tipo_tarifa = 1
+                  AND id_tipologia   = tb.id
+                  AND id_combustible = cb.id
+                  AND i.fecha >= desde
+                  AND (hasta IS NULL OR i.fecha <= hasta)
+                ORDER BY desde DESC LIMIT 1
+            ) t_tar ON true
+            LEFT JOIN sne.responsable_sne    rs ON rs.id               = og.responsable_final
+            LEFT JOIN sne.motivos_eliminacion me ON me.id              = og.motivo_final
+            LEFT JOIN sne.acciones           ac ON ac.id_acc           = og.accion
+            LEFT JOIN sne.justificacion      ju ON ju.id_justificacion = og.justificacion
+            {where}
+            ORDER BY i.fecha, i.id_ics
+            """,
+            params,
+        )
+        rows = []
+        for r in self.cursor.fetchall():
+            row = dict(r)
+            for k in ("km_prog_ad", "km_elim_eic", "km_ejecutado",
+                      "offset_inicio", "offset_fin", "km_revision",
+                      "km_objetado", "km_no_objetado", "km_aceptado"):
+                v = row.get(k)
+                row[k] = round(float(v), 3) if v is not None else None
+            for k in ("valor_km_objetado", "valor_km_aceptado"):
+                v = row.get(k)
+                row[k] = round(float(v), 0) if v is not None else None
+            rows.append(row)
+        return rows
+
     def monitor_tabla_asignaciones(
         self,
         fecha_ini=None, fecha_fin=None,
@@ -667,6 +1054,8 @@ class GestionSneMonitor:
         has_creado_en    = self._col_exists("sne", "gestion_sne", "creado_en")
         has_fecha_cierre = self._col_exists("sne", "gestion_sne", "fecha_cierre_dp")
         has_fecha_ini_dp = self._col_exists("sne", "gestion_sne", "fecha_inicio_dp")
+        has_km_ac        = self._col_exists("sne", "gestion_sne", "km_aceptado")
+        km_ac_expr       = "COALESCE(SUM(gs.km_aceptado), 0)" if has_km_ac else "0::numeric"
 
         # ── WHERE conditions ────────────────────────────────────────────────
         conds: list[str] = []
@@ -753,6 +1142,7 @@ class GestionSneMonitor:
                 COUNT(*) FILTER (WHERE gs.estado_asignacion = 2)                    AS vencidos_sin_asignar,
                 COUNT(*) FILTER (WHERE {por_objetar_cond})                          AS por_objetar,
                 COUNT(*) FILTER (WHERE gs.estado_objecion = 1)                      AS objetados,
+                COUNT(*) FILTER (WHERE gs.estado_objecion = 3)                      AS manejo_interno,
                 COUNT(*) FILTER (WHERE {vencidos_asig_cond})                        AS vencidos_asignados,
                 COALESCE(SUM(CASE
                     WHEN gs.estado_asignacion = 0 THEN i.km_revision
@@ -782,6 +1172,11 @@ class GestionSneMonitor:
                     WHEN gs.estado_objecion = 1 THEN og_lat.km_objetado
                     ELSE 0
                 END), 0)                                                            AS km_objetados,
+                COALESCE(SUM(CASE
+                    WHEN gs.estado_objecion = 3 THEN i.km_revision
+                    ELSE 0
+                END), 0)                                                            AS km_manejo_interno,
+                {km_ac_expr}                                                       AS km_aceptado,
                 STRING_AGG(
                     DISTINCT CASE
                         WHEN gs.estado_asignacion = 1 AND u_obj.nombres IS NOT NULL
@@ -827,6 +1222,8 @@ class GestionSneMonitor:
                 "km_revision_objetados",
                 "km_vencidos_asignados",
                 "km_objetados",
+                "km_manejo_interno",
+                "km_aceptado",
             ):
                 v = row.get(key)
                 row[key] = float(v) if v is not None else None
@@ -835,15 +1232,17 @@ class GestionSneMonitor:
             asignados = int(row.get("asignados") or 0)
             km_rev_asig = float(row.get("km_revision_asignados") or 0)
             km_obj = float(row.get("km_objetados") or 0)
+            km_ac = float(row.get("km_aceptado") or 0)
             row["pct_asignacion"] = round(asignados / total * 100, 1) if total else 0.0
             row["pct_asig_km"] = round(km_rev_asig / total_km * 100, 1) if total_km else 0.0
             row["pct_cumplimiento"] = round(km_obj / km_rev_asig * 100, 1) if km_rev_asig else 0.0
+            row["pct_exito"] = round(km_ac / km_obj * 100, 1) if km_obj else 0.0
             rows.append(row)
         return rows
 
     # ── Procesamientos ────────────────────────────────────────────────────────
 
-    def monitor_procesamientos(self):
+    def monitor_procesamientos(self, fecha_ini=None, fecha_fin=None):
         """Logs de procesamientos de workflows para la pestaña Procesamientos."""
 
         def _fmt_dt(v):
@@ -860,6 +1259,17 @@ class GestionSneMonitor:
                 return v.strftime("%d/%m/%Y")
             return str(v)
 
+        # Condición de rango de fechas (se aplica a las dos tablas de log)
+        date_conds = []
+        date_params = []
+        if fecha_ini:
+            date_conds.append("fecha >= %s")
+            date_params.append(fecha_ini)
+        if fecha_fin:
+            date_conds.append("fecha <= %s")
+            date_params.append(fecha_fin)
+        where_clause = ("WHERE " + " AND ".join(date_conds)) if date_conds else ""
+
         # Lista de reportes
         self.cursor.execute("""
             SELECT id_reporte, nombre_reporte
@@ -868,12 +1278,12 @@ class GestionSneMonitor:
         """)
         reportes = [dict(r) for r in self.cursor.fetchall()]
 
-        # Todas las fechas (unión de ambas tablas) + datos de posicionamiento
-        self.cursor.execute("""
+        # Todas las fechas (unión de ambas tablas filtradas) + datos de posicionamiento
+        self.cursor.execute(f"""
             WITH fechas AS (
-                SELECT DISTINCT fecha FROM log.procesa_posicionamientos
+                SELECT DISTINCT fecha FROM log.procesa_posicionamientos {where_clause}
                 UNION
-                SELECT DISTINCT fecha FROM log.procesa_report_sne
+                SELECT DISTINCT fecha FROM log.procesa_report_sne {where_clause}
             )
             SELECT
                 f.fecha,
@@ -890,7 +1300,7 @@ class GestionSneMonitor:
             FROM fechas f
             LEFT JOIN log.procesa_posicionamientos p ON p.fecha = f.fecha
             ORDER BY f.fecha DESC
-        """)
+        """, date_params + date_params)  # date_params se repite por el UNION
         all_fechas = []
         pos_by_fecha = {}
         for r in self.cursor.fetchall():
@@ -909,8 +1319,9 @@ class GestionSneMonitor:
                 "actualizado_en": _fmt_dt(r["actualizado_en"]),
             } if r["estado"] is not None else None
 
-        # Datos de reportes
-        self.cursor.execute("""
+        # Datos de reportes (mismos filtros de fecha)
+        rep_where = where_clause  # misma cláusula, mismos params
+        self.cursor.execute(f"""
             SELECT
                 fecha,
                 id_reporte,
@@ -923,8 +1334,9 @@ class GestionSneMonitor:
                 registros_proce,
                 fecha_actualizacion
             FROM log.procesa_report_sne
+            {rep_where}
             ORDER BY fecha DESC, id_reporte
-        """)
+        """, date_params)
         rep_by_fecha = {}
         for r in self.cursor.fetchall():
             fd = _fmt_date(r["fecha"])
@@ -951,3 +1363,84 @@ class GestionSneMonitor:
         ]
 
         return {"reportes": reportes, "rows": rows}
+
+    def monitor_transmitools(
+        self,
+        fecha_ini=None, fecha_fin=None,
+        id_linea=None, id_cop=None,
+        zona=None, componente=None,
+        usuario_revisor=None,
+    ) -> list:
+        """
+        Retorna todos los ICS con estado_asignacion=1 y estado_objecion=1
+        con su estado_transmitools para el monitor global de envíos.
+        No filtra por usuario; muestra todos los revisores.
+        """
+        joins_cop, comp_expr, zona_expr = self._cop_joins_and_exprs()
+        has_fht = self._col_exists("sne", "gestion_sne", "fecha_hora_transmitools")
+        fht_expr = (
+            "to_char(gs.fecha_hora_transmitools AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD HH24:MI')"
+            if has_fht else "NULL::text"
+        )
+
+        conds: list = [
+            "gs.estado_asignacion = 1",
+            "gs.estado_objecion = 1",
+        ]
+        params: list = []
+
+        if fecha_ini:
+            conds.append("i.fecha >= %s"); params.append(fecha_ini)
+        if fecha_fin:
+            conds.append("i.fecha <= %s"); params.append(fecha_fin)
+        if id_linea:
+            conds.append("i.id_linea = %s"); params.append(int(id_linea))
+        if id_cop:
+            conds.append("r.id_cop = %s"); params.append(int(id_cop))
+        if zona and zona_expr != "NULL::text":
+            conds.append(f"UPPER({zona_expr}) = %s"); params.append(zona.strip().upper())
+        if componente and comp_expr != "NULL::text":
+            conds.append(f"UPPER({comp_expr}) = %s"); params.append(componente.strip().upper())
+        if usuario_revisor:
+            conds.append("gs.revisor = %s"); params.append(int(usuario_revisor))
+
+        where = "WHERE " + " AND ".join(conds)
+
+        self.cursor.execute(
+            f"""
+            SELECT
+                gs.id_ics,
+                gs.estado_transmitools,
+                {fht_expr}                                               AS fecha_hora_transmitools,
+                i.fecha::text                                            AS fecha,
+                i.id_linea,
+                i.servicio,
+                i.tabla,
+                i.viaje_linea,
+                i.id_viaje,
+                i.sentido,
+                i.vehiculo_real,
+                i.hora_ini_teorica::text                                 AS hora_ini_teorica,
+                i.km_prog_ad,
+                i.conductor,
+                i.km_elim_eic,
+                i.km_ejecutado,
+                i.km_revision,
+                i.motivo,
+                r.ruta_comercial,
+                c.cop                                                    AS cop_nombre,
+                {comp_expr}                                              AS componente,
+                {zona_expr}                                              AS zona,
+                COALESCE(u.nombres || ' ' || u.apellidos, 'ID ' || gs.revisor::text) AS revisor_nombre
+            FROM sne.gestion_sne gs
+            JOIN sne.ics i           ON i.id_ics = gs.id_ics
+            LEFT JOIN config.rutas r ON r.id_linea = i.id_linea AND r.estado = 1
+            LEFT JOIN config.cop c   ON c.id = r.id_cop
+            {joins_cop}
+            LEFT JOIN public.usuarios u ON u.id = gs.revisor
+            {where}
+            ORDER BY gs.estado_transmitools NULLS LAST, i.fecha DESC, gs.id_ics ASC
+            """,
+            params,
+        )
+        return self.cursor.fetchall()

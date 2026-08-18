@@ -1,4 +1,4 @@
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, BlobPrefix, ContentSettings
 from model.gestion_usuarios import HandleDB, Cargue_Roles_Blob_Storage
 from datetime import datetime, timedelta
 import os
@@ -34,8 +34,10 @@ class ContainerModel:
         }
 
     def _cache_invalidate(self, container_name: str):
-        """Invalida el caché de un contenedor (subida, eliminación, refresco)."""
-        _CACHE.pop(container_name, None)
+        """Invalida el caché de un contenedor y todos sus prefijos (subida, eliminación, refresco)."""
+        keys = [k for k in list(_CACHE.keys()) if k == container_name or k.startswith(container_name + ':')]
+        for k in keys:
+            _CACHE.pop(k, None)
 
     # ─────────────────────────────────────────────
     # Contenedores
@@ -54,10 +56,15 @@ class ContainerModel:
         asignados = roles.get_contenedores_por_rol(user_rol_storage)
         return [c for c in self.get_containers() if c in asignados]
 
-    def get_acciones_permitidas(self, user_rol_storage) -> dict:
-        """Retorna dict con booleanos de acciones permitidas para el rol del usuario."""
+    def get_acciones_permitidas(self, user_rol_storage, container_name) -> dict:
+        """Retorna dict con booleanos de acciones permitidas para el rol del usuario EN un contenedor específico."""
         roles = Cargue_Roles_Blob_Storage()
-        return roles.get_acciones_por_rol(user_rol_storage)
+        return roles.get_acciones_por_rol(user_rol_storage, container_name)
+
+    def get_acciones_permitidas_todos(self, user_rol_storage) -> dict:
+        """Retorna { "<contenedor>": {ver, editar, descargar, eliminar, cargar} } para todos los contenedores del rol."""
+        roles = Cargue_Roles_Blob_Storage()
+        return roles.get_acciones_por_rol_todos(user_rol_storage)
 
     # ─────────────────────────────────────────────
     # Árbol de archivos — endpoint unificado
@@ -143,6 +150,151 @@ class ContainerModel:
         return result
 
     # ─────────────────────────────────────────────
+    # Navegación lazy — solo un nivel del árbol
+    # ─────────────────────────────────────────────
+    def browse_prefix(self, container_name: str, prefix: str = '') -> dict:
+        """
+        Lista solo los hijos directos del prefijo usando el delimiter API de Azure.
+        Mucho más rápido que list_blobs completo: solo trae un nivel del árbol.
+        Retorna { prefix, folders: [str], files: [{name, full_path, size, last_modified, ...}] }
+        """
+        cache_key = f"{container_name}:{prefix}"
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+        container_client = self.blob_service_client.get_container_client(container_name)
+        folders = []
+        files   = []
+
+        for item in container_client.walk_blobs(name_starts_with=prefix, delimiter='/'):
+            if isinstance(item, BlobPrefix):
+                folder_name = item.name[len(prefix):].rstrip('/')
+                if folder_name:
+                    folders.append(folder_name)
+            else:
+                file_name = item.name[len(prefix):]
+                if file_name:
+                    ct = None
+                    try:
+                        ct = item.content_settings.content_type if item.content_settings else None
+                    except Exception:
+                        pass
+                    files.append({
+                        "name":          file_name,
+                        "full_path":     item.name,
+                        "size":          item.size or 0,
+                        "last_modified": item.last_modified.isoformat() if item.last_modified else None,
+                        "content_type":  ct,
+                        "etag":          item.etag,
+                    })
+
+        result = {
+            "prefix":  prefix,
+            "folders": sorted(folders),
+            "files":   sorted(files, key=lambda x: x["name"]),
+        }
+        self._cache_set(cache_key, result)
+        return result
+
+    # ─────────────────────────────────────────────
+    # Preview paginado de CSV
+    # ─────────────────────────────────────────────
+    def preview_csv(self, container_name: str, blob_name: str,
+                    page: int = 1, limit: int = 300) -> dict:
+        """
+        Descarga el CSV del blob y retorna filas paginadas como JSON.
+        La primera fila se trata como cabecera.
+        """
+        import csv
+        from io import StringIO
+
+        blob_client = self.blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
+        )
+        raw = blob_client.download_blob().readall()
+        try:
+            text = raw.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            text = raw.decode('latin-1')
+
+        reader   = csv.reader(StringIO(text))
+        all_rows = list(reader)
+
+        if not all_rows:
+            return {"headers": [], "rows": [], "total_rows": 0, "page": page, "limit": limit, "has_more": False}
+
+        headers   = all_rows[0]
+        data_rows = all_rows[1:]
+        total     = len(data_rows)
+        offset    = (page - 1) * limit
+
+        return {
+            "headers":    headers,
+            "rows":       data_rows[offset: offset + limit],
+            "total_rows": total,
+            "page":       page,
+            "limit":      limit,
+            "has_more":   (offset + limit) < total,
+        }
+
+    # ─────────────────────────────────────────────
+    # Guardar tabla editada (XLSX o CSV)
+    # ─────────────────────────────────────────────
+    def save_table(self, container_name: str, blob_name: str, sheets: list) -> None:
+        """
+        Recibe lista de hojas [{name, headers, rows}] y las escribe de vuelta al blob.
+        Soporta .xlsx / .xlsm  →  openpyxl
+        Soporta .csv            →  csv (solo la primera hoja)
+        """
+        ext = blob_name.rsplit('.', 1)[-1].lower() if '.' in blob_name else ''
+
+        if ext in ('xlsx', 'xlsm'):
+            from openpyxl import Workbook
+            from io import BytesIO
+
+            wb = Workbook()
+            wb.remove(wb.active)
+            for sheet in sheets:
+                ws = wb.create_sheet(title=sheet.get('name', 'Sheet1'))
+                hdrs = sheet.get('headers', [])
+                if hdrs:
+                    ws.append(hdrs)
+                for row in sheet.get('rows', []):
+                    ws.append([None if v == '' else v for v in row])
+
+            buf = BytesIO()
+            wb.save(buf)
+            contents     = buf.getvalue()
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+        elif ext == 'csv':
+            import csv
+            from io import StringIO
+
+            sheet = sheets[0] if sheets else {}
+            buf   = StringIO()
+            w     = csv.writer(buf)
+            if sheet.get('headers'):
+                w.writerow(sheet['headers'])
+            for row in sheet.get('rows', []):
+                w.writerow(row)
+            contents     = buf.getvalue().encode('utf-8-sig')
+            content_type = 'text/csv; charset=utf-8-sig'
+
+        else:
+            raise ValueError(f"Formato no soportado para guardar: .{ext}")
+
+        blob_client = self.blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
+        )
+        blob_client.upload_blob(
+            contents, overwrite=True,
+            content_settings=ContentSettings(content_type=content_type)
+        )
+        self._cache_invalidate(container_name)
+
+    # ─────────────────────────────────────────────
     # Descarga
     # ─────────────────────────────────────────────
     def download_file(self, container_name: str, file_name: str) -> bytes:
@@ -192,7 +344,7 @@ class ContainerModel:
         blob_client = self.blob_service_client.get_blob_client(
             container=container_name, blob=file_name
         )
-        await blob_client.upload_blob(file_content, overwrite=True)
+        blob_client.upload_blob(file_content, overwrite=True)
         self._cache_invalidate(container_name)
 
     # ─────────────────────────────────────────────

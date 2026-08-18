@@ -146,12 +146,18 @@ class RegistroSNE:
         self._manual_assignment_ready = False
         self._gestion_sne_ready = False
         self._reversion_history_ready = False
+        self._write_transaction_open = False
         with self.conn.cursor() as c:
             c.execute("SET TIME ZONE 'America/Bogota';")
+            c.execute("SHOW transaction_read_only;")
+            row = c.fetchone()
+            read_only_value = row.get("transaction_read_only") if isinstance(row, dict) else row[0]
+            self._transaction_read_only = str(read_only_value).lower() in {"on", "true", "1"}
         self.conn.commit()
 
     def __enter__(self):
-        self._sync_expired_assignment_states()
+        if not self._transaction_read_only:
+            self._sync_expired_assignment_states()
         return self
 
     def __exit__(self, exc_type, exc, tb):
@@ -182,6 +188,54 @@ class RegistroSNE:
     def _execute(self, sql: str, params: list = None):
         with self.conn.cursor() as c:
             c.execute(sql, params or [])
+
+    def _table_exists(self, schema: str, table: str) -> bool:
+        row = self._fetchone(
+            """
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = %s
+              AND table_name = %s
+            LIMIT 1
+            """,
+            [schema, table],
+        )
+        return bool(row)
+
+    def _mark_gestion_sne_ready_from_existing_table(self) -> None:
+        self._col_cache[("sne", "gestion_sne", "usuario_asigna")] = self._col_exists("sne", "gestion_sne", "usuario_asigna")
+        self._col_cache[("sne", "gestion_sne", "fecha_hora_asignacion")] = self._col_exists("sne", "gestion_sne", "fecha_hora_asignacion")
+        self._col_cache[("sne", "gestion_sne", "id_ejecucion")] = self._col_exists("sne", "gestion_sne", "id_ejecucion")
+        self._col_cache[("sne", "gestion_sne", "fecha_cierre_dp")] = self._col_exists("sne", "gestion_sne", "fecha_cierre_dp")
+        self._gestion_sne_ready = True
+
+    def _require_existing_table_in_read_only(self, schema: str, table: str) -> bool:
+        if not self._transaction_read_only:
+            return False
+        if self._table_exists(schema, table):
+            return True
+        raise RuntimeError(
+            f"La conexion esta en modo solo lectura y la tabla {schema}.{table} no existe. "
+            "Ejecute las migraciones del modulo SNE con una conexion de escritura."
+        )
+
+    def _begin_write_transaction_if_needed(self) -> None:
+        if not self._transaction_read_only:
+            return
+        if self._write_transaction_open:
+            return
+        if self.conn.get_transaction_status() != pg_extensions.TRANSACTION_STATUS_IDLE:
+            self.conn.rollback()
+        with self.conn.cursor() as c:
+            c.execute("BEGIN READ WRITE")
+            c.execute("SHOW transaction_read_only;")
+            row = c.fetchone()
+            read_only_value = row.get("transaction_read_only") if isinstance(row, dict) else row[0]
+        if str(read_only_value).lower() in {"on", "true", "1"}:
+            raise RuntimeError(
+                "La conexion actual no permite abrir una transaccion de escritura para la asignacion SNE."
+            )
+        self._write_transaction_open = True
 
     def _col_exists(self, schema: str, table: str, column: str) -> bool:
         key = (schema, table, column)
@@ -256,6 +310,10 @@ class RegistroSNE:
 
     def _ensure_gestion_sne_table(self) -> None:
         if self._gestion_sne_ready:
+            return
+
+        if self._require_existing_table_in_read_only("sne", "gestion_sne"):
+            self._mark_gestion_sne_ready_from_existing_table()
             return
 
         self._execute("CREATE SCHEMA IF NOT EXISTS sne;")
@@ -343,6 +401,10 @@ class RegistroSNE:
         if self._reversion_history_ready:
             return
 
+        if self._require_existing_table_in_read_only("sne", "historial_reversion_asignacion"):
+            self._reversion_history_ready = True
+            return
+
         self._execute("CREATE SCHEMA IF NOT EXISTS sne;")
         self._execute(
             """
@@ -413,6 +475,58 @@ class RegistroSNE:
                 self._apply_dp_state(row, today)
         return rows
 
+    def _merge_distinct_text_values(self, *values: Any) -> str:
+        parts: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            for part in str(value or "").split("|"):
+                text = part.strip()
+                if not text:
+                    continue
+                key = text.upper()
+                if key in seen:
+                    continue
+                seen.add(key)
+                parts.append(text)
+        return " | ".join(parts)
+
+    def _dedupe_ics_rows(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        merged_by_id: dict[int, dict[str, Any]] = {}
+        ordered_rows: list[dict[str, Any]] = []
+        merge_text_fields = (
+            "ruta_comercial",
+            "cop",
+            "componente",
+            "motivos_eliminacion",
+            "responsables",
+        )
+
+        for raw_row in rows or []:
+            row = dict(raw_row or {})
+            try:
+                row_id = int(row.get("id_ics"))
+            except (TypeError, ValueError):
+                ordered_rows.append(row)
+                continue
+
+            existing = merged_by_id.get(row_id)
+            if existing is None:
+                merged_by_id[row_id] = row
+                ordered_rows.append(row)
+                continue
+
+            for field in merge_text_fields:
+                existing[field] = self._merge_distinct_text_values(
+                    existing.get(field),
+                    row.get(field),
+                )
+
+            for field, value in row.items():
+                if existing.get(field) in (None, "") and value not in (None, ""):
+                    existing[field] = value
+
+        return ordered_rows
+
     def _sync_expired_assignment_states(self) -> None:
         self._ensure_gestion_sne_table()
         self._ensure_manual_reviewer_assignment_table()
@@ -423,10 +537,24 @@ class RegistroSNE:
                 """
                 UPDATE sne.gestion_sne gs
                 SET
-                    estado_asignacion = 2
+                    estado_asignacion = 1,
+                    updated_at = NOW()
+                WHERE COALESCE(gs.estado_asignacion, 0) <> 1
+                  AND (
+                      COALESCE(gs.revisor, 0) > 0
+                      OR gs.fecha_hora_asignacion IS NOT NULL
+                  )
+                """
+            )
+            c.execute(
+                """
+                UPDATE sne.gestion_sne gs
+                SET
+                    estado_asignacion = 2,
+                    updated_at = NOW()
                 WHERE gs.fecha_cierre_dp IS NOT NULL
                   AND gs.fecha_cierre_dp::date < %s
-                  AND COALESCE(gs.estado_asignacion, 0) <> 2
+                  AND COALESCE(gs.estado_asignacion, 0) = 0
                 """,
                 [today],
             )
@@ -434,12 +562,7 @@ class RegistroSNE:
                 """
                 UPDATE sne.gestion_sne gs
                 SET
-                    estado_asignacion = CASE
-                        WHEN COALESCE(gs.revisor, 0) > 0
-                          OR gs.fecha_hora_asignacion IS NOT NULL
-                        THEN 1
-                        ELSE 0
-                    END,
+                    estado_asignacion = 0,
                     updated_at = NOW()
                 WHERE COALESCE(gs.estado_asignacion, 0) = 2
                   AND (
@@ -620,6 +743,7 @@ class RegistroSNE:
         fecha: Optional[str] = None,
         id_linea: Optional[str] = None,
         ruta_comercial: Optional[str] = None,
+        cop: Optional[str] = None,
         vehiculo_real: Optional[str] = None,
         conductor: Optional[str] = None,
         motivos_filter: Optional[str] = None,
@@ -775,6 +899,11 @@ class RegistroSNE:
             params_data.append(f"%{ruta_comercial}%")
             params_count.append(f"%{ruta_comercial}%")
 
+        if cop:
+            where_clauses.append("(c.cop ILIKE %s OR r.id_cop::text ILIKE %s)")
+            params_data.extend([f"%{cop}%", f"%{cop}%"])
+            params_count.extend([f"%{cop}%", f"%{cop}%"])
+
         if vehiculo_real:
             where_clauses.append("i.vehiculo_real ILIKE %s")
             params_data.append(f"%{vehiculo_real}%")
@@ -907,6 +1036,7 @@ class RegistroSNE:
                 i.fecha,
                 i.id_linea,
                 {ruta_expr}              AS ruta_comercial,
+                string_agg(DISTINCT c.cop, ' | ') AS cop,
                 i.servicio,
                 i.tabla,
                 i.viaje_linea,
@@ -926,6 +1056,7 @@ class RegistroSNE:
                 i.fecha_carga,
                 {comp_expr}               AS componente,
                 gs.estado_asignacion,
+                COALESCE(gs.estado_objecion, 0) AS estado_objecion,
                 gs.usuario_asigna,
                 gs.fecha_hora_asignacion,
                 gs.id_ejecucion,
@@ -953,7 +1084,7 @@ class RegistroSNE:
                 i.hora_ini_teorica, i.km_prog_ad, i.conductor,
                 i.km_elim_eic, i.km_ejecutado, i.offset_inicio, i.offset_fin,
                 i.km_revision, i.motivo, i.id_concesion, i.fecha_carga,
-                gs.estado_asignacion, gs.usuario_asigna, gs.fecha_hora_asignacion, gs.id_ejecucion, gs.fecha_cierre_dp,
+                gs.estado_asignacion, gs.estado_objecion, gs.usuario_asigna, gs.fecha_hora_asignacion, gs.id_ejecucion, gs.fecha_cierre_dp,
                 {reviewer_user_id_expr}, {reviewer_display_expr}, {reviewer_origin_expr}, {executor_name_expr}
                 {group_by_component}{group_by_concesion}{group_by_ruta}
             ORDER BY i.km_revision DESC NULLS LAST, i.fecha DESC, i.id_ics DESC
@@ -965,6 +1096,7 @@ class RegistroSNE:
             for row in (resumen or []):
                 fila = {k: _json_safe_value(v) for k, v in dict(row).items()}
                 filas_resumen.append(fila)
+            filas_resumen = self._dedupe_ics_rows(filas_resumen)
             self._apply_dp_state_rows(filas_resumen)
 
             total = len(filas_resumen)
@@ -980,7 +1112,7 @@ class RegistroSNE:
                 fast_filter_joins.append("LEFT JOIN public.usuarios ur ON ur.id = NULLIF(gs.revisor, 0)")
             if usuario_asigna_nombre:
                 fast_filter_joins.append("LEFT JOIN public.usuarios ua ON ua.id = gs.usuario_asigna")
-            if ruta_comercial or (componente and comp_expr != "NULL::text"):
+            if ruta_comercial or cop or (componente and comp_expr != "NULL::text"):
                 fast_filter_joins.insert(0, joins_cop)
             fast_filter_joins_sql = "\n                ".join(fast_filter_joins)
             sql_count = f"""
@@ -1007,6 +1139,7 @@ class RegistroSNE:
                     i.fecha,
                     i.id_linea,
                     {ruta_expr}              AS ruta_comercial,
+                    string_agg(DISTINCT c.cop, ' | ') AS cop,
                     i.servicio,
                     i.tabla,
                     i.viaje_linea,
@@ -1026,6 +1159,7 @@ class RegistroSNE:
                     i.fecha_carga,
                     {comp_expr}               AS componente,
                     gs.estado_asignacion,
+                    COALESCE(gs.estado_objecion, 0) AS estado_objecion,
                     gs.usuario_asigna,
                     gs.fecha_hora_asignacion,
                     gs.id_ejecucion,
@@ -1053,7 +1187,7 @@ class RegistroSNE:
                     i.hora_ini_teorica, i.km_prog_ad, i.conductor,
                     i.km_elim_eic, i.km_ejecutado, i.offset_inicio, i.offset_fin,
                     i.km_revision, i.motivo, i.id_concesion, i.fecha_carga,
-                    gs.estado_asignacion, gs.usuario_asigna, gs.fecha_hora_asignacion, gs.id_ejecucion, gs.fecha_cierre_dp,
+                    gs.estado_asignacion, gs.estado_objecion, gs.usuario_asigna, gs.fecha_hora_asignacion, gs.id_ejecucion, gs.fecha_cierre_dp,
                     {reviewer_user_id_expr}, {reviewer_display_expr}, {reviewer_origin_expr}, {executor_name_expr},
                     pid.sort_km_revision, pid.sort_fecha
                     {group_by_component}{group_by_concesion}{group_by_ruta}
@@ -1066,6 +1200,7 @@ class RegistroSNE:
             for row in (datos or []):
                 fila = {k: _json_safe_value(v) for k, v in dict(row).items()}
                 filas.append(fila)
+            filas = self._dedupe_ics_rows(filas)
             self._apply_dp_state_rows(filas)
             filas_resumen = None
 
@@ -1145,6 +1280,11 @@ class RegistroSNE:
     def _ensure_reviewer_config_table(self) -> None:
         if self._reviewer_config_ready:
             return
+
+        if self._require_existing_table_in_read_only("sne", "revisores_config"):
+            self._reviewer_config_ready = True
+            return
+
         self._execute("CREATE SCHEMA IF NOT EXISTS sne;")
         self._execute(
             """
@@ -1191,6 +1331,11 @@ class RegistroSNE:
     def _ensure_manual_reviewer_assignment_table(self) -> None:
         if self._manual_assignment_ready:
             return
+
+        if self._require_existing_table_in_read_only("sne", "ics_revisor_asignacion"):
+            self._manual_assignment_ready = True
+            return
+
         self._execute("CREATE SCHEMA IF NOT EXISTS sne;")
         self._execute(
             """
@@ -1233,9 +1378,9 @@ class RegistroSNE:
                 COALESCE(NULLIF(rc.rol_asignacion, ''), 'Revisor') AS rol_asignacion,
                 COALESCE(NULLIF(rc.componente, ''), 'General') AS componente,
                 COALESCE(rc.visible, TRUE) AS visible,
-                LEAST(GREATEST(COALESCE(rc.capacidad_habil, 70), 0), 70) AS capacidad_habil,
-                LEAST(GREATEST(COALESCE(rc.capacidad_sab, 35), 0), 35) AS capacidad_sab,
-                LEAST(GREATEST(COALESCE(rc.capacidad_dom_fest, 25), 0), 25) AS capacidad_dom_fest
+                GREATEST(COALESCE(rc.capacidad_habil, 70), 0) AS capacidad_habil,
+                GREATEST(COALESCE(rc.capacidad_sab, 35), 0) AS capacidad_sab,
+                GREATEST(COALESCE(rc.capacidad_dom_fest, 25), 0) AS capacidad_dom_fest
             FROM public.usuarios u
             LEFT JOIN public.roles r
               ON r.id_rol = u.rol
@@ -1256,6 +1401,7 @@ class RegistroSNE:
         revisores: list[dict[str, Any]],
         usuario_actualiza: str,
     ) -> list[dict[str, Any]]:
+        self._begin_write_transaction_if_needed()
         self._ensure_reviewer_config_table()
 
         payload = revisores or []
@@ -1275,15 +1421,15 @@ class RegistroSNE:
             componente = str(reviewer.get("componente") or "General").strip()[:30] or "General"
             visible = not (reviewer.get("visible") in (False, 0, "0", "false", "False"))
             try:
-                capacidad_habil = min(CAPACIDAD_HABIL_DEFAULT, max(0, int(reviewer.get("capacidad_habil", CAPACIDAD_HABIL_DEFAULT))))
+                capacidad_habil = max(0, int(reviewer.get("capacidad_habil", CAPACIDAD_HABIL_DEFAULT)))
             except (TypeError, ValueError):
                 capacidad_habil = CAPACIDAD_HABIL_DEFAULT
             try:
-                capacidad_sab = min(CAPACIDAD_SABADO_DEFAULT, max(0, int(reviewer.get("capacidad_sab", CAPACIDAD_SABADO_DEFAULT))))
+                capacidad_sab = max(0, int(reviewer.get("capacidad_sab", CAPACIDAD_SABADO_DEFAULT)))
             except (TypeError, ValueError):
                 capacidad_sab = CAPACIDAD_SABADO_DEFAULT
             try:
-                capacidad_dom_fest = min(CAPACIDAD_DOM_FEST_DEFAULT, max(0, int(reviewer.get("capacidad_dom_fest", CAPACIDAD_DOM_FEST_DEFAULT))))
+                capacidad_dom_fest = max(0, int(reviewer.get("capacidad_dom_fest", CAPACIDAD_DOM_FEST_DEFAULT)))
             except (TypeError, ValueError):
                 capacidad_dom_fest = CAPACIDAD_DOM_FEST_DEFAULT
             try:
@@ -1373,6 +1519,7 @@ class RegistroSNE:
         usuario_actualiza: str,
         origen: str = "tabla_menu",
     ) -> dict[str, Any]:
+        self._begin_write_transaction_if_needed()
         self._ensure_reviewer_config_table()
         self._ensure_gestion_sne_table()
         self._ensure_manual_reviewer_assignment_table()
@@ -1522,6 +1669,7 @@ class RegistroSNE:
         usuario_actualiza: str,
         origen: str = "tabla_menu_clear",
     ) -> dict[str, Any]:
+        self._begin_write_transaction_if_needed()
         self._ensure_gestion_sne_table()
         self._ensure_manual_reviewer_assignment_table()
 
@@ -1550,12 +1698,214 @@ class RegistroSNE:
             "origen": str(origen or "tabla_menu_clear")[:40],
         }
 
+    def reasignar_revisor_asignado(
+        self,
+        ids_ics: list[int | str],
+        revisor_user_id: int,
+        usuario_asigna_id: int,
+        usuario_actualiza: str,
+        origen: str = "tabla_menu_reassign",
+    ) -> dict[str, Any]:
+        self._begin_write_transaction_if_needed()
+        self._ensure_reviewer_config_table()
+        self._ensure_gestion_sne_table()
+
+        normalizados = self._normalize_ids(ids_ics, "Debes enviar al menos un id_ics para reasignar")
+
+        try:
+            revisor_user_id = int(revisor_user_id)
+        except (TypeError, ValueError):
+            raise ValueError("El revisor seleccionado no es valido")
+
+        try:
+            usuario_asigna_id = int(usuario_asigna_id)
+        except (TypeError, ValueError):
+            raise ValueError("No fue posible identificar al usuario que reasigna")
+
+        revisor = self._fetchone(
+            """
+            SELECT
+                u.id AS user_id,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.nombres::text, u.apellidos::text)), ''), u.username::text) AS nombre,
+                COALESCE(u.username::text, '') AS username,
+                COALESCE(NULLIF(rc.rol_asignacion, ''), 'Revisor') AS rol_asignacion,
+                COALESCE(NULLIF(rc.componente, ''), 'General') AS componente
+            FROM sne.revisores_config rc
+            JOIN public.usuarios u
+              ON u.id = rc.usuario_id
+            WHERE rc.usuario_id = %s
+              AND rc.es_revisor = TRUE
+              AND COALESCE(u.estado, 0) = 1
+            LIMIT 1
+            """,
+            [revisor_user_id],
+        )
+        if not revisor:
+            raise ValueError("El usuario seleccionado no esta habilitado como revisor activo")
+
+        joins, comp_expr = self._cop_joins_and_exprs()
+        existentes = self._fetchall(
+            f"""
+            SELECT
+                i.id_ics,
+                {comp_expr} AS componente,
+                COALESCE(gs.revisor, 0) AS revisor_actual,
+                COALESCE(gs.estado_asignacion, 0) AS estado_asignacion,
+                COALESCE(gs.estado_objecion, 0) AS estado_objecion,
+                gs.fecha_hora_asignacion
+            FROM sne.ics i
+            JOIN sne.gestion_sne gs
+              ON gs.id_ics = i.id_ics
+            {joins}
+            WHERE i.id_ics = ANY(%s)
+            """,
+            [normalizados],
+        )
+
+        existentes_ids = {int(row["id_ics"]) for row in (existentes or [])}
+        faltantes = sorted(set(normalizados) - existentes_ids)
+        if faltantes:
+            raise ValueError(f"ICS no encontrados o sin gestion SNE: {', '.join(str(x) for x in faltantes[:10])}")
+
+        no_asignados: list[int] = []
+        bloqueados_objecion: list[int] = []
+        sin_cambio: list[int] = []
+        candidatos: list[dict[str, Any]] = []
+        for row in existentes or []:
+            current_id = int(row["id_ics"])
+            revisor_actual = int(row.get("revisor_actual") or 0)
+            estado_objecion = int(row.get("estado_objecion") or 0)
+            if revisor_actual <= 0 or row.get("fecha_hora_asignacion") is None:
+                no_asignados.append(current_id)
+                continue
+            if estado_objecion != 0:
+                bloqueados_objecion.append(current_id)
+                continue
+            if revisor_actual == revisor_user_id:
+                sin_cambio.append(current_id)
+                continue
+            candidatos.append(row)
+
+        if no_asignados:
+            raise ValueError(
+                "Solo se pueden reasignar registros ya asignados. "
+                f"Registros sin asignacion activa: {', '.join(str(x) for x in no_asignados[:10])}"
+            )
+        if bloqueados_objecion:
+            raise ValueError(
+                "Solo se pueden reasignar registros con estado_objecion = 0. "
+                f"Registros bloqueados: {', '.join(str(x) for x in bloqueados_objecion[:10])}"
+            )
+        if not candidatos:
+            raise ValueError("Los registros seleccionados ya tienen asignado ese revisor")
+
+        reviewer_component = _normalize_component_key(revisor.get("componente")) or "GENERAL"
+        if reviewer_component in {"ZONAL", "ALIMENTACION"}:
+            incompatible_counts: dict[str, int] = {}
+            for row in candidatos:
+                row_component = _normalize_component_key(row.get("componente"))
+                if row_component == reviewer_component:
+                    continue
+                label = _component_label(row.get("componente"))
+                incompatible_counts[label] = incompatible_counts.get(label, 0) + 1
+
+            if incompatible_counts:
+                detail = ", ".join(
+                    f"{label}: {count}" for label, count in sorted(incompatible_counts.items())
+                )
+                reviewer_label = _component_label(reviewer_component)
+                raise ValueError(
+                    f"El revisor {revisor['nombre']} esta configurado como {reviewer_label} "
+                    f"y solo puede recibir registros {reviewer_label}. Seleccion incompatible: {detail}."
+                )
+
+        fecha_reasignacion = now_bogota()
+        ids_candidatos = [int(row["id_ics"]) for row in candidatos]
+        usuario_nombre_row = self._fetchone(
+            f"""
+            SELECT {self._user_display_name_expr("u")} AS nombre
+            FROM public.usuarios u
+            WHERE u.id = %s
+            LIMIT 1
+            """,
+            [usuario_asigna_id],
+        )
+
+        set_clauses = [
+            "revisor = %s",
+            "estado_asignacion = 1",
+            "updated_at = NOW()",
+        ]
+        update_params: list[Any] = [revisor_user_id]
+
+        usuario_reasigna_col = self._col_exists("sne", "gestion_sne", "usuario_reasigna")
+        fecha_reasigna_col = self._col_exists("sne", "gestion_sne", "fecha_hora_reasignacion")
+
+        if usuario_reasigna_col:
+            set_clauses.append("usuario_reasigna = %s")
+            update_params.append(usuario_asigna_id)
+        elif self._col_exists("sne", "gestion_sne", "usuario_asigna"):
+            set_clauses.append("usuario_asigna = %s")
+            update_params.append(usuario_asigna_id)
+
+        if fecha_reasigna_col:
+            set_clauses.append("fecha_hora_reasignacion = %s")
+            update_params.append(fecha_reasignacion)
+        elif self._col_exists("sne", "gestion_sne", "fecha_hora_asignacion"):
+            set_clauses.append("fecha_hora_asignacion = %s")
+            update_params.append(fecha_reasignacion)
+
+        update_params.extend([ids_candidatos, revisor_user_id])
+        updated = self._fetchall(
+            f"""
+            UPDATE sne.gestion_sne
+            SET {", ".join(set_clauses)}
+            WHERE id_ics = ANY(%s)
+              AND COALESCE(revisor, 0) > 0
+              AND COALESCE(revisor, 0) <> %s
+              AND fecha_hora_asignacion IS NOT NULL
+              AND COALESCE(estado_objecion, 0) = 0
+            RETURNING id_ics
+            """,
+            update_params,
+        )
+
+        ids_reasignados = [
+            int(row["id_ics"])
+            for row in updated or []
+            if row and row.get("id_ics") is not None
+        ]
+
+        return {
+            "ids_ics": ids_reasignados,
+            "solicitados": len(normalizados),
+            "reasignados": len(ids_reasignados),
+            "omitidos": max(0, len(normalizados) - len(ids_reasignados)),
+            "ids_sin_cambio": sin_cambio,
+            "revisor": {
+                "user_id": int(revisor["user_id"]),
+                "nombre": _json_safe_value(revisor["nombre"]),
+                "username": _json_safe_value(revisor["username"]),
+                "rol_asignacion": _json_safe_value(revisor["rol_asignacion"]),
+                "componente": _json_safe_value(revisor["componente"]),
+            },
+            "usuario_asigna": usuario_asigna_id,
+            "usuario_asigna_nombre": _json_safe_value(
+                (usuario_nombre_row or {}).get("nombre") or str(usuario_actualiza or "sistema")
+            ),
+            "fecha_hora_asignacion": _json_safe_value(fecha_reasignacion),
+            "actualizo_usuario_asigna": not usuario_reasigna_col,
+            "actualizo_fecha_asignacion": not fecha_reasigna_col,
+            "origen": str(origen or "tabla_menu_reassign")[:40],
+        }
+
     def ejecutar_asignacion(
         self,
         ids_ics: list[int | str],
         usuario_asigna_id: int,
         usuario_actualiza: str,
     ) -> dict[str, Any]:
+        self._begin_write_transaction_if_needed()
         self._ensure_gestion_sne_table()
         self._ensure_manual_reviewer_assignment_table()
 
@@ -1745,6 +2095,7 @@ class RegistroSNE:
         motivo: str = "",
         ip_origen: Optional[str] = None,
     ) -> dict[str, Any]:
+        self._begin_write_transaction_if_needed()
         self._ensure_gestion_sne_table()
         self._ensure_manual_reviewer_assignment_table()
         self._ensure_reversion_history_table()

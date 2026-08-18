@@ -400,21 +400,32 @@ class GestionBuses:
                 errs.append({"row": i, "error": str(e)})
         return {"insertados": ins, "actualizados": upd, "errores": errs}
 
-    def carga_masiva_xlsx_bytes(self, contenido: bytes):
+    def _xlsx_a_filas(self, contenido: bytes) -> list:
         if not openpyxl:
             raise ValueError("openpyxl no está disponible en el entorno")
-        wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
-        ws = wb.active
-        headers = [str(c.value).strip() if c.value is not None else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        wb = openpyxl.load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+        if "Hoja1" not in wb.sheetnames:
+            wb.close()
+            raise ValueError("El archivo no contiene una hoja llamada 'Hoja1'. Usa la plantilla oficial.")
+        ws = wb["Hoja1"]
+        it = ws.iter_rows(min_row=1, values_only=True)
+        headers = [str(v).strip() if v is not None else "" for v in next(it)]
+        rows = []
+        for idx, fila in enumerate(it, start=2):
+            data = {headers[i]: (fila[i] if i < len(fila) else None) for i in range(len(headers))}
+            # Excel puede entregar 1.0 en "Centro Operacion"; limpiar:
+            if "Centro Operacion" in data and data["Centro Operacion"] is not None:
+                cv = str(data["Centro Operacion"]).strip()
+                if cv.endswith(".0"): cv = cv[:-2]
+                data["Centro Operacion"] = cv
+            rows.append((idx, data))
+        wb.close()
+        return rows
+
+    def carga_masiva_xlsx_bytes(self, contenido: bytes):
         ins, upd, errs = 0, 0, []
-        for idx, fila in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        for idx, data in self._xlsx_a_filas(contenido):
             try:
-                data = {headers[i]: (fila[i] if i < len(fila) else None) for i in range(len(headers))}
-                # Excel puede entregar 1.0 en "Centro Operacion"; limpiar:
-                if "Centro Operacion" in data and data["Centro Operacion"] is not None:
-                    cv = str(data["Centro Operacion"]).strip()
-                    if cv.endswith(".0"): cv = cv[:-2]
-                    data["Centro Operacion"] = cv
                 payload = self._normalizar_payload_archivo(data)
                 accion, _ = self._upsert_por_placa(payload)
                 if accion == "insertado": ins += 1
@@ -457,17 +468,4 @@ class GestionBuses:
         return self._preview_rows(rows)
 
     def previsualizar_xlsx_bytes(self, contenido: bytes):
-        if not openpyxl:
-            raise ValueError("openpyxl no está disponible en el entorno")
-        wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
-        ws = wb.active
-        headers = [str(c.value).strip() if c.value is not None else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
-        rows = []
-        for idx, fila in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-            data = {headers[i]: (fila[i] if i < len(fila) else None) for i in range(len(headers))}
-            if "Centro Operacion" in data and data["Centro Operacion"] is not None:
-                cv = str(data["Centro Operacion"]).strip()
-                if cv.endswith(".0"): cv = cv[:-2]
-                data["Centro Operacion"] = cv
-            rows.append((idx, data))
-        return self._preview_rows(rows)
+        return self._preview_rows(self._xlsx_a_filas(contenido))

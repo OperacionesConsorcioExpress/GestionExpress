@@ -1,4 +1,4 @@
-import re, logging
+import re, logging, threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from psycopg2.extras import RealDictCursor
@@ -7,6 +7,14 @@ from database.database_manager import get_db_connection
 
 logger    = logging.getLogger("gestion_sne_plantillas")
 TZ_BOGOTA = ZoneInfo("America/Bogota")
+
+# La migración de esquema solo debe correr una vez por proceso, no en cada
+# request: evita DDL innecesario y evita romper el endpoint si la conexión
+# que entrega el pool resulta ser de solo lectura (réplica / servidor en
+# modo read-only) — en ese caso simplemente se reintenta en la próxima
+# conexión escribible en lugar de fallar la request actual.
+_schema_lock  = threading.Lock()
+_schema_ready = False
 
 def _ahora() -> datetime:
     return datetime.now(TZ_BOGOTA)
@@ -26,7 +34,78 @@ class GestionSnePlantillas:
         self.connection = self._ctx.__enter__()
         self.connection.cursor_factory = RealDictCursor
         self.cursor = self.connection.cursor()
+        self._ensure_schema()
         return self
+
+    def _ensure_schema(self):
+        """Aplica migraciones de columnas/constraits faltantes sin recrear tablas."""
+        global _schema_ready
+        if _schema_ready:
+            return
+
+        with _schema_lock:
+            if _schema_ready:
+                return
+
+            self.cursor.execute("SHOW transaction_read_only;")
+            row = self.cursor.fetchone()
+            valor = row["transaction_read_only"] if isinstance(row, dict) else row[0]
+            if str(valor).lower() in {"on", "true", "1"}:
+                logger.warning(
+                    "Conexión de solo lectura: se omite _ensure_schema, "
+                    "se reintentará con la próxima conexión escribible."
+                )
+                return
+
+            self._aplicar_migraciones()
+            _schema_ready = True
+
+    def _aplicar_migraciones(self):
+        migraciones = [
+            # nombre fue añadido después del despliegue inicial
+            """
+            ALTER TABLE sne.nota_plantillas
+            ADD COLUMN IF NOT EXISTS nombre VARCHAR(120) NOT NULL DEFAULT 'Plantilla estándar'
+            """,
+            # La FK id_motivo apuntaba a motivos_eliminacion; debe apuntar a motivos_notas
+            """
+            DO $$
+            DECLARE
+                fk_name TEXT;
+            BEGIN
+                SELECT tc.constraint_name INTO fk_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.referential_constraints rc
+                    ON rc.constraint_name = tc.constraint_name
+                JOIN information_schema.table_constraints tc2
+                    ON tc2.constraint_name = rc.unique_constraint_name
+                WHERE tc.table_schema = 'sne'
+                  AND tc.table_name   = 'nota_plantillas'
+                  AND tc.constraint_type = 'FOREIGN KEY'
+                  AND tc2.table_name  <> 'motivos_notas'
+                  AND EXISTS (
+                      SELECT 1 FROM information_schema.key_column_usage kcu
+                      WHERE kcu.constraint_name = tc.constraint_name
+                        AND kcu.column_name = 'id_motivo'
+                  )
+                LIMIT 1;
+
+                IF fk_name IS NOT NULL THEN
+                    EXECUTE 'ALTER TABLE sne.nota_plantillas DROP CONSTRAINT ' || quote_ident(fk_name);
+                    ALTER TABLE sne.nota_plantillas
+                        ADD CONSTRAINT nota_plantillas_id_motivo_fkey
+                        FOREIGN KEY (id_motivo) REFERENCES sne.motivos_notas(id);
+                END IF;
+            END $$
+            """,
+        ]
+        for sql in migraciones:
+            try:
+                self.cursor.execute(sql)
+            except Exception:
+                self.connection.rollback()
+                raise
+        self.connection.commit()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if getattr(self, "cursor", None):
@@ -399,7 +478,12 @@ class GestionSnePlantillas:
 
         # Tokens dinámicos que el frontend reemplaza con valores de pantalla.
         # Se dejan intactos en texto_resuelto — NO se agregan a tokens_pendientes.
-        _TOKENS_FRONTEND = {"{km_objetado}", "{km_no_objetado}"}
+        # {ticket_sirci} y {novedad_ticket} provienen del formulario de objeción
+        # cuando la Nota Objeción es "SIRCI con ticket".
+        _TOKENS_FRONTEND = {
+            "{km_objetado}", "{km_no_objetado}",
+            "{ticket_sirci}", "{novedad_ticket}",
+        }
 
         for nombre_token in set(tokens_en_plantilla):
             placeholder = "{" + nombre_token + "}"

@@ -46,11 +46,15 @@ def _inferir_variante(nombre: str) -> int:
     return 1
 
 def _extraer_codigo_y_nombre(nombre_placemark: str):
-    """De '1. 704A01_Altos de Serrezuela' extrae ('704A01', 'Altos de Serrezuela')."""
-    partes = nombre_placemark.split(".")
-    resto = partes[-1].strip() if len(partes) > 1 else nombre_placemark
-    if "_" in resto:
-        idx = resto.index("_")
+    """De '1. 704A01_Altos de Serrezuela' extrae ('704A01', 'Altos de Serrezuela').
+    Elimina primero el prefijo de secuencia (dígitos + punto + espacio) con regex,
+    luego separa en el PRIMER guion bajo para no romper nombres con puntos (ej. 'Br.').
+    """
+    import re
+    m = re.match(r'^\d+\.\s+', nombre_placemark)
+    resto = nombre_placemark[m.end():] if m else nombre_placemark
+    idx = resto.find('_')
+    if idx >= 0:
         return resto[:idx].strip(), resto[idx + 1:].strip()
     return None, resto.strip()
 
@@ -537,22 +541,25 @@ class GestionRutas:
                 errs.append({"row": i, "error": str(e)})
         return {"insertados": ins, "actualizados": upd, "errores": errs}
 
-    def carga_masiva_xlsx_bytes(self, contenido: bytes):
+    def _xlsx_a_filas(self, contenido: bytes) -> list:
         if not openpyxl:
             raise ValueError("openpyxl no está disponible en el entorno")
-        wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
-        ws = wb.active
-        headers = [
-            str(c.value).strip() if c.value is not None else ""
-            for c in next(ws.iter_rows(min_row=1, max_row=1))
-        ]
+        wb = openpyxl.load_workbook(io.BytesIO(contenido), read_only=True, data_only=True)
+        if "Hoja1" not in wb.sheetnames:
+            wb.close()
+            raise ValueError("El archivo no contiene una hoja llamada 'Hoja1'. Usa la plantilla oficial.")
+        ws = wb["Hoja1"]
+        it = ws.iter_rows(min_row=1, values_only=True)
+        headers = [str(v).strip() if v is not None else "" for v in next(it)]
+        rows = [(idx, {headers[i]: (fila[i] if i < len(fila) else None) for i in range(len(headers))})
+                for idx, fila in enumerate(it, start=2)]
+        wb.close()
+        return rows
+
+    def carga_masiva_xlsx_bytes(self, contenido: bytes):
         ins, upd, errs = 0, 0, []
-        for idx, fila in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        for idx, data in self._xlsx_a_filas(contenido):
             try:
-                data = {
-                    headers[i]: (fila[i] if i < len(fila) else None)
-                    for i in range(len(headers))
-                }
                 payload = self._normalizar_payload_archivo(data)
                 accion, _ = self._upsert_por_id_linea_ruta(payload)
                 if accion == "insertado":
@@ -600,22 +607,7 @@ class GestionRutas:
         return self._preview_rows(rows)
 
     def previsualizar_xlsx_bytes(self, contenido: bytes):
-        if not openpyxl:
-            raise ValueError("openpyxl no está disponible en el entorno")
-        wb = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
-        ws = wb.active
-        headers = [
-            str(c.value).strip() if c.value is not None else ""
-            for c in next(ws.iter_rows(min_row=1, max_row=1))
-        ]
-        rows = []
-        for idx, fila in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-            data = {
-                headers[i]: (fila[i] if i < len(fila) else None)
-                for i in range(len(headers))
-            }
-            rows.append((idx, data))
-        return self._preview_rows(rows)
+        return self._preview_rows(self._xlsx_a_filas(contenido))
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GestionRutasKML — Trazados y paraderos KML para config.rutas_kml

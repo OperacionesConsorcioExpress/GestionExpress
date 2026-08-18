@@ -4,7 +4,6 @@ from datetime import datetime, date
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict, Any, Tuple
-
 from database.database_manager import _get_pool as get_db_pool
 
 load_dotenv()
@@ -13,7 +12,6 @@ TIMEZONE_BOGOTA = ZoneInfo("America/Bogota")
 
 def now_bogota() -> datetime:
     return datetime.now(TIMEZONE_BOGOTA)
-
 
 class Gestion_kilometros:
     """
@@ -270,6 +268,15 @@ class Gestion_kilometros:
                 FROM config.km_recorrido_bus
                 WHERE fecha = %s
                 ORDER BY movil_bus
+            ),
+            fms_km AS (
+                -- Km ejecutados según FMS Comercial
+                SELECT
+                    vehiculo_real,
+                    SUM(km_ejecutado) AS km_fms_comercial
+                FROM config.km_fms_bus
+                WHERE fecha = %s
+                GROUP BY vehiculo_real
             )
             SELECT
                 b.id,
@@ -299,7 +306,7 @@ class Gestion_kilometros:
                         THEN GREATEST(ea.odometro_actual - ep.odometro_previo, 0)
                     ELSE NULL
                 END                         AS gestion_express,
-                NULL::numeric               AS fms_comercial,
+                fk.km_fms_comercial         AS fms_comercial,
                 NULL::numeric               AS vacio_planeado,
                 NULL::numeric               AS km_recorrido_calculado,
                 NULL::numeric               AS km_recorrido_final
@@ -311,6 +318,7 @@ class Gestion_kilometros:
             LEFT JOIN eds_actual_max    ea   ON ea.id_bus      = b.id
             LEFT JOIN eds_prev_max      ep   ON ep.id_bus      = b.id
             LEFT JOIN pos_ultimo        p    ON p.movil_bus    = b.no_interno
+            LEFT JOIN fms_km            fk   ON fk.vehiculo_real = b.no_interno
             {where}
             ORDER BY
                 CASE
@@ -323,7 +331,7 @@ class Gestion_kilometros:
 
         data = self._fetchall(
             sql + pag_sql,
-            [fecha, fecha, fecha, fecha] + filter_params + pag_params,
+            [fecha, fecha, fecha, fecha, fecha] + filter_params + pag_params,
         )
         return data, total
 
@@ -349,6 +357,11 @@ class Gestion_kilometros:
                 FROM config.km_recorrido_bus
                 WHERE fecha = %s
                 ORDER BY movil_bus
+            ),
+            fms_dia AS (
+                SELECT DISTINCT vehiculo_real
+                FROM config.km_fms_bus
+                WHERE fecha = %s
             )
             SELECT
                 COUNT(DISTINCT b.id)::int                                                  AS total_buses,
@@ -356,13 +369,15 @@ class Gestion_kilometros:
                 COUNT(DISTINCT CASE WHEN e.odometro_funcional IS TRUE THEN e.id_bus END)::int
                                                                                            AS odometro_si,
                 COUNT(DISTINCT p.movil_bus)::int                                           AS buses_con_posicionamiento,
-                COUNT(DISTINCT CASE WHEN e.odometro IS NOT NULL THEN e.id_bus END)::int   AS buses_gestion_express
+                COUNT(DISTINCT CASE WHEN e.odometro IS NOT NULL THEN e.id_bus END)::int   AS buses_gestion_express,
+                COUNT(DISTINCT f.vehiculo_real)::int                                       AS buses_con_fms
             FROM config.buses_cexp b
             LEFT JOIN config.cop c ON c.id = b.id_cop
-            LEFT JOIN eds_ultimo  e ON e.id_bus    = b.id
-            LEFT JOIN pos_ultimo  p ON p.movil_bus = b.no_interno;
+            LEFT JOIN eds_ultimo  e ON e.id_bus       = b.id
+            LEFT JOIN pos_ultimo  p ON p.movil_bus    = b.no_interno
+            LEFT JOIN fms_dia     f ON f.vehiculo_real = b.no_interno;
         """
-        return dict(self._fetchone(sql, [fecha, fecha]) or {})
+        return dict(self._fetchone(sql, [fecha, fecha, fecha]) or {})
 
     # =========================================================
     # KM RECORRIDO FINAL  (UPSERT → eds.km_diario)

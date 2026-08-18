@@ -47,8 +47,8 @@ class HandleDB:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO usuarios (nombres, apellidos, username, rol, rol_storage, rol_powerbi, password_user, estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO usuarios (nombres, apellidos, username, rol, rol_storage, rol_powerbi, rol_bi, password_user, estado)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     data_user["nombres"],
                     data_user["apellidos"],
@@ -56,6 +56,7 @@ class HandleDB:
                     data_user["rol"],
                     data_user["rol_storage"],
                     data_user.get("rol_powerbi", 0),
+                    data_user.get("rol_bi", 0),
                     data_user["password_user"],
                     1  # Siempre se insertará como 'activo' con estado 1
                 ))
@@ -131,11 +132,15 @@ class HandleDB:
         return [p.strip() for p in pantallas.split(",") if p.strip()]
 
     def get_all_users(self):
-        """Obtiene todos los usuarios ordenados por ID."""
+        """Obtiene todos los usuarios ordenados por ID.
+        Orden columnas: [0]=id [1]=nombres [2]=apellidos [3]=username
+                        [4]=rol [5]=estado [6]=rol_storage [7]=rol_powerbi [8]=rol_bi
+        """
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id, nombres, apellidos, username, rol, estado, rol_storage, rol_powerbi
+                    SELECT id, nombres, apellidos, username, rol, estado,
+                           rol_storage, rol_powerbi, COALESCE(rol_bi, 0)
                     FROM usuarios ORDER BY id ASC
                 """)
                 return cur.fetchall()
@@ -145,20 +150,22 @@ class HandleDB:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id, nombres, apellidos, username, rol, estado, rol_storage, rol_powerbi
+                    SELECT id, nombres, apellidos, username, rol, estado,
+                           rol_storage, rol_powerbi, COALESCE(rol_bi, 0)
                     FROM usuarios WHERE id = %s
                 """, (user_id,))
                 usuario = cur.fetchone()
                 if usuario:
                     return {
-                        "id": usuario[0],
-                        "nombres": usuario[1],
-                        "apellidos": usuario[2],
-                        "username": usuario[3],
-                        "rol": usuario[4],
-                        "estado": usuario[5],
+                        "id":          usuario[0],
+                        "nombres":     usuario[1],
+                        "apellidos":   usuario[2],
+                        "username":    usuario[3],
+                        "rol":         usuario[4],
+                        "estado":      usuario[5],
                         "rol_storage": usuario[6],
-                        "rol_powerbi": usuario[7]
+                        "rol_powerbi": usuario[7],
+                        "rol_bi":      usuario[8],
                     }
                 return None
 
@@ -232,7 +239,8 @@ class HandleDB:
                     UPDATE public.usuarios
                     SET usuario_tm = %s,
                         clave_tm = %s,
-                        tm_actualizado_en = timezone('America/Bogota', now())
+                        tm_actualizado_en = timezone('America/Bogota', now()),
+                        estado_tm = CASE WHEN estado_tm = 0 THEN NULL ELSE estado_tm END
                     WHERE id = %s
                 """, (usuario_tm, clave_tm, user_id))
 
@@ -249,12 +257,13 @@ class HandleDB:
             with conn.cursor() as cur:
                 query = """
                     UPDATE usuarios SET nombres = %s, apellidos = %s, username = %s,
-                    rol = %s, estado = %s, rol_storage = %s, rol_powerbi = %s
+                    rol = %s, estado = %s, rol_storage = %s, rol_powerbi = %s, rol_bi = %s
                 """
                 params = [
                     data['nombres'], data['apellidos'], data['username'],
                     data['rol'], data['estado'], data['rol_storage'],
-                    int(data.get('rol_powerbi', 0))
+                    int(data.get('rol_powerbi', 0)),
+                    int(data.get('rol_bi', 0)),
                 ]
 
                 # Solo agrega la contraseña si está presente en los datos
@@ -273,6 +282,13 @@ class HandleDB:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE usuarios SET estado = 0 WHERE id = %s", (user_id,))
+            conn.commit()
+
+    def activate_user(self, user_id):
+        """Marca un usuario como activo (estado = 1)."""
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE usuarios SET estado = 1 WHERE id = %s", (user_id,))
             conn.commit()
 
     def fetch_one(self, query, values=None):
@@ -357,23 +373,58 @@ class Cargue_Roles_Blob_Storage:
             return cls._instance
 
     def insert_roles_storage(self, role_data):
-        """Inserta un nuevo rol de storage."""
+        """
+        Inserta un nuevo rol de storage con permisos por contenedor.
+        role_data = {
+            "nombre_rol_storage": str,
+            "permisos_por_contenedor": { "<contenedor>": {"ver":bool,"editar":bool,"descargar":bool,"eliminar":bool,"cargar":bool}, ... }
+        }
+        """
+        permisos = role_data["permisos_por_contenedor"]
+        contenedores = list(permisos.keys())
+        agregados = self._agregar_permisos(permisos)
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO roles_storage (nombre_rol_storage, contenedores_asignados,
                         accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id_rol_storage
                 """, (
                     role_data["nombre_rol_storage"],
-                    ','.join(role_data["contenedores_asignados"]),
-                    role_data.get("accion_ver", True),
-                    role_data.get("accion_editar", False),
-                    role_data.get("accion_descargar", True),
-                    role_data.get("accion_eliminar", False),
-                    role_data.get("accion_cargar", False),
+                    ','.join(contenedores),
+                    agregados["ver"], agregados["editar"], agregados["descargar"],
+                    agregados["eliminar"], agregados["cargar"],
                 ))
+                role_storage_id = cur.fetchone()[0]
+                self._reemplazar_permisos_contenedor(cur, role_storage_id, permisos)
             conn.commit()
+
+    @staticmethod
+    def _agregar_permisos(permisos: dict) -> dict:
+        """OR agregado de las acciones a través de todos los contenedores (solo para snapshot/legacy)."""
+        acciones = ("ver", "editar", "descargar", "eliminar", "cargar")
+        return {a: any(bool(p.get(a)) for p in permisos.values()) for a in acciones}
+
+    @staticmethod
+    def _reemplazar_permisos_contenedor(cur, role_storage_id, permisos: dict):
+        """Reemplaza por completo las filas de roles_storage_contenedores para un rol."""
+        cur.execute("DELETE FROM roles_storage_contenedores WHERE id_rol_storage = %s", (role_storage_id,))
+        for contenedor, acciones in permisos.items():
+            cur.execute("""
+                INSERT INTO roles_storage_contenedores
+                    (id_rol_storage, contenedor, accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id_rol_storage, contenedor) DO UPDATE SET
+                    accion_ver = EXCLUDED.accion_ver, accion_editar = EXCLUDED.accion_editar,
+                    accion_descargar = EXCLUDED.accion_descargar, accion_eliminar = EXCLUDED.accion_eliminar,
+                    accion_cargar = EXCLUDED.accion_cargar
+            """, (
+                role_storage_id, contenedor,
+                bool(acciones.get("ver")), bool(acciones.get("editar")), bool(acciones.get("descargar")),
+                bool(acciones.get("eliminar")), bool(acciones.get("cargar")),
+            ))
 
     def get_all_roles_storage(self):
         """Obtiene todos los roles de storage ordenados por ID."""
@@ -386,33 +437,68 @@ class Cargue_Roles_Blob_Storage:
                 """)
                 return cur.fetchall()
 
-    def get_role_storage_by_id(self, role_storage_id):
-        """Obtiene un rol de storage por ID. Retorna dict o None."""
+    def get_resumen_acciones_por_rol(self) -> dict:
+        """
+        Retorna { id_rol_storage: {"total": n, "ver": x, "editar": x, "descargar": x, "eliminar": x, "cargar": x} }
+        con el conteo de contenedores que tienen cada acción habilitada, para el listado de roles.
+        """
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id_rol_storage, nombre_rol_storage, contenedores_asignados,
-                           accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar
+                    SELECT id_rol_storage, COUNT(*),
+                           COUNT(*) FILTER (WHERE accion_ver),
+                           COUNT(*) FILTER (WHERE accion_editar),
+                           COUNT(*) FILTER (WHERE accion_descargar),
+                           COUNT(*) FILTER (WHERE accion_eliminar),
+                           COUNT(*) FILTER (WHERE accion_cargar)
+                    FROM roles_storage_contenedores
+                    GROUP BY id_rol_storage
+                """)
+                resumen = {}
+                for row in cur.fetchall():
+                    resumen[row[0]] = {
+                        "total": row[1], "ver": row[2], "editar": row[3],
+                        "descargar": row[4], "eliminar": row[5], "cargar": row[6],
+                    }
+                return resumen
+
+    def get_role_storage_by_id(self, role_storage_id):
+        """Obtiene un rol de storage por ID, incluida la matriz de permisos por contenedor. Retorna dict o None."""
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id_rol_storage, nombre_rol_storage
                     FROM roles_storage WHERE id_rol_storage = %s
                 """, (role_storage_id,))
                 role_data = cur.fetchone()
-                if role_data:
-                    return {
-                        "id_rol_storage": role_data[0],
-                        "nombre_rol_storage": role_data[1],
-                        "contenedores_asignados": role_data[2].split(','),
-                        "accion_ver": bool(role_data[3]),
-                        "accion_editar": bool(role_data[4]),
-                        "accion_descargar": bool(role_data[5]),
-                        "accion_eliminar": bool(role_data[6]),
-                        "accion_cargar": bool(role_data[7]),
-                    }
-                return None
+                if not role_data:
+                    return None
 
-    def update_role_storage(self, role_storage_id, role_name, contenedores_asignados,
-                            accion_ver=True, accion_editar=False,
-                            accion_descargar=True, accion_eliminar=False, accion_cargar=False):
-        """Actualiza nombre, contenedores y acciones de un rol de storage."""
+                cur.execute("""
+                    SELECT contenedor, accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar
+                    FROM roles_storage_contenedores WHERE id_rol_storage = %s
+                    ORDER BY contenedor
+                """, (role_storage_id,))
+                permisos_por_contenedor = {
+                    row[0]: {
+                        "ver": bool(row[1]), "editar": bool(row[2]), "descargar": bool(row[3]),
+                        "eliminar": bool(row[4]), "cargar": bool(row[5]),
+                    }
+                    for row in cur.fetchall()
+                }
+
+                return {
+                    "id_rol_storage": role_data[0],
+                    "nombre_rol_storage": role_data[1],
+                    "contenedores_asignados": list(permisos_por_contenedor.keys()),
+                    "permisos_por_contenedor": permisos_por_contenedor,
+                }
+
+    def update_role_storage(self, role_storage_id, role_name, permisos_por_contenedor):
+        """Actualiza nombre y permisos por contenedor de un rol de storage."""
+        contenedores = list(permisos_por_contenedor.keys())
+        agregados = self._agregar_permisos(permisos_por_contenedor)
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -421,13 +507,15 @@ class Cargue_Roles_Blob_Storage:
                         accion_ver = %s, accion_editar = %s,
                         accion_descargar = %s, accion_eliminar = %s, accion_cargar = %s
                     WHERE id_rol_storage = %s
-                """, (role_name, ','.join(contenedores_asignados),
-                      accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar,
+                """, (role_name, ','.join(contenedores),
+                      agregados["ver"], agregados["editar"], agregados["descargar"],
+                      agregados["eliminar"], agregados["cargar"],
                       role_storage_id))
+                self._reemplazar_permisos_contenedor(cur, role_storage_id, permisos_por_contenedor)
             conn.commit()
 
     def delete_role_storage(self, role_storage_id):
-        """Elimina un rol de storage por ID."""
+        """Elimina un rol de storage por ID (el CASCADE limpia roles_storage_contenedores)."""
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM roles_storage WHERE id_rol_storage = %s", (role_storage_id,))
@@ -438,21 +526,20 @@ class Cargue_Roles_Blob_Storage:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT contenedores_asignados FROM roles_storage WHERE id_rol_storage = %s
+                    SELECT DISTINCT contenedor FROM roles_storage_contenedores
+                    WHERE id_rol_storage = %s ORDER BY contenedor
                 """, (role_storage_id,))
-                result = cur.fetchone()
-                if result and result[0]:
-                    return result[0].split(',')
-                return []
+                return [row[0] for row in cur.fetchall()]
 
-    def get_acciones_por_rol(self, role_storage_id) -> dict:
-        """Retorna dict con booleanos de acciones permitidas para el rol."""
+    def get_acciones_por_rol(self, role_storage_id, container_name) -> dict:
+        """Retorna dict con booleanos de acciones permitidas para el rol EN un contenedor específico."""
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar
-                    FROM roles_storage WHERE id_rol_storage = %s
-                """, (role_storage_id,))
+                    FROM roles_storage_contenedores
+                    WHERE id_rol_storage = %s AND contenedor = %s
+                """, (role_storage_id, container_name))
                 result = cur.fetchone()
                 if result:
                     return {
@@ -462,8 +549,24 @@ class Cargue_Roles_Blob_Storage:
                         "eliminar": bool(result[3]),
                         "cargar": bool(result[4]),
                     }
-        # Default seguro: solo lectura si no hay rol configurado
-        return {"ver": True, "editar": False, "descargar": False, "eliminar": False, "cargar": False}
+        # El rol no tiene ese contenedor asignado -> sin acceso
+        return {"ver": False, "editar": False, "descargar": False, "eliminar": False, "cargar": False}
+
+    def get_acciones_por_rol_todos(self, role_storage_id) -> dict:
+        """Retorna { "<contenedor>": {ver, editar, descargar, eliminar, cargar} } para todos los contenedores del rol."""
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT contenedor, accion_ver, accion_editar, accion_descargar, accion_eliminar, accion_cargar
+                    FROM roles_storage_contenedores WHERE id_rol_storage = %s
+                """, (role_storage_id,))
+                return {
+                    row[0]: {
+                        "ver": bool(row[1]), "editar": bool(row[2]), "descargar": bool(row[3]),
+                        "eliminar": bool(row[4]), "cargar": bool(row[5]),
+                    }
+                    for row in cur.fetchall()
+                }
 
 # =====================================================================
 # CLASE: GestionUsuarios
@@ -504,3 +607,102 @@ class GestionUsuarios():
         self.data_user["password_user"] = generate_password_hash(
             self.data_user["password_user"], "pbkdf2:sha256:30", 30
         )
+
+# =====================================================================
+# CLASE: DesactivarRetirados
+# =====================================================================
+class DesactivarRetirados:
+    """
+    Lee un archivo Excel con cédulas de personal desvinculado y pone
+    estado = 0 en la tabla public.usuarios para cada cédula encontrada.
+
+    Estructura esperada del Excel:
+        - Columna: CEDULA  (numérica o texto, una cédula por fila)
+    """
+
+    def procesar(self, file_path: str) -> dict:
+        """
+        Procesa el archivo y desactiva los usuarios encontrados.
+
+        Retorna un dict con:
+            total_cedulas   : cuántas cédulas venían en el archivo
+            desactivados    : lista de usernames (cédulas) que se pusieron en estado 0
+            no_encontrados  : lista de cédulas del archivo que no existen en usuarios
+        """
+        # ── Leer Excel ────────────────────────────────────────────────
+        df = pd.read_excel(file_path)
+
+        # Buscar la columna de cédulas (acepta "CEDULA", "cedula", "Cedula", etc.)
+        col = next(
+            (c for c in df.columns if c.strip().lower() == "cedula"),
+            None
+        )
+        if col is None:
+            raise ValueError(
+                "El archivo Excel debe tener una columna llamada 'CEDULA'. "
+                f"Columnas encontradas: {list(df.columns)}"
+            )
+
+        # Convertir a entero y eliminar filas vacías / duplicadas
+        # username en la tabla usuarios es INTEGER, por eso se castea aquí
+        cedulas_raw = (
+            df[col]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .str.replace(r"\.0$", "", regex=True)
+            .unique()
+            .tolist()
+        )
+
+        # Descartar valores que no sean numéricos enteros
+        cedulas = []
+        for c in cedulas_raw:
+            try:
+                cedulas.append(int(c))
+            except ValueError:
+                pass  # ignora filas con texto no numérico
+
+        if not cedulas:
+            raise ValueError("El archivo no contiene cédulas numéricas válidas.")
+
+        # ── Consultar cuáles existen en usuarios (activos) ────────────
+        # Se usa BIGINT para cubrir cédulas de 10 dígitos que superan
+        # el límite de INTEGER (~2.1 mil millones). PostgreSQL puede
+        # comparar bigint con integer sin problema.
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT username::text
+                    FROM   public.usuarios
+                    WHERE  username::bigint = ANY(%s::bigint[])
+                      AND  estado = 1
+                    """,
+                    (cedulas,)
+                )
+                encontrados = [row[0] for row in cur.fetchall()]
+
+        cedulas_str    = [str(c) for c in cedulas]
+        no_encontrados = [c for c in cedulas_str if c not in encontrados]
+
+        # ── Desactivar los que sí están ───────────────────────────────
+        if encontrados:
+            encontrados_int = [int(c) for c in encontrados]
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE public.usuarios
+                        SET    estado = 0
+                        WHERE  username::bigint = ANY(%s::bigint[])
+                        """,
+                        (encontrados_int,)
+                    )
+                conn.commit()
+
+        return {
+            "total_cedulas":  len(cedulas),
+            "desactivados":   encontrados,
+            "no_encontrados": no_encontrados,
+        }
