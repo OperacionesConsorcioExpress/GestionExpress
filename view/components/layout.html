@@ -485,6 +485,7 @@
         "Abastecimiento": "bi bi-cart-check",
         "Centro de Control": "bi bi-graph-up-arrow",
         "Centro Información": "bi bi-hdd-stack",
+        "Gestión de Flota": "bi bi-bus-front",
         "Jurídico": "bi bi-briefcase",
         "HSEQ": "bi bi-calendar2-heart",
         "Configuración": "bi bi-gear",
@@ -495,13 +496,17 @@
         "Asignaciones": "bi bi-diagram-3",
         "Checklist": "bi bi-clipboard-check",
         "Blob Storage": "bi bi-cloud-arrow-up",
+        "Business Intelligence Hub": "bi bi-server",
         "Dashboard Power BI": "bi bi-bar-chart-line",
+        "Planeador de Tareas": "bi bi-calendar-week",
         "SNE Asignación": "bi bi-boxes",
         "SNE Monitor": "bi bi-display",
         "SNE Objeción": "bi bi-clipboard-data",
         "Control Clausulas": "bi bi-journal-check",
         "Gestión Kilómetros": "bi bi-speedometer",
         "Registro EDS": "bi bi-fuel-pump",
+        "Estado Buses": "bi bi-calendar-week",
+        "Bitácora Mantenimiento": "bi bi-journal-medical",
         "Gestión SGI": "bi bi-shield-check",
         "Buses CEXP": "bi bi-bus-front",
         "Centros de Operación": "bi bi-pin-map",
@@ -510,9 +515,11 @@
         "Notas Objeción SNE": "bi bi-journal-text",
         "NPL Chatbot": "bi bi-chat-dots",
         "Rutas CEXP": "bi bi-signpost-2",
+        "Tarifas CEXP": "bi bi-cash-coin",
         "Crear Usuario": "bi bi-person-plus",
         "Gestión de Roles": "bi bi-person-badge",
         "Roles Blob Storage": "bi bi-box-seam",
+        "Roles Business Intelligence": "bi bi-bullseye",
         "Roles PowerBI": "bi bi-bar-chart"
       };
 
@@ -520,13 +527,17 @@
         "Asignaciones": "/asignacion",
         "Checklist": "/checklist",
         "Blob Storage": "/containers",
+        "Business Intelligence Hub": "/business_intelligence",
         "Dashboard Power BI": "/powerbi",
+        "Planeador de Tareas": "/planeador",
         "SNE Asignación": "/sne_asignacion",
         "SNE Monitor": "/sne_monitor",
         "SNE Objeción": "/sne_objecion",
         "Control Clausulas": "/juridico",
         "Gestión Kilómetros": "/eds_kilometros",
         "Registro EDS": "/eds_registro",
+        "Estado Buses": "/estado_buses",
+        "Bitácora Mantenimiento": "/estado_bitacora_mtto",
         "Gestión SGI": "/sgi",
         "Buses CEXP": "/buses_cexp",
         "Centros de Operación": "/centros_operacion",
@@ -535,20 +546,23 @@
         "Notas Objeción SNE": "/sne_plantillas",
         "NPL Chatbot": "/NPL_chatbot",
         "Rutas CEXP": "/rutas_cexp",
+        "Tarifas CEXP": "/tarifas_cexp",
         "Crear Usuario": "/registrarse",
         "Gestión de Roles": "/roles",
         "Roles Blob Storage": "/roles_storage",
+        "Roles Business Intelligence": "/roles_bi",
         "Roles PowerBI": "/roles_powerbi"
       };
 
       const GRUPOS_PANTALLAS = {
         "Abastecimiento": ["Gestión Kilómetros", "Registro EDS"],
         "Centro de Control": ["Asignaciones", "Checklist"],
-        "Centro Información": ["Blob Storage", "Dashboard Power BI", "SNE Asignación", "SNE Monitor", "SNE Objeción"],
+        "Centro Información": ["Blob Storage", "Business Intelligence Hub", "Dashboard Power BI", "Planeador de Tareas", "SNE Asignación", "SNE Monitor", "SNE Objeción"],
+        "Gestión de Flota": ["Estado Buses", "Bitácora Mantenimiento"],
         "HSEQ": ["Gestión SGI"],
         "Jurídico": ["Control Clausulas"],
-        "Configuración": ["Buses CEXP", "Centros de Operación", "Estación de Servicio", "Motivos SNE", "Notas Objeción SNE", "NPL Chatbot", "Rutas CEXP"],
-        "Usuarios y Roles": ["Crear Usuario", "Gestión de Roles", "Roles Blob Storage", "Roles PowerBI"]
+        "Configuración": ["Buses CEXP", "Centros de Operación", "Estación de Servicio", "Motivos SNE", "Notas Objeción SNE", "NPL Chatbot", "Rutas CEXP", "Tarifas CEXP"],
+        "Usuarios y Roles": ["Crear Usuario", "Gestión de Roles", "Roles Blob Storage", "Roles Business Intelligence", "Roles PowerBI"]
       };
 
       const state = {
