@@ -960,7 +960,7 @@ class SNEExportBuilder:
             & (~plan_txt.eq("sustituido"))
             & kmr.notna()
             & (kmr.abs() < tol_eq)
-            & (km_revision_zn > 4)
+            & (km_revision_zn > 10)
         )
         if mask_revision_zn.any():
             kmr.loc[mask_revision_zn] = km_revision_zn.loc[mask_revision_zn]
